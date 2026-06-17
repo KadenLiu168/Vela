@@ -23,3 +23,17 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+testpaths = [
+    "packages/core/tests",
+    "tests",
+]
+pythonpath = [
+    "packages/core/src",
+]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
