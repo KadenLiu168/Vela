@@ -47,5 +47,11 @@ dist/
 
 .vscode/
 
-.idea/
+.idea
+
+# Agent 
+
+.claude/
+
+.codex/
 
