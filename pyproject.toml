@@ -1,10 +1,25 @@
 [project]
 name = "vela"
 version = "0.1.0"
-description = "Vela is a personal ETF rotation system."
+description = "Vela is a personal ETF rotation system for ETF rotation strategy research, signal generation, and backtesting."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy",
+    "pandas",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "sqlalchemy",
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
 
 [tool.uv]
 package = false
