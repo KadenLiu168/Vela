@@ -1,0 +1,10 @@
+[project]
+name = "vela"
+version = "0.1.0"
+description = "Vela is a personal ETF rotation system."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
