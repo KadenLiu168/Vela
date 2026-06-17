@@ -1,20 +1,35 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project name: Vela
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Purpose:
+  Build a personal ETF rotation system for strategy research, signal generation, and historical backtesting.
+
+  Scope:
+  Phase 1 focuses on the core backend foundation.
+
+  The system should support:
+  - ETF metadata management
+  - Market data fetching and normalization
+  - Market price storage and querying
+  - Strategy signal generation
+  - Historical backtesting
+  - Basic logging and configuration
+
+  Tech direction:
+  - Python 3.11+
+  - uv for Python environment and dependency management
+  - pytest for testing
+  - ruff for linting and formatting
+  - mypy for static type checking
+  - SQLAlchemy for database access
+  - pandas for data processing
+
+  Repository structure:
+  - apps/: Application entrypoints
+  - packages/: Reusable backend packages
+  - openspec/: Specifications and change proposals
+  - scripts/: Development scripts
+  - tests/: Integration tests
+  - docs/: Architecture documents
