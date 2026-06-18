@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from vela_core.models.base import Base
 
@@ -51,6 +51,9 @@ class StrategySignal(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    positions: Mapped[list["StrategySignalPosition"]] = relationship(
+        back_populates="strategy_signal",
+    )
 
 
 class StrategySignalPosition(Base):
@@ -78,3 +81,4 @@ class StrategySignalPosition(Base):
         nullable=False,
         server_default=func.now(),
     )
+    strategy_signal: Mapped[StrategySignal] = relationship(back_populates="positions")

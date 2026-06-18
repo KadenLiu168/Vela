@@ -226,6 +226,52 @@ def test_strategy_signal_position_has_lookup_indexes() -> None:
     assert ("strategy_signal_id",) in indexed_columns
 
 
+def test_strategy_signal_positions_returns_related_position_rows() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        signal = _add_signal(session)
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        expected_etf_ids = {spy.id, qqq.id}
+        session.add_all(
+            [
+                _strategy_signal_position(
+                    strategy_signal_id=signal.id,
+                    etf_id=spy.id,
+                ),
+                _strategy_signal_position(
+                    strategy_signal_id=signal.id,
+                    etf_id=qqq.id,
+                ),
+            ]
+        )
+        session.commit()
+
+        position_etf_ids = {position.etf_id for position in signal.positions}
+
+    assert position_etf_ids == expected_etf_ids
+
+
+def test_strategy_signal_position_strategy_signal_returns_parent_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        signal = _add_signal(session)
+        etf = _add_etf(session, symbol="SPY")
+        expected_signal_id = signal.id
+        position = _strategy_signal_position(
+            strategy_signal_id=signal.id,
+            etf_id=etf.id,
+        )
+        session.add(position)
+        session.commit()
+
+        parent_signal_id = position.strategy_signal.id
+
+    assert parent_signal_id == expected_signal_id
+
+
 def test_alembic_target_metadata_includes_strategy_signal_tables() -> None:
     import importlib.util
     from pathlib import Path
