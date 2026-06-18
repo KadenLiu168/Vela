@@ -1,35 +1,57 @@
 schema: spec-driven
 
 context: |
-  Project name: Vela
+Project name: Vela
 
-  Purpose:
-  Build a personal ETF rotation system for strategy research, signal generation, and historical backtesting.
+Purpose:
+Build a personal ETF rotation system for strategy research, signal generation, and historical backtesting.
 
-  Scope:
-  Phase 1 focuses on the core backend foundation.
+Scope:
+Phase 1 focuses on the core backend foundation.
 
-  The system should support:
-  - ETF metadata management
-  - Market data fetching and normalization
-  - Market price storage and querying
-  - Strategy signal generation
-  - Historical backtesting
-  - Basic logging and configuration
+Phase 1 should support:
 
-  Tech direction:
-  - Python 3.11+
-  - uv for Python environment and dependency management
-  - pytest for testing
-  - ruff for linting and formatting
-  - mypy for static type checking
-  - SQLAlchemy for database access
-  - pandas for data processing
+* ETF metadata management
+* Market data fetching and normalization
+* Market price storage and querying
+* Strategy signal generation
+* Historical backtesting
+* Basic logging and configuration
 
-  Repository structure:
-  - apps/: Application entrypoints
-  - packages/: Reusable backend packages
-  - openspec/: Specifications and change proposals
-  - scripts/: Development scripts
-  - tests/: Integration tests
-  - docs/: Architecture documents
+Phase 1 does not include:
+
+* Web UI
+* Real-time trading
+* Broker integration
+* Automated order execution
+* Production deployment
+* Complex portfolio optimization
+
+Tech direction:
+
+* Python 3.11+
+* uv for Python environment and dependency management
+* pytest for testing
+* ruff for linting and formatting
+* mypy for static type checking
+* SQLAlchemy for database access
+* pandas for data processing
+
+Repository structure:
+
+* apps/: Application entrypoints
+* packages/: Reusable backend packages
+* packages/core/: Core backend package
+* openspec/: Specifications and change proposals
+* scripts/: Development scripts
+* tests/: Integration tests
+* docs/: Architecture documents
+
+Development principles:
+
+* Prefer simple and testable backend modules.
+* Keep business logic inside packages rather than application entrypoints.
+* Use type annotations for public functions and core domain models.
+* Add tests for core behavior before expanding features.
+* Avoid premature optimization in Phase 1.
+* Keep specifications and implementation tasks aligned with OpenSpec changes.
