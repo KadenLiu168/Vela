@@ -58,29 +58,33 @@ class BacktestRun(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-    equity_points: Mapped[list["BacktestEquityPoint"]] = relationship(
+    equity_curve: Mapped[list["BacktestEquityCurve"]] = relationship(
         back_populates="backtest_run",
     )
 
 
-class BacktestEquityPoint(Base):
-    __tablename__ = "backtest_equity_point"
+class BacktestEquityCurve(Base):
+    __tablename__ = "backtest_equity_curve"
     __table_args__ = (
         UniqueConstraint(
             "backtest_run_id",
             "trade_date",
-            name="uq_backtest_equity_point_run_trade_date",
+            name="uq_backtest_equity_curve_run_trade_date",
         ),
-        Index("ix_backtest_equity_point_run_trade_date", "backtest_run_id", "trade_date"),
+        Index("ix_backtest_equity_curve_run_trade_date", "backtest_run_id", "trade_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     backtest_run_id: Mapped[int] = mapped_column(ForeignKey("backtest_run.id"), nullable=False)
     trade_date: Mapped[date] = mapped_column(Date, nullable=False)
     net_value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    cash: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    market_value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    total_assets: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    positions_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
-    backtest_run: Mapped[BacktestRun] = relationship(back_populates="equity_points")
+    backtest_run: Mapped[BacktestRun] = relationship(back_populates="equity_curve")

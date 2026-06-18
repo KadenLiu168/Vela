@@ -12,7 +12,7 @@ if str(CORE_SRC) not in sys.path:
     sys.path.insert(0, str(CORE_SRC))
 
 from vela_core.models import (  # noqa: E402,F401
-    BacktestEquityPoint,
+    BacktestEquityCurve,
     BacktestRun,
     Base,
     DataFetchLog,

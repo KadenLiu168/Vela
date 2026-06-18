@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import Table, Text, UniqueConstraint, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core.models import BacktestEquityPoint, BacktestRun, Base
+from vela_core.models import BacktestEquityCurve, BacktestRun, Base
 
 
 def test_backtest_run_table_has_required_columns() -> None:
@@ -111,8 +111,8 @@ def test_backtest_run_has_lookup_indexes() -> None:
     assert ("start_date", "end_date") in indexed_columns
 
 
-def test_backtest_equity_point_table_has_required_columns() -> None:
-    table = cast(Table, BacktestEquityPoint.__table__)
+def test_backtest_equity_curve_table_has_required_columns() -> None:
+    table = cast(Table, BacktestEquityCurve.__table__)
     columns = set(table.columns.keys())
 
     assert {
@@ -120,19 +120,29 @@ def test_backtest_equity_point_table_has_required_columns() -> None:
         "backtest_run_id",
         "trade_date",
         "net_value",
+        "cash",
+        "market_value",
+        "total_assets",
+        "positions_json",
         "created_at",
     } <= columns
 
 
-def test_backtest_equity_point_references_backtest_run() -> None:
-    table = cast(Table, BacktestEquityPoint.__table__)
+def test_backtest_equity_curve_uses_sqlite_compatible_text_for_positions() -> None:
+    table = cast(Table, BacktestEquityCurve.__table__)
+
+    assert isinstance(table.columns["positions_json"].type, Text)
+
+
+def test_backtest_equity_curve_references_backtest_run() -> None:
+    table = cast(Table, BacktestEquityCurve.__table__)
     foreign_keys = table.columns["backtest_run_id"].foreign_keys
 
     assert any(foreign_key.column.table.name == "backtest_run" for foreign_key in foreign_keys)
 
 
-def test_backtest_equity_point_has_run_trade_date_unique_constraint() -> None:
-    table = cast(Table, BacktestEquityPoint.__table__)
+def test_backtest_equity_curve_has_run_trade_date_unique_constraint() -> None:
+    table = cast(Table, BacktestEquityCurve.__table__)
     unique_constraints = [
         constraint
         for constraint in table.constraints
@@ -145,20 +155,20 @@ def test_backtest_equity_point_has_run_trade_date_unique_constraint() -> None:
     )
 
 
-def test_backtest_equity_point_rejects_duplicate_run_trade_date() -> None:
+def test_backtest_equity_curve_rejects_duplicate_run_trade_date() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
         run = _add_backtest_run(session)
-        session.add(_backtest_equity_point(backtest_run_id=run.id, net_value=Decimal("1.000000")))
+        session.add(_backtest_equity_curve(backtest_run_id=run.id, net_value=Decimal("1.000000")))
         session.commit()
 
-        session.add(_backtest_equity_point(backtest_run_id=run.id, net_value=Decimal("1.010000")))
+        session.add(_backtest_equity_curve(backtest_run_id=run.id, net_value=Decimal("1.010000")))
         with pytest.raises(IntegrityError):
             session.commit()
 
 
-def test_backtest_equity_point_allows_same_trade_date_for_different_runs() -> None:
+def test_backtest_equity_curve_allows_same_trade_date_for_different_runs() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -166,17 +176,17 @@ def test_backtest_equity_point_allows_same_trade_date_for_different_runs() -> No
         second_run = _add_backtest_run(session, config_version="v2")
         session.add_all(
             [
-                _backtest_equity_point(backtest_run_id=first_run.id),
-                _backtest_equity_point(backtest_run_id=second_run.id),
+                _backtest_equity_curve(backtest_run_id=first_run.id),
+                _backtest_equity_curve(backtest_run_id=second_run.id),
             ]
         )
         session.commit()
 
-        assert session.query(BacktestEquityPoint).count() == 2
+        assert session.query(BacktestEquityCurve).count() == 2
 
 
-def test_backtest_equity_point_has_lookup_indexes() -> None:
-    table = cast(Table, BacktestEquityPoint.__table__)
+def test_backtest_equity_curve_has_lookup_indexes() -> None:
+    table = cast(Table, BacktestEquityCurve.__table__)
     indexed_columns = {
         tuple(column.name for column in index.columns)
         for index in table.indexes
@@ -185,7 +195,7 @@ def test_backtest_equity_point_has_lookup_indexes() -> None:
     assert ("backtest_run_id", "trade_date") in indexed_columns
 
 
-def test_backtest_run_equity_points_returns_related_curve_rows() -> None:
+def test_backtest_run_equity_curve_returns_related_curve_rows() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -193,11 +203,11 @@ def test_backtest_run_equity_points_returns_related_curve_rows() -> None:
         expected_dates = {date(2026, 1, 2), date(2026, 1, 3)}
         session.add_all(
             [
-                _backtest_equity_point(
+                _backtest_equity_curve(
                     backtest_run_id=run.id,
                     trade_date=date(2026, 1, 2),
                 ),
-                _backtest_equity_point(
+                _backtest_equity_curve(
                     backtest_run_id=run.id,
                     trade_date=date(2026, 1, 3),
                 ),
@@ -205,22 +215,22 @@ def test_backtest_run_equity_points_returns_related_curve_rows() -> None:
         )
         session.commit()
 
-        curve_dates = {point.trade_date for point in run.equity_points}
+        curve_dates = {point.trade_date for point in run.equity_curve}
 
     assert curve_dates == expected_dates
 
 
-def test_backtest_equity_point_backtest_run_returns_parent_run() -> None:
+def test_backtest_equity_curve_backtest_run_returns_parent_run() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
         run = _add_backtest_run(session)
         expected_run_id = run.id
-        point = _backtest_equity_point(backtest_run_id=run.id)
-        session.add(point)
+        curve = _backtest_equity_curve(backtest_run_id=run.id)
+        session.add(curve)
         session.commit()
 
-        parent_run_id = point.backtest_run.id
+        parent_run_id = curve.backtest_run.id
 
     assert parent_run_id == expected_run_id
 
@@ -239,7 +249,8 @@ def test_alembic_target_metadata_includes_backtest_tables() -> None:
     spec.loader.exec_module(alembic_env)
 
     assert "backtest_run" in alembic_env.target_metadata.tables
-    assert "backtest_equity_point" in alembic_env.target_metadata.tables
+    assert "backtest_equity_curve" in alembic_env.target_metadata.tables
+    assert "backtest_equity_point" not in alembic_env.target_metadata.tables
 
 
 def _create_session_factory() -> sessionmaker[Session]:
@@ -290,14 +301,22 @@ def _backtest_run(
     )
 
 
-def _backtest_equity_point(
+def _backtest_equity_curve(
     *,
     backtest_run_id: int,
     trade_date: date = date(2026, 1, 2),
     net_value: Decimal = Decimal("1.000000"),
-) -> BacktestEquityPoint:
-    return BacktestEquityPoint(
+    cash: Decimal = Decimal("1000.000000"),
+    market_value: Decimal = Decimal("9000.000000"),
+    total_assets: Decimal = Decimal("10000.000000"),
+    positions_json: str = '[{"symbol": "SPY", "weight": 0.9}]',
+) -> BacktestEquityCurve:
+    return BacktestEquityCurve(
         backtest_run_id=backtest_run_id,
         trade_date=trade_date,
         net_value=net_value,
+        cash=cash,
+        market_value=market_value,
+        total_assets=total_assets,
+        positions_json=positions_json,
     )
