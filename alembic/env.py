@@ -11,7 +11,7 @@ CORE_SRC = ROOT / "packages" / "core" / "src"
 if str(CORE_SRC) not in sys.path:
     sys.path.insert(0, str(CORE_SRC))
 
-from vela_core.models import Base, ETFInfo  # noqa: E402,F401
+from vela_core.models import Base, ETFInfo, MarketPrice  # noqa: E402,F401
 
 target_metadata = Base.metadata
 

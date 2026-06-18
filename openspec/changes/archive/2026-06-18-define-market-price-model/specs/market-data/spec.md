@@ -1,10 +1,4 @@
-# market-data Specification
-
-## Purpose
-
-Define normalized market data storage and access behavior used by ETF strategy signals and historical backtesting.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Market price ORM model
 The system SHALL define a `MarketPrice` SQLAlchemy ORM model for ETF daily market prices.

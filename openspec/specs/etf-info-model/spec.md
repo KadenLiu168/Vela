@@ -1,4 +1,10 @@
-## ADDED Requirements
+# etf-info-model Specification
+
+## Purpose
+
+Define the ETF metadata identity and lookup contract used by market data, strategy signals, and historical backtesting.
+
+## Requirements
 
 ### Requirement: ETF ORM model
 The system SHALL define an `ETFInfo` SQLAlchemy ORM model for ETF metadata.
