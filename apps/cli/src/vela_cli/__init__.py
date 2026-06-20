@@ -1,0 +1,1 @@
+"""Vela command-line application."""

@@ -1006,8 +1006,9 @@ wheels = [
 [[package]]
 name = "vela"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
+    { name = "alembic" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -1018,7 +1019,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "alembic" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -1027,6 +1027,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", specifier = ">=1.18.4" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -1037,7 +1038,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "alembic", specifier = ">=1.18.4" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },

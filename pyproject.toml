@@ -5,6 +5,7 @@ description = "Vela is a personal ETF rotation system for ETF rotation strategy 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.18.4",
     "numpy",
     "pandas",
     "pydantic",
@@ -15,22 +16,35 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.18.4",
     "mypy",
     "pytest",
     "pytest-cov",
     "ruff",
 ]
 
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+vela = "vela_cli.main:main"
+
 [tool.uv]
-package = false
+package = true
+
+[tool.setuptools.packages.find]
+where = [
+    "apps/cli/src",
+]
 
 [tool.pytest.ini_options]
 testpaths = [
+    "apps/cli/tests",
     "packages/core/tests",
     "tests",
 ]
 pythonpath = [
+    "apps/cli/src",
     "packages/core/src",
 ]
 addopts = [
