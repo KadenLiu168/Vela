@@ -46,10 +46,13 @@ packages/core/
 ├── src/
 │   └── vela_core/
 │       ├── __init__.py
-│       └── logging.py
+│       ├── database.py
+│       ├── logging.py
+│       └── models/
 └── tests/
-    ├── test_smoke.py
-    └── test_logging.py
+    ├── test_database.py
+    ├── test_logging.py
+    └── test_smoke.py
 ```
 
 ## Development Setup
@@ -99,6 +102,40 @@ Check formatting without changing files:
 ```bash
 uv run ruff format --check .
 ```
+
+## Database Migrations
+
+Vela uses Alembic for database schema migrations. The default local development
+database is SQLite at `vela.db`, configured in `alembic.ini`.
+
+Create or upgrade the local SQLite database to the current migration head:
+
+```bash
+uv run alembic upgrade head
+```
+
+Check the current migration head:
+
+```bash
+uv run alembic current
+```
+
+Generate SQL for review without applying migrations:
+
+```bash
+uv run alembic upgrade head --sql
+```
+
+Reset the local development database from scratch:
+
+```bash
+rm -f vela.db
+uv run alembic upgrade head
+```
+
+SQLite is the supported local development workflow for Phase 1. The migration
+environment imports the SQLAlchemy ORM models and exposes `Base.metadata` so
+future revisions can be generated from model metadata.
 
 ## OpenSpec Workflow
 
@@ -150,11 +187,11 @@ Completed:
 - Configured pytest
 - Configured Ruff
 - Added basic logging configuration
+- Added SQLAlchemy database session helpers
+- Added SQLAlchemy ORM models for ETF metadata, market prices, data fetch logs, strategy signals, and backtest results
+- Configured Alembic migrations for local SQLite development
 
 Next planned work:
 
 - Continue OpenSpec baseline specifications
-- Add database and ORM foundation
-- Add ETF metadata model
-- Add market price model
 - Add data provider interface
