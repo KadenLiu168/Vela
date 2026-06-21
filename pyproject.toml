@@ -5,6 +5,7 @@ description = "Vela is a personal ETF rotation system for ETF rotation strategy 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "akshare>=1.18.64",
     "alembic>=1.18.4",
     "numpy",
     "pandas",
