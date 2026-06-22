@@ -62,6 +62,15 @@ The system SHALL represent the defensive asset in strategy configuration with ex
 - **THEN** the defensive asset includes an exchange value
 - **AND** the defensive asset includes a symbol value
 
+#### Scenario: Defensive asset exists in active ETF universe
+- **WHEN** backend code loads a strategy configuration with a defensive asset
+- **THEN** the defensive asset exists in the ETF pool referenced by `universe_config`
+- **AND** the matching ETF pool entry is active
+
+#### Scenario: Defensive asset outside active ETF universe is rejected
+- **WHEN** backend code loads a strategy configuration whose defensive asset is missing from the referenced ETF pool or is inactive
+- **THEN** validation fails with a project-level configuration error identifying `defense.asset`
+
 ### Requirement: Strategy configuration loader error reporting
 The system SHALL wrap strategy configuration file read, YAML parse, and schema validation failures in a project-level `ConfigError`.
 
@@ -76,3 +85,4 @@ The system SHALL wrap strategy configuration file read, YAML parse, and schema v
 #### Scenario: Strategy missing file error includes path
 - **WHEN** backend code loads strategy configuration from a missing file path
 - **THEN** the raised `ConfigError` message includes the missing strategy configuration file path
+

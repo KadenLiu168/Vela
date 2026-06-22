@@ -3,7 +3,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from vela_core.config import load_yaml_config
+from vela_core.config import (
+    ConfigError,
+    ETFPoolConfig,
+    load_etf_pool_config,
+    load_yaml_config,
+)
 
 
 class ETFIdentity(BaseModel):
@@ -72,4 +77,36 @@ class StrategyConfig(BaseModel):
 
 
 def load_strategy_config(path: str | Path) -> StrategyConfig:
-    return load_yaml_config(path, StrategyConfig)
+    config_path = Path(path)
+    config = load_yaml_config(config_path, StrategyConfig)
+    universe_path = _resolve_universe_config_path(config_path, config.universe_config)
+    universe = load_etf_pool_config(universe_path)
+    _validate_defensive_asset(config, universe, universe_path, config_path)
+    return config
+
+
+def _resolve_universe_config_path(strategy_path: Path, universe_config: str) -> Path:
+    universe_path = Path(universe_config)
+    if universe_path.is_absolute() or universe_path.exists():
+        return universe_path
+    return strategy_path.parent / universe_path
+
+
+def _validate_defensive_asset(
+    config: StrategyConfig,
+    universe: ETFPoolConfig,
+    universe_path: Path,
+    strategy_path: Path,
+) -> None:
+    asset = config.defense.asset
+    is_active_universe_asset = any(
+        etf.exchange == asset.exchange and etf.symbol == asset.symbol and etf.is_active
+        for etf in universe.etfs
+    )
+    if not is_active_universe_asset:
+        raise ConfigError(
+            "Failed to validate configuration file "
+            f"{strategy_path}: defense.asset {asset.exchange} {asset.symbol} "
+            f"must exist as an active ETF in universe_config {universe_path}",
+            path=strategy_path,
+        )

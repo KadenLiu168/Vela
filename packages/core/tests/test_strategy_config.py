@@ -79,6 +79,86 @@ def test_strategy_config_loader_invalid_nested_field_raises_config_error(
     assert "momentum.short_window_days" in message
 
 
+def test_strategy_config_loader_rejects_defensive_asset_missing_from_universe(
+    tmp_path: Path,
+) -> None:
+    pool_path = _write_etf_pool_config(
+        tmp_path,
+        [
+            {
+                "exchange": "SSE",
+                "symbol": "510300",
+                "name": "沪深300ETF",
+                "is_active": True,
+            },
+        ],
+    )
+    config = _valid_strategy_config()
+    config["universe_config"] = str(pool_path)
+    config_path = _write_strategy_config(tmp_path, config)
+
+    with pytest.raises(ConfigError) as exc_info:
+        load_strategy_config(config_path)
+
+    message = str(exc_info.value)
+    assert str(config_path) in message
+    assert "defense.asset" in message
+    assert "SSE 511010" in message
+    assert str(pool_path) in message
+
+
+def test_strategy_config_loader_rejects_inactive_defensive_asset(
+    tmp_path: Path,
+) -> None:
+    pool_path = _write_etf_pool_config(
+        tmp_path,
+        [
+            {
+                "exchange": "SSE",
+                "symbol": "511010",
+                "name": "国债ETF",
+                "is_active": False,
+            },
+        ],
+    )
+    config = _valid_strategy_config()
+    config["universe_config"] = str(pool_path)
+    config_path = _write_strategy_config(tmp_path, config)
+
+    with pytest.raises(ConfigError) as exc_info:
+        load_strategy_config(config_path)
+
+    message = str(exc_info.value)
+    assert str(config_path) in message
+    assert "defense.asset" in message
+    assert "SSE 511010" in message
+    assert str(pool_path) in message
+
+
+def test_strategy_config_loader_accepts_active_defensive_asset(
+    tmp_path: Path,
+) -> None:
+    pool_path = _write_etf_pool_config(
+        tmp_path,
+        [
+            {
+                "exchange": "SSE",
+                "symbol": "511010",
+                "name": "国债ETF",
+                "is_active": True,
+            },
+        ],
+    )
+    config = _valid_strategy_config()
+    config["universe_config"] = str(pool_path)
+    config_path = _write_strategy_config(tmp_path, config)
+
+    loaded_config = load_strategy_config(config_path)
+
+    assert loaded_config.defense.asset.exchange == "SSE"
+    assert loaded_config.defense.asset.symbol == "511010"
+
+
 @pytest.mark.parametrize(
     "group",
     ["momentum", "score_weights", "selection", "defense", "costs"],
@@ -205,3 +285,21 @@ def _write_strategy_config(tmp_path: Path, config: dict[str, Any]) -> Path:
         encoding="utf-8",
     )
     return config_path
+
+
+def _write_etf_pool_config(tmp_path: Path, etfs: list[dict[str, Any]]) -> Path:
+    pool_path = tmp_path / "etf_pool.yaml"
+    pool_path.write_text(
+        yaml.safe_dump(
+            {
+                "pool_id": "test_pool",
+                "version": 1,
+                "provider": "akshare",
+                "currency": "CNY",
+                "etfs": etfs,
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    return pool_path
