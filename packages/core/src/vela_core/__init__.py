@@ -2,6 +2,7 @@ from vela_core.akshare_market_data_provider import (
     AkShareMarketDataProvider,
     MarketDataProviderError,
 )
+from vela_core.app_config import AppConfig, load_app_config
 from vela_core.config import (
     ConfigError,
     ETFConfig,
@@ -21,6 +22,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AkShareMarketDataProvider",
+    "AppConfig",
     "ConfigError",
     "DailyPrice",
     "ETFConfig",
@@ -31,6 +33,7 @@ __all__ = [
     "MarketPriceUpsertResult",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
+    "load_app_config",
     "load_etf_pool_config",
     "to_market_price",
     "upsert_market_prices",
