@@ -34,8 +34,16 @@ The system SHALL define a Pydantic schema that validates the strategy configurat
 - **WHEN** backend code validates a strategy configuration with non-positive momentum window lengths
 - **THEN** validation fails
 
+#### Scenario: Invalid momentum window relationship is rejected
+- **WHEN** backend code validates a strategy configuration whose short momentum window is greater than or equal to its long momentum window
+- **THEN** validation fails
+
 #### Scenario: Invalid score weights are rejected
 - **WHEN** backend code validates a strategy configuration whose score weights do not form a valid scoring contract
+- **THEN** validation fails
+
+#### Scenario: Non-positive score weights are rejected
+- **WHEN** backend code validates a strategy configuration whose short or long score weight is less than or equal to zero
 - **THEN** validation fails
 
 #### Scenario: Invalid Top N is rejected

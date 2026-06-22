@@ -19,12 +19,18 @@ class MomentumConfig(BaseModel):
     short_window_days: int = Field(gt=0)
     long_window_days: int = Field(gt=0)
 
+    @model_validator(mode="after")
+    def validate_window_order(self) -> "MomentumConfig":
+        if self.short_window_days >= self.long_window_days:
+            raise ValueError("short momentum window must be shorter than long momentum window")
+        return self
+
 
 class ScoreWeightsConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    short: float = Field(ge=0)
-    long: float = Field(ge=0)
+    short: float = Field(gt=0)
+    long: float = Field(gt=0)
 
     @model_validator(mode="after")
     def validate_total_weight(self) -> "ScoreWeightsConfig":

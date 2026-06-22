@@ -106,10 +106,38 @@ def test_strategy_config_rejects_invalid_momentum_windows(field: str, value: int
         StrategyConfig.model_validate(config)
 
 
+@pytest.mark.parametrize(
+    ("short_window_days", "long_window_days"),
+    [
+        (126, 126),
+        (252, 126),
+    ],
+)
+def test_strategy_config_rejects_invalid_momentum_window_relationship(
+    short_window_days: int,
+    long_window_days: int,
+) -> None:
+    config = _valid_strategy_config()
+    config["momentum"]["short_window_days"] = short_window_days
+    config["momentum"]["long_window_days"] = long_window_days
+
+    with pytest.raises(ValidationError):
+        StrategyConfig.model_validate(config)
+
+
 def test_strategy_config_rejects_invalid_score_weights() -> None:
     config = _valid_strategy_config()
     config["score_weights"]["short"] = 0.5
     config["score_weights"]["long"] = 0.6
+
+    with pytest.raises(ValidationError):
+        StrategyConfig.model_validate(config)
+
+
+@pytest.mark.parametrize("field", ["short", "long"])
+def test_strategy_config_rejects_zero_score_weights(field: str) -> None:
+    config = _valid_strategy_config()
+    config["score_weights"][field] = 0
 
     with pytest.raises(ValidationError):
         StrategyConfig.model_validate(config)
