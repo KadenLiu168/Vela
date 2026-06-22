@@ -9,6 +9,11 @@ import vela_core.market_data_provider as provider_contract_module
 from vela_core import AkShareMarketDataProvider, DailyPrice, MarketDataProviderError
 
 
+@pytest.fixture(autouse=True)
+def _disable_retry_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AkShareMarketDataProvider._fetch_rows.retry, "sleep", lambda _: None)
+
+
 def test_akshare_provider_normalizes_etf_daily_ohlcv_fields() -> None:
     akshare = FakeAkShareModule(
         pd.DataFrame(
@@ -142,6 +147,44 @@ def test_akshare_provider_wraps_source_errors_with_context() -> None:
     assert "timeout" in message
 
 
+def test_akshare_provider_retries_temporary_source_failure() -> None:
+    akshare = TemporarilyFailingAkShareModule(
+        failures_before_success=2,
+        response=pd.DataFrame([_daily_row()]),
+    )
+    provider = AkShareMarketDataProvider(akshare)
+
+    prices = provider.get_etf_daily_prices(
+        "513500",
+        start_date=date(2026, 6, 17),
+        end_date=date(2026, 6, 18),
+    )
+
+    assert len(prices) == 1
+    assert prices[0].symbol == "513500"
+    assert len(akshare.calls) == 3
+
+
+def test_akshare_provider_raises_provider_error_after_retries_are_exhausted() -> None:
+    akshare = FailingAkShareModule(RuntimeError("timeout"))
+    provider = AkShareMarketDataProvider(akshare)
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    message = str(exc_info.value)
+    assert "akshare" in message
+    assert "513500" in message
+    assert "20260617" in message
+    assert "20260618" in message
+    assert "timeout" in message
+    assert len(akshare.calls) == 3
+
+
 def test_akshare_provider_wraps_missing_columns_with_context() -> None:
     provider = AkShareMarketDataProvider(FakeAkShareModule(pd.DataFrame([{"日期": "2026-06-18"}])))
 
@@ -152,6 +195,20 @@ def test_akshare_provider_wraps_missing_columns_with_context() -> None:
     assert "akshare" in message
     assert "513500" in message
     assert "missing required columns" in message
+
+
+def test_akshare_provider_does_not_retry_invalid_returned_rows() -> None:
+    akshare = FakeAkShareModule(pd.DataFrame([_daily_row(开盘="not-a-number")]))
+    provider = AkShareMarketDataProvider(akshare)
+
+    with pytest.raises(MarketDataProviderError):
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    assert len(akshare.calls) == 1
 
 
 def test_akshare_provider_wraps_row_parsing_errors_with_context() -> None:
@@ -283,9 +340,7 @@ def test_akshare_provider_rejects_inconsistent_ohlc_relationships(
     overrides: dict[str, object],
     field: str,
 ) -> None:
-    provider = AkShareMarketDataProvider(
-        FakeAkShareModule(pd.DataFrame([_daily_row(**overrides)]))
-    )
+    provider = AkShareMarketDataProvider(FakeAkShareModule(pd.DataFrame([_daily_row(**overrides)])))
 
     with pytest.raises(MarketDataProviderError) as exc_info:
         provider.get_etf_daily_prices(
@@ -378,9 +433,39 @@ class FakeAkShareModule:
 class FailingAkShareModule:
     def __init__(self, error: Exception) -> None:
         self.error = error
+        self.calls: list[dict[str, str]] = []
 
-    def fund_etf_hist_em(self, **_: str) -> pd.DataFrame:
+    def fund_etf_hist_em(self, **kwargs: str) -> pd.DataFrame:
+        self.calls.append(kwargs)
         raise self.error
+
+
+class TemporarilyFailingAkShareModule(FakeAkShareModule):
+    def __init__(self, *, failures_before_success: int, response: pd.DataFrame) -> None:
+        super().__init__(response)
+        self._failures_before_success = failures_before_success
+
+    def fund_etf_hist_em(
+        self,
+        *,
+        symbol: str,
+        period: str,
+        start_date: str,
+        end_date: str,
+        adjust: str,
+    ) -> pd.DataFrame:
+        self.calls.append(
+            {
+                "symbol": symbol,
+                "period": period,
+                "start_date": start_date,
+                "end_date": end_date,
+                "adjust": adjust,
+            }
+        )
+        if len(self.calls) <= self._failures_before_success:
+            raise RuntimeError("temporary timeout")
+        return self.response
 
 
 def _empty_prices() -> pd.DataFrame:

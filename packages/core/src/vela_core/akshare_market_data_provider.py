@@ -4,11 +4,17 @@ from decimal import Decimal, InvalidOperation
 from importlib import import_module
 from typing import Any
 
+from tenacity import retry, stop_after_attempt, wait_fixed
+
 from vela_core.market_data_provider import DailyPrice
 
 
 class MarketDataProviderError(Exception):
     """Raised when a market data provider cannot fetch or normalize data."""
+
+
+_AKSHARE_FETCH_ATTEMPTS = 3
+_AKSHARE_FETCH_WAIT_SECONDS = 1
 
 
 class AkShareMarketDataProvider:
@@ -32,13 +38,7 @@ class AkShareMarketDataProvider:
         request_end = _format_date(end_date) if end_date is not None else _format_date(date.today())
 
         try:
-            rows = self._akshare.fund_etf_hist_em(
-                symbol=symbol,
-                period="daily",
-                start_date=request_start,
-                end_date=request_end,
-                adjust="",
-            )
+            rows = self._fetch_rows(symbol, request_start, request_end)
         except Exception as exc:
             raise MarketDataProviderError(
                 _error_message(symbol, request_start, request_end, f"AkShare fetch failed: {exc}")
@@ -152,6 +152,20 @@ class AkShareMarketDataProvider:
             )
 
         return sorted(prices, key=lambda price: price.trade_date)
+
+    @retry(
+        stop=stop_after_attempt(_AKSHARE_FETCH_ATTEMPTS),
+        wait=wait_fixed(_AKSHARE_FETCH_WAIT_SECONDS),
+        reraise=True,
+    )
+    def _fetch_rows(self, symbol: str, request_start: str, request_end: str) -> Any:
+        return self._akshare.fund_etf_hist_em(
+            symbol=symbol,
+            period="daily",
+            start_date=request_start,
+            end_date=request_end,
+            adjust="",
+        )
 
 
 def _format_date(value: date) -> str:

@@ -4,7 +4,12 @@ from decimal import Decimal
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import DailyPrice, fetch_full_market_prices, fetch_incremental_market_prices
+from vela_core import (
+    DailyPrice,
+    MarketDataProviderError,
+    fetch_full_market_prices,
+    fetch_incremental_market_prices,
+)
 from vela_core.models import Base, DataFetchLog, ETFInfo, MarketPrice
 
 
@@ -134,6 +139,25 @@ def test_fetch_full_market_prices_fails_when_no_requested_etf_succeeds() -> None
     assert log.rows_inserted == 0
     assert log.rows_updated == 0
     assert log.error_message == "SPY: provider failed for SPY"
+
+
+def test_fetch_full_market_prices_logs_provider_error_after_retry_exhaustion() -> None:
+    session_factory = _create_session_factory()
+    provider = ExhaustedRetryMarketDataProvider()
+
+    with session_factory() as session:
+        _add_etf(session, symbol="SPY")
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+
+    assert result.status == "failed"
+    assert result.failed_symbols == ("SPY",)
+    assert result.error_message == "SPY: akshare market data provider error symbol=SPY"
+    assert log.status == "failed"
+    assert log.error_message == "SPY: akshare market data provider error symbol=SPY"
 
 
 def test_fetch_full_market_prices_fails_when_no_rows_are_fetched() -> None:
@@ -437,6 +461,19 @@ class FailingMarketDataProvider:
         if symbol in self._failing_symbols:
             raise RuntimeError(f"provider failed for {symbol}")
         return []
+
+
+class ExhaustedRetryMarketDataProvider:
+    name = "akshare"
+
+    def get_etf_daily_prices(
+        self,
+        symbol: str,
+        *,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> Sequence[DailyPrice]:
+        raise MarketDataProviderError(f"akshare market data provider error symbol={symbol}")
 
 
 class PartiallyFailingMarketDataProvider(RecordingMarketDataProvider):
