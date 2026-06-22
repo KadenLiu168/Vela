@@ -6,11 +6,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from alembic.config import Config
+from vela_core import AkShareMarketDataProvider, MarketDataFetchResult, fetch_full_market_prices
+from vela_core.database import create_engine_from_url, create_session_factory, managed_session
 
 from alembic import command
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
+DEFAULT_DATABASE_URL = "sqlite+pysqlite:///vela.db"
 
 
 def _build_alembic_config(
@@ -37,8 +40,18 @@ def _build_parser() -> argparse.ArgumentParser:
     init_db_parser = subparsers.add_parser("init-db", help="Initialize the local database")
     init_db_parser.add_argument(
         "--database-url",
-        default="sqlite+pysqlite:///vela.db",
+        default=DEFAULT_DATABASE_URL,
         help="Database URL to initialize",
+    )
+
+    fetch_market_data_parser = subparsers.add_parser(
+        "fetch-market-data",
+        help="Fetch full daily market data for active ETFs",
+    )
+    fetch_market_data_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to write market data into",
     )
 
     return parser
@@ -58,8 +71,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Initialized database at {args.database_url}")
         return 0
 
+    if args.command == "fetch-market-data":
+        try:
+            result = fetch_full_market_data(args.database_url)
+        except Exception as exc:
+            print(f"Failed to fetch market data into {args.database_url}: {exc}", file=sys.stderr)
+            return 1
+
+        _print_fetch_summary(result)
+        return 1 if result.status == "failed" else 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
+
+
+def fetch_full_market_data(database_url: str) -> MarketDataFetchResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    with managed_session(session_factory) as session:
+        return fetch_full_market_prices(session, provider=AkShareMarketDataProvider())
+
+
+def _print_fetch_summary(result: MarketDataFetchResult) -> None:
+    print(f"Market data fetch status: {result.status}")
+    print(f"Requested symbols: {result.requested_symbol_count}")
+    print(f"Rows fetched: {result.rows_fetched}")
+    print(f"Rows inserted: {result.rows_inserted}")
+    print(f"Rows updated: {result.rows_updated}")
+    if result.failed_symbols:
+        print(f"Failed symbols: {', '.join(result.failed_symbols)}")
+    if result.error_message:
+        print(f"Error: {result.error_message}")
 
 
 if __name__ == "__main__":
