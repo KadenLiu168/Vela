@@ -1,7 +1,7 @@
 # application-configuration Specification
 
 ## Purpose
-TBD - created by archiving change define-pydantic-config-schema. Update Purpose after archive.
+Define shared YAML configuration loading, ETF pool configuration validation, and configuration error reporting. Concrete strategy parameter schemas are defined by the `strategy-configuration` capability.
 ## Requirements
 ### Requirement: ETF pool configuration schema
 The system SHALL define a Pydantic schema for YAML ETF pool configuration.
@@ -22,27 +22,12 @@ The system SHALL define a Pydantic schema for YAML ETF pool configuration.
 - **WHEN** an ETF pool YAML file contains the same symbol on different exchange values
 - **THEN** the system accepts both ETF entries as distinct pool members
 
-### Requirement: Strategy envelope configuration schema
-The system SHALL define a conservative Pydantic schema for YAML strategy envelope configuration.
-
-#### Scenario: Load valid strategy envelope YAML
-- **WHEN** backend code loads a valid strategy envelope YAML file
-- **THEN** the system returns a typed strategy envelope configuration object containing strategy name, config version, universe pool id, and parameters
-
-#### Scenario: Preserve algorithm-neutral parameters
-- **WHEN** a strategy envelope YAML file contains parameter keys for a future strategy algorithm
-- **THEN** the typed strategy envelope configuration exposes those parameters without requiring algorithm-specific schema fields
-
 ### Requirement: YAML configuration loading
-The system SHALL provide public loader functions that load YAML files into typed configuration objects.
+The system SHALL provide public loader functions that load supported YAML files into typed configuration objects.
 
 #### Scenario: Load ETF pool from path
 - **WHEN** backend code calls the ETF pool config loader with a YAML file path
 - **THEN** the loader reads the file and returns an ETF pool configuration object
-
-#### Scenario: Load strategy envelope from path
-- **WHEN** backend code calls the strategy envelope config loader with a YAML file path
-- **THEN** the loader reads the file and returns a strategy envelope configuration object
 
 ### Requirement: Configuration error reporting
 The system SHALL wrap configuration file read, YAML parse, and schema validation failures in a project-level `ConfigError`.

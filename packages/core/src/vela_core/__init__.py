@@ -6,9 +6,7 @@ from vela_core.config import (
     ConfigError,
     ETFConfig,
     ETFPoolConfig,
-    StrategyEnvelopeConfig,
     load_etf_pool_config,
-    load_strategy_envelope_config,
 )
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
@@ -31,11 +29,9 @@ __all__ = [
     "MarketDataProviderError",
     "MarketDataFetchResult",
     "MarketPriceUpsertResult",
-    "StrategyEnvelopeConfig",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "load_etf_pool_config",
-    "load_strategy_envelope_config",
     "to_market_price",
     "upsert_market_prices",
     "__version__",

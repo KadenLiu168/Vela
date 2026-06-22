@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Literal
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from vela_core.config import load_yaml_config
 
 
 class ETFIdentity(BaseModel):
@@ -65,7 +66,4 @@ class StrategyConfig(BaseModel):
 
 
 def load_strategy_config(path: str | Path) -> StrategyConfig:
-    raw_config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(raw_config, dict):
-        raise ValueError("strategy config must be a YAML mapping")
-    return StrategyConfig.model_validate(raw_config)
+    return load_yaml_config(path, StrategyConfig)

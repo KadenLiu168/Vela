@@ -48,24 +48,11 @@ class ETFPoolConfig(BaseModel):
         return etfs
 
 
-class StrategyEnvelopeConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    strategy_name: str
-    config_version: str
-    universe_pool_id: str
-    parameters: dict[str, Any] = Field(default_factory=dict)
-
-
 def load_etf_pool_config(path: str | Path) -> ETFPoolConfig:
-    return _load_config(path, ETFPoolConfig)
+    return load_yaml_config(path, ETFPoolConfig)
 
 
-def load_strategy_envelope_config(path: str | Path) -> StrategyEnvelopeConfig:
-    return _load_config(path, StrategyEnvelopeConfig)
-
-
-def _load_config(path: str | Path, model_type: type[ConfigModel]) -> ConfigModel:
+def load_yaml_config(path: str | Path, model_type: type[ConfigModel]) -> ConfigModel:
     config_path = Path(path)
     data = _load_yaml(config_path)
     try:

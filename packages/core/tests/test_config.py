@@ -4,9 +4,7 @@ import pytest
 from vela_core import (
     ConfigError,
     ETFPoolConfig,
-    StrategyEnvelopeConfig,
     load_etf_pool_config,
-    load_strategy_envelope_config,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -79,61 +77,36 @@ etfs:
     ]
 
 
-def test_load_strategy_envelope_yaml_returns_typed_config(tmp_path: Path) -> None:
-    config_path = tmp_path / "strategy.yaml"
+def test_etf_pool_config_error_includes_validation_path(tmp_path: Path) -> None:
+    config_path = tmp_path / "etf_pool.yaml"
     config_path.write_text(
         """
-strategy_name: rotation
-config_version: v1
-universe_pool_id: phase1_core
-parameters:
-  lookback_days: 60
-  rebalance_frequency: monthly
-  risk_control:
-    max_weight: 0.4
-""",
-        encoding="utf-8",
-    )
-
-    config = load_strategy_envelope_config(config_path)
-
-    assert isinstance(config, StrategyEnvelopeConfig)
-    assert config.strategy_name == "rotation"
-    assert config.config_version == "v1"
-    assert config.universe_pool_id == "phase1_core"
-    assert config.parameters == {
-        "lookback_days": 60,
-        "rebalance_frequency": "monthly",
-        "risk_control": {"max_weight": 0.4},
-    }
-
-
-def test_config_error_includes_validation_path(tmp_path: Path) -> None:
-    config_path = tmp_path / "strategy.yaml"
-    config_path.write_text(
-        """
-strategy_name: rotation
-config_version: v1
-parameters: {}
+version: 1
+provider: akshare
+currency: CNY
+etfs:
+  - exchange: SSE
+    symbol: "510300"
+    name: 沪深300ETF
 """,
         encoding="utf-8",
     )
 
     with pytest.raises(ConfigError) as exc_info:
-        load_strategy_envelope_config(config_path)
+        load_etf_pool_config(config_path)
 
     message = str(exc_info.value)
     assert str(config_path) in message
-    assert "universe_pool_id" in message
+    assert "pool_id" in message
     assert "Field required" in message
 
 
-def test_config_error_includes_yaml_parse_context(tmp_path: Path) -> None:
-    config_path = tmp_path / "strategy.yaml"
-    config_path.write_text("strategy_name: [unterminated\n", encoding="utf-8")
+def test_etf_pool_config_error_includes_yaml_parse_context(tmp_path: Path) -> None:
+    config_path = tmp_path / "etf_pool.yaml"
+    config_path.write_text("pool_id: [unterminated\n", encoding="utf-8")
 
     with pytest.raises(ConfigError) as exc_info:
-        load_strategy_envelope_config(config_path)
+        load_etf_pool_config(config_path)
 
     message = str(exc_info.value)
     assert str(config_path) in message
