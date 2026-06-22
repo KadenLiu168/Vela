@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import DailyPrice, fetch_full_market_prices
+from vela_core import DailyPrice, fetch_full_market_prices, fetch_incremental_market_prices
 from vela_core.models import Base, DataFetchLog, ETFInfo, MarketPrice
 
 
@@ -193,6 +193,158 @@ def test_fetch_full_market_prices_logs_partial_fetch() -> None:
     assert len(prices) == 1
 
 
+def test_fetch_incremental_market_prices_uses_latest_local_trade_date() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 18)),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 19)),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    assert provider.requested_ranges == [("SPY", date(2026, 6, 18), date.today())]
+    assert result.status == "success"
+    assert result.rows_fetched == 2
+    assert result.rows_inserted == 2
+    assert result.rows_updated == 0
+    assert [price.trade_date for price in prices] == [
+        date(2026, 6, 17),
+        date(2026, 6, 18),
+        date(2026, 6, 19),
+    ]
+    assert log.fetch_mode == "incremental"
+    assert log.range_start == date(2026, 6, 18)
+    assert log.range_end == date.today()
+    assert log.requested_symbols == '["SPY"]'
+
+
+def test_fetch_incremental_market_prices_fails_without_local_baseline() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider([_daily_price(symbol="SPY")])
+
+    with session_factory() as session:
+        _add_etf(session, symbol="SPY")
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+
+    assert provider.requested_symbols == []
+    assert result.status == "failed"
+    assert result.requested_symbol_count == 1
+    assert result.rows_fetched == 0
+    assert result.rows_inserted == 0
+    assert result.rows_updated == 0
+    assert result.error_message == "No local market price baseline found"
+    assert log.fetch_mode == "incremental"
+    assert log.status == "failed"
+    assert log.range_start is None
+    assert log.range_end == date.today()
+    assert log.error_message == "No local market price baseline found"
+
+
+def test_fetch_incremental_market_prices_uses_only_active_etfs() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 18)),
+            _daily_price(symbol="QQQ", trade_date=date(2026, 6, 18)),
+        ]
+    )
+
+    with session_factory() as session:
+        active_etf = _add_etf(session, symbol="SPY", is_active=True)
+        _add_etf(session, symbol="QQQ", is_active=False)
+        _add_market_price(session, etf_id=active_etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    assert provider.requested_symbols == ["SPY"]
+    assert result.status == "success"
+    assert result.requested_symbol_count == 1
+    assert result.rows_fetched == 1
+    assert result.rows_inserted == 1
+    assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+    assert log.requested_symbols == '["SPY"]'
+
+
+def test_fetch_incremental_market_prices_updates_existing_rows_without_duplicates() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [_daily_price(symbol="SPY", trade_date=date(2026, 6, 18))]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        first_result = fetch_incremental_market_prices(session, provider=provider)
+        second_result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    assert first_result.status == "success"
+    assert first_result.rows_fetched == 1
+    assert first_result.rows_inserted == 1
+    assert first_result.rows_updated == 0
+    assert second_result.status == "failed"
+    assert second_result.rows_fetched == 0
+    assert second_result.rows_inserted == 0
+    assert second_result.rows_updated == 0
+    assert len(prices) == 2
+    assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+
+
+def test_fetch_incremental_market_prices_logs_partial_fetch() -> None:
+    session_factory = _create_session_factory()
+    provider = PartiallyFailingMarketDataProvider(
+        prices=[_daily_price(symbol="SPY", trade_date=date(2026, 6, 18))],
+        failing_symbols={"QQQ"},
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_etf(session, symbol="QQQ")
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    assert provider.requested_symbols == ["QQQ", "SPY"]
+    assert result.status == "partial"
+    assert result.requested_symbol_count == 2
+    assert result.rows_fetched == 1
+    assert result.rows_inserted == 1
+    assert result.rows_updated == 0
+    assert result.failed_symbols == ("QQQ",)
+    assert result.error_message == "QQQ: provider failed for QQQ"
+    assert log.fetch_mode == "incremental"
+    assert log.range_start == date(2026, 6, 18)
+    assert log.range_end == date.today()
+    assert log.status == "partial"
+    assert log.error_message == "QQQ: provider failed for QQQ"
+    assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -228,12 +380,28 @@ def _daily_price(
     )
 
 
+def _add_market_price(session: Session, *, etf_id: int, trade_date: date) -> MarketPrice:
+    market_price = MarketPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        open_price=Decimal("100.00"),
+        high_price=Decimal("101.00"),
+        low_price=Decimal("99.00"),
+        close_price=Decimal("100.50"),
+        volume=1000,
+    )
+    session.add(market_price)
+    session.flush()
+    return market_price
+
+
 class RecordingMarketDataProvider:
     name = "fake"
 
     def __init__(self, prices: Sequence[DailyPrice]) -> None:
         self._prices = prices
         self.requested_symbols: list[str] = []
+        self.requested_ranges: list[tuple[str, date | None, date | None]] = []
 
     def get_etf_daily_prices(
         self,
@@ -243,6 +411,7 @@ class RecordingMarketDataProvider:
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
         self.requested_symbols.append(symbol)
+        self.requested_ranges.append((symbol, start_date, end_date))
         return [
             price
             for price in self._prices
@@ -283,6 +452,7 @@ class PartiallyFailingMarketDataProvider(RecordingMarketDataProvider):
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
         self.requested_symbols.append(symbol)
+        self.requested_ranges.append((symbol, start_date, end_date))
         if symbol in self._failing_symbols:
             raise RuntimeError(f"provider failed for {symbol}")
         return [

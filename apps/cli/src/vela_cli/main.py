@@ -6,7 +6,12 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from alembic.config import Config
-from vela_core import AkShareMarketDataProvider, MarketDataFetchResult, fetch_full_market_prices
+from vela_core import (
+    AkShareMarketDataProvider,
+    MarketDataFetchResult,
+    fetch_full_market_prices,
+    fetch_incremental_market_prices,
+)
 from vela_core.database import create_engine_from_url, create_session_factory, managed_session
 
 from alembic import command
@@ -53,6 +58,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DATABASE_URL,
         help="Database URL to write market data into",
     )
+    fetch_market_data_parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Fetch only market data newer than the latest local market price date",
+    )
 
     return parser
 
@@ -73,7 +83,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "fetch-market-data":
         try:
-            result = fetch_full_market_data(args.database_url)
+            result = (
+                fetch_incremental_market_data(args.database_url)
+                if args.incremental
+                else fetch_full_market_data(args.database_url)
+            )
         except Exception as exc:
             print(f"Failed to fetch market data into {args.database_url}: {exc}", file=sys.stderr)
             return 1
@@ -90,6 +104,13 @@ def fetch_full_market_data(database_url: str) -> MarketDataFetchResult:
     session_factory = create_session_factory(engine)
     with managed_session(session_factory) as session:
         return fetch_full_market_prices(session, provider=AkShareMarketDataProvider())
+
+
+def fetch_incremental_market_data(database_url: str) -> MarketDataFetchResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    with managed_session(session_factory) as session:
+        return fetch_incremental_market_prices(session, provider=AkShareMarketDataProvider())
 
 
 def _print_fetch_summary(result: MarketDataFetchResult) -> None:

@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from vela_core.market_data_provider import MarketDataProvider
@@ -28,20 +28,74 @@ def fetch_full_market_prices(
     *,
     provider: MarketDataProvider,
 ) -> MarketDataFetchResult:
+    return _fetch_market_prices(
+        session,
+        provider=provider,
+        fetch_mode="full",
+        range_start=None,
+        range_end=None,
+    )
+
+
+def fetch_incremental_market_prices(
+    session: Session,
+    *,
+    provider: MarketDataProvider,
+) -> MarketDataFetchResult:
+    latest_trade_date = session.scalar(select(func.max(MarketPrice.trade_date)))
+    range_start = latest_trade_date + timedelta(days=1) if latest_trade_date is not None else None
+    return _fetch_market_prices(
+        session,
+        provider=provider,
+        fetch_mode="incremental",
+        range_start=range_start,
+        range_end=_today(),
+    )
+
+
+def _fetch_market_prices(
+    session: Session,
+    *,
+    provider: MarketDataProvider,
+    fetch_mode: str,
+    range_start: date | None,
+    range_end: date | None,
+) -> MarketDataFetchResult:
     active_etfs = _active_etfs(session)
     requested_symbols = [etf.symbol for etf in active_etfs]
     fetch_log = DataFetchLog(
         source=provider.name,
         target_type="market_price",
-        fetch_mode="full",
-        range_start=None,
-        range_end=None,
+        fetch_mode=fetch_mode,
+        range_start=range_start,
+        range_end=range_end,
         requested_symbols=json.dumps(requested_symbols),
         started_at=_now(),
         status="running",
     )
     session.add(fetch_log)
     session.flush()
+
+    if fetch_mode == "incremental" and range_start is None:
+        no_baseline_error = "No local market price baseline found"
+        _finish_log(
+            fetch_log,
+            status="failed",
+            rows_fetched=0,
+            rows_inserted=0,
+            rows_updated=0,
+            error_message=no_baseline_error,
+        )
+        session.flush()
+        return MarketDataFetchResult(
+            fetch_log_id=fetch_log.id,
+            status="failed",
+            requested_symbol_count=len(requested_symbols),
+            rows_fetched=0,
+            rows_inserted=0,
+            rows_updated=0,
+            error_message=no_baseline_error,
+        )
 
     if not active_etfs:
         no_active_error = "No active ETFs found"
@@ -70,7 +124,11 @@ def fetch_full_market_prices(
 
     for etf in active_etfs:
         try:
-            daily_prices = provider.get_etf_daily_prices(etf.symbol)
+            daily_prices = provider.get_etf_daily_prices(
+                etf.symbol,
+                start_date=range_start,
+                end_date=range_end,
+            )
         except Exception as exc:
             failed_symbols.append(etf.symbol)
             errors.append(f"{etf.symbol}: {exc}")
@@ -136,6 +194,10 @@ def _error_message(*, errors: list[str], rows_fetched: int) -> str | None:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _today() -> date:
+    return date.today()
 
 
 def _finish_log(
