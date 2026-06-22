@@ -178,7 +178,168 @@ def test_akshare_provider_wraps_row_parsing_errors_with_context() -> None:
     message = str(exc_info.value)
     assert "akshare" in message
     assert "513500" in message
-    assert "normalization failed" in message
+    assert "row_index=0" in message
+    assert "column=日期" in message
+    assert "invalid value='not-a-date'" in message
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("日期", None),
+        ("日期", ""),
+        ("日期", pd.NA),
+        ("开盘", None),
+        ("开盘", ""),
+        ("开盘", float("nan")),
+        ("最高", None),
+        ("最低", ""),
+        ("收盘", pd.NA),
+        ("成交量", None),
+        ("成交量", ""),
+    ],
+)
+def test_akshare_provider_rejects_missing_required_row_values(
+    column: str,
+    value: object,
+) -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(pd.DataFrame([_daily_row(**{column: value})]))
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    _assert_validation_context(str(exc_info.value), column=column, value=value)
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("日期", "not-a-date"),
+        ("开盘", "not-a-number"),
+        ("最高", "Infinity"),
+        ("最低", "-Infinity"),
+        ("收盘", "NaN"),
+    ],
+)
+def test_akshare_provider_rejects_invalid_dates_and_decimal_values(
+    column: str,
+    value: object,
+) -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(pd.DataFrame([_daily_row(**{column: value})]))
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    _assert_validation_context(str(exc_info.value), column=column, value=value)
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("开盘", "0"),
+        ("最高", "-1.00"),
+        ("最低", "0.000"),
+        ("收盘", "-0.01"),
+    ],
+)
+def test_akshare_provider_rejects_non_positive_ohlc_prices(
+    column: str,
+    value: object,
+) -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(pd.DataFrame([_daily_row(**{column: value})]))
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    _assert_validation_context(str(exc_info.value), column=column, value=value)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"最高": "1.190"}, "ohlc"),
+        ({"最低": "1.260"}, "ohlc"),
+    ],
+)
+def test_akshare_provider_rejects_inconsistent_ohlc_relationships(
+    overrides: dict[str, object],
+    field: str,
+) -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(pd.DataFrame([_daily_row(**overrides)]))
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    message = str(exc_info.value)
+    _assert_validation_context(message, column=field)
+    assert "high must be at least" in message or "low must be at most" in message
+
+
+@pytest.mark.parametrize("value", ["not-a-number", "1.5", "-1"])
+def test_akshare_provider_rejects_invalid_volume(value: object) -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(pd.DataFrame([_daily_row(成交量=value)]))
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    _assert_validation_context(str(exc_info.value), column="成交量", value=value)
+
+
+def test_akshare_provider_rejects_whole_result_when_one_row_is_invalid() -> None:
+    provider = AkShareMarketDataProvider(
+        FakeAkShareModule(
+            pd.DataFrame(
+                [
+                    _daily_row(日期="2026-06-17"),
+                    _daily_row(日期="2026-06-18", 开盘="not-a-number"),
+                ]
+            )
+        )
+    )
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        provider.get_etf_daily_prices(
+            "513500",
+            start_date=date(2026, 6, 17),
+            end_date=date(2026, 6, 18),
+        )
+
+    _assert_validation_context(
+        str(exc_info.value),
+        column="开盘",
+        value="not-a-number",
+        row_index=1,
+    )
 
 
 def test_provider_contract_module_remains_source_library_independent() -> None:
@@ -224,3 +385,34 @@ class FailingAkShareModule:
 
 def _empty_prices() -> pd.DataFrame:
     return pd.DataFrame(columns=["日期", "开盘", "收盘", "最高", "最低", "成交量"])
+
+
+def _daily_row(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "日期": "2026-06-18",
+        "开盘": "1.230",
+        "收盘": "1.250",
+        "最高": "1.260",
+        "最低": "1.220",
+        "成交量": 1000,
+    }
+    row.update(overrides)
+    return row
+
+
+def _assert_validation_context(
+    message: str,
+    *,
+    column: str,
+    value: object | None = None,
+    row_index: int = 0,
+) -> None:
+    assert "akshare" in message
+    assert "513500" in message
+    assert "20260617" in message
+    assert "20260618" in message
+    assert f"row_index={row_index}" in message
+    assert f"column={column}" in message
+    assert "reason=" in message
+    if value is not None:
+        assert f"invalid value={value!r}" in message
