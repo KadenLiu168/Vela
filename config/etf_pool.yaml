@@ -1,0 +1,37 @@
+pool_id: phase1_core
+version: 1
+description: Phase 1 minimal ETF universe for market data fetching and strategy calculation.
+provider: akshare
+currency: CNY
+
+etfs:
+  - exchange: SSE
+    symbol: "510300"
+    name: 沪深300ETF
+    category: equity_cn_large
+    is_active: true
+  - exchange: SZSE
+    symbol: "159915"
+    name: 创业板ETF
+    category: equity_cn_growth
+    is_active: true
+  - exchange: SSE
+    symbol: "512100"
+    name: 中证1000ETF
+    category: equity_cn_small
+    is_active: true
+  - exchange: SSE
+    symbol: "513500"
+    name: 标普500ETF
+    category: equity_us
+    is_active: true
+  - exchange: SSE
+    symbol: "518880"
+    name: 黄金ETF
+    category: commodity_gold
+    is_active: true
+  - exchange: SSE
+    symbol: "511010"
+    name: 国债ETF
+    category: bond_cn
+    is_active: true
