@@ -4,6 +4,7 @@ from vela_core.akshare_market_data_provider import (
 )
 from vela_core.market_data_provider import DailyPrice, MarketDataProvider
 from vela_core.market_price_mapping import to_market_price
+from vela_core.market_price_upsert import MarketPriceUpsertResult, upsert_market_prices
 
 __version__ = "0.1.0"
 
@@ -12,6 +13,8 @@ __all__ = [
     "DailyPrice",
     "MarketDataProvider",
     "MarketDataProviderError",
+    "MarketPriceUpsertResult",
     "to_market_price",
+    "upsert_market_prices",
     "__version__",
 ]
