@@ -35,6 +35,12 @@ from vela_core.momentum_scoring import (
     select_top_n_etfs,
     select_with_defensive_fallback,
 )
+from vela_core.strategy_signal_persistence import (
+    StrategySignalPersistenceResult,
+    StrategySignalPositionInput,
+    get_latest_successful_strategy_signal,
+    persist_strategy_signal,
+)
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
 __version__ = "0.1.0"
@@ -55,6 +61,8 @@ __all__ = [
     "MarketPriceUpsertResult",
     "MomentumRanking",
     "MomentumScore",
+    "StrategySignalPersistenceResult",
+    "StrategySignalPositionInput",
     "TopNSelection",
     "TrendFilterResult",
     "apply_trend_filter",
@@ -63,8 +71,10 @@ __all__ = [
     "calculate_momentum_score",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
+    "get_latest_successful_strategy_signal",
     "load_app_config",
     "load_etf_pool_config",
+    "persist_strategy_signal",
     "rank_momentum_scores",
     "select_with_defensive_fallback",
     "select_top_n_etfs",
