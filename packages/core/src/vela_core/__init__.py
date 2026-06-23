@@ -16,6 +16,10 @@ from vela_core.market_data_fetcher import (
 )
 from vela_core.market_data_provider import DailyPrice, MarketDataProvider
 from vela_core.market_price_mapping import to_market_price
+from vela_core.market_price_returns import (
+    MarketPriceReturns,
+    calculate_market_price_returns,
+)
 from vela_core.market_price_upsert import MarketPriceUpsertResult, upsert_market_prices
 
 __version__ = "0.1.0"
@@ -30,7 +34,9 @@ __all__ = [
     "MarketDataProvider",
     "MarketDataProviderError",
     "MarketDataFetchResult",
+    "MarketPriceReturns",
     "MarketPriceUpsertResult",
+    "calculate_market_price_returns",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "load_app_config",
