@@ -22,6 +22,12 @@ class StrategyEquityCurvePoint:
     daily_return: Decimal
 
 
+@dataclass(frozen=True)
+class StrategyAnnualizedReturn:
+    total_return: Decimal | None
+    annualized_return: Decimal | None
+
+
 def calculate_strategy_equity_curve(
     session: Session,
     *,
@@ -66,6 +72,31 @@ def calculate_strategy_equity_curve(
         )
 
     return points
+
+
+def calculate_strategy_annualized_return(
+    points: list[StrategyEquityCurvePoint],
+) -> StrategyAnnualizedReturn:
+    if len(points) < 2:
+        return StrategyAnnualizedReturn(total_return=None, annualized_return=None)
+
+    start = points[0]
+    end = points[-1]
+    elapsed_days = (end.trade_date - start.trade_date).days
+    if elapsed_days <= 0 or start.net_value <= 0:
+        return StrategyAnnualizedReturn(total_return=None, annualized_return=None)
+
+    total_return = (end.net_value / start.net_value - Decimal("1")).quantize(_SIX_PLACES)
+    annualization_power = Decimal("365") / Decimal(elapsed_days)
+    annualized_return = (
+        Decimal(str(float(end.net_value / start.net_value) ** float(annualization_power)))
+        - Decimal("1")
+    ).quantize(_SIX_PLACES)
+
+    return StrategyAnnualizedReturn(
+        total_return=total_return,
+        annualized_return=annualized_return,
+    )
 
 
 def _load_prices_by_key(

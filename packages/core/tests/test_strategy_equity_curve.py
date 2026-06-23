@@ -4,8 +4,10 @@ from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
+    StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
     StrategySignalPositionInput,
+    calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
     persist_strategy_signal,
 )
@@ -212,6 +214,102 @@ def test_calculate_strategy_equity_curve_skips_transaction_cost_when_configured_
 
     assert points[1].daily_return == Decimal("0.000000")
     assert points[1].net_value == Decimal("1.000000")
+
+
+def test_calculate_strategy_annualized_return_uses_calendar_day_span() -> None:
+    result = calculate_strategy_annualized_return(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2027, 1, 1),
+                net_value=Decimal("1.100000"),
+                daily_return=Decimal("0.100000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyAnnualizedReturn(
+        total_return=Decimal("0.100000"),
+        annualized_return=Decimal("0.100000"),
+    )
+
+
+def test_calculate_strategy_annualized_return_returns_zero_for_flat_curve() -> None:
+    result = calculate_strategy_annualized_return(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2027, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyAnnualizedReturn(
+        total_return=Decimal("0.000000"),
+        annualized_return=Decimal("0.000000"),
+    )
+
+
+def test_calculate_strategy_annualized_return_returns_none_for_single_point() -> None:
+    result = calculate_strategy_annualized_return(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            )
+        ]
+    )
+
+    assert result == StrategyAnnualizedReturn(total_return=None, annualized_return=None)
+
+
+def test_calculate_strategy_annualized_return_returns_none_for_same_day_points() -> None:
+    result = calculate_strategy_annualized_return(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.100000"),
+                daily_return=Decimal("0.100000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyAnnualizedReturn(total_return=None, annualized_return=None)
+
+
+def test_calculate_strategy_annualized_return_returns_none_for_non_positive_start() -> None:
+    result = calculate_strategy_annualized_return(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("0.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2027, 1, 1),
+                net_value=Decimal("1.100000"),
+                daily_return=Decimal("0.100000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyAnnualizedReturn(total_return=None, annualized_return=None)
 
 
 def _create_session_factory() -> sessionmaker[Session]:
