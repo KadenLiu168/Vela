@@ -46,6 +46,12 @@ from vela_core.strategy_signal_persistence import (
     get_latest_successful_strategy_signal,
     persist_strategy_signal,
 )
+from vela_core.strategy_signal_report import (
+    LatestStrategySignalReportNotFoundError,
+    StrategySignalReport,
+    StrategySignalReportPosition,
+    export_latest_strategy_signal_report,
+)
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
 __version__ = "0.1.0"
@@ -68,8 +74,11 @@ __all__ = [
     "MarketPriceUpsertResult",
     "MomentumRanking",
     "MomentumScore",
+    "LatestStrategySignalReportNotFoundError",
     "StrategySignalPersistenceResult",
     "StrategySignalPositionInput",
+    "StrategySignalReport",
+    "StrategySignalReportPosition",
     "TopNSelection",
     "TrendFilterResult",
     "apply_trend_filter",
@@ -80,6 +89,7 @@ __all__ = [
     "fetch_incremental_market_prices",
     "get_latest_successful_strategy_signal",
     "generate_strategy_signal",
+    "export_latest_strategy_signal_report",
     "load_app_config",
     "load_etf_pool_config",
     "persist_strategy_signal",

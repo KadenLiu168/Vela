@@ -11,7 +11,9 @@ from sqlalchemy import func, select
 from vela_core import (
     AkShareMarketDataProvider,
     GenerateStrategySignalResult,
+    LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
+    export_latest_strategy_signal_report,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
@@ -92,6 +94,33 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Signal date in YYYY-MM-DD format; defaults to latest local market price date",
     )
 
+    export_signal_report_parser = subparsers.add_parser(
+        "export-signal-report",
+        help="Export the latest persisted strategy signal report",
+    )
+    export_signal_report_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to read the persisted signal from",
+    )
+    export_signal_report_parser.add_argument(
+        "--strategy-config",
+        default=str(DEFAULT_STRATEGY_CONFIG_PATH),
+        help="Strategy configuration YAML path",
+    )
+    export_signal_report_parser.add_argument(
+        "--signal-date",
+        type=_parse_signal_date,
+        default=None,
+        help="Signal date in YYYY-MM-DD format; defaults to the latest successful signal date",
+    )
+    export_signal_report_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional path to write the report",
+    )
+
     return parser
 
 
@@ -137,6 +166,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_signal_summary(signal_result)
         return 1 if signal_result.status == "failed" else 0
 
+    if args.command == "export-signal-report":
+        try:
+            report = export_signal_report(
+                args.database_url,
+                strategy_config_path=Path(args.strategy_config),
+                signal_date=args.signal_date,
+            )
+        except LatestStrategySignalReportNotFoundError as exc:
+            print(f"Failed to export signal report: {exc}", file=sys.stderr)
+            return 1
+        except Exception as exc:
+            print(
+                f"Failed to export signal report from {args.database_url}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+
+        if args.output is None:
+            print(report, end="")
+        else:
+            args.output.write_text(report)
+            print(f"Exported signal report to {args.output}")
+        return 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
 
@@ -174,6 +227,23 @@ def generate_signal(
             session,
             signal_date=resolved_signal_date,
             config=config,
+        )
+
+
+def export_signal_report(
+    database_url: str,
+    *,
+    strategy_config_path: Path,
+    signal_date: date | None,
+) -> str:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    config = load_strategy_config(strategy_config_path)
+    with managed_session(session_factory) as session:
+        return export_latest_strategy_signal_report(
+            session,
+            config_version=config.version,
+            signal_date=signal_date,
         )
 
 
