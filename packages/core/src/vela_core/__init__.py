@@ -35,6 +35,11 @@ from vela_core.momentum_scoring import (
     select_top_n_etfs,
     select_with_defensive_fallback,
 )
+from vela_core.portfolio_holdings import (
+    PortfolioHolding,
+    PortfolioHoldingSnapshot,
+    calculate_portfolio_holdings,
+)
 from vela_core.rebalance_dates import generate_weekly_rebalance_dates
 from vela_core.strategy_signal_generation import (
     GeneratedSignalPosition,
@@ -76,6 +81,8 @@ __all__ = [
     "MarketPriceUpsertResult",
     "MomentumRanking",
     "MomentumScore",
+    "PortfolioHolding",
+    "PortfolioHoldingSnapshot",
     "LatestStrategySignalReportNotFoundError",
     "StrategySignalPersistenceResult",
     "StrategySignalPositionInput",
@@ -87,6 +94,7 @@ __all__ = [
     "calculate_market_price_moving_average",
     "calculate_market_price_returns",
     "calculate_momentum_score",
+    "calculate_portfolio_holdings",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "generate_historical_strategy_signals",
