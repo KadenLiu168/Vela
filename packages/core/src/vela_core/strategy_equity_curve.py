@@ -28,6 +28,13 @@ class StrategyAnnualizedReturn:
     annualized_return: Decimal | None
 
 
+@dataclass(frozen=True)
+class StrategyMaximumDrawdown:
+    max_drawdown: Decimal
+    peak_date: date | None
+    trough_date: date | None
+
+
 def calculate_strategy_equity_curve(
     session: Session,
     *,
@@ -99,6 +106,37 @@ def calculate_strategy_annualized_return(
     )
 
 
+def calculate_strategy_maximum_drawdown(
+    points: list[StrategyEquityCurvePoint],
+) -> StrategyMaximumDrawdown:
+    if not points:
+        return _zero_maximum_drawdown()
+
+    peak = points[0]
+    max_drawdown = Decimal("0.000000")
+    peak_date: date | None = None
+    trough_date: date | None = None
+
+    for point in points:
+        if point.net_value > peak.net_value:
+            peak = point
+
+        if peak.net_value <= 0:
+            continue
+
+        drawdown = (point.net_value / peak.net_value - Decimal("1")).quantize(_SIX_PLACES)
+        if drawdown < max_drawdown:
+            max_drawdown = drawdown
+            peak_date = peak.trade_date
+            trough_date = point.trade_date
+
+    return StrategyMaximumDrawdown(
+        max_drawdown=max_drawdown,
+        peak_date=peak_date,
+        trough_date=trough_date,
+    )
+
+
 def _load_prices_by_key(
     session: Session,
     holding_snapshots: list[PortfolioHoldingSnapshot],
@@ -161,4 +199,12 @@ def _calculate_turnover(
             for etf_id in etf_ids
         ),
         Decimal("0"),
+    )
+
+
+def _zero_maximum_drawdown() -> StrategyMaximumDrawdown:
+    return StrategyMaximumDrawdown(
+        max_drawdown=Decimal("0.000000"),
+        peak_date=None,
+        trough_date=None,
     )

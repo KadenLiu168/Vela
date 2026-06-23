@@ -44,8 +44,10 @@ from vela_core.rebalance_dates import generate_weekly_rebalance_dates
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
+    StrategyMaximumDrawdown,
     calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
+    calculate_strategy_maximum_drawdown,
 )
 from vela_core.strategy_signal_generation import (
     GeneratedSignalPosition,
@@ -92,6 +94,7 @@ __all__ = [
     "LatestStrategySignalReportNotFoundError",
     "StrategyEquityCurvePoint",
     "StrategyAnnualizedReturn",
+    "StrategyMaximumDrawdown",
     "StrategySignalPersistenceResult",
     "StrategySignalPositionInput",
     "StrategySignalReport",
@@ -105,6 +108,7 @@ __all__ = [
     "calculate_portfolio_holdings",
     "calculate_strategy_annualized_return",
     "calculate_strategy_equity_curve",
+    "calculate_strategy_maximum_drawdown",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "generate_historical_strategy_signals",

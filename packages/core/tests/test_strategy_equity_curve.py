@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
+    StrategyMaximumDrawdown,
     StrategySignalPositionInput,
     calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
+    calculate_strategy_maximum_drawdown,
     persist_strategy_signal,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
@@ -310,6 +312,105 @@ def test_calculate_strategy_annualized_return_returns_none_for_non_positive_star
     )
 
     assert result == StrategyAnnualizedReturn(total_return=None, annualized_return=None)
+
+
+def test_calculate_strategy_maximum_drawdown_returns_deepest_peak_to_trough_interval() -> None:
+    result = calculate_strategy_maximum_drawdown(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.250000"),
+                daily_return=Decimal("0.250000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("-0.200000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 4),
+                net_value=Decimal("1.300000"),
+                daily_return=Decimal("0.300000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 5),
+                net_value=Decimal("0.910000"),
+                daily_return=Decimal("-0.300000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("-0.300000"),
+        peak_date=date(2026, 1, 4),
+        trough_date=date(2026, 1, 5),
+    )
+
+
+def test_calculate_strategy_maximum_drawdown_returns_zero_for_empty_curve() -> None:
+    result = calculate_strategy_maximum_drawdown([])
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("0.000000"),
+        peak_date=None,
+        trough_date=None,
+    )
+
+
+def test_calculate_strategy_maximum_drawdown_returns_zero_for_flat_curve() -> None:
+    result = calculate_strategy_maximum_drawdown(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("0.000000"),
+        peak_date=None,
+        trough_date=None,
+    )
+
+
+def test_calculate_strategy_maximum_drawdown_returns_zero_for_rising_curve() -> None:
+    result = calculate_strategy_maximum_drawdown(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.100000"),
+                daily_return=Decimal("0.100000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("1.200000"),
+                daily_return=Decimal("0.090909"),
+            ),
+        ]
+    )
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("0.000000"),
+        peak_date=None,
+        trough_date=None,
+    )
 
 
 def _create_session_factory() -> sessionmaker[Session]:
