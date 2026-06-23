@@ -26,6 +26,14 @@ class MomentumRanking:
     rank: int
 
 
+@dataclass(frozen=True)
+class TopNSelection:
+    etf_id: int
+    rank: int
+    score: Decimal
+    target_weight: Decimal
+
+
 def calculate_momentum_score(
     session: Session,
     *,
@@ -66,11 +74,7 @@ def calculate_momentum_score(
 
 
 def rank_momentum_scores(scores: list[MomentumScore]) -> list[MomentumRanking]:
-    eligible_scores = [
-        (score, score.score)
-        for score in scores
-        if score.score is not None
-    ]
+    eligible_scores = [(score, score.score) for score in scores if score.score is not None]
     sorted_scores = sorted(
         eligible_scores,
         key=lambda score_with_value: (-score_with_value[1], score_with_value[0].etf_id),
@@ -84,6 +88,26 @@ def rank_momentum_scores(scores: list[MomentumScore]) -> list[MomentumRanking]:
             rank=rank,
         )
         for rank, score_with_value in enumerate(sorted_scores, start=1)
+    ]
+
+
+def select_top_n_etfs(
+    rankings: list[MomentumRanking],
+    config: StrategyConfig,
+) -> list[TopNSelection]:
+    selected_rankings = sorted(rankings, key=lambda ranking: ranking.rank)[: config.selection.top_n]
+    if not selected_rankings:
+        return []
+
+    target_weight = Decimal("1") / Decimal(len(selected_rankings))
+    return [
+        TopNSelection(
+            etf_id=ranking.etf_id,
+            rank=ranking.rank,
+            score=ranking.score,
+            target_weight=target_weight,
+        )
+        for ranking in selected_rankings
     ]
 
 

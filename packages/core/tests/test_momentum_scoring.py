@@ -4,7 +4,14 @@ from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import MomentumRanking, MomentumScore, calculate_momentum_score, rank_momentum_scores
+from vela_core import (
+    MomentumRanking,
+    MomentumScore,
+    TopNSelection,
+    calculate_momentum_score,
+    rank_momentum_scores,
+    select_top_n_etfs,
+)
 from vela_core.models import Base, ETFInfo, MarketPrice
 from vela_core.strategy_config import StrategyConfig
 
@@ -283,6 +290,70 @@ def test_ranked_momentum_scores_support_top_n_selection() -> None:
     assert [ranking.etf_id for ranking in top_rankings] == [3, 1]
 
 
+def test_selects_configured_top_n_ranked_etfs() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = [
+        _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=2),
+        _momentum_ranking(etf_id=2, score=Decimal("0.6"), rank=1),
+        _momentum_ranking(etf_id=3, score=Decimal("0.2"), rank=3),
+    ]
+
+    selections = select_top_n_etfs(rankings, config)
+
+    assert [selection.etf_id for selection in selections] == [2, 1]
+
+
+def test_selected_etfs_include_rank_score_and_equal_target_weight() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = [
+        _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=1),
+        _momentum_ranking(etf_id=2, score=Decimal("0.2"), rank=2),
+    ]
+
+    selections = select_top_n_etfs(rankings, config)
+
+    assert selections == [
+        TopNSelection(
+            etf_id=1,
+            rank=1,
+            score=Decimal("0.4"),
+            target_weight=Decimal("0.5"),
+        ),
+        TopNSelection(
+            etf_id=2,
+            rank=2,
+            score=Decimal("0.2"),
+            target_weight=Decimal("0.5"),
+        ),
+    ]
+
+
+def test_selects_all_available_ranked_etfs_when_top_n_is_insufficient() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = [
+        _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=1),
+    ]
+
+    selections = select_top_n_etfs(rankings, config)
+
+    assert selections == [
+        TopNSelection(
+            etf_id=1,
+            rank=1,
+            score=Decimal("0.4"),
+            target_weight=Decimal("1"),
+        ),
+    ]
+
+
+def test_selects_no_etfs_from_empty_rankings() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+
+    selections = select_top_n_etfs([], config)
+
+    assert selections == []
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -333,6 +404,15 @@ def _momentum_score(*, etf_id: int, score: Decimal | None) -> MomentumScore:
         short_return=score,
         long_return=score,
         score=score,
+    )
+
+
+def _momentum_ranking(*, etf_id: int, score: Decimal, rank: int) -> MomentumRanking:
+    return MomentumRanking(
+        etf_id=etf_id,
+        as_of_date=_trade_date(30),
+        score=score,
+        rank=rank,
     )
 
 
