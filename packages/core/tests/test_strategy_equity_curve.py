@@ -10,6 +10,7 @@ from vela_core import (
     persist_strategy_signal,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
+from vela_core.strategy_config import StrategyConfig
 
 
 def test_calculate_strategy_equity_curve_returns_empty_for_empty_dates() -> None:
@@ -19,7 +20,7 @@ def test_calculate_strategy_equity_curve_returns_empty_for_empty_dates() -> None
         points = calculate_strategy_equity_curve(
             session,
             trading_dates=[],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert points == []
@@ -37,7 +38,7 @@ def test_calculate_strategy_equity_curve_sets_initial_net_value() -> None:
         points = calculate_strategy_equity_curve(
             session,
             trading_dates=[date(2026, 6, 23)],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert points == [
@@ -72,7 +73,7 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
         points = calculate_strategy_equity_curve(
             session,
             trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert [point.net_value for point in points] == [
@@ -104,7 +105,7 @@ def test_calculate_strategy_equity_curve_carries_and_rebalances_holdings() -> No
                 date(2026, 6, 24),
                 date(2026, 6, 25),
             ],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert [point.net_value for point in points] == [
@@ -121,7 +122,7 @@ def test_calculate_strategy_equity_curve_keeps_net_value_for_empty_holdings() ->
         points = calculate_strategy_equity_curve(
             session,
             trading_dates=[date(2026, 6, 22), date(2026, 6, 23)],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert [point.net_value for point in points] == [
@@ -143,17 +144,114 @@ def test_calculate_strategy_equity_curve_treats_missing_price_input_as_neutral()
         points = calculate_strategy_equity_curve(
             session,
             trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
-            config_version="v1",
+            strategy_config=_strategy_config(),
         )
 
     assert points[1].net_value == Decimal("1.000000")
     assert points[1].daily_return == Decimal("0.000000")
 
 
+def test_calculate_strategy_equity_curve_deducts_initial_entry_transaction_cost() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=spy.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=100)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+        )
+
+    assert points[1].daily_return == Decimal("-0.001000")
+    assert points[1].net_value == Decimal("0.999000")
+
+
+def test_calculate_strategy_equity_curve_deducts_rebalance_transaction_cost() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+        )
+
+    assert points[1].daily_return == Decimal("0.098000")
+    assert points[1].net_value == Decimal("1.098000")
+
+
+def test_calculate_strategy_equity_curve_skips_transaction_cost_when_configured_zero() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=spy.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=100)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=0),
+        )
+
+    assert points[1].daily_return == Decimal("0.000000")
+    assert points[1].net_value == Decimal("1.000000")
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _strategy_config(transaction_cost_bps: float = 0) -> StrategyConfig:
+    return StrategyConfig.model_validate(
+        {
+            "strategy_id": "dual_momentum",
+            "version": "v1",
+            "universe_config": "config/etf_pool.yaml",
+            "momentum": {
+                "short_window_days": 63,
+                "long_window_days": 126,
+            },
+            "score_weights": {
+                "short": 0.4,
+                "long": 0.6,
+            },
+            "trend_filter": {
+                "moving_average_days": 120,
+                "price_relation": "above",
+            },
+            "selection": {
+                "top_n": 2,
+            },
+            "defense": {
+                "asset": {
+                    "exchange": "SSE",
+                    "symbol": "511010",
+                },
+            },
+            "costs": {
+                "transaction_cost_bps": transaction_cost_bps,
+            },
+        }
+    )
 
 
 def _add_etf(session: Session, symbol: str) -> ETFInfo:

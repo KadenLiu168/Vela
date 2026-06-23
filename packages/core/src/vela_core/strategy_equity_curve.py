@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 
 from vela_core.models import MarketPrice
 from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
+from vela_core.strategy_config import StrategyConfig
 
 _SIX_PLACES = Decimal("0.000001")
+_BASIS_POINTS = Decimal("10000")
 _PriceKey: TypeAlias = tuple[int, date]
 
 
@@ -24,7 +26,7 @@ def calculate_strategy_equity_curve(
     session: Session,
     *,
     trading_dates: list[date],
-    config_version: str,
+    strategy_config: StrategyConfig,
 ) -> list[StrategyEquityCurvePoint]:
     if not trading_dates:
         return []
@@ -32,9 +34,10 @@ def calculate_strategy_equity_curve(
     holding_snapshots = calculate_portfolio_holdings(
         session,
         trading_dates=trading_dates,
-        config_version=config_version,
+        config_version=strategy_config.version,
     )
     prices_by_key = _load_prices_by_key(session, holding_snapshots)
+    transaction_cost_rate = Decimal(str(strategy_config.costs.transaction_cost_bps)) / _BASIS_POINTS
 
     points = [
         StrategyEquityCurvePoint(
@@ -48,8 +51,10 @@ def calculate_strategy_equity_curve(
     for index, snapshot in enumerate(holding_snapshots[1:], start=1):
         daily_return = _calculate_daily_return(
             snapshot=snapshot,
+            previous_snapshot=holding_snapshots[index - 1],
             previous_date=trading_dates[index - 1],
             prices_by_key=prices_by_key,
+            transaction_cost_rate=transaction_cost_rate,
         )
         net_value = (net_value * (Decimal("1") + daily_return)).quantize(_SIX_PLACES)
         points.append(
@@ -85,8 +90,10 @@ def _load_prices_by_key(
 def _calculate_daily_return(
     *,
     snapshot: PortfolioHoldingSnapshot,
+    previous_snapshot: PortfolioHoldingSnapshot,
     previous_date: date,
     prices_by_key: dict[_PriceKey, Decimal],
+    transaction_cost_rate: Decimal,
 ) -> Decimal:
     daily_return = Decimal("0")
 
@@ -98,4 +105,29 @@ def _calculate_daily_return(
 
         daily_return += holding.target_weight * (current_price / previous_price - Decimal("1"))
 
-    return daily_return
+    turnover = _calculate_turnover(previous_snapshot, snapshot)
+    return daily_return - turnover * transaction_cost_rate
+
+
+def _calculate_turnover(
+    previous_snapshot: PortfolioHoldingSnapshot,
+    current_snapshot: PortfolioHoldingSnapshot,
+) -> Decimal:
+    previous_weights = {
+        holding.etf_id: holding.target_weight for holding in previous_snapshot.holdings
+    }
+    current_weights = {
+        holding.etf_id: holding.target_weight for holding in current_snapshot.holdings
+    }
+    etf_ids = previous_weights.keys() | current_weights.keys()
+
+    return sum(
+        (
+            abs(
+                current_weights.get(etf_id, Decimal("0"))
+                - previous_weights.get(etf_id, Decimal("0"))
+            )
+            for etf_id in etf_ids
+        ),
+        Decimal("0"),
+    )
