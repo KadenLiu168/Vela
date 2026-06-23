@@ -39,6 +39,7 @@ from vela_core.rebalance_dates import generate_weekly_rebalance_dates
 from vela_core.strategy_signal_generation import (
     GeneratedSignalPosition,
     GenerateStrategySignalResult,
+    generate_historical_strategy_signals,
     generate_strategy_signal,
 )
 from vela_core.strategy_signal_persistence import (
@@ -88,6 +89,7 @@ __all__ = [
     "calculate_momentum_score",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
+    "generate_historical_strategy_signals",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
     "generate_strategy_signal",

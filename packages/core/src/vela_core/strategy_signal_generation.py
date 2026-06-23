@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -13,6 +14,7 @@ from vela_core.momentum_scoring import (
     rank_momentum_scores,
     select_with_defensive_fallback,
 )
+from vela_core.rebalance_dates import generate_weekly_rebalance_dates
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_signal_persistence import (
     StrategySignalPositionInput,
@@ -122,6 +124,24 @@ def generate_strategy_signal(
         error_message=None,
         positions=positions,
     )
+
+
+def generate_historical_strategy_signals(
+    session: Session,
+    *,
+    historical_trading_dates: Iterable[date],
+    config: StrategyConfig,
+    generated_at: datetime | None = None,
+) -> list[GenerateStrategySignalResult]:
+    return [
+        generate_strategy_signal(
+            session,
+            signal_date=rebalance_date,
+            config=config,
+            generated_at=generated_at,
+        )
+        for rebalance_date in generate_weekly_rebalance_dates(historical_trading_dates)
+    ]
 
 
 def _list_active_etfs(session: Session) -> list[ETFInfo]:
