@@ -35,6 +35,7 @@ from vela_core.momentum_scoring import (
     select_top_n_etfs,
     select_with_defensive_fallback,
 )
+from vela_core.rebalance_dates import generate_weekly_rebalance_dates
 from vela_core.strategy_signal_generation import (
     GeneratedSignalPosition,
     GenerateStrategySignalResult,
@@ -87,6 +88,7 @@ __all__ = [
     "calculate_momentum_score",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
+    "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
     "generate_strategy_signal",
     "export_latest_strategy_signal_report",
