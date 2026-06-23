@@ -18,6 +18,14 @@ class MomentumScore:
     score: Decimal | None
 
 
+@dataclass(frozen=True)
+class MomentumRanking:
+    etf_id: int
+    as_of_date: date
+    score: Decimal
+    rank: int
+
+
 def calculate_momentum_score(
     session: Session,
     *,
@@ -55,6 +63,28 @@ def calculate_momentum_score(
         long_return=long_return,
         score=score,
     )
+
+
+def rank_momentum_scores(scores: list[MomentumScore]) -> list[MomentumRanking]:
+    eligible_scores = [
+        (score, score.score)
+        for score in scores
+        if score.score is not None
+    ]
+    sorted_scores = sorted(
+        eligible_scores,
+        key=lambda score_with_value: (-score_with_value[1], score_with_value[0].etf_id),
+    )
+
+    return [
+        MomentumRanking(
+            etf_id=score_with_value[0].etf_id,
+            as_of_date=score_with_value[0].as_of_date,
+            score=score_with_value[1],
+            rank=rank,
+        )
+        for rank, score_with_value in enumerate(sorted_scores, start=1)
+    ]
 
 
 def _calculate_window_return(

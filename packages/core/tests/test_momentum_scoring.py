@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import MomentumScore, calculate_momentum_score
+from vela_core import MomentumRanking, MomentumScore, calculate_momentum_score, rank_momentum_scores
 from vela_core.models import Base, ETFInfo, MarketPrice
 from vela_core.strategy_config import StrategyConfig
 
@@ -201,6 +201,88 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
     assert momentum_score.score == Decimal("0.288")
 
 
+def test_ranks_momentum_scores_by_score_descending() -> None:
+    rankings = rank_momentum_scores(
+        [
+            _momentum_score(etf_id=1, score=Decimal("0.12")),
+            _momentum_score(etf_id=2, score=Decimal("0.41")),
+            _momentum_score(etf_id=3, score=Decimal("0.25")),
+        ]
+    )
+
+    assert rankings == [
+        MomentumRanking(
+            etf_id=2,
+            as_of_date=_trade_date(30),
+            score=Decimal("0.41"),
+            rank=1,
+        ),
+        MomentumRanking(
+            etf_id=3,
+            as_of_date=_trade_date(30),
+            score=Decimal("0.25"),
+            rank=2,
+        ),
+        MomentumRanking(
+            etf_id=1,
+            as_of_date=_trade_date(30),
+            score=Decimal("0.12"),
+            rank=3,
+        ),
+    ]
+
+
+def test_ranks_equal_momentum_scores_by_etf_id_ascending() -> None:
+    rankings = rank_momentum_scores(
+        [
+            _momentum_score(etf_id=3, score=Decimal("0.2")),
+            _momentum_score(etf_id=1, score=Decimal("0.2")),
+            _momentum_score(etf_id=2, score=Decimal("0.2")),
+        ]
+    )
+
+    assert [ranking.etf_id for ranking in rankings] == [1, 2, 3]
+
+
+def test_excludes_missing_momentum_scores_from_rankings() -> None:
+    rankings = rank_momentum_scores(
+        [
+            _momentum_score(etf_id=1, score=Decimal("0.3")),
+            _momentum_score(etf_id=2, score=None),
+            _momentum_score(etf_id=3, score=Decimal("0.1")),
+        ]
+    )
+
+    assert [ranking.etf_id for ranking in rankings] == [1, 3]
+
+
+def test_assigns_continuous_ranks_after_excluding_missing_scores() -> None:
+    rankings = rank_momentum_scores(
+        [
+            _momentum_score(etf_id=1, score=None),
+            _momentum_score(etf_id=2, score=Decimal("0.2")),
+            _momentum_score(etf_id=3, score=Decimal("0.4")),
+        ]
+    )
+
+    assert [ranking.rank for ranking in rankings] == [1, 2]
+
+
+def test_ranked_momentum_scores_support_top_n_selection() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = rank_momentum_scores(
+        [
+            _momentum_score(etf_id=1, score=Decimal("0.3")),
+            _momentum_score(etf_id=2, score=Decimal("0.1")),
+            _momentum_score(etf_id=3, score=Decimal("0.5")),
+        ]
+    )
+
+    top_rankings = rankings[: config.selection.top_n]
+
+    assert [ranking.etf_id for ranking in top_rankings] == [3, 1]
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -242,6 +324,16 @@ def _add_price_history(
 
 def _trade_date(offset: int) -> date:
     return date(2026, 1, 1) + timedelta(days=offset)
+
+
+def _momentum_score(*, etf_id: int, score: Decimal | None) -> MomentumScore:
+    return MomentumScore(
+        etf_id=etf_id,
+        as_of_date=_trade_date(30),
+        short_return=score,
+        long_return=score,
+        score=score,
+    )
 
 
 def _market_price(
