@@ -26,6 +26,7 @@ from vela_core.market_price_returns import (
 )
 from vela_core.market_price_upsert import MarketPriceUpsertResult, upsert_market_prices
 from vela_core.momentum_scoring import MomentumScore, calculate_momentum_score
+from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
 __version__ = "0.1.0"
 
@@ -43,6 +44,8 @@ __all__ = [
     "MarketPriceReturns",
     "MarketPriceUpsertResult",
     "MomentumScore",
+    "TrendFilterResult",
+    "apply_trend_filter",
     "calculate_market_price_moving_average",
     "calculate_market_price_returns",
     "calculate_momentum_score",

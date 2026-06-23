@@ -19,6 +19,8 @@ def test_strategy_v1_config_loads_and_validates() -> None:
     assert config.momentum.long_window_days == 126
     assert config.score_weights.short == 0.4
     assert config.score_weights.long == 0.6
+    assert config.trend_filter.moving_average_days == 120
+    assert config.trend_filter.price_relation == "above"
     assert config.selection.top_n == 2
     assert config.defense.asset.exchange == "SSE"
     assert config.defense.asset.symbol == "511010"
@@ -161,7 +163,7 @@ def test_strategy_config_loader_accepts_active_defensive_asset(
 
 @pytest.mark.parametrize(
     "group",
-    ["momentum", "score_weights", "selection", "defense", "costs"],
+    ["momentum", "score_weights", "trend_filter", "selection", "defense", "costs"],
 )
 def test_strategy_config_rejects_missing_required_groups(group: str) -> None:
     config = _valid_strategy_config()
@@ -223,6 +225,24 @@ def test_strategy_config_rejects_zero_score_weights(field: str) -> None:
         StrategyConfig.model_validate(config)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("moving_average_days", 60),
+        ("price_relation", "at_or_above"),
+    ],
+)
+def test_strategy_config_rejects_unsupported_trend_filter(
+    field: str,
+    value: int | str,
+) -> None:
+    config = _valid_strategy_config()
+    config["trend_filter"][field] = value
+
+    with pytest.raises(ValidationError):
+        StrategyConfig.model_validate(config)
+
+
 def test_strategy_config_rejects_invalid_top_n() -> None:
     config = _valid_strategy_config()
     config["selection"]["top_n"] = 0
@@ -261,6 +281,10 @@ def _valid_strategy_config() -> dict[str, Any]:
             "score_weights": {
                 "short": 0.4,
                 "long": 0.6,
+            },
+            "trend_filter": {
+                "moving_average_days": 120,
+                "price_relation": "above",
             },
             "selection": {
                 "top_n": 2,

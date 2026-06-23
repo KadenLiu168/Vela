@@ -170,6 +170,9 @@ momentum:
 score_weights:
   short: 0.4
   long: 0.6
+trend_filter:
+  moving_average_days: 120
+  price_relation: above
 selection:
   top_n: 2
 defense:
@@ -215,6 +218,9 @@ momentum:
 score_weights:
   short: 0.4
   long: 0.6
+trend_filter:
+  moving_average_days: 120
+  price_relation: above
 selection:
   top_n: 2
 defense:
@@ -251,6 +257,9 @@ momentum:
 score_weights:
   short: 0.4
   long: 0.6
+trend_filter:
+  moving_average_days: 120
+  price_relation: above
 selection:
   top_n: 2
 defense:

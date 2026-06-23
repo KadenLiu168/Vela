@@ -45,6 +45,13 @@ class ScoreWeightsConfig(BaseModel):
         return self
 
 
+class TrendFilterConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    moving_average_days: Literal[120]
+    price_relation: Literal["above"]
+
+
 class SelectionConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -71,6 +78,7 @@ class StrategyConfig(BaseModel):
     universe_config: str = Field(min_length=1)
     momentum: MomentumConfig
     score_weights: ScoreWeightsConfig
+    trend_filter: TrendFilterConfig
     selection: SelectionConfig
     defense: DefenseConfig
     costs: TransactionCostsConfig

@@ -4,161 +4,136 @@ from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import MomentumScore, calculate_momentum_score
+from vela_core import TrendFilterResult, apply_trend_filter
 from vela_core.models import Base, ETFInfo, MarketPrice
 from vela_core.strategy_config import StrategyConfig
 
 
-def test_calculates_weighted_momentum_score_from_complete_configured_windows() -> None:
+def test_passes_when_current_price_is_above_120_day_moving_average() -> None:
     session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=10, long_window_days=30)
+    config = _strategy_config()
 
     with session_factory() as session:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(
             session,
             etf_id=etf.id,
-            prices_by_offset={
-                0: Decimal("80"),
-                20: Decimal("100"),
-                30: Decimal("112"),
-            },
-            row_count=31,
+            prices_by_offset={119: Decimal("150")},
+            row_count=120,
         )
 
-        momentum_score = calculate_momentum_score(
+        result = apply_trend_filter(
             session,
             etf_id=etf.id,
-            as_of_date=_trade_date(30),
+            as_of_date=_trade_date(119),
             config=config,
         )
 
-    assert momentum_score == MomentumScore(
+    assert result == TrendFilterResult(
         etf_id=etf.id,
-        as_of_date=_trade_date(30),
-        short_return=Decimal("0.12"),
-        long_return=Decimal("0.4"),
-        score=Decimal("0.288"),
+        as_of_date=_trade_date(119),
+        current_price=Decimal("150"),
+        moving_average=Decimal("100.4166666666666666666666667"),
+        passes_filter=True,
     )
 
 
-def test_uses_configured_windows_instead_of_fixed_market_return_windows() -> None:
+def test_fails_when_current_price_equals_120_day_moving_average() -> None:
     session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=7, long_window_days=13)
+    config = _strategy_config()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=120)
+
+        result = apply_trend_filter(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(119),
+            config=config,
+        )
+
+    assert result.current_price == Decimal("100")
+    assert result.moving_average == Decimal("100")
+    assert result.passes_filter is False
+
+
+def test_fails_when_current_price_is_below_120_day_moving_average() -> None:
+    session_factory = _create_session_factory()
+    config = _strategy_config()
 
     with session_factory() as session:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(
             session,
             etf_id=etf.id,
-            prices_by_offset={
-                0: Decimal("65"),
-                6: Decimal("100"),
-                13: Decimal("130"),
-            },
-            row_count=14,
+            prices_by_offset={119: Decimal("50")},
+            row_count=120,
         )
 
-        momentum_score = calculate_momentum_score(
+        result = apply_trend_filter(
             session,
             etf_id=etf.id,
-            as_of_date=_trade_date(13),
+            as_of_date=_trade_date(119),
             config=config,
         )
 
-    assert momentum_score.short_return == Decimal("0.3")
-    assert momentum_score.long_return == Decimal("1")
-    assert momentum_score.score == Decimal("0.72")
+    assert result.current_price == Decimal("50")
+    assert result.moving_average == Decimal("99.58333333333333333333333333")
+    assert result.passes_filter is False
 
 
-def test_reproduces_momentum_score_for_identical_inputs() -> None:
+def test_fails_when_current_price_is_missing() -> None:
     session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=10, long_window_days=30)
+    config = _strategy_config()
 
     with session_factory() as session:
         etf = _add_etf(session, symbol="SPY")
-        _add_price_history(
-            session,
-            etf_id=etf.id,
-            prices_by_offset={
-                0: Decimal("80"),
-                20: Decimal("100"),
-                30: Decimal("112"),
-            },
-            row_count=31,
-        )
+        _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=120)
 
-        first_score = calculate_momentum_score(
+        result = apply_trend_filter(
             session,
             etf_id=etf.id,
-            as_of_date=_trade_date(30),
-            config=config,
-        )
-        second_score = calculate_momentum_score(
-            session,
-            etf_id=etf.id,
-            as_of_date=_trade_date(30),
+            as_of_date=_trade_date(130),
             config=config,
         )
 
-    assert first_score == second_score
-
-
-def test_returns_none_score_when_a_configured_window_has_insufficient_history() -> None:
-    session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=5, long_window_days=20)
-
-    with session_factory() as session:
-        etf = _add_etf(session, symbol="SPY")
-        _add_price_history(
-            session,
-            etf_id=etf.id,
-            prices_by_offset={
-                5: Decimal("100"),
-                10: Decimal("125"),
-            },
-            row_count=11,
-        )
-
-        momentum_score = calculate_momentum_score(
-            session,
-            etf_id=etf.id,
-            as_of_date=_trade_date(10),
-            config=config,
-        )
-
-    assert momentum_score.short_return == Decimal("0.25")
-    assert momentum_score.long_return is None
-    assert momentum_score.score is None
-
-
-def test_returns_none_score_when_current_price_is_missing() -> None:
-    session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=10, long_window_days=30)
-
-    with session_factory() as session:
-        etf = _add_etf(session, symbol="SPY")
-        _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=31)
-
-        momentum_score = calculate_momentum_score(
-            session,
-            etf_id=etf.id,
-            as_of_date=_trade_date(40),
-            config=config,
-        )
-
-    assert momentum_score == MomentumScore(
+    assert result == TrendFilterResult(
         etf_id=etf.id,
-        as_of_date=_trade_date(40),
-        short_return=None,
-        long_return=None,
-        score=None,
+        as_of_date=_trade_date(130),
+        current_price=None,
+        moving_average=None,
+        passes_filter=False,
+    )
+
+
+def test_fails_when_moving_average_is_missing() -> None:
+    session_factory = _create_session_factory()
+    config = _strategy_config()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=119)
+
+        result = apply_trend_filter(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(118),
+            config=config,
+        )
+
+    assert result == TrendFilterResult(
+        etf_id=etf.id,
+        as_of_date=_trade_date(118),
+        current_price=Decimal("100"),
+        moving_average=None,
+        passes_filter=False,
     )
 
 
 def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
     session_factory = _create_session_factory()
-    config = _strategy_config(short_window_days=10, long_window_days=30)
+    config = _strategy_config()
 
     with session_factory() as session:
         target_etf = _add_etf(session, symbol="SPY")
@@ -166,39 +141,27 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
         _add_price_history(
             session,
             etf_id=target_etf.id,
-            prices_by_offset={
-                0: Decimal("1"),
-                20: Decimal("1"),
-                30: Decimal("1"),
-            },
-            adjusted_close_by_offset={
-                0: Decimal("80"),
-                20: Decimal("100"),
-                30: Decimal("112"),
-            },
-            row_count=31,
+            prices_by_offset={119: Decimal("1")},
+            adjusted_close_by_offset={119: Decimal("150")},
+            row_count=120,
         )
         _add_price_history(
             session,
             etf_id=other_etf.id,
-            prices_by_offset={
-                0: Decimal("1000"),
-                20: Decimal("1000"),
-                30: Decimal("1000"),
-            },
-            row_count=31,
+            prices_by_offset={offset: Decimal("1000") for offset in range(120)},
+            row_count=120,
         )
 
-        momentum_score = calculate_momentum_score(
+        result = apply_trend_filter(
             session,
             etf_id=target_etf.id,
-            as_of_date=_trade_date(30),
+            as_of_date=_trade_date(119),
             config=config,
         )
 
-    assert momentum_score.short_return == Decimal("0.12")
-    assert momentum_score.long_return == Decimal("0.4")
-    assert momentum_score.score == Decimal("0.288")
+    assert result.current_price == Decimal("150")
+    assert result.moving_average == Decimal("100.4166666666666666666666667")
+    assert result.passes_filter is True
 
 
 def _create_session_factory() -> sessionmaker[Session]:
@@ -263,24 +226,18 @@ def _market_price(
     )
 
 
-def _strategy_config(
-    *,
-    short_window_days: int,
-    long_window_days: int,
-    short_weight: float = 0.4,
-    long_weight: float = 0.6,
-) -> StrategyConfig:
+def _strategy_config() -> StrategyConfig:
     config: dict[str, Any] = {
         "strategy_id": "dual_momentum",
         "version": "v1",
         "universe_config": "config/etf_pool.yaml",
         "momentum": {
-            "short_window_days": short_window_days,
-            "long_window_days": long_window_days,
+            "short_window_days": 63,
+            "long_window_days": 126,
         },
         "score_weights": {
-            "short": short_weight,
-            "long": long_weight,
+            "short": 0.4,
+            "long": 0.6,
         },
         "trend_filter": {
             "moving_average_days": 120,
