@@ -45,9 +45,11 @@ from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
     StrategyMaximumDrawdown,
+    StrategyVolatility,
     calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
     calculate_strategy_maximum_drawdown,
+    calculate_strategy_volatility,
 )
 from vela_core.strategy_signal_generation import (
     GeneratedSignalPosition,
@@ -95,6 +97,7 @@ __all__ = [
     "StrategyEquityCurvePoint",
     "StrategyAnnualizedReturn",
     "StrategyMaximumDrawdown",
+    "StrategyVolatility",
     "StrategySignalPersistenceResult",
     "StrategySignalPositionInput",
     "StrategySignalReport",
@@ -109,6 +112,7 @@ __all__ = [
     "calculate_strategy_annualized_return",
     "calculate_strategy_equity_curve",
     "calculate_strategy_maximum_drawdown",
+    "calculate_strategy_volatility",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "generate_historical_strategy_signals",

@@ -8,9 +8,11 @@ from vela_core import (
     StrategyEquityCurvePoint,
     StrategyMaximumDrawdown,
     StrategySignalPositionInput,
+    StrategyVolatility,
     calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
     calculate_strategy_maximum_drawdown,
+    calculate_strategy_volatility,
     persist_strategy_signal,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
@@ -411,6 +413,84 @@ def test_calculate_strategy_maximum_drawdown_returns_zero_for_rising_curve() -> 
         peak_date=None,
         trough_date=None,
     )
+
+
+def test_calculate_strategy_volatility_excludes_initial_placeholder_return() -> None:
+    result = calculate_strategy_volatility(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.990000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.010000"),
+                daily_return=Decimal("0.010000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("0.989800"),
+                daily_return=Decimal("-0.020000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 4),
+                net_value=Decimal("1.019494"),
+                daily_return=Decimal("0.030000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyVolatility(volatility=Decimal("0.326190"))
+
+
+def test_calculate_strategy_volatility_returns_zero_for_flat_returns() -> None:
+    result = calculate_strategy_volatility(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyVolatility(volatility=Decimal("0.000000"))
+
+
+def test_calculate_strategy_volatility_returns_none_for_empty_curve() -> None:
+    result = calculate_strategy_volatility([])
+
+    assert result == StrategyVolatility(volatility=None)
+
+
+def test_calculate_strategy_volatility_returns_none_for_one_effective_return() -> None:
+    result = calculate_strategy_volatility(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.010000"),
+                daily_return=Decimal("0.010000"),
+            ),
+        ]
+    )
+
+    assert result == StrategyVolatility(volatility=None)
 
 
 def _create_session_factory() -> sessionmaker[Session]:

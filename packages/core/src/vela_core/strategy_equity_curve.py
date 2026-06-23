@@ -35,6 +35,11 @@ class StrategyMaximumDrawdown:
     trough_date: date | None
 
 
+@dataclass(frozen=True)
+class StrategyVolatility:
+    volatility: Decimal | None
+
+
 def calculate_strategy_equity_curve(
     session: Session,
     *,
@@ -135,6 +140,23 @@ def calculate_strategy_maximum_drawdown(
         peak_date=peak_date,
         trough_date=trough_date,
     )
+
+
+def calculate_strategy_volatility(points: list[StrategyEquityCurvePoint]) -> StrategyVolatility:
+    effective_returns = [point.daily_return for point in points[1:]]
+    if len(effective_returns) < 2:
+        return StrategyVolatility(volatility=None)
+
+    mean_return = sum(effective_returns, Decimal("0")) / Decimal(len(effective_returns))
+    variance = sum(
+        ((daily_return - mean_return) * (daily_return - mean_return))
+        for daily_return in effective_returns
+    ) / Decimal(len(effective_returns))
+    annualized_volatility = Decimal(str((float(variance) ** 0.5) * (252**0.5))).quantize(
+        _SIX_PLACES
+    )
+
+    return StrategyVolatility(volatility=annualized_volatility)
 
 
 def _load_prices_by_key(
