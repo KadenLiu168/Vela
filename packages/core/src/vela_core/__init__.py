@@ -35,6 +35,11 @@ from vela_core.momentum_scoring import (
     select_top_n_etfs,
     select_with_defensive_fallback,
 )
+from vela_core.strategy_signal_generation import (
+    GeneratedSignalPosition,
+    GenerateStrategySignalResult,
+    generate_strategy_signal,
+)
 from vela_core.strategy_signal_persistence import (
     StrategySignalPersistenceResult,
     StrategySignalPositionInput,
@@ -53,6 +58,8 @@ __all__ = [
     "DefensiveFallbackSelection",
     "ETFConfig",
     "ETFPoolConfig",
+    "GeneratedSignalPosition",
+    "GenerateStrategySignalResult",
     "MarketDataProvider",
     "MarketDataProviderError",
     "MarketDataFetchResult",
@@ -72,6 +79,7 @@ __all__ = [
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "get_latest_successful_strategy_signal",
+    "generate_strategy_signal",
     "load_app_config",
     "load_etf_pool_config",
     "persist_strategy_signal",

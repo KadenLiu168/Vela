@@ -3,22 +3,29 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 
 from alembic.config import Config
+from sqlalchemy import func, select
 from vela_core import (
     AkShareMarketDataProvider,
+    GenerateStrategySignalResult,
     MarketDataFetchResult,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
+    generate_strategy_signal,
 )
 from vela_core.database import create_engine_from_url, create_session_factory, managed_session
+from vela_core.models import MarketPrice
+from vela_core.strategy_config import load_strategy_config
 
 from alembic import command
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
 DEFAULT_DATABASE_URL = "sqlite+pysqlite:///vela.db"
+DEFAULT_STRATEGY_CONFIG_PATH = ROOT / "config" / "strategy_v1.yaml"
 
 
 def _build_alembic_config(
@@ -64,6 +71,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Fetch only market data newer than the latest local market price date",
     )
 
+    generate_signal_parser = subparsers.add_parser(
+        "generate-signal",
+        help="Generate and persist the latest strategy signal",
+    )
+    generate_signal_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to read market data from and write the signal into",
+    )
+    generate_signal_parser.add_argument(
+        "--strategy-config",
+        default=str(DEFAULT_STRATEGY_CONFIG_PATH),
+        help="Strategy configuration YAML path",
+    )
+    generate_signal_parser.add_argument(
+        "--signal-date",
+        type=_parse_signal_date,
+        default=None,
+        help="Signal date in YYYY-MM-DD format; defaults to latest local market price date",
+    )
+
     return parser
 
 
@@ -83,7 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "fetch-market-data":
         try:
-            result = (
+            fetch_result = (
                 fetch_incremental_market_data(args.database_url)
                 if args.incremental
                 else fetch_full_market_data(args.database_url)
@@ -92,8 +120,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Failed to fetch market data into {args.database_url}: {exc}", file=sys.stderr)
             return 1
 
-        _print_fetch_summary(result)
-        return 1 if result.status == "failed" else 0
+        _print_fetch_summary(fetch_result)
+        return 1 if fetch_result.status == "failed" else 0
+
+    if args.command == "generate-signal":
+        try:
+            signal_result = generate_signal(
+                args.database_url,
+                strategy_config_path=Path(args.strategy_config),
+                signal_date=args.signal_date,
+            )
+        except Exception as exc:
+            print(f"Failed to generate signal in {args.database_url}: {exc}", file=sys.stderr)
+            return 1
+
+        _print_signal_summary(signal_result)
+        return 1 if signal_result.status == "failed" else 0
 
     parser.error(f"unknown command: {args.command}")
     return 2
@@ -113,6 +155,28 @@ def fetch_incremental_market_data(database_url: str) -> MarketDataFetchResult:
         return fetch_incremental_market_prices(session, provider=AkShareMarketDataProvider())
 
 
+def generate_signal(
+    database_url: str,
+    *,
+    strategy_config_path: Path,
+    signal_date: date | None,
+) -> GenerateStrategySignalResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    config = load_strategy_config(strategy_config_path)
+    with managed_session(session_factory) as session:
+        resolved_signal_date = signal_date or session.scalar(
+            select(func.max(MarketPrice.trade_date))
+        )
+        if resolved_signal_date is None:
+            raise ValueError("No local market prices found")
+        return generate_strategy_signal(
+            session,
+            signal_date=resolved_signal_date,
+            config=config,
+        )
+
+
 def _print_fetch_summary(result: MarketDataFetchResult) -> None:
     print(f"Market data fetch status: {result.status}")
     print(f"Requested symbols: {result.requested_symbol_count}")
@@ -123,6 +187,32 @@ def _print_fetch_summary(result: MarketDataFetchResult) -> None:
         print(f"Failed symbols: {', '.join(result.failed_symbols)}")
     if result.error_message:
         print(f"Error: {result.error_message}")
+
+
+def _print_signal_summary(result: GenerateStrategySignalResult) -> None:
+    print(f"Strategy signal status: {result.status}")
+    print(f"Result: {result.result}")
+    print(f"Signal date: {result.signal_date.isoformat()}")
+    print(f"Config version: {result.config_version}")
+    print(f"Signal id: {result.strategy_signal_id}")
+    if result.positions:
+        print("Positions:")
+        for position in result.positions:
+            rank = "" if position.rank is None else f" rank={position.rank}"
+            score = "" if position.score is None else f" score={position.score}"
+            print(
+                f"- {position.exchange} {position.symbol} weight={position.target_weight}"
+                f"{rank}{score}"
+            )
+    if result.error_message:
+        print(f"Error: {result.error_message}")
+
+
+def _parse_signal_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("signal date must use YYYY-MM-DD format") from exc
 
 
 if __name__ == "__main__":
