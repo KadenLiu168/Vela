@@ -5,12 +5,14 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
+    DefensiveFallbackSelection,
     MomentumRanking,
     MomentumScore,
     TopNSelection,
     calculate_momentum_score,
     rank_momentum_scores,
     select_top_n_etfs,
+    select_with_defensive_fallback,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
 from vela_core.strategy_config import StrategyConfig
@@ -352,6 +354,50 @@ def test_selects_no_etfs_from_empty_rankings() -> None:
     selections = select_top_n_etfs([], config)
 
     assert selections == []
+
+
+def test_selects_defensive_asset_when_ranked_etfs_are_insufficient() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = [
+        _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=1),
+    ]
+
+    selections = select_with_defensive_fallback(rankings, config)
+
+    assert selections == [
+        DefensiveFallbackSelection(
+            exchange="SSE",
+            symbol="511010",
+            rank=None,
+            score=None,
+            target_weight=Decimal("1"),
+        )
+    ]
+
+
+def test_selects_top_n_without_defensive_asset_when_ranked_etfs_are_sufficient() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+    rankings = [
+        _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=2),
+        _momentum_ranking(etf_id=2, score=Decimal("0.6"), rank=1),
+    ]
+
+    selections = select_with_defensive_fallback(rankings, config)
+
+    assert selections == [
+        TopNSelection(
+            etf_id=2,
+            rank=1,
+            score=Decimal("0.6"),
+            target_weight=Decimal("0.5"),
+        ),
+        TopNSelection(
+            etf_id=1,
+            rank=2,
+            score=Decimal("0.4"),
+            target_weight=Decimal("0.5"),
+        ),
+    ]
 
 
 def _create_session_factory() -> sessionmaker[Session]:

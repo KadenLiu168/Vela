@@ -26,12 +26,14 @@ from vela_core.market_price_returns import (
 )
 from vela_core.market_price_upsert import MarketPriceUpsertResult, upsert_market_prices
 from vela_core.momentum_scoring import (
+    DefensiveFallbackSelection,
     MomentumRanking,
     MomentumScore,
     TopNSelection,
     calculate_momentum_score,
     rank_momentum_scores,
     select_top_n_etfs,
+    select_with_defensive_fallback,
 )
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
@@ -42,6 +44,7 @@ __all__ = [
     "AppConfig",
     "ConfigError",
     "DailyPrice",
+    "DefensiveFallbackSelection",
     "ETFConfig",
     "ETFPoolConfig",
     "MarketDataProvider",
@@ -63,6 +66,7 @@ __all__ = [
     "load_app_config",
     "load_etf_pool_config",
     "rank_momentum_scores",
+    "select_with_defensive_fallback",
     "select_top_n_etfs",
     "to_market_price",
     "upsert_market_prices",

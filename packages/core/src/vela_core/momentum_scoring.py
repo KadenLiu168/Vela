@@ -34,6 +34,15 @@ class TopNSelection:
     target_weight: Decimal
 
 
+@dataclass(frozen=True)
+class DefensiveFallbackSelection:
+    exchange: str
+    symbol: str
+    rank: int | None
+    score: Decimal | None
+    target_weight: Decimal
+
+
 def calculate_momentum_score(
     session: Session,
     *,
@@ -109,6 +118,27 @@ def select_top_n_etfs(
         )
         for ranking in selected_rankings
     ]
+
+
+def select_with_defensive_fallback(
+    rankings: list[MomentumRanking],
+    config: StrategyConfig,
+) -> list[TopNSelection | DefensiveFallbackSelection]:
+    if len(rankings) < config.selection.top_n:
+        return [
+            DefensiveFallbackSelection(
+                exchange=config.defense.asset.exchange,
+                symbol=config.defense.asset.symbol,
+                rank=None,
+                score=None,
+                target_weight=Decimal("1"),
+            )
+        ]
+
+    selections: list[TopNSelection | DefensiveFallbackSelection] = list(
+        select_top_n_etfs(rankings, config)
+    )
+    return selections
 
 
 def _calculate_window_return(
