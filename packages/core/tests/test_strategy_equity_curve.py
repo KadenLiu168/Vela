@@ -91,6 +91,64 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
     assert points[1].daily_return == Decimal("0.020000")
 
 
+def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_effect() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 23),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.600000")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.400000")),
+            ],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 25),
+            positions=[
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000")),
+            ],
+        )
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 25), close_price=55)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=200)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=180)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 25), close_price=198)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[
+                date(2026, 6, 23),
+                date(2026, 6, 24),
+                date(2026, 6, 25),
+            ],
+            strategy_config=_strategy_config(),
+        )
+
+    assert points == [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 6, 23),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 6, 24),
+            net_value=Decimal("1.020000"),
+            daily_return=Decimal("0.020000"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 6, 25),
+            net_value=Decimal("1.122000"),
+            daily_return=Decimal("0.100000"),
+        ),
+    ]
+
+
 def test_calculate_strategy_equity_curve_carries_and_rebalances_holdings() -> None:
     session_factory = _create_session_factory()
 
