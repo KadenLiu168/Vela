@@ -153,6 +153,10 @@ The system SHALL provide SQLite upsert behavior for daily ETF market prices usin
 - **WHEN** backend code upserts multiple market prices with the same `etf_id` and `trade_date` in one call
 - **THEN** the system stores one row for that key using the last supplied market price values
 
+#### Scenario: Verify duplicate batch persistence
+- **WHEN** backend code upserts duplicate market prices for one ETF and one trading date in one call
+- **THEN** the persisted `market_price` table contains exactly one row for that ETF and trading date
+
 ### Requirement: Full active ETF market price fetch workflow
 The system SHALL provide a full daily market price fetch workflow that processes all active ETF metadata rows.
 

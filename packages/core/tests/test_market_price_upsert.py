@@ -117,6 +117,38 @@ def test_upsert_market_prices_uses_last_value_for_duplicate_batch_keys() -> None
         assert prices[0].volume == 2000
 
 
+def test_upsert_market_prices_deduplicates_repeated_etf_trade_date_writes() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        upsert_market_prices(
+            session,
+            [_market_price(etf_id=etf.id, close_price=Decimal("500.00"), volume=1000)],
+        )
+        session.commit()
+
+        result = upsert_market_prices(
+            session,
+            [
+                _market_price(etf_id=etf.id, close_price=Decimal("501.00"), volume=2000),
+                _market_price(etf_id=etf.id, close_price=Decimal("502.00"), volume=3000),
+            ],
+        )
+        session.commit()
+
+        price = session.query(MarketPrice).filter_by(
+            etf_id=etf.id,
+            trade_date=date(2026, 6, 18),
+        ).one()
+
+        assert result.rows_inserted == 0
+        assert result.rows_updated == 1
+        assert session.query(MarketPrice).count() == 1
+        assert price.close_price == Decimal("502.000000")
+        assert price.volume == 3000
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
