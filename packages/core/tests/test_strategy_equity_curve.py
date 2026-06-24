@@ -414,6 +414,67 @@ def test_calculate_strategy_maximum_drawdown_returns_deepest_peak_to_trough_inte
     )
 
 
+def test_calculate_strategy_maximum_drawdown_returns_initial_peak_for_falling_curve() -> None:
+    result = calculate_strategy_maximum_drawdown(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("0.900000"),
+                daily_return=Decimal("-0.100000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("0.750000"),
+                daily_return=Decimal("-0.166667"),
+            ),
+        ]
+    )
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("-0.250000"),
+        peak_date=date(2026, 1, 1),
+        trough_date=date(2026, 1, 3),
+    )
+
+
+def test_calculate_strategy_maximum_drawdown_keeps_trough_when_curve_recovers() -> None:
+    result = calculate_strategy_maximum_drawdown(
+        [
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 1),
+                net_value=Decimal("1.000000"),
+                daily_return=Decimal("0.000000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 2),
+                net_value=Decimal("1.200000"),
+                daily_return=Decimal("0.200000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 3),
+                net_value=Decimal("0.840000"),
+                daily_return=Decimal("-0.300000"),
+            ),
+            StrategyEquityCurvePoint(
+                trade_date=date(2026, 1, 4),
+                net_value=Decimal("1.080000"),
+                daily_return=Decimal("0.285714"),
+            ),
+        ]
+    )
+
+    assert result == StrategyMaximumDrawdown(
+        max_drawdown=Decimal("-0.300000"),
+        peak_date=date(2026, 1, 2),
+        trough_date=date(2026, 1, 3),
+    )
+
+
 def test_calculate_strategy_maximum_drawdown_returns_zero_for_empty_curve() -> None:
     result = calculate_strategy_maximum_drawdown([])
 
