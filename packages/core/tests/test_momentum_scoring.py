@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
@@ -111,6 +112,101 @@ def test_reproduces_momentum_score_for_identical_inputs() -> None:
         )
 
     assert first_score == second_score
+
+
+@pytest.mark.parametrize(
+    (
+        "short_window_days",
+        "long_window_days",
+        "short_weight",
+        "long_weight",
+        "prices_by_offset",
+        "expected_short_return",
+        "expected_long_return",
+        "expected_score",
+    ),
+    [
+        (
+            5,
+            15,
+            0.25,
+            0.75,
+            {0: Decimal("80"), 10: Decimal("100"), 15: Decimal("120")},
+            Decimal("0.2"),
+            Decimal("0.5"),
+            Decimal("0.425"),
+        ),
+        (
+            8,
+            21,
+            0.7,
+            0.3,
+            {0: Decimal("100"), 13: Decimal("125"), 21: Decimal("150")},
+            Decimal("0.2"),
+            Decimal("0.5"),
+            Decimal("0.29"),
+        ),
+        (
+            12,
+            24,
+            0.55,
+            0.45,
+            {0: Decimal("90"), 12: Decimal("120"), 24: Decimal("144")},
+            Decimal("0.2"),
+            Decimal("0.6"),
+            Decimal("0.38"),
+        ),
+    ],
+)
+def test_calculates_reproducible_scores_for_multiple_window_and_weight_combinations(
+    short_window_days: int,
+    long_window_days: int,
+    short_weight: float,
+    long_weight: float,
+    prices_by_offset: dict[int, Decimal],
+    expected_short_return: Decimal,
+    expected_long_return: Decimal,
+    expected_score: Decimal,
+) -> None:
+    session_factory = _create_session_factory()
+    config = _strategy_config(
+        short_window_days=short_window_days,
+        long_window_days=long_window_days,
+        short_weight=short_weight,
+        long_weight=long_weight,
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_price_history(
+            session,
+            etf_id=etf.id,
+            prices_by_offset=prices_by_offset,
+            row_count=long_window_days + 1,
+        )
+
+        first_score = calculate_momentum_score(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(long_window_days),
+            config=config,
+        )
+        second_score = calculate_momentum_score(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(long_window_days),
+            config=config,
+        )
+
+    expected = MomentumScore(
+        etf_id=etf.id,
+        as_of_date=_trade_date(long_window_days),
+        short_return=expected_short_return,
+        long_return=expected_long_return,
+        score=expected_score,
+    )
+    assert first_score == expected
+    assert second_score == expected
 
 
 def test_returns_none_score_when_a_configured_window_has_insufficient_history() -> None:

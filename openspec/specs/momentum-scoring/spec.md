@@ -12,6 +12,12 @@ The system SHALL calculate a weighted momentum score for one ETF using the confi
 - **AND** the system returns the long-window return
 - **AND** the system returns a score equal to `short_return * score_weights.short + long_return * score_weights.long`
 
+#### Scenario: Calculate weighted scores for multiple configured combinations
+- **WHEN** backend code calculates momentum scores for multiple valid short/long momentum window pairs and score weight pairs
+- **THEN** each calculation returns component returns from the corresponding configured trading-row windows
+- **AND** each calculation returns a score equal to `short_return * score_weights.short + long_return * score_weights.long`
+- **AND** repeating the calculation with identical stored prices and strategy configuration returns the same component returns and weighted score
+
 #### Scenario: Use configured windows instead of fixed market return windows
 - **WHEN** backend code calculates a momentum score with configured short and long momentum windows
 - **THEN** each component return uses the corresponding configured trading-row window
