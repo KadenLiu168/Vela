@@ -10,6 +10,7 @@ from alembic.config import Config
 from sqlalchemy import func, select
 from vela_core import (
     AkShareMarketDataProvider,
+    BacktestRunResult,
     GenerateStrategySignalResult,
     LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
@@ -17,6 +18,9 @@ from vela_core import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
+)
+from vela_core import (
+    run_backtest as run_core_backtest,
 )
 from vela_core.database import create_engine_from_url, create_session_factory, managed_session
 from vela_core.models import MarketPrice
@@ -121,6 +125,33 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional path to write the report",
     )
 
+    run_backtest_parser = subparsers.add_parser(
+        "run-backtest",
+        help="Run and persist a historical backtest",
+    )
+    run_backtest_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to read market data from and write the backtest into",
+    )
+    run_backtest_parser.add_argument(
+        "--strategy-config",
+        default=str(DEFAULT_STRATEGY_CONFIG_PATH),
+        help="Strategy configuration YAML path",
+    )
+    run_backtest_parser.add_argument(
+        "--start-date",
+        type=_parse_iso_date,
+        required=True,
+        help="Backtest start date in YYYY-MM-DD format",
+    )
+    run_backtest_parser.add_argument(
+        "--end-date",
+        type=_parse_iso_date,
+        required=True,
+        help="Backtest end date in YYYY-MM-DD format",
+    )
+
     return parser
 
 
@@ -190,6 +221,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Exported signal report to {args.output}")
         return 0
 
+    if args.command == "run-backtest":
+        try:
+            result = run_backtest(
+                args.database_url,
+                strategy_config_path=Path(args.strategy_config),
+                start_date=args.start_date,
+                end_date=args.end_date,
+            )
+        except Exception as exc:
+            print(f"Failed to run backtest in {args.database_url}: {exc}", file=sys.stderr)
+            return 1
+
+        _print_backtest_summary(result)
+        return 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
 
@@ -247,6 +293,25 @@ def export_signal_report(
         )
 
 
+def run_backtest(
+    database_url: str,
+    *,
+    strategy_config_path: Path,
+    start_date: date,
+    end_date: date,
+) -> BacktestRunResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    config = load_strategy_config(strategy_config_path)
+    with managed_session(session_factory) as session:
+        return run_core_backtest(
+            session,
+            config=config,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+
 def _print_fetch_summary(result: MarketDataFetchResult) -> None:
     print(f"Market data fetch status: {result.status}")
     print(f"Requested symbols: {result.requested_symbol_count}")
@@ -278,11 +343,32 @@ def _print_signal_summary(result: GenerateStrategySignalResult) -> None:
         print(f"Error: {result.error_message}")
 
 
+def _print_backtest_summary(result: BacktestRunResult) -> None:
+    print(f"Backtest status: {result.status}")
+    print(f"Backtest run id: {result.backtest_run_id}")
+    print(f"Date range: {result.start_date.isoformat()} to {result.end_date.isoformat()}")
+    print(f"Trading days: {result.trading_day_count}")
+    print(f"Signals generated: {result.signal_count}")
+    print(f"Total return: {_format_optional_decimal(result.total_return)}")
+    print(f"Annualized return: {_format_optional_decimal(result.annualized_return)}")
+    print(f"Max drawdown: {result.max_drawdown}")
+    print(f"Volatility: {_format_optional_decimal(result.volatility)}")
+    print(f"Sharpe ratio: {_format_optional_decimal(result.sharpe_ratio)}")
+
+
+def _format_optional_decimal(value: object | None) -> str:
+    return "n/a" if value is None else str(value)
+
+
 def _parse_signal_date(value: str) -> date:
+    return _parse_iso_date(value, "signal date")
+
+
+def _parse_iso_date(value: str, label: str = "date") -> date:
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("signal date must use YYYY-MM-DD format") from exc
+        raise argparse.ArgumentTypeError(f"{label} must use YYYY-MM-DD format") from exc
 
 
 if __name__ == "__main__":

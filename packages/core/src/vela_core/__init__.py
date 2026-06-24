@@ -10,6 +10,7 @@ from vela_core.backtest_result_persistence import (
     get_backtest_result,
     persist_backtest_result,
 )
+from vela_core.backtest_runner import BacktestRunResult, run_backtest
 from vela_core.config import (
     ConfigError,
     ETFConfig,
@@ -88,6 +89,7 @@ __all__ = [
     "BacktestEquityCurveInput",
     "BacktestResultPersistenceResult",
     "BacktestResultRunInput",
+    "BacktestRunResult",
     "ConfigError",
     "DailyPrice",
     "DefensiveFallbackSelection",
@@ -140,6 +142,7 @@ __all__ = [
     "persist_strategy_signal",
     "persist_backtest_result",
     "rank_momentum_scores",
+    "run_backtest",
     "select_with_defensive_fallback",
     "select_top_n_etfs",
     "to_market_price",
