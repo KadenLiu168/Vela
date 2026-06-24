@@ -10,6 +10,7 @@ from alembic.config import Config
 from sqlalchemy import func, select
 from vela_core import (
     AkShareMarketDataProvider,
+    BacktestReportNotFoundError,
     BacktestRunResult,
     GenerateStrategySignalResult,
     LatestStrategySignalReportNotFoundError,
@@ -18,6 +19,9 @@ from vela_core import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
+)
+from vela_core import (
+    export_backtest_report as export_core_backtest_report,
 )
 from vela_core import (
     run_backtest as run_core_backtest,
@@ -152,6 +156,28 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Backtest end date in YYYY-MM-DD format",
     )
 
+    export_backtest_report_parser = subparsers.add_parser(
+        "export-backtest-report",
+        help="Export a persisted backtest report",
+    )
+    export_backtest_report_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to read the persisted backtest from",
+    )
+    export_backtest_report_parser.add_argument(
+        "--run-id",
+        type=int,
+        required=True,
+        help="Persisted backtest run id",
+    )
+    export_backtest_report_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional path to write the report",
+    )
+
     return parser
 
 
@@ -236,6 +262,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_backtest_summary(result)
         return 0
 
+    if args.command == "export-backtest-report":
+        try:
+            report = export_backtest_report(args.database_url, run_id=args.run_id)
+        except BacktestReportNotFoundError as exc:
+            print(f"Failed to export backtest report: {exc}", file=sys.stderr)
+            return 1
+        except Exception as exc:
+            print(
+                f"Failed to export backtest report from {args.database_url}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+
+        if args.output is None:
+            print(report, end="")
+        else:
+            args.output.write_text(report)
+            print(f"Exported backtest report to {args.output}")
+        return 0
+
     parser.error(f"unknown command: {args.command}")
     return 2
 
@@ -310,6 +356,13 @@ def run_backtest(
             start_date=start_date,
             end_date=end_date,
         )
+
+
+def export_backtest_report(database_url: str, *, run_id: int) -> str:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    with managed_session(session_factory) as session:
+        return export_core_backtest_report(session, run_id=run_id)
 
 
 def _print_fetch_summary(result: MarketDataFetchResult) -> None:

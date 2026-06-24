@@ -3,6 +3,7 @@ from vela_core.akshare_market_data_provider import (
     MarketDataProviderError,
 )
 from vela_core.app_config import AppConfig, load_app_config
+from vela_core.backtest_report import BacktestReportNotFoundError, export_backtest_report
 from vela_core.backtest_result_persistence import (
     BacktestEquityCurveInput,
     BacktestResultPersistenceResult,
@@ -89,6 +90,7 @@ __all__ = [
     "BacktestEquityCurveInput",
     "BacktestResultPersistenceResult",
     "BacktestResultRunInput",
+    "BacktestReportNotFoundError",
     "BacktestRunResult",
     "ConfigError",
     "DailyPrice",
@@ -137,6 +139,7 @@ __all__ = [
     "get_latest_successful_strategy_signal",
     "generate_strategy_signal",
     "export_latest_strategy_signal_report",
+    "export_backtest_report",
     "load_app_config",
     "load_etf_pool_config",
     "persist_strategy_signal",
