@@ -3,6 +3,13 @@ from vela_core.akshare_market_data_provider import (
     MarketDataProviderError,
 )
 from vela_core.app_config import AppConfig, load_app_config
+from vela_core.backtest_result_persistence import (
+    BacktestEquityCurveInput,
+    BacktestResultPersistenceResult,
+    BacktestResultRunInput,
+    get_backtest_result,
+    persist_backtest_result,
+)
 from vela_core.config import (
     ConfigError,
     ETFConfig,
@@ -78,6 +85,9 @@ __version__ = "0.1.0"
 __all__ = [
     "AkShareMarketDataProvider",
     "AppConfig",
+    "BacktestEquityCurveInput",
+    "BacktestResultPersistenceResult",
+    "BacktestResultRunInput",
     "ConfigError",
     "DailyPrice",
     "DefensiveFallbackSelection",
@@ -119,6 +129,7 @@ __all__ = [
     "calculate_strategy_volatility",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
+    "get_backtest_result",
     "generate_historical_strategy_signals",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
@@ -127,6 +138,7 @@ __all__ = [
     "load_app_config",
     "load_etf_pool_config",
     "persist_strategy_signal",
+    "persist_backtest_result",
     "rank_momentum_scores",
     "select_with_defensive_fallback",
     "select_top_n_etfs",

@@ -60,6 +60,7 @@ class BacktestRun(Base):
     )
     equity_curve: Mapped[list["BacktestEquityCurve"]] = relationship(
         back_populates="backtest_run",
+        order_by=lambda: (BacktestEquityCurve.trade_date, BacktestEquityCurve.id),
     )
 
 
