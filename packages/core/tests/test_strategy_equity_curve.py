@@ -280,6 +280,119 @@ def test_calculate_strategy_equity_curve_skips_transaction_cost_when_configured_
     assert points[1].net_value == Decimal("1.000000")
 
 
+def test_calculate_strategy_equity_curve_applies_different_turnover_costs() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 23),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.600000")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.400000")),
+            ],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 24),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.800000")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.200000")),
+            ],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 25),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.500000")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.500000")),
+            ],
+        )
+        for trade_date in [date(2026, 6, 23), date(2026, 6, 24), date(2026, 6, 25)]:
+            _add_price(session, etf_id=spy.id, trade_date=trade_date, close_price=100)
+            _add_price(session, etf_id=qqq.id, trade_date=trade_date, close_price=100)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[
+                date(2026, 6, 23),
+                date(2026, 6, 24),
+                date(2026, 6, 25),
+            ],
+            strategy_config=_strategy_config(transaction_cost_bps=25),
+        )
+
+    assert points[1].daily_return == Decimal("-0.001000")
+    assert points[1].net_value == Decimal("0.999000")
+    assert points[2].daily_return == Decimal("-0.001500")
+    assert points[2].net_value == Decimal("0.997502")
+
+
+def test_calculate_strategy_equity_curve_applies_different_cost_rates() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=100)
+        session.commit()
+
+        low_cost_points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+        )
+        high_cost_points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=25),
+        )
+
+    assert low_cost_points[1].daily_return == Decimal("-0.002000")
+    assert low_cost_points[1].net_value == Decimal("0.998000")
+    assert high_cost_points[1].daily_return == Decimal("-0.005000")
+    assert high_cost_points[1].net_value == Decimal("0.995000")
+    assert high_cost_points[1].daily_return < low_cost_points[1].daily_return
+
+
+def test_calculate_strategy_equity_curve_transaction_cost_reduces_net_value() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
+        session.commit()
+
+        no_cost_points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=0),
+        )
+        cost_points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+        )
+
+    assert no_cost_points[1].daily_return == Decimal("0.100000")
+    assert no_cost_points[1].net_value == Decimal("1.100000")
+    assert cost_points[1].daily_return == Decimal("0.098000")
+    assert cost_points[1].net_value == Decimal("1.098000")
+    assert cost_points[1].net_value < no_cost_points[1].net_value
+
+
 def test_calculate_strategy_annualized_return_uses_calendar_day_span() -> None:
     result = calculate_strategy_annualized_return(
         [
