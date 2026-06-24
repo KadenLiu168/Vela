@@ -452,6 +452,22 @@ def test_selects_no_etfs_from_empty_rankings() -> None:
     assert selections == []
 
 
+def test_selects_defensive_asset_when_no_ranked_etfs_are_available() -> None:
+    config = _strategy_config(short_window_days=10, long_window_days=30)
+
+    selections = select_with_defensive_fallback([], config)
+
+    assert selections == [
+        DefensiveFallbackSelection(
+            exchange="SSE",
+            symbol="511010",
+            rank=None,
+            score=None,
+            target_weight=Decimal("1"),
+        )
+    ]
+
+
 def test_selects_defensive_asset_when_ranked_etfs_are_insufficient() -> None:
     config = _strategy_config(short_window_days=10, long_window_days=30)
     rankings = [
