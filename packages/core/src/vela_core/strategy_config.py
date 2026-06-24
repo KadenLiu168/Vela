@@ -70,6 +70,12 @@ class TransactionCostsConfig(BaseModel):
     transaction_cost_bps: float = Field(ge=0)
 
 
+class PerformanceConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    risk_free_rate: float = Field(ge=0)
+
+
 class StrategyConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -82,6 +88,7 @@ class StrategyConfig(BaseModel):
     selection: SelectionConfig
     defense: DefenseConfig
     costs: TransactionCostsConfig
+    performance: PerformanceConfig
 
 
 def load_strategy_config(path: str | Path) -> StrategyConfig:

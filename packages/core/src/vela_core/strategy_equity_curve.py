@@ -40,6 +40,11 @@ class StrategyVolatility:
     volatility: Decimal | None
 
 
+@dataclass(frozen=True)
+class StrategySharpeRatio:
+    sharpe_ratio: Decimal | None
+
+
 def calculate_strategy_equity_curve(
     session: Session,
     *,
@@ -157,6 +162,23 @@ def calculate_strategy_volatility(points: list[StrategyEquityCurvePoint]) -> Str
     )
 
     return StrategyVolatility(volatility=annualized_volatility)
+
+
+def calculate_strategy_sharpe_ratio(
+    annualized_return: StrategyAnnualizedReturn,
+    volatility: StrategyVolatility,
+    *,
+    risk_free_rate: Decimal,
+) -> StrategySharpeRatio:
+    if annualized_return.annualized_return is None:
+        return StrategySharpeRatio(sharpe_ratio=None)
+    if volatility.volatility is None or volatility.volatility == 0:
+        return StrategySharpeRatio(sharpe_ratio=None)
+
+    sharpe_ratio = (
+        (annualized_return.annualized_return - risk_free_rate) / volatility.volatility
+    ).quantize(_SIX_PLACES)
+    return StrategySharpeRatio(sharpe_ratio=sharpe_ratio)
 
 
 def _load_prices_by_key(

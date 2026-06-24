@@ -516,5 +516,8 @@ def _strategy_config(
         "costs": {
             "transaction_cost_bps": 5,
         },
+        "performance": {
+            "risk_free_rate": 0.02,
+        },
     }
     return StrategyConfig.model_validate(config)

@@ -25,6 +25,7 @@ def test_strategy_v1_config_loads_and_validates() -> None:
     assert config.defense.asset.exchange == "SSE"
     assert config.defense.asset.symbol == "511010"
     assert config.costs.transaction_cost_bps == 5
+    assert config.performance.risk_free_rate == 0.02
 
 
 def test_strategy_config_loader_missing_file_raises_config_error(tmp_path: Path) -> None:
@@ -163,7 +164,15 @@ def test_strategy_config_loader_accepts_active_defensive_asset(
 
 @pytest.mark.parametrize(
     "group",
-    ["momentum", "score_weights", "trend_filter", "selection", "defense", "costs"],
+    [
+        "momentum",
+        "score_weights",
+        "trend_filter",
+        "selection",
+        "defense",
+        "costs",
+        "performance",
+    ],
 )
 def test_strategy_config_rejects_missing_required_groups(group: str) -> None:
     config = _valid_strategy_config()
@@ -259,6 +268,14 @@ def test_strategy_config_rejects_negative_transaction_cost() -> None:
         StrategyConfig.model_validate(config)
 
 
+def test_strategy_config_rejects_negative_risk_free_rate() -> None:
+    config = _valid_strategy_config()
+    config["performance"]["risk_free_rate"] = -0.01
+
+    with pytest.raises(ValidationError):
+        StrategyConfig.model_validate(config)
+
+
 @pytest.mark.parametrize("field", ["exchange", "symbol"])
 def test_strategy_config_requires_defensive_asset_identity_fields(field: str) -> None:
     config = _valid_strategy_config()
@@ -297,6 +314,9 @@ def _valid_strategy_config() -> dict[str, Any]:
             },
             "costs": {
                 "transaction_cost_bps": 5,
+            },
+            "performance": {
+                "risk_free_rate": 0.02,
             },
         }
     )

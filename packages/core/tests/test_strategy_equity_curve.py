@@ -7,11 +7,13 @@ from vela_core import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
     StrategyMaximumDrawdown,
+    StrategySharpeRatio,
     StrategySignalPositionInput,
     StrategyVolatility,
     calculate_strategy_annualized_return,
     calculate_strategy_equity_curve,
     calculate_strategy_maximum_drawdown,
+    calculate_strategy_sharpe_ratio,
     calculate_strategy_volatility,
     persist_strategy_signal,
 )
@@ -493,6 +495,70 @@ def test_calculate_strategy_volatility_returns_none_for_one_effective_return() -
     assert result == StrategyVolatility(volatility=None)
 
 
+def test_calculate_strategy_sharpe_ratio_uses_configured_risk_free_rate() -> None:
+    config = _strategy_config()
+
+    result = calculate_strategy_sharpe_ratio(
+        StrategyAnnualizedReturn(
+            total_return=Decimal("0.100000"),
+            annualized_return=Decimal("0.120000"),
+        ),
+        StrategyVolatility(volatility=Decimal("0.200000")),
+        risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
+    )
+
+    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("0.500000"))
+
+
+def test_calculate_strategy_sharpe_ratio_returns_negative_for_negative_excess_return() -> None:
+    result = calculate_strategy_sharpe_ratio(
+        StrategyAnnualizedReturn(
+            total_return=Decimal("0.010000"),
+            annualized_return=Decimal("0.010000"),
+        ),
+        StrategyVolatility(volatility=Decimal("0.100000")),
+        risk_free_rate=Decimal("0.030000"),
+    )
+
+    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("-0.200000"))
+
+
+def test_calculate_strategy_sharpe_ratio_returns_none_for_unavailable_annualized_return() -> None:
+    result = calculate_strategy_sharpe_ratio(
+        StrategyAnnualizedReturn(total_return=None, annualized_return=None),
+        StrategyVolatility(volatility=Decimal("0.100000")),
+        risk_free_rate=Decimal("0.020000"),
+    )
+
+    assert result == StrategySharpeRatio(sharpe_ratio=None)
+
+
+def test_calculate_strategy_sharpe_ratio_returns_none_for_unavailable_volatility() -> None:
+    result = calculate_strategy_sharpe_ratio(
+        StrategyAnnualizedReturn(
+            total_return=Decimal("0.100000"),
+            annualized_return=Decimal("0.120000"),
+        ),
+        StrategyVolatility(volatility=None),
+        risk_free_rate=Decimal("0.020000"),
+    )
+
+    assert result == StrategySharpeRatio(sharpe_ratio=None)
+
+
+def test_calculate_strategy_sharpe_ratio_returns_none_for_zero_volatility() -> None:
+    result = calculate_strategy_sharpe_ratio(
+        StrategyAnnualizedReturn(
+            total_return=Decimal("0.000000"),
+            annualized_return=Decimal("0.000000"),
+        ),
+        StrategyVolatility(volatility=Decimal("0.000000")),
+        risk_free_rate=Decimal("0.020000"),
+    )
+
+    assert result == StrategySharpeRatio(sharpe_ratio=None)
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -528,6 +594,9 @@ def _strategy_config(transaction_cost_bps: float = 0) -> StrategyConfig:
             },
             "costs": {
                 "transaction_cost_bps": transaction_cost_bps,
+            },
+            "performance": {
+                "risk_free_rate": 0.02,
             },
         }
     )
