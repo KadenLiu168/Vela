@@ -1,8 +1,5 @@
-# trend-filtering Specification
+## MODIFIED Requirements
 
-## Purpose
-Define ETF trend filtering behavior for strategy calculations using current strategy price and moving averages.
-## Requirements
 ### Requirement: ETF trend filter calculation
 The system SHALL apply a configured trend filter for one ETF using current strategy price and a 120-trading-day moving average.
 

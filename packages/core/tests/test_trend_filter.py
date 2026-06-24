@@ -83,6 +83,50 @@ def test_fails_when_current_price_is_below_120_day_moving_average() -> None:
     assert result.passes_filter is False
 
 
+def test_distinguishes_passing_and_failing_etfs_for_same_date() -> None:
+    session_factory = _create_session_factory()
+    config = _strategy_config()
+
+    with session_factory() as session:
+        passing_etf = _add_etf(session, symbol="SPY")
+        failing_etf = _add_etf(session, symbol="QQQ")
+        _add_price_history(
+            session,
+            etf_id=passing_etf.id,
+            prices_by_offset={119: Decimal("150")},
+            row_count=120,
+        )
+        _add_price_history(
+            session,
+            etf_id=failing_etf.id,
+            prices_by_offset={},
+            row_count=120,
+        )
+
+        passing_result = apply_trend_filter(
+            session,
+            etf_id=passing_etf.id,
+            as_of_date=_trade_date(119),
+            config=config,
+        )
+        failing_result = apply_trend_filter(
+            session,
+            etf_id=failing_etf.id,
+            as_of_date=_trade_date(119),
+            config=config,
+        )
+
+    results = [passing_result, failing_result]
+    assert [result.etf_id for result in results if result.passes_filter] == [
+        passing_etf.id
+    ]
+    assert passing_result.current_price == Decimal("150")
+    assert passing_result.passes_filter is True
+    assert failing_result.current_price == Decimal("100")
+    assert failing_result.moving_average == Decimal("100")
+    assert failing_result.passes_filter is False
+
+
 def test_fails_when_current_price_is_missing() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config()
