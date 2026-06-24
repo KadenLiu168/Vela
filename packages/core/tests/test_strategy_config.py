@@ -28,6 +28,17 @@ def test_strategy_v1_config_loads_and_validates() -> None:
     assert config.performance.risk_free_rate == 0.02
 
 
+def test_strategy_config_accepts_valid_schema_input() -> None:
+    config = StrategyConfig.model_validate(_valid_strategy_config())
+
+    assert config.strategy_id == "dual_momentum"
+    assert config.version == "v1"
+    assert config.momentum.short_window_days == 63
+    assert config.momentum.long_window_days == 126
+    assert config.score_weights.short == 0.4
+    assert config.score_weights.long == 0.6
+
+
 def test_strategy_config_loader_missing_file_raises_config_error(tmp_path: Path) -> None:
     config_path = tmp_path / "missing.yaml"
 
@@ -178,8 +189,12 @@ def test_strategy_config_rejects_missing_required_groups(group: str) -> None:
     config = _valid_strategy_config()
     del config[group]
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert group in message
+    assert "Field required" in message
 
 
 @pytest.mark.parametrize(
@@ -193,8 +208,12 @@ def test_strategy_config_rejects_invalid_momentum_windows(field: str, value: int
     config = _valid_strategy_config()
     config["momentum"][field] = value
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert f"momentum.{field}" in message
+    assert "greater than 0" in message
 
 
 @pytest.mark.parametrize(
@@ -212,8 +231,12 @@ def test_strategy_config_rejects_invalid_momentum_window_relationship(
     config["momentum"]["short_window_days"] = short_window_days
     config["momentum"]["long_window_days"] = long_window_days
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "momentum" in message
+    assert "short momentum window must be shorter than long momentum window" in message
 
 
 def test_strategy_config_rejects_invalid_score_weights() -> None:
@@ -221,8 +244,12 @@ def test_strategy_config_rejects_invalid_score_weights() -> None:
     config["score_weights"]["short"] = 0.5
     config["score_weights"]["long"] = 0.6
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "score_weights" in message
+    assert "score weights must sum to 1.0" in message
 
 
 @pytest.mark.parametrize("field", ["short", "long"])
@@ -230,8 +257,12 @@ def test_strategy_config_rejects_zero_score_weights(field: str) -> None:
     config = _valid_strategy_config()
     config["score_weights"][field] = 0
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert f"score_weights.{field}" in message
+    assert "greater than 0" in message
 
 
 @pytest.mark.parametrize(
@@ -248,32 +279,48 @@ def test_strategy_config_rejects_unsupported_trend_filter(
     config = _valid_strategy_config()
     config["trend_filter"][field] = value
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert f"trend_filter.{field}" in message
+    assert "Input should be" in message
 
 
 def test_strategy_config_rejects_invalid_top_n() -> None:
     config = _valid_strategy_config()
     config["selection"]["top_n"] = 0
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "selection.top_n" in message
+    assert "greater than 0" in message
 
 
 def test_strategy_config_rejects_negative_transaction_cost() -> None:
     config = _valid_strategy_config()
     config["costs"]["transaction_cost_bps"] = -1
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "costs.transaction_cost_bps" in message
+    assert "greater than or equal to 0" in message
 
 
 def test_strategy_config_rejects_negative_risk_free_rate() -> None:
     config = _valid_strategy_config()
     config["performance"]["risk_free_rate"] = -0.01
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "performance.risk_free_rate" in message
+    assert "greater than or equal to 0" in message
 
 
 @pytest.mark.parametrize("field", ["exchange", "symbol"])
@@ -281,8 +328,12 @@ def test_strategy_config_requires_defensive_asset_identity_fields(field: str) ->
     config = _valid_strategy_config()
     del config["defense"]["asset"][field]
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert f"defense.asset.{field}" in message
+    assert "Field required" in message
 
 
 def _valid_strategy_config() -> dict[str, Any]:

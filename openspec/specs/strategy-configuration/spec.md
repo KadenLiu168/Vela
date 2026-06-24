@@ -64,6 +64,10 @@ The system SHALL define a Pydantic schema that validates the strategy configurat
 - **WHEN** backend code validates a strategy configuration with a negative performance `risk_free_rate`
 - **THEN** validation fails
 
+#### Scenario: Strategy schema validation exposes assertable failure details
+- **WHEN** backend tests validate invalid strategy configuration values directly with the strategy configuration schema
+- **THEN** validation fails with assertable details identifying the failing field or project-owned validation message
+
 ### Requirement: Defensive asset identity
 The system SHALL represent the defensive asset in strategy configuration with explicit ETF identity fields.
 
