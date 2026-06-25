@@ -39,6 +39,7 @@ package = true
 [tool.setuptools.packages.find]
 where = [
     "apps/cli/src",
+    "packages/core/src",
 ]
 
 [tool.pytest.ini_options]
