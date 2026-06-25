@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration:api": "VITE_API_BASE_URL=http://127.0.0.1:8000/api vitest run src/api/client.integration.test.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

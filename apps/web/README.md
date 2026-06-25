@@ -34,6 +34,13 @@ Run frontend tests:
 npm --prefix apps/web run test
 ```
 
+Run the API client integration test against the local FastAPI service:
+
+```bash
+uv run vela-api
+npm --prefix apps/web run test:integration:api
+```
+
 Run lint checks:
 
 ```bash
