@@ -45,8 +45,7 @@ def calculate_portfolio_holdings(
     snapshots: list[PortfolioHoldingSnapshot] = []
     for trade_date in requested_dates:
         while (
-            next_signal_index < len(signal_dates)
-            and signal_dates[next_signal_index] <= trade_date
+            next_signal_index < len(signal_dates) and signal_dates[next_signal_index] <= trade_date
         ):
             current_signal = signals_by_date[signal_dates[next_signal_index]]
             next_signal_index += 1

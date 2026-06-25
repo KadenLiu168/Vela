@@ -170,9 +170,7 @@ def _fetch_market_prices(
 
 def _active_etfs(session: Session) -> list[ETFInfo]:
     return list(
-        session.scalars(
-            select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.symbol)
-        )
+        session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.symbol))
     )
 
 

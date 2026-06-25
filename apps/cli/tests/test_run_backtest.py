@@ -68,9 +68,7 @@ def test_run_backtest_uses_default_inputs(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(cli, "run_backtest", fake_run_backtest)
 
-    exit_code = cli.main(
-        ["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"]
-    )
+    exit_code = cli.main(["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"])
 
     assert exit_code == 0
     assert calls == [
@@ -93,9 +91,7 @@ def test_run_backtest_prints_core_metric_summary(
         lambda database_url, *, strategy_config_path, start_date, end_date: _result(),
     )
 
-    exit_code = cli.main(
-        ["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"]
-    )
+    exit_code = cli.main(["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"])
 
     captured = capsys.readouterr()
     assert exit_code == 0

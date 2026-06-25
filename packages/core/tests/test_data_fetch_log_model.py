@@ -156,10 +156,7 @@ def test_data_fetch_log_records_full_and_incremental_fetch_scope() -> None:
 
 def test_data_fetch_log_has_lookup_indexes() -> None:
     table = cast(Table, DataFetchLog.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("source", "status", "started_at") in indexed_columns
     assert ("target_type", "fetch_mode", "range_start", "range_end") in indexed_columns

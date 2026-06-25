@@ -101,10 +101,7 @@ def test_backtest_run_allows_same_strategy_config_and_date_range_rerun() -> None
 
 def test_backtest_run_has_lookup_indexes() -> None:
     table = cast(Table, BacktestRun.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("strategy_name", "config_version") in indexed_columns
     assert ("status", "started_at") in indexed_columns
@@ -144,9 +141,7 @@ def test_backtest_equity_curve_references_backtest_run() -> None:
 def test_backtest_equity_curve_has_run_trade_date_unique_constraint() -> None:
     table = cast(Table, BacktestEquityCurve.__table__)
     unique_constraints = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, UniqueConstraint)
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
     ]
 
     assert any(
@@ -187,10 +182,7 @@ def test_backtest_equity_curve_allows_same_trade_date_for_different_runs() -> No
 
 def test_backtest_equity_curve_has_lookup_indexes() -> None:
     table = cast(Table, BacktestEquityCurve.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("backtest_run_id", "trade_date") in indexed_columns
 

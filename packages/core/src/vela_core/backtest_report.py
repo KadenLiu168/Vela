@@ -1,4 +1,3 @@
-
 from sqlalchemy.orm import Session
 
 from vela_core.backtest_result_persistence import get_backtest_result

@@ -27,5 +27,4 @@ class MarketDataProvider(Protocol):
         *,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> Sequence[DailyPrice]:
-        ...
+    ) -> Sequence[DailyPrice]: ...

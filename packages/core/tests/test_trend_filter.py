@@ -117,9 +117,7 @@ def test_distinguishes_passing_and_failing_etfs_for_same_date() -> None:
         )
 
     results = [passing_result, failing_result]
-    assert [result.etf_id for result in results if result.passes_filter] == [
-        passing_etf.id
-    ]
+    assert [result.etf_id for result in results if result.passes_filter] == [passing_etf.id]
     assert passing_result.current_price == Decimal("150")
     assert passing_result.passes_filter is True
     assert failing_result.current_price == Decimal("100")

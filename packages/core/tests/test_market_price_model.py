@@ -39,9 +39,7 @@ def test_market_price_references_etf_info() -> None:
 def test_market_price_has_etf_trade_date_unique_constraint() -> None:
     table = cast(Table, MarketPrice.__table__)
     unique_constraints = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, UniqueConstraint)
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
     ]
 
     assert any(
@@ -82,10 +80,7 @@ def test_market_price_allows_same_trade_date_for_different_etfs() -> None:
 
 def test_market_price_has_lookup_indexes() -> None:
     table = cast(Table, MarketPrice.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("etf_id", "trade_date") in indexed_columns
     assert ("trade_date",) in indexed_columns

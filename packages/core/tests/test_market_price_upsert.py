@@ -137,10 +137,14 @@ def test_upsert_market_prices_deduplicates_repeated_etf_trade_date_writes() -> N
         )
         session.commit()
 
-        price = session.query(MarketPrice).filter_by(
-            etf_id=etf.id,
-            trade_date=date(2026, 6, 18),
-        ).one()
+        price = (
+            session.query(MarketPrice)
+            .filter_by(
+                etf_id=etf.id,
+                trade_date=date(2026, 6, 18),
+            )
+            .one()
+        )
 
         assert result.rows_inserted == 0
         assert result.rows_updated == 1

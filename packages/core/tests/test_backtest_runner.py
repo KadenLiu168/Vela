@@ -43,9 +43,7 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
 
         run = session.get(BacktestRun, result.backtest_run_id)
         curve_rows = (
-            session.query(BacktestEquityCurve)
-            .order_by(BacktestEquityCurve.trade_date)
-            .all()
+            session.query(BacktestEquityCurve).order_by(BacktestEquityCurve.trade_date).all()
         )
 
     assert result == BacktestRunResult(

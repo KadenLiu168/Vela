@@ -32,9 +32,7 @@ def test_etf_info_table_has_required_columns() -> None:
 def test_etf_info_has_exchange_symbol_unique_constraint() -> None:
     table = cast(Table, ETFInfo.__table__)
     unique_constraints = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, UniqueConstraint)
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
     ]
 
     assert any(
@@ -76,11 +74,7 @@ def test_etf_info_rejects_duplicate_exchange_symbol() -> None:
 
 def test_etf_info_has_lookup_indexes() -> None:
     table = cast(Table, ETFInfo.__table__)
-    indexed_columns = {
-        column.name
-        for index in table.indexes
-        for column in index.columns
-    }
+    indexed_columns = {column.name for index in table.indexes for column in index.columns}
 
     assert {"symbol", "exchange", "is_active"} <= indexed_columns
 

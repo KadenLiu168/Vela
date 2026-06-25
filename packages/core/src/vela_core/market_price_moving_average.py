@@ -33,10 +33,7 @@ def calculate_market_price_moving_average(
         )
     )
 
-    if (
-        len(prices) < MOVING_AVERAGE_WINDOW
-        or prices[0].trade_date != as_of_date
-    ):
+    if len(prices) < MOVING_AVERAGE_WINDOW or prices[0].trade_date != as_of_date:
         return MarketPriceMovingAverage(
             etf_id=etf_id,
             as_of_date=as_of_date,

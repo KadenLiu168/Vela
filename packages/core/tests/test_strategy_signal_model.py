@@ -84,10 +84,7 @@ def test_strategy_signal_allows_same_date_and_config_version_rerun() -> None:
 
 def test_strategy_signal_has_lookup_indexes() -> None:
     table = cast(Table, StrategySignal.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("signal_date", "config_version") in indexed_columns
     assert ("status", "generated_at") in indexed_columns
@@ -115,8 +112,7 @@ def test_strategy_signal_position_references_signal_and_etf() -> None:
     etf_foreign_keys = table.columns["etf_id"].foreign_keys
 
     assert any(
-        foreign_key.column.table.name == "strategy_signal"
-        for foreign_key in signal_foreign_keys
+        foreign_key.column.table.name == "strategy_signal" for foreign_key in signal_foreign_keys
     )
     assert any(foreign_key.column.table.name == "etf_info" for foreign_key in etf_foreign_keys)
 
@@ -131,9 +127,7 @@ def test_strategy_signal_position_optional_explanation_fields_are_nullable() -> 
 def test_strategy_signal_position_has_signal_etf_unique_constraint() -> None:
     table = cast(Table, StrategySignalPosition.__table__)
     unique_constraints = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, UniqueConstraint)
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
     ]
 
     assert any(
@@ -218,10 +212,7 @@ def test_strategy_signal_position_allows_repeated_rank_in_same_signal() -> None:
 
 def test_strategy_signal_position_has_lookup_indexes() -> None:
     table = cast(Table, StrategySignalPosition.__table__)
-    indexed_columns = {
-        tuple(column.name for column in index.columns)
-        for index in table.indexes
-    }
+    indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
     assert ("strategy_signal_id",) in indexed_columns
 

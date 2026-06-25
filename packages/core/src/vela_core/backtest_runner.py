@@ -86,9 +86,7 @@ def run_backtest(
         risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
     )
     status = (
-        "success"
-        if all(result.status == "success" for result in signal_results)
-        else "partial"
+        "success" if all(result.status == "success" for result in signal_results) else "partial"
     )
 
     persistence_result = persist_backtest_result(
