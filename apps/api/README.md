@@ -26,6 +26,18 @@ Expected response:
 {"status":"healthy"}
 ```
 
+## Config Summary
+
+Read the current local strategy configuration and ETF pool summary:
+
+```bash
+curl http://127.0.0.1:8000/api/config
+```
+
+The endpoint loads the checked-in `config/strategy_v1.yaml` through
+`vela_core.load_app_config` and returns a read-only summary. It does not edit
+configuration files, calculate strategy outputs, or access the database.
+
 ## Database Session
 
 The API app initializes a SQLAlchemy session factory from the shared default

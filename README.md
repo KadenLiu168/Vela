@@ -139,6 +139,8 @@ uv run vela-api
 
 The API uses the shared local SQLite database URL from `vela_core.database` and
 manages request-scoped SQLAlchemy sessions through the core session lifecycle.
+It also exposes `GET /api/config` for the current read-only strategy and ETF
+pool summary.
 
 ## Database Migrations
 

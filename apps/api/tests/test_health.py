@@ -12,14 +12,14 @@ def test_health_endpoint_reports_healthy_status() -> None:
     assert response.json() == {"status": "healthy"}
 
 
-def test_api_skeleton_only_exposes_health_endpoint() -> None:
+def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
     routes = {
         (route.path, tuple(sorted(route.methods or ())))
         for route in app.routes
         if route.include_in_schema
     }
 
-    assert routes == {("/api/health", ("GET",))}
+    assert routes == {("/api/config", ("GET",)), ("/api/health", ("GET",))}
 
 
 def test_api_command_starts_uvicorn(monkeypatch) -> None:
