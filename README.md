@@ -26,6 +26,7 @@ Phase 1 includes:
 - SQLAlchemy
 - pandas
 - pydantic
+- Vite, React, TypeScript, and npm for the web frontend skeleton
 - OpenSpec
 
 ## Repository Structure
@@ -53,6 +54,18 @@ packages/core/
     ├── test_database.py
     ├── test_logging.py
     └── test_smoke.py
+```
+
+Current web app skeleton:
+
+```text
+apps/web/
+├── src/
+│   ├── api/
+│   ├── components/
+│   ├── pages/
+│   └── test/
+└── package.json
 ```
 
 ## Development Setup
@@ -101,6 +114,12 @@ Check formatting without changing files:
 
 ```bash
 uv run ruff format --check .
+```
+
+Start the web frontend development server:
+
+```bash
+npm --prefix apps/web run dev
 ```
 
 ## Database Migrations
@@ -172,7 +191,7 @@ Phase 1 focuses on the backend foundation and does not yet include:
 - Real ETF strategy logic
 - Historical backtest engine
 - API service
-- Web UI
+- Complete business Web UI beyond the current frontend skeleton
 - Deployment pipeline
 
 These capabilities will be added in later phases.
