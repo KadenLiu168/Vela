@@ -2,7 +2,6 @@
 
 ## Purpose
 Define the shared SQLAlchemy database session contract for Vela, including engine creation, session factory creation, and managed session lifecycle behavior.
-
 ## Requirements
 ### Requirement: Database engine creation
 The system SHALL provide a typed public function for creating a SQLAlchemy engine from a database URL.
@@ -32,3 +31,11 @@ The system SHALL provide a context-managed database session boundary that commit
 #### Scenario: Close session after read-only work
 - **WHEN** a managed session exits after read-only operations
 - **THEN** the system closes the session without requiring caller-managed cleanup
+
+### Requirement: Shared default local database URL
+The system SHALL provide a shared default local SQLite database URL for application entrypoints that need the local development database.
+
+#### Scenario: Application uses shared default database URL
+- **WHEN** an application entrypoint needs the default local database URL
+- **THEN** it can import the value from `vela_core.database` without defining a duplicate constant
+

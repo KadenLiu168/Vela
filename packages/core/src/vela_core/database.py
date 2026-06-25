@@ -6,6 +6,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+DEFAULT_DATABASE_URL = "sqlite+pysqlite:///vela.db"
+
 
 def create_engine_from_url(database_url: str, **kwargs: Any) -> Engine:
     return create_engine(database_url, **kwargs)

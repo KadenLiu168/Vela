@@ -26,6 +26,14 @@ Expected response:
 {"status":"healthy"}
 ```
 
+## Database Session
+
+The API app initializes a SQLAlchemy session factory from the shared default
+local database URL in `vela_core.database`. Request handlers that need database
+access should use the API database session dependency so successful request work
+is committed, failed request work is rolled back, and sessions are closed by the
+core managed session lifecycle.
+
 ## Boundary
 
 The API app is an application entrypoint. Strategy, market data, signal, and

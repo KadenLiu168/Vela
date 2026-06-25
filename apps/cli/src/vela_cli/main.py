@@ -26,7 +26,12 @@ from vela_core import (
 from vela_core import (
     run_backtest as run_core_backtest,
 )
-from vela_core.database import create_engine_from_url, create_session_factory, managed_session
+from vela_core.database import (
+    DEFAULT_DATABASE_URL,
+    create_engine_from_url,
+    create_session_factory,
+    managed_session,
+)
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import load_strategy_config
 
@@ -34,7 +39,6 @@ from alembic import command
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
-DEFAULT_DATABASE_URL = "sqlite+pysqlite:///vela.db"
 DEFAULT_STRATEGY_CONFIG_PATH = ROOT / "config" / "strategy_v1.yaml"
 
 

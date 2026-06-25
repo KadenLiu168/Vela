@@ -2,7 +2,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
-from vela_core.database import create_engine_from_url, create_session_factory, managed_session
+from vela_core.database import (
+    DEFAULT_DATABASE_URL,
+    create_engine_from_url,
+    create_session_factory,
+    managed_session,
+)
 
 
 class TrackingSession(Session):
@@ -34,6 +39,10 @@ def test_create_engine_from_url_returns_engine() -> None:
 
     assert isinstance(engine, Engine)
     assert str(engine.url) == "sqlite+pysqlite:///:memory:"
+
+
+def test_default_database_url_uses_local_sqlite_database() -> None:
+    assert DEFAULT_DATABASE_URL == "sqlite+pysqlite:///vela.db"
 
 
 def test_create_session_factory_binds_sessions_to_engine() -> None:

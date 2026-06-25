@@ -137,6 +137,9 @@ Start the local HTTP API service:
 uv run vela-api
 ```
 
+The API uses the shared local SQLite database URL from `vela_core.database` and
+manages request-scoped SQLAlchemy sessions through the core session lifecycle.
+
 ## Database Migrations
 
 Vela uses Alembic for database schema migrations. The default local development
