@@ -68,6 +68,15 @@ apps/web/
 └── package.json
 ```
 
+Current API app skeleton:
+
+```text
+apps/api/
+├── src/
+│   └── vela_api/
+└── tests/
+```
+
 ## Development Setup
 
 Install dependencies:
@@ -120,6 +129,12 @@ Start the web frontend development server:
 
 ```bash
 npm --prefix apps/web run dev
+```
+
+Start the local HTTP API service:
+
+```bash
+uv run vela-api
 ```
 
 ## Database Migrations
