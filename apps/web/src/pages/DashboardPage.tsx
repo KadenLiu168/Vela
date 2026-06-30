@@ -188,7 +188,16 @@ function BacktestSummary({
   }
 
   if (!backtest) {
-    return <p className="empty-state">No backtest run has been recorded yet.</p>;
+    return (
+      <>
+        <p className="empty-state">No backtest run has been recorded yet.</p>
+        <div className="operation-list backtest-empty-action">
+          <button type="button" disabled>
+            Run backtest
+          </button>
+        </div>
+      </>
+    );
   }
 
   return (

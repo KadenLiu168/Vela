@@ -45,7 +45,15 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("Yes")).toBeInTheDocument();
   expect(signal.getByText("2")).toBeInTheDocument();
-  expect(screen.getByText("Backtest #7")).toBeInTheDocument();
+  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  expect(backtestPanel).not.toBeNull();
+  const backtest = within(backtestPanel as HTMLElement);
+  expect(backtest.getByText("Backtest #7")).toBeInTheDocument();
+  expect(backtest.getByText("2026-01-01 to 2026-06-01")).toBeInTheDocument();
+  expect(backtest.getByText("success")).toBeInTheDocument();
+  expect(backtest.getByText("12.00%")).toBeInTheDocument();
+  expect(backtest.getByText("-5.00%")).toBeInTheDocument();
+  expect(backtest.getByText("1.100000")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
@@ -79,6 +87,9 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByText("No backtest run has been recorded yet.")).toBeInTheDocument();
+  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  expect(backtestPanel).not.toBeNull();
+  expect(within(backtestPanel as HTMLElement).getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
 });
 

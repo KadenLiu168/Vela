@@ -94,6 +94,9 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "position_count": 1,
     }
     assert body["recent_backtest"]["run_id"] == 1
+    assert body["recent_backtest"]["start_date"] == "2026-01-01"
+    assert body["recent_backtest"]["end_date"] == "2026-01-31"
+    assert body["recent_backtest"]["status"] == "success"
     assert body["recent_backtest"]["total_return"] == "0.120000"
     assert body["recent_backtest"]["max_drawdown"] == "-0.050000"
     assert body["recent_backtest"]["sharpe_ratio"] == "1.100000"
