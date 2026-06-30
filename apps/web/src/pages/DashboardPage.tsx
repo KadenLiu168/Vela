@@ -1,21 +1,37 @@
 import { useEffect, useState } from "react";
-import { ApiClientError, getHealth } from "../api/client";
+import {
+  ApiClientError,
+  type DashboardBacktestSummary,
+  type DashboardResponse,
+  type DashboardSignalSummary,
+  getDashboard
+} from "../api/client";
+
+type DashboardState =
+  | { status: "loading"; data?: never; error?: never }
+  | { status: "ready"; data: DashboardResponse; error?: never }
+  | { status: "error"; data?: never; error: string };
 
 export function DashboardPage() {
-  const [apiStatus, setApiStatus] = useState("checking");
+  const [dashboardState, setDashboardState] = useState<DashboardState>({
+    status: "loading"
+  });
 
   useEffect(() => {
     let isCurrent = true;
 
-    getHealth()
-      .then((health) => {
+    getDashboard()
+      .then((dashboard) => {
         if (isCurrent) {
-          setApiStatus(health.status);
+          setDashboardState({ status: "ready", data: dashboard });
         }
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          setApiStatus(error instanceof ApiClientError ? error.kind : "unavailable");
+          setDashboardState({
+            status: "error",
+            error: error instanceof ApiClientError ? error.kind : "unavailable"
+          });
         }
       });
 
@@ -24,27 +40,198 @@ export function DashboardPage() {
     };
   }, []);
 
+  const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
+
   return (
     <section className="page dashboard-page">
-      <div className="page-heading">
-        <p>Local research workflow</p>
-        <h2>Workflow Dashboard</h2>
+      <div className="page-heading dashboard-heading">
+        <div>
+          <p>Local research workflow</p>
+          <h2>Workflow Dashboard</h2>
+        </div>
+        <span className={`dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
+          {getLoadLabel(dashboardState)}
+        </span>
       </div>
-      <div className="workflow-grid" aria-label="Research workflow status">
-        <article>
-          <span>Data</span>
-          <strong>Market data ready for local checks</strong>
+
+      {dashboardState.status === "error" ? (
+        <p className="dashboard-alert">Dashboard API unavailable: {dashboardState.error}</p>
+      ) : null}
+
+      <div className="dashboard-grid" aria-label="Dashboard workflow summary">
+        <article className="dashboard-panel market-panel">
+          <PanelHeading eyebrow="Market" title="Market data" />
+          <div className="metric-row">
+            <Metric
+              label="Price rows"
+              value={data ? `${formatNumber(data.market_data.price_rows)} rows` : "Loading"}
+            />
+            <Metric
+              label="Covered ETFs"
+              value={data ? `${formatNumber(data.market_data.covered_etfs)} ETFs` : "Loading"}
+            />
+          </div>
+          <dl className="compact-list">
+            <Detail label="Earliest trade date" value={formatOptional(data?.market_data.earliest_trade_date)} />
+            <Detail label="Latest trade date" value={formatOptional(data?.market_data.latest_trade_date)} />
+          </dl>
         </article>
-        <article>
-          <span>Signals</span>
-          <strong>Latest signal workspace placeholder</strong>
+
+        <article className="dashboard-panel strategy-panel">
+          <PanelHeading eyebrow="Strategy" title="Strategy summary" />
+          <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
+          <dl className="compact-list">
+            <Detail label="Version" value={data?.strategy.version ?? "Loading"} />
+            <Detail
+              label="Momentum windows"
+              value={data ? data.strategy.momentum_windows.join(" / ") : "Loading"}
+            />
+            <Detail label="Score weights" value={data ? data.strategy.score_weights.join(" / ") : "Loading"} />
+            <Detail label="Universe" value={data?.strategy.universe_config_path ?? "Loading"} />
+          </dl>
         </article>
-        <article>
-          <span>Backtests</span>
-          <strong>Recent backtest workspace placeholder</strong>
+
+        <article className="dashboard-panel signal-panel">
+          <PanelHeading eyebrow="Signal" title="Latest signal" />
+          <SignalSummary signal={data?.latest_signal} isLoading={dashboardState.status === "loading"} />
+        </article>
+
+        <article className="dashboard-panel backtest-panel">
+          <PanelHeading eyebrow="Backtest" title="Recent backtest" />
+          <BacktestSummary
+            backtest={data?.recent_backtest}
+            isLoading={dashboardState.status === "loading"}
+          />
+        </article>
+
+        <article className="dashboard-panel operations-panel">
+          <PanelHeading eyebrow="Actions" title="Operations" />
+          <div className="operation-list">
+            <button type="button" disabled>
+              Fetch market data
+            </button>
+            <button type="button" disabled>
+              Generate signal
+            </button>
+            <button type="button" disabled>
+              Run backtest
+            </button>
+          </div>
         </article>
       </div>
-      <p className="api-status">API status: {apiStatus}</p>
     </section>
   );
+}
+
+function SignalSummary({
+  isLoading,
+  signal
+}: {
+  isLoading: boolean;
+  signal: DashboardSignalSummary | null | undefined;
+}) {
+  if (isLoading) {
+    return <p className="empty-state">Loading latest signal.</p>;
+  }
+
+  if (!signal) {
+    return <p className="empty-state">No signal has been generated yet.</p>;
+  }
+
+  return (
+    <>
+      <strong className="panel-primary">Signal #{signal.signal_id}</strong>
+      <dl className="compact-list">
+        <Detail label="Signal date" value={signal.signal_date} />
+        <Detail label="Status" value={signal.status} />
+        <Detail label="Result" value={formatOptional(signal.result)} />
+        <Detail label="Positions" value={formatNumber(signal.position_count)} />
+      </dl>
+    </>
+  );
+}
+
+function BacktestSummary({
+  backtest,
+  isLoading
+}: {
+  backtest: DashboardBacktestSummary | null | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return <p className="empty-state">Loading recent backtest.</p>;
+  }
+
+  if (!backtest) {
+    return <p className="empty-state">No backtest run has been recorded yet.</p>;
+  }
+
+  return (
+    <>
+      <strong className="panel-primary">Backtest #{backtest.run_id}</strong>
+      <dl className="compact-list">
+        <Detail label="Range" value={`${backtest.start_date} to ${backtest.end_date}`} />
+        <Detail label="Status" value={backtest.status} />
+        <Detail label="Total return" value={formatPercent(backtest.total_return)} />
+        <Detail label="Max drawdown" value={formatPercent(backtest.max_drawdown)} />
+        <Detail label="Sharpe" value={formatOptional(backtest.sharpe_ratio)} />
+      </dl>
+    </>
+  );
+}
+
+function PanelHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="panel-heading">
+      <span>{eyebrow}</span>
+      <h3>{title}</h3>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </>
+  );
+}
+
+function getLoadLabel(state: DashboardState): string {
+  if (state.status === "loading") {
+    return "Loading dashboard";
+  }
+
+  if (state.status === "error") {
+    return "API unavailable";
+  }
+
+  return "Dashboard loaded";
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatOptional(value: string | null | undefined): string {
+  return value ?? "Not available";
+}
+
+function formatPercent(value: string | null): string {
+  if (value === null) {
+    return "Not available";
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(2)}%` : value;
 }

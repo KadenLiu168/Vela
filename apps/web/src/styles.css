@@ -60,7 +60,7 @@ main {
 }
 
 .page {
-  max-width: 960px;
+  max-width: 1180px;
 }
 
 .page-heading p {
@@ -79,18 +79,179 @@ main {
   margin: 0;
 }
 
+.dashboard-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.dashboard-load-state {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.dashboard-load-state-ready {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.dashboard-load-state-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.dashboard-alert {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 20px 0 0;
+  padding: 12px 14px;
+}
+
+.dashboard-grid,
 .workflow-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 24px;
 }
 
+.dashboard-grid {
+  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workflow-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-panel,
 .workflow-grid article {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px;
+}
+
+.dashboard-panel {
+  min-height: 180px;
+}
+
+.market-panel,
+.strategy-panel {
+  grid-column: span 2;
+}
+
+.operations-panel {
+  grid-column: span 4;
+  min-height: auto;
+}
+
+.panel-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panel-heading span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.panel-heading h3 {
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.panel-primary {
+  color: #111827;
+  display: block;
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.metric-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.metric span,
+.compact-list dt {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.metric strong {
+  color: #0f172a;
+  display: block;
+  font-size: 22px;
+  margin-top: 6px;
+}
+
+.compact-list {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 14px 0 0;
+}
+
+.compact-list dd {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.operation-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.operation-list button {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  cursor: not-allowed;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 14px;
 }
 
 .workflow-grid span,
@@ -139,7 +300,24 @@ main {
     flex-direction: column;
   }
 
+  .dashboard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-grid,
   .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-panel,
+  .strategy-panel,
+  .operations-panel {
+    grid-column: auto;
+  }
+
+  .metric-row,
+  .compact-list {
     grid-template-columns: 1fr;
   }
 }

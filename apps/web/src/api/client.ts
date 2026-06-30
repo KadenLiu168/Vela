@@ -26,6 +26,56 @@ export type HealthResponse = {
   status: string;
 };
 
+export type DashboardResponse = {
+  strategy: DashboardStrategySummary;
+  market_data: DashboardMarketDataStatus;
+  latest_signal: DashboardSignalSummary | null;
+  recent_backtest: DashboardBacktestSummary | null;
+};
+
+export type DashboardStrategySummary = {
+  strategy_id: string;
+  version: string;
+  universe_config_path: string;
+  momentum_windows: number[];
+  score_weights: number[];
+  trend_filter: Record<string, unknown>;
+  selection: Record<string, unknown>;
+  defense_asset: Record<string, unknown>;
+  costs: Record<string, unknown>;
+  performance: Record<string, unknown>;
+};
+
+export type DashboardMarketDataStatus = {
+  price_rows: number;
+  covered_etfs: number;
+  earliest_trade_date: string | null;
+  latest_trade_date: string | null;
+};
+
+export type DashboardSignalSummary = {
+  signal_id: number;
+  signal_date: string;
+  config_version: string;
+  status: string;
+  result: string | null;
+  generated_at: string;
+  position_count: number;
+};
+
+export type DashboardBacktestSummary = {
+  run_id: number;
+  strategy_name: string;
+  config_version: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  total_return: string | null;
+  max_drawdown: string | null;
+  sharpe_ratio: string | null;
+  started_at: string;
+};
+
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
@@ -55,6 +105,10 @@ export async function apiRequest<T>(
 
 export function getHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>("/health");
+}
+
+export function getDashboard(): Promise<DashboardResponse> {
+  return apiRequest<DashboardResponse>("/dashboard");
 }
 
 async function getErrorMessage(response: Response): Promise<string> {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiClientError, apiRequest, getHealth } from "./client";
+import { ApiClientError, apiRequest, getDashboard, getHealth } from "./client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -61,6 +61,60 @@ it("calls health through the shared client", async () => {
 
   await expect(getHealth()).resolves.toEqual({ status: "healthy" });
   expect(fetchMock).toHaveBeenCalledWith("/api/health", undefined);
+});
+
+it("calls dashboard through the shared client", async () => {
+  const dashboard = {
+    strategy: {
+      strategy_id: "dual_momentum",
+      version: "v1",
+      universe_config_path: "config/etf_universe.yaml",
+      momentum_windows: [20, 60, 120],
+      score_weights: [0.2, 0.3, 0.5],
+      trend_filter: { enabled: true },
+      selection: { top_n: 2 },
+      defense_asset: { symbol: "BIL" },
+      costs: { transaction_cost_bps: 5 },
+      performance: { rebalance_frequency: "weekly" }
+    },
+    market_data: {
+      price_rows: 1200,
+      covered_etfs: 8,
+      earliest_trade_date: "2025-01-02",
+      latest_trade_date: "2026-06-23"
+    },
+    latest_signal: {
+      signal_id: 42,
+      signal_date: "2026-06-23",
+      config_version: "v1",
+      status: "success",
+      result: "rebalance",
+      generated_at: "2026-06-23T09:30:00",
+      position_count: 2
+    },
+    recent_backtest: {
+      run_id: 7,
+      strategy_name: "dual_momentum",
+      config_version: "v1",
+      start_date: "2026-01-01",
+      end_date: "2026-06-01",
+      status: "success",
+      total_return: "0.120000",
+      max_drawdown: "-0.050000",
+      sharpe_ratio: "1.100000",
+      started_at: "2026-06-02T09:00:00"
+    }
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(dashboard), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(getDashboard()).resolves.toEqual(dashboard);
+  expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
 
 it("exposes a typed API client error", () => {
