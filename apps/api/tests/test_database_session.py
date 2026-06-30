@@ -1,5 +1,6 @@
 import pytest
 from fastapi import Depends, FastAPI
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -73,7 +74,7 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
     routes = {
         (route.path, tuple(sorted(route.methods or ())))
         for route in app.routes
-        if route.include_in_schema
+        if isinstance(route, APIRoute) and route.include_in_schema
     }
 
     assert routes == {
@@ -81,4 +82,5 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
         ("/api/dashboard", ("GET",)),
         ("/api/health", ("GET",)),
         ("/api/market-data/fetch", ("POST",)),
+        ("/api/strategy-signals/generate", ("POST",)),
     }
