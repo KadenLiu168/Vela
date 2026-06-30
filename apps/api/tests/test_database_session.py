@@ -69,11 +69,15 @@ def test_initialize_database_sets_session_factory_from_database_url(tmp_path) ->
     assert str(test_app.state.session_factory.kw["bind"].url) == database_url
 
 
-def test_api_production_routes_remain_limited_to_health_and_config_endpoints() -> None:
+def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
     routes = {
         (route.path, tuple(sorted(route.methods or ())))
         for route in app.routes
         if route.include_in_schema
     }
 
-    assert routes == {("/api/config", ("GET",)), ("/api/health", ("GET",))}
+    assert routes == {
+        ("/api/config", ("GET",)),
+        ("/api/dashboard", ("GET",)),
+        ("/api/health", ("GET",)),
+    }

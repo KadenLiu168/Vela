@@ -25,7 +25,7 @@ The API service SHALL expose `GET /api/health` as the minimal local health endpo
 - **THEN** the response status is 200 and the response body reports healthy service status
 
 ### Requirement: API service boundary
-The API service SHALL keep strategy and data-processing behavior in `vela_core` and SHALL NOT duplicate strategy logic in the API application skeleton.
+The API service SHALL keep strategy and data-processing behavior in `vela_core` and SHALL NOT duplicate strategy logic in API entrypoints.
 
 #### Scenario: API skeleton adds no strategy endpoint
 - **WHEN** a developer inspects the initial API routes
@@ -50,11 +50,11 @@ The API service SHALL provide a request-scoped database session dependency that 
 - **THEN** the session work is rolled back, the session is closed, and the exception remains visible to the request handler
 
 ### Requirement: API database boundary
-The API service SHALL expose database session wiring for future routes without adding business API endpoints in this change.
+The API service SHALL expose database session wiring for routes without adding unrelated business behavior in the database wiring layer.
 
 #### Scenario: API endpoint surface remains minimal
 - **WHEN** a developer inspects the API routes after database wiring is added
-- **THEN** no strategy, market data, signal, or backtest endpoint has been added by this change
+- **THEN** no strategy, market data, signal, or backtest endpoint has been added by the database wiring change itself
 
 ### Requirement: API config read endpoint
 The API service SHALL expose `GET /api/config` as a read-only endpoint that returns the current strategy configuration summary and ETF pool summary.
@@ -81,3 +81,23 @@ The API config endpoint SHALL NOT edit configuration files, calculate strategy o
 - **WHEN** a client sends `GET /api/config`
 - **THEN** the endpoint returns configuration summary data without mutating config files or requiring a database session
 
+### Requirement: API dashboard aggregate endpoint
+The API service SHALL expose `GET /api/dashboard` as a read-only endpoint that returns the local Dashboard aggregate state.
+
+#### Scenario: Dashboard endpoint returns aggregate state
+- **WHEN** a client sends `GET /api/dashboard`
+- **THEN** the response status is 200
+- **AND** the response includes strategy summary, market data status, latest signal summary, and recent backtest summary fields
+
+#### Scenario: Dashboard endpoint uses request database session
+- **WHEN** the dashboard endpoint builds market, signal, and backtest summary data
+- **THEN** it uses the API request-scoped database session dependency
+- **AND** it delegates aggregation behavior to the core dashboard aggregation service
+
+### Requirement: API dashboard integration validation
+The dashboard endpoint SHALL be validated against a real local SQLite database and existing ORM models.
+
+#### Scenario: Dashboard endpoint reads persisted SQLite rows
+- **WHEN** a test API app is configured with a temporary SQLite database containing `MarketPrice`, `StrategySignal`, and `BacktestRun` rows
+- **THEN** `GET /api/dashboard` returns aggregate values derived from those persisted rows
+- **AND** the validation does not rely only on mocked dashboard data

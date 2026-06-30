@@ -18,6 +18,12 @@ from vela_core.config import (
     ETFPoolConfig,
     load_etf_pool_config,
 )
+from vela_core.dashboard_aggregation import (
+    DashboardBacktestSummary,
+    DashboardMarketDataStatus,
+    DashboardSignalSummary,
+    get_dashboard_summary,
+)
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
     fetch_full_market_prices,
@@ -94,6 +100,9 @@ __all__ = [
     "BacktestRunResult",
     "ConfigError",
     "DailyPrice",
+    "DashboardBacktestSummary",
+    "DashboardMarketDataStatus",
+    "DashboardSignalSummary",
     "DefensiveFallbackSelection",
     "ETFConfig",
     "ETFPoolConfig",
@@ -134,6 +143,7 @@ __all__ = [
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "get_backtest_result",
+    "get_dashboard_summary",
     "generate_historical_strategy_signals",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
