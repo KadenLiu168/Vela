@@ -87,10 +87,22 @@ export function DashboardPage() {
             <Detail label="Version" value={data?.strategy.version ?? "Loading"} />
             <Detail
               label="Momentum windows"
-              value={data ? data.strategy.momentum_windows.join(" / ") : "Loading"}
+              value={data ? formatMomentumWindows(data.strategy.momentum) : "Loading"}
             />
-            <Detail label="Score weights" value={data ? data.strategy.score_weights.join(" / ") : "Loading"} />
-            <Detail label="Universe" value={data?.strategy.universe_config_path ?? "Loading"} />
+            <Detail
+              label="Score weights"
+              value={data ? formatScoreWeights(data.strategy.score_weights) : "Loading"}
+            />
+            <Detail label="Top N" value={data ? formatNumber(data.strategy.selection.top_n) : "Loading"} />
+            <Detail
+              label="Defensive asset"
+              value={data ? formatDefensiveAsset(data.strategy.defense.asset) : "Loading"}
+            />
+            <Detail
+              label="Trading cost"
+              value={data ? `${formatCompactNumber(data.strategy.costs.transaction_cost_bps)} bps` : "Loading"}
+            />
+            <Detail label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
           </dl>
         </article>
 
@@ -224,6 +236,22 @@ function getLoadLabel(state: DashboardState): string {
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
+}
+
+function formatMomentumWindows(momentum: DashboardResponse["strategy"]["momentum"]): string {
+  return `${formatNumber(momentum.short_window_days)} / ${formatNumber(momentum.long_window_days)} days`;
+}
+
+function formatScoreWeights(scoreWeights: DashboardResponse["strategy"]["score_weights"]): string {
+  return `Short ${formatCompactNumber(scoreWeights.short)} / Long ${formatCompactNumber(scoreWeights.long)}`;
+}
+
+function formatDefensiveAsset(asset: DashboardResponse["strategy"]["defense"]["asset"]): string {
+  return `${asset.exchange}:${asset.symbol}`;
 }
 
 function formatOptional(value: string | null | undefined): string {

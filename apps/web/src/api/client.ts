@@ -36,13 +36,28 @@ export type DashboardResponse = {
 export type DashboardStrategySummary = {
   strategy_id: string;
   version: string;
-  universe_config_path: string;
-  momentum_windows: number[];
-  score_weights: number[];
+  universe_config: string;
+  momentum: {
+    short_window_days: number;
+    long_window_days: number;
+  };
+  score_weights: {
+    short: number;
+    long: number;
+  };
   trend_filter: Record<string, unknown>;
-  selection: Record<string, unknown>;
-  defense_asset: Record<string, unknown>;
-  costs: Record<string, unknown>;
+  selection: {
+    top_n: number;
+  };
+  defense: {
+    asset: {
+      exchange: string;
+      symbol: string;
+    };
+  };
+  costs: {
+    transaction_cost_bps: number;
+  };
   performance: Record<string, unknown>;
 };
 

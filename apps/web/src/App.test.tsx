@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -27,12 +27,23 @@ it("loads dashboard aggregate data through the shared client", async () => {
 
   expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
   expect(screen.getByText("8 ETFs")).toBeInTheDocument();
-  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
+  const strategyPanel = screen.getByRole("heading", { name: "Strategy summary" }).closest("article");
+  expect(strategyPanel).not.toBeNull();
+  const strategy = within(strategyPanel as HTMLElement);
+  expect(strategy.getByText("dual_momentum")).toBeInTheDocument();
+  expect(strategy.getByText("v1")).toBeInTheDocument();
+  expect(strategy.getByText("63 / 126 days")).toBeInTheDocument();
+  expect(strategy.getByText("Short 0.4 / Long 0.6")).toBeInTheDocument();
+  expect(strategy.getByText("2")).toBeInTheDocument();
+  expect(strategy.getByText("SSE:511010")).toBeInTheDocument();
+  expect(strategy.getByText("5 bps")).toBeInTheDocument();
   expect(screen.getByText("Signal #42")).toBeInTheDocument();
   expect(screen.getByText("Backtest #7")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
 
@@ -141,12 +152,23 @@ function createDashboardResponse() {
     strategy: {
       strategy_id: "dual_momentum",
       version: "v1",
-      universe_config_path: "config/etf_universe.yaml",
-      momentum_windows: [20, 60, 120],
-      score_weights: [0.2, 0.3, 0.5],
+      universe_config: "config/etf_pool.yaml",
+      momentum: {
+        short_window_days: 63,
+        long_window_days: 126
+      },
+      score_weights: {
+        short: 0.4,
+        long: 0.6
+      },
       trend_filter: { enabled: true },
       selection: { top_n: 2 },
-      defense_asset: { symbol: "BIL" },
+      defense: {
+        asset: {
+          exchange: "SSE",
+          symbol: "511010"
+        }
+      },
       costs: { transaction_cost_bps: 5 },
       performance: { rebalance_frequency: "weekly" }
     },
