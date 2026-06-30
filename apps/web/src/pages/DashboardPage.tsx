@@ -5,6 +5,7 @@ import {
   type DashboardResponse,
   type DashboardSignalSummary,
   type MarketDataFetchResponse,
+  fetchFullMarketData,
   fetchIncrementalMarketData,
   getDashboard
 } from "../api/client";
@@ -14,11 +15,13 @@ type DashboardState =
   | { status: "ready"; data: DashboardResponse; error?: never }
   | { status: "error"; data?: never; error: string };
 
+type MarketDataFetchMode = "incremental" | "full";
+
 export function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading"
   });
-  const [isFetchingMarketData, setIsFetchingMarketData] = useState(false);
+  const [marketDataFetchMode, setMarketDataFetchMode] = useState<MarketDataFetchMode | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
 
@@ -36,30 +39,32 @@ export function DashboardPage() {
     };
   }, []);
 
-  async function handleIncrementalFetch() {
-    if (isFetchingMarketData) {
+  async function handleMarketDataFetch(mode: MarketDataFetchMode) {
+    if (marketDataFetchMode) {
       return;
     }
 
-    setIsFetchingMarketData(true);
+    setMarketDataFetchMode(mode);
     setOperationError(null);
 
     try {
-      const fetchResult = await fetchIncrementalMarketData();
+      const fetchResult = await (mode === "full" ? fetchFullMarketData() : fetchIncrementalMarketData());
       setMarketDataFetchResult(fetchResult);
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setMarketDataFetchResult(null);
       setOperationError(error instanceof ApiClientError ? error.kind : "unavailable");
     } finally {
-      setIsFetchingMarketData(false);
+      setMarketDataFetchMode(null);
     }
   }
 
   const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
   const marketFetchAction = {
-    isLoading: isFetchingMarketData,
-    onClick: handleIncrementalFetch
+    isLoading: marketDataFetchMode !== null,
+    onClick: () => {
+      void handleMarketDataFetch("incremental");
+    }
   };
 
   return (
@@ -153,7 +158,16 @@ export function DashboardPage() {
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           <div className="operation-list">
             <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
-              {marketFetchAction.isLoading ? "Fetching market data" : "Fetch market data"}
+              {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
+            </button>
+            <button
+              type="button"
+              disabled={marketFetchAction.isLoading}
+              onClick={() => {
+                void handleMarketDataFetch("full");
+              }}
+            >
+              {marketDataFetchMode === "full" ? "Running full fetch" : "Full fetch for initialization or repair"}
             </button>
             <button type="button" disabled>
               Generate signal

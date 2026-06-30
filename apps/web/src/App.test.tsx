@@ -55,6 +55,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
@@ -143,6 +144,24 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
   expect(screen.getByRole("heading", { name: "Workflow Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
+});
+
+it("presents full market data fetch after the incremental fetch action", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse())));
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const actions = within(operationsPanel as HTMLElement).getAllByRole("button");
+
+  expect(actions.map((button) => button.textContent)).toEqual([
+    "Fetch market data",
+    "Full fetch for initialization or repair",
+    "Generate signal",
+    "Run backtest"
+  ]);
 });
 
 it("triggers incremental market data fetch and refreshes dashboard data", async () => {
@@ -255,6 +274,74 @@ it("shows partial market data fetch failed symbols and guidance", async () => {
   expect(
     operations.getByText("Retry the fetch after checking the data source availability and local ETF/data state.")
   ).toBeInTheDocument();
+});
+
+it("triggers full market data fetch and reuses the fetch summary", async () => {
+  const fetchResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard" && fetchMock.mock.calls.length === 1) {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=full") {
+      return fetchResult.promise;
+    }
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          market_data: {
+            price_rows: 2400,
+            covered_etfs: 9,
+            earliest_trade_date: "2024-01-02",
+            latest_trade_date: "2026-06-24"
+          }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  const button = await screen.findByRole("button", { name: "Full fetch for initialization or repair" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+
+  expect(await screen.findByRole("button", { name: "Running full fetch" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/market-data/fetch?mode=full")).toHaveLength(1);
+
+  fetchResult.resolve(
+    jsonResponse({
+      status: "success",
+      requested_etf_count: 2,
+      rows_fetched: 300,
+      rows_inserted: 250,
+      rows_updated: 50,
+      failed_symbols: [],
+      error_message: null
+    })
+  );
+
+  expect(await screen.findByText("2,400 rows")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Market data fetch success")).toBeInTheDocument();
+  expect(operations.getByText("300 rows")).toBeInTheDocument();
+  expect(operations.getByText("250 rows")).toBeInTheDocument();
+  expect(operations.getByText("50 rows")).toBeInTheDocument();
+  expect(operations.queryByText("Failed symbols")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
 });
 
 it("shows failed market data fetch details and guidance from the response body", async () => {

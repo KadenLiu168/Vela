@@ -143,6 +143,12 @@ export function fetchIncrementalMarketData(): Promise<MarketDataFetchResponse> {
   });
 }
 
+export function fetchFullMarketData(): Promise<MarketDataFetchResponse> {
+  return apiRequest<MarketDataFetchResponse>("/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+}
+
 async function getErrorMessage(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json();

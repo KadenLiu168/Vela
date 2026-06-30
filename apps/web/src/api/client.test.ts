@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiClientError, apiRequest, fetchIncrementalMarketData, getDashboard, getHealth } from "./client";
+import {
+  ApiClientError,
+  apiRequest,
+  fetchFullMarketData,
+  fetchIncrementalMarketData,
+  getDashboard,
+  getHealth
+} from "./client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -138,6 +145,30 @@ it("calls incremental market data fetch through the shared client", async () => 
 
   await expect(fetchIncrementalMarketData()).resolves.toEqual(fetchResult);
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=incremental", {
+    method: "POST"
+  });
+});
+
+it("calls full market data fetch through the shared client", async () => {
+  const fetchResult = {
+    status: "success",
+    requested_etf_count: 1,
+    rows_fetched: 1,
+    rows_inserted: 1,
+    rows_updated: 0,
+    failed_symbols: [],
+    error_message: null
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(fetchResult), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(fetchFullMarketData()).resolves.toEqual(fetchResult);
+  expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
     method: "POST"
   });
 });
