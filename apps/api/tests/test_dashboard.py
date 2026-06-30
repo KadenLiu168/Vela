@@ -9,6 +9,7 @@ from vela_core.database import DEFAULT_DATABASE_URL, create_engine_from_url, cre
 from vela_core.models import (
     BacktestRun,
     Base,
+    DataFetchLog,
     ETFInfo,
     MarketPrice,
     StrategySignal,
@@ -62,6 +63,26 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                     max_drawdown=Decimal("-0.050000"),
                     sharpe_ratio=Decimal("1.100000"),
                 ),
+                _data_fetch_log(
+                    fetch_mode="incremental",
+                    status="failed",
+                    started_at=datetime(2026, 6, 24, 7, 59, tzinfo=UTC),
+                    finished_at=datetime(2026, 6, 24, 8, 0, tzinfo=UTC),
+                    rows_fetched=0,
+                    rows_inserted=0,
+                    rows_updated=0,
+                    error_message="provider unavailable",
+                ),
+                _data_fetch_log(
+                    fetch_mode="full",
+                    status="success",
+                    started_at=datetime(2026, 6, 23, 7, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 6, 23, 7, 5, tzinfo=UTC),
+                    rows_fetched=200,
+                    rows_inserted=180,
+                    rows_updated=20,
+                    error_message=None,
+                ),
             ]
         )
         session.commit()
@@ -100,6 +121,28 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
     assert body["recent_backtest"]["total_return"] == "0.120000"
     assert body["recent_backtest"]["max_drawdown"] == "-0.050000"
     assert body["recent_backtest"]["sharpe_ratio"] == "1.100000"
+    assert body["recent_fetch_logs"] == [
+        {
+            "fetch_log_id": 1,
+            "fetch_time": "2026-06-24T08:00:00",
+            "mode": "incremental",
+            "status": "failed",
+            "rows_fetched": 0,
+            "rows_inserted": 0,
+            "rows_updated": 0,
+            "error_summary": "provider unavailable",
+        },
+        {
+            "fetch_log_id": 2,
+            "fetch_time": "2026-06-23T07:05:00",
+            "mode": "full",
+            "status": "success",
+            "rows_fetched": 200,
+            "rows_inserted": 180,
+            "rows_updated": 20,
+            "error_summary": None,
+        },
+    ]
 
 
 def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_path) -> None:
@@ -123,6 +166,7 @@ def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_pa
     }
     assert body["latest_signal"] is None
     assert body["recent_backtest"] is None
+    assert body["recent_fetch_logs"] == []
 
 
 def _create_database(database_url: str) -> sessionmaker[Session]:
@@ -153,4 +197,32 @@ def _market_price(etf_id: int, *, trade_date: date) -> MarketPrice:
         close_price=Decimal("100.000000"),
         adjusted_close=None,
         volume=1000,
+    )
+
+
+def _data_fetch_log(
+    *,
+    fetch_mode: str,
+    status: str,
+    started_at: datetime,
+    finished_at: datetime | None,
+    rows_fetched: int | None,
+    rows_inserted: int | None,
+    rows_updated: int | None,
+    error_message: str | None,
+) -> DataFetchLog:
+    return DataFetchLog(
+        source="akshare",
+        target_type="market_price",
+        fetch_mode=fetch_mode,
+        range_start=None,
+        range_end=None,
+        requested_symbols=None,
+        started_at=started_at,
+        finished_at=finished_at,
+        status=status,
+        rows_fetched=rows_fetched,
+        rows_inserted=rows_inserted,
+        rows_updated=rows_updated,
+        error_message=error_message,
     )

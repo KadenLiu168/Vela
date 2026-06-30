@@ -111,7 +111,19 @@ it("calls dashboard through the shared client", async () => {
       max_drawdown: "-0.050000",
       sharpe_ratio: "1.100000",
       started_at: "2026-06-02T09:00:00"
-    }
+    },
+    recent_fetch_logs: [
+      {
+        fetch_log_id: 11,
+        fetch_time: "2026-06-24T08:00:00",
+        mode: "incremental",
+        status: "partial",
+        rows_fetched: 25,
+        rows_inserted: 20,
+        rows_updated: 5,
+        error_summary: "QQQ: provider timeout"
+      }
+    ]
   };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(dashboard), {

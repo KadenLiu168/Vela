@@ -7,6 +7,7 @@ from vela_core import get_dashboard_summary
 from vela_core.models import (
     BacktestRun,
     Base,
+    DataFetchLog,
     ETFInfo,
     MarketPrice,
     StrategySignal,
@@ -30,6 +31,7 @@ def test_dashboard_summary_reports_empty_persisted_workflow_data() -> None:
         },
         "latest_signal": None,
         "recent_backtest": None,
+        "recent_fetch_logs": [],
     }
 
 
@@ -93,6 +95,37 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                     max_drawdown=Decimal("-0.050000"),
                     sharpe_ratio=Decimal("1.100000"),
                 ),
+                _data_fetch_log(
+                    fetch_mode="incremental",
+                    status="partial",
+                    started_at=datetime(2026, 6, 24, 8, 59, tzinfo=UTC),
+                    finished_at=datetime(2026, 6, 24, 9, 0, tzinfo=UTC),
+                    rows_fetched=25,
+                    rows_inserted=20,
+                    rows_updated=5,
+                    error_message="QQQ: provider timeout",
+                ),
+                _data_fetch_log(
+                    fetch_mode="full",
+                    status="success",
+                    started_at=datetime(2026, 6, 23, 8, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 6, 23, 8, 5, tzinfo=UTC),
+                    rows_fetched=100,
+                    rows_inserted=90,
+                    rows_updated=10,
+                    error_message=None,
+                ),
+                _data_fetch_log(
+                    target_type="etf_info",
+                    fetch_mode="incremental",
+                    status="success",
+                    started_at=datetime(2026, 6, 25, 8, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 6, 25, 8, 1, tzinfo=UTC),
+                    rows_fetched=1,
+                    rows_inserted=1,
+                    rows_updated=0,
+                    error_message=None,
+                ),
             ]
         )
         session.commit()
@@ -129,6 +162,28 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
             "sharpe_ratio": "1.100000",
             "started_at": "2026-02-01T09:00:00",
         },
+        "recent_fetch_logs": [
+            {
+                "fetch_log_id": 1,
+                "fetch_time": "2026-06-24T09:00:00",
+                "mode": "incremental",
+                "status": "partial",
+                "rows_fetched": 25,
+                "rows_inserted": 20,
+                "rows_updated": 5,
+                "error_summary": "QQQ: provider timeout",
+            },
+            {
+                "fetch_log_id": 2,
+                "fetch_time": "2026-06-23T08:05:00",
+                "mode": "full",
+                "status": "success",
+                "rows_fetched": 100,
+                "rows_inserted": 90,
+                "rows_updated": 10,
+                "error_summary": None,
+            },
+        ],
     }
 
 
@@ -216,4 +271,33 @@ def _market_price(etf_id: int, *, trade_date: date) -> MarketPrice:
         close_price=Decimal("100.000000"),
         adjusted_close=None,
         volume=1000,
+    )
+
+
+def _data_fetch_log(
+    *,
+    target_type: str = "market_price",
+    fetch_mode: str,
+    status: str,
+    started_at: datetime,
+    finished_at: datetime | None,
+    rows_fetched: int | None,
+    rows_inserted: int | None,
+    rows_updated: int | None,
+    error_message: str | None,
+) -> DataFetchLog:
+    return DataFetchLog(
+        source="akshare",
+        target_type=target_type,
+        fetch_mode=fetch_mode,
+        range_start=None,
+        range_end=None,
+        requested_symbols=None,
+        started_at=started_at,
+        finished_at=finished_at,
+        status=status,
+        rows_fetched=rows_fetched,
+        rows_inserted=rows_inserted,
+        rows_updated=rows_updated,
+        error_message=error_message,
     )

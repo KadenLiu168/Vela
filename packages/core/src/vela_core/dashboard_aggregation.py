@@ -4,10 +4,17 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import desc, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from vela_core.models import BacktestRun, MarketPrice, StrategySignal
+from vela_core.models import (
+    BacktestRun,
+    DataFetchLog,
+    MarketPrice,
+    StrategySignal,
+)
+
+RECENT_FETCH_LOG_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -78,6 +85,30 @@ class DashboardBacktestSummary:
         }
 
 
+@dataclass(frozen=True)
+class DashboardFetchLogSummary:
+    fetch_log_id: int
+    fetch_time: datetime
+    mode: str
+    status: str
+    rows_fetched: int | None
+    rows_inserted: int | None
+    rows_updated: int | None
+    error_summary: str | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "fetch_log_id": self.fetch_log_id,
+            "fetch_time": _format_datetime(self.fetch_time),
+            "mode": self.mode,
+            "status": self.status,
+            "rows_fetched": self.rows_fetched,
+            "rows_inserted": self.rows_inserted,
+            "rows_updated": self.rows_updated,
+            "error_summary": self.error_summary,
+        }
+
+
 def get_dashboard_summary(
     session: Session,
     *,
@@ -88,6 +119,7 @@ def get_dashboard_summary(
         "market_data": _get_market_data_status(session).to_dict(),
         "latest_signal": _get_latest_signal_summary(session),
         "recent_backtest": _get_recent_backtest_summary(session),
+        "recent_fetch_logs": _get_recent_fetch_logs(session),
     }
 
 
@@ -152,6 +184,32 @@ def _get_recent_backtest_summary(session: Session) -> dict[str, object] | None:
         sharpe_ratio=run.sharpe_ratio,
         started_at=run.started_at,
     ).to_dict()
+
+
+def _get_recent_fetch_logs(session: Session) -> list[dict[str, object]]:
+    logs = session.scalars(
+        select(DataFetchLog)
+        .where(DataFetchLog.target_type == "market_price")
+        .order_by(
+            desc(func.coalesce(DataFetchLog.finished_at, DataFetchLog.started_at)),
+            DataFetchLog.id.desc(),
+        )
+        .limit(RECENT_FETCH_LOG_LIMIT)
+    ).all()
+
+    return [
+        DashboardFetchLogSummary(
+            fetch_log_id=log.id,
+            fetch_time=log.finished_at or log.started_at,
+            mode=log.fetch_mode,
+            status=log.status,
+            rows_fetched=log.rows_fetched,
+            rows_inserted=log.rows_inserted,
+            rows_updated=log.rows_updated,
+            error_summary=log.error_message,
+        ).to_dict()
+        for log in logs
+    ]
 
 
 def _format_date(value: date | None) -> str | None:

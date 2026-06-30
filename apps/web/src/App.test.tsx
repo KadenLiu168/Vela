@@ -54,6 +54,18 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("12.00%")).toBeInTheDocument();
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
+  const fetchLogPanel = screen.getByRole("heading", { name: "Recent fetches" }).closest("article");
+  expect(fetchLogPanel).not.toBeNull();
+  const fetchLogs = within(fetchLogPanel as HTMLElement);
+  const firstFetchLog = within((fetchLogPanel as HTMLElement).querySelector(".fetch-log-entry") as HTMLElement);
+  expect(firstFetchLog.getByText("2026-06-24T08:00:00")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("incremental")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("partial")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("25 rows")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("20 rows")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("5 rows")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("QQQ: provider timeout")).toBeInTheDocument();
+  expect(fetchLogs.getByText("2026-06-23T07:05:00")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
@@ -97,6 +109,29 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(within(backtestPanel as HTMLElement).getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
+});
+
+it("renders an empty fetch history state without treating the response as a failure", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...createDashboardResponse(),
+          recent_fetch_logs: []
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200
+        }
+      )
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("No market data fetch history exists yet.")).toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
 });
 
 it("renders an explicit empty state when local market data is missing", async () => {
@@ -503,7 +538,29 @@ function createDashboardResponse() {
       max_drawdown: "-0.050000",
       sharpe_ratio: "1.100000",
       started_at: "2026-06-02T09:00:00"
-    }
+    },
+    recent_fetch_logs: [
+      {
+        fetch_log_id: 11,
+        fetch_time: "2026-06-24T08:00:00",
+        mode: "incremental",
+        status: "partial",
+        rows_fetched: 25,
+        rows_inserted: 20,
+        rows_updated: 5,
+        error_summary: "QQQ: provider timeout"
+      },
+      {
+        fetch_log_id: 10,
+        fetch_time: "2026-06-23T07:05:00",
+        mode: "full",
+        status: "success",
+        rows_fetched: 200,
+        rows_inserted: 180,
+        rows_updated: 20,
+        error_summary: null
+      }
+    ]
   };
 }
 

@@ -31,6 +31,7 @@ export type DashboardResponse = {
   market_data: DashboardMarketDataStatus;
   latest_signal: DashboardSignalSummary | null;
   recent_backtest: DashboardBacktestSummary | null;
+  recent_fetch_logs: DashboardFetchLogSummary[];
 };
 
 export type DashboardStrategySummary = {
@@ -90,6 +91,17 @@ export type DashboardBacktestSummary = {
   max_drawdown: string | null;
   sharpe_ratio: string | null;
   started_at: string;
+};
+
+export type DashboardFetchLogSummary = {
+  fetch_log_id: number;
+  fetch_time: string;
+  mode: string;
+  status: string;
+  rows_fetched: number | null;
+  rows_inserted: number | null;
+  rows_updated: number | null;
+  error_summary: string | null;
 };
 
 export type MarketDataFetchResponse = {

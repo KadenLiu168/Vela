@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ApiClientError,
   type DashboardBacktestSummary,
+  type DashboardFetchLogSummary,
   type DashboardResponse,
   type DashboardSignalSummary,
   type MarketDataFetchResponse,
@@ -150,6 +151,11 @@ export function DashboardPage() {
           />
         </article>
 
+        <article className="dashboard-panel fetch-log-panel">
+          <PanelHeading eyebrow="History" title="Recent fetches" />
+          <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
+        </article>
+
         <article className="dashboard-panel operations-panel">
           <PanelHeading eyebrow="Actions" title="Operations" />
           {operationError ? (
@@ -204,6 +210,38 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
           Retry the fetch after checking the data source availability and local ETF/data state.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function FetchLogSummary({
+  isLoading,
+  logs
+}: {
+  isLoading: boolean;
+  logs: DashboardFetchLogSummary[] | undefined;
+}) {
+  if (isLoading) {
+    return <p className="empty-state">Loading fetch history.</p>;
+  }
+
+  if (!logs || logs.length === 0) {
+    return <p className="empty-state">No market data fetch history exists yet.</p>;
+  }
+
+  return (
+    <div className="fetch-log-list">
+      {logs.map((log) => (
+        <dl className="compact-list fetch-log-entry" key={log.fetch_log_id}>
+          <Detail label="Fetch time" value={log.fetch_time} />
+          <Detail label="Mode" value={log.mode} />
+          <Detail label="Status" value={log.status} />
+          <Detail label="Fetched" value={formatOptionalRows(log.rows_fetched)} />
+          <Detail label="Inserted" value={formatOptionalRows(log.rows_inserted)} />
+          <Detail label="Updated" value={formatOptionalRows(log.rows_updated)} />
+          <Detail label="Error summary" value={formatOptional(log.error_summary)} />
+        </dl>
+      ))}
     </div>
   );
 }
@@ -376,6 +414,10 @@ function formatDefensiveAsset(asset: DashboardResponse["strategy"]["defense"]["a
 
 function formatOptional(value: string | null | undefined): string {
   return value ?? "Not available";
+}
+
+function formatOptionalRows(value: number | null): string {
+  return value === null ? "Not available" : `${formatNumber(value)} rows`;
 }
 
 function formatFailedSymbols(symbols: string[]): string {

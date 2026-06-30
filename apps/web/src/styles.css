@@ -230,6 +230,21 @@ main {
   overflow-wrap: anywhere;
 }
 
+.fetch-log-list {
+  display: grid;
+  gap: 12px;
+}
+
+.fetch-log-entry {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.fetch-log-entry:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .empty-state {
   color: #475569;
   font-size: 14px;
