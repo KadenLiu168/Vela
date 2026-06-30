@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -54,7 +54,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("12.00%")).toBeInTheDocument();
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
@@ -127,7 +127,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   ).toBeInTheDocument();
   const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
   expect(marketPanel).not.toBeNull();
-  expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
@@ -143,6 +143,99 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
   expect(screen.getByRole("heading", { name: "Workflow Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
+});
+
+it("triggers incremental market data fetch and refreshes dashboard data", async () => {
+  const fetchResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard" && fetchMock.mock.calls.length === 1) {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=incremental") {
+      return fetchResult.promise;
+    }
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          market_data: {
+            price_rows: 1300,
+            covered_etfs: 9,
+            earliest_trade_date: "2025-01-02",
+            latest_trade_date: "2026-06-24"
+          }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  const button = await screen.findByRole("button", { name: "Fetch market data" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+
+  expect(await screen.findByRole("button", { name: "Fetching market data" })).toBeDisabled();
+  expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=incremental", {
+    method: "POST"
+  });
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/market-data/fetch?mode=incremental")).toHaveLength(1);
+
+  fetchResult.resolve(
+    jsonResponse({
+      status: "success",
+      requested_etf_count: 1,
+      rows_fetched: 100,
+      rows_inserted: 100,
+      rows_updated: 0,
+      failed_symbols: [],
+      error_message: null
+    })
+  );
+
+  expect(await screen.findByText("1,300 rows")).toBeInTheDocument();
+  expect(screen.getByText("9 ETFs")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-24")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+});
+
+it("shows an operation error when incremental market data fetch fails", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=incremental") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ detail: "fetch failed" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 500
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
+
+  expect(await screen.findByText("Market data fetch failed: http")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
+  });
 });
 
 it("renders the signal detail placeholder route", () => {
@@ -233,4 +326,22 @@ function createDashboardResponse() {
       started_at: "2026-06-02T09:00:00"
     }
   };
+}
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json" },
+    status: 200
+  });
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
 }

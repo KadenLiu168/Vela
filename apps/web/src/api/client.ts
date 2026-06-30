@@ -92,6 +92,16 @@ export type DashboardBacktestSummary = {
   started_at: string;
 };
 
+export type MarketDataFetchResponse = {
+  status: string;
+  requested_etf_count: number;
+  rows_fetched: number;
+  rows_inserted: number;
+  rows_updated: number;
+  failed_symbols: string[];
+  error_message: string | null;
+};
+
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
@@ -125,6 +135,12 @@ export function getHealth(): Promise<HealthResponse> {
 
 export function getDashboard(): Promise<DashboardResponse> {
   return apiRequest<DashboardResponse>("/dashboard");
+}
+
+export function fetchIncrementalMarketData(): Promise<MarketDataFetchResponse> {
+  return apiRequest<MarketDataFetchResponse>("/market-data/fetch?mode=incremental", {
+    method: "POST"
+  });
 }
 
 async function getErrorMessage(response: Response): Promise<string> {

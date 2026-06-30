@@ -4,6 +4,7 @@ import {
   type DashboardBacktestSummary,
   type DashboardResponse,
   type DashboardSignalSummary,
+  fetchIncrementalMarketData,
   getDashboard
 } from "../api/client";
 
@@ -16,31 +17,46 @@ export function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading"
   });
+  const [isFetchingMarketData, setIsFetchingMarketData] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
 
-    getDashboard()
-      .then((dashboard) => {
-        if (isCurrent) {
-          setDashboardState({ status: "ready", data: dashboard });
-        }
-      })
-      .catch((error: unknown) => {
-        if (isCurrent) {
-          setDashboardState({
-            status: "error",
-            error: error instanceof ApiClientError ? error.kind : "unavailable"
-          });
-        }
-      });
+    loadDashboard((nextState) => {
+      if (isCurrent) {
+        setDashboardState(nextState);
+      }
+    });
 
     return () => {
       isCurrent = false;
     };
   }, []);
 
+  async function handleIncrementalFetch() {
+    if (isFetchingMarketData) {
+      return;
+    }
+
+    setIsFetchingMarketData(true);
+    setOperationError(null);
+
+    try {
+      await fetchIncrementalMarketData();
+      await loadDashboard(setDashboardState);
+    } catch (error: unknown) {
+      setOperationError(error instanceof ApiClientError ? error.kind : "unavailable");
+    } finally {
+      setIsFetchingMarketData(false);
+    }
+  }
+
   const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
+  const marketFetchAction = {
+    isLoading: isFetchingMarketData,
+    onClick: handleIncrementalFetch
+  };
 
   return (
     <section className="page dashboard-page">
@@ -75,7 +91,9 @@ export function DashboardPage() {
             <EmptyAction
               actionLabel="Fetch market data"
               className="market-empty-state"
+              isLoading={marketFetchAction.isLoading}
               message="No local market prices are stored yet. Fetch market data to populate dashboard coverage."
+              onClick={marketFetchAction.onClick}
             />
           ) : null}
           <dl className="compact-list">
@@ -125,9 +143,12 @@ export function DashboardPage() {
 
         <article className="dashboard-panel operations-panel">
           <PanelHeading eyebrow="Actions" title="Operations" />
+          {operationError ? (
+            <p className="dashboard-alert operation-alert">Market data fetch failed: {operationError}</p>
+          ) : null}
           <div className="operation-list">
-            <button type="button" disabled>
-              Fetch market data
+            <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
+              {marketFetchAction.isLoading ? "Fetching market data" : "Fetch market data"}
             </button>
             <button type="button" disabled>
               Generate signal
@@ -224,22 +245,38 @@ function PanelHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
 function EmptyAction({
   actionLabel,
   className,
-  message
+  isLoading = false,
+  message,
+  onClick
 }: {
   actionLabel: string;
   className?: string;
+  isLoading?: boolean;
   message: string;
+  onClick?: () => void;
 }) {
   return (
     <div className={className}>
       <p className="empty-state">{message}</p>
       <div className="operation-list empty-action">
-        <button type="button" disabled>
-          {actionLabel}
+        <button type="button" disabled={isLoading || !onClick} onClick={onClick}>
+          {isLoading ? "Fetching market data" : actionLabel}
         </button>
       </div>
     </div>
   );
+}
+
+async function loadDashboard(setState: (state: DashboardState) => void) {
+  try {
+    const dashboard = await getDashboard();
+    setState({ status: "ready", data: dashboard });
+  } catch (error: unknown) {
+    setState({
+      status: "error",
+      error: error instanceof ApiClientError ? error.kind : "unavailable"
+    });
+  }
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
