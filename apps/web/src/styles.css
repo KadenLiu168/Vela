@@ -237,6 +237,10 @@ main {
   margin: 0;
 }
 
+.market-empty-state {
+  margin-top: 12px;
+}
+
 .operation-list {
   display: flex;
   flex-wrap: wrap;

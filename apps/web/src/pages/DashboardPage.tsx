@@ -71,6 +71,9 @@ export function DashboardPage() {
               value={data ? `${formatNumber(data.market_data.covered_etfs)} ETFs` : "Loading"}
             />
           </div>
+          {data?.market_data.price_rows === 0 ? (
+            <p className="empty-state market-empty-state">No local market data has been stored yet.</p>
+          ) : null}
           <dl className="compact-list">
             <Detail label="Earliest trade date" value={formatOptional(data?.market_data.earliest_trade_date)} />
             <Detail label="Latest trade date" value={formatOptional(data?.market_data.latest_trade_date)} />

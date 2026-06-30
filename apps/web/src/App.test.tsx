@@ -61,6 +61,36 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
 });
 
+it("renders an explicit empty state when local market data is missing", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...createDashboardResponse(),
+          market_data: {
+            price_rows: 0,
+            covered_etfs: 0,
+            earliest_trade_date: null,
+            latest_trade_date: null
+          }
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200
+        }
+      )
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("No local market data has been stored yet.")).toBeInTheDocument();
+  expect(screen.getByText("0 rows")).toBeInTheDocument();
+  expect(screen.getByText("0 ETFs")).toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+});
+
 it("keeps the dashboard layout visible when dashboard loading fails", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
 
