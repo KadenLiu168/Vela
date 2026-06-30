@@ -37,7 +37,14 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(strategy.getByText("2")).toBeInTheDocument();
   expect(strategy.getByText("SSE:511010")).toBeInTheDocument();
   expect(strategy.getByText("5 bps")).toBeInTheDocument();
-  expect(screen.getByText("Signal #42")).toBeInTheDocument();
+  const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
+  expect(signalPanel).not.toBeNull();
+  const signal = within(signalPanel as HTMLElement);
+  expect(signal.getByText("Signal #42")).toBeInTheDocument();
+  expect(signal.getByText("2026-06-23")).toBeInTheDocument();
+  expect(signal.getByText("rebalance")).toBeInTheDocument();
+  expect(signal.getByText("Yes")).toBeInTheDocument();
+  expect(signal.getByText("2")).toBeInTheDocument();
   expect(screen.getByText("Backtest #7")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
@@ -67,7 +74,10 @@ it("renders empty dashboard states without treating the response as a failure", 
 
   render(<App />);
 
-  expect(await screen.findByText("No signal has been generated yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No successful signal has been generated yet.")).toBeInTheDocument();
+  const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
+  expect(signalPanel).not.toBeNull();
+  expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByText("No backtest run has been recorded yet.")).toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
 });
@@ -185,6 +195,7 @@ function createDashboardResponse() {
       status: "success",
       result: "rebalance",
       generated_at: "2026-06-23T09:30:00",
+      is_fallback: true,
       position_count: 2
     },
     recent_backtest: {

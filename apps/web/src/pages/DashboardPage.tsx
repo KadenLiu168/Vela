@@ -150,7 +150,16 @@ function SignalSummary({
   }
 
   if (!signal) {
-    return <p className="empty-state">No signal has been generated yet.</p>;
+    return (
+      <>
+        <p className="empty-state">No successful signal has been generated yet.</p>
+        <div className="operation-list signal-empty-action">
+          <button type="button" disabled>
+            Generate signal
+          </button>
+        </div>
+      </>
+    );
   }
 
   return (
@@ -160,7 +169,8 @@ function SignalSummary({
         <Detail label="Signal date" value={signal.signal_date} />
         <Detail label="Status" value={signal.status} />
         <Detail label="Result" value={formatOptional(signal.result)} />
-        <Detail label="Positions" value={formatNumber(signal.position_count)} />
+        <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
+        <Detail label="Target holdings" value={formatNumber(signal.position_count)} />
       </dl>
     </>
   );
@@ -256,6 +266,10 @@ function formatDefensiveAsset(asset: DashboardResponse["strategy"]["defense"]["a
 
 function formatOptional(value: string | null | undefined): string {
   return value ?? "Not available";
+}
+
+function formatBoolean(value: boolean): string {
+  return value ? "Yes" : "No";
 }
 
 function formatPercent(value: string | null): string {

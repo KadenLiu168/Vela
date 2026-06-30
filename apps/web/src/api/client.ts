@@ -75,6 +75,7 @@ export type DashboardSignalSummary = {
   status: string;
   result: string | null;
   generated_at: string;
+  is_fallback: boolean;
   position_count: number;
 };
 

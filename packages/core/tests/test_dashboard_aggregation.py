@@ -72,6 +72,14 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                         ),
                     ],
                 ),
+                StrategySignal(
+                    signal_date=date(2026, 6, 24),
+                    config_version="v1",
+                    generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
+                    status="failed",
+                    result=None,
+                    error_message="No active ETFs found",
+                ),
                 BacktestRun(
                     strategy_name="dual_momentum",
                     config_version="v1",
@@ -106,6 +114,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
             "status": "success",
             "result": "rebalance",
             "generated_at": "2026-06-23T09:30:00",
+            "is_fallback": False,
             "position_count": 2,
         },
         "recent_backtest": {
@@ -131,6 +140,58 @@ def _create_session_factory() -> sessionmaker[Session]:
 
 def _strategy_summary() -> dict[str, str]:
     return {"strategy_id": "dual_momentum", "version": "v1"}
+
+
+def test_dashboard_summary_reports_empty_latest_signal_without_successful_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        session.add(
+            StrategySignal(
+                signal_date=date(2026, 6, 23),
+                config_version="v1",
+                generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+                status="failed",
+                result=None,
+                error_message="No active ETFs found",
+            )
+        )
+        session.commit()
+
+        summary = get_dashboard_summary(session, strategy_summary=_strategy_summary())
+
+    assert summary["latest_signal"] is None
+
+
+def test_dashboard_summary_marks_latest_signal_fallback() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        defensive = _add_etf(session, symbol="SHY")
+        session.add(
+            StrategySignal(
+                signal_date=date(2026, 6, 23),
+                config_version="v1",
+                generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+                status="success",
+                result="rebalance",
+                positions=[
+                    StrategySignalPosition(
+                        etf_id=defensive.id,
+                        rank=None,
+                        score=None,
+                        target_weight=Decimal("1.000000"),
+                    )
+                ],
+            )
+        )
+        session.commit()
+
+        summary = get_dashboard_summary(session, strategy_summary=_strategy_summary())
+
+    latest_signal = summary["latest_signal"]
+    assert isinstance(latest_signal, dict)
+    assert latest_signal["is_fallback"] is True
 
 
 def _add_etf(session: Session, symbol: str) -> ETFInfo:

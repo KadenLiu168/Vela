@@ -1,8 +1,5 @@
-# dashboard-aggregation Specification
+## MODIFIED Requirements
 
-## Purpose
-Define the Dashboard first-screen aggregate read model across strategy configuration, market price coverage, latest signal, and recent backtest state.
-## Requirements
 ### Requirement: Dashboard aggregate read model
 The system SHALL provide a core dashboard aggregation service that returns first-screen strategy, market data, latest successful signal, and backtest state in one read model.
 
@@ -18,15 +15,6 @@ The system SHALL provide a core dashboard aggregation service that returns first
 - **THEN** the market data status reports zero price rows and zero covered ETFs
 - **AND** the latest signal summary is null
 - **AND** the recent backtest summary is null
-
-### Requirement: Dashboard market data status uses persisted market prices
-The dashboard aggregation service SHALL calculate market data status from real `MarketPrice` rows stored in SQLite.
-
-#### Scenario: Market price coverage summary
-- **WHEN** persisted market price rows exist for multiple ETFs and trade dates
-- **THEN** the market data status reports the total market price row count
-- **AND** it reports the distinct covered ETF count
-- **AND** it reports the earliest and latest persisted trade dates
 
 ### Requirement: Dashboard latest signal summary
 The dashboard aggregation service SHALL summarize the latest successful persisted strategy signal for first-screen review.
@@ -44,12 +32,3 @@ The dashboard aggregation service SHALL summarize the latest successful persiste
 #### Scenario: Latest signal fallback status
 - **WHEN** the latest successful signal has a persisted position without rank and score values
 - **THEN** the latest signal summary marks fallback status as active
-
-### Requirement: Dashboard recent backtest summary
-The dashboard aggregation service SHALL summarize the most recent persisted backtest run for first-screen review.
-
-#### Scenario: Recent backtest exists
-- **WHEN** multiple persisted backtest runs exist
-- **THEN** the recent backtest summary uses the run with the newest start timestamp and id tie-breaker
-- **AND** it includes run id, strategy name, config version, date range, status, total return, max drawdown, Sharpe ratio, and start timestamp
-

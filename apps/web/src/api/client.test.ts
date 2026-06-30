@@ -90,6 +90,7 @@ it("calls dashboard through the shared client", async () => {
       status: "success",
       result: "rebalance",
       generated_at: "2026-06-23T09:30:00",
+      is_fallback: false,
       position_count: 2
     },
     recent_backtest: {

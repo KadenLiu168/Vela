@@ -34,6 +34,7 @@ class DashboardSignalSummary:
     status: str
     result: str | None
     generated_at: datetime
+    is_fallback: bool
     position_count: int
 
     def to_dict(self) -> dict[str, object]:
@@ -44,6 +45,7 @@ class DashboardSignalSummary:
             "status": self.status,
             "result": self.result,
             "generated_at": _format_datetime(self.generated_at),
+            "is_fallback": self.is_fallback,
             "position_count": self.position_count,
         }
 
@@ -110,6 +112,7 @@ def _get_latest_signal_summary(session: Session) -> dict[str, object] | None:
     signal = session.scalar(
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
+        .where(StrategySignal.status == "success")
         .order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())
         .limit(1)
     )
@@ -123,6 +126,9 @@ def _get_latest_signal_summary(session: Session) -> dict[str, object] | None:
         status=signal.status,
         result=signal.result,
         generated_at=signal.generated_at,
+        is_fallback=any(
+            position.rank is None and position.score is None for position in signal.positions
+        ),
         position_count=len(signal.positions),
     ).to_dict()
 

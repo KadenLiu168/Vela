@@ -27,6 +27,14 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                 _market_price(spy.id, trade_date=date(2026, 6, 22)),
                 _market_price(qqq.id, trade_date=date(2026, 6, 23)),
                 StrategySignal(
+                    signal_date=date(2026, 6, 24),
+                    config_version="v1",
+                    generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
+                    status="failed",
+                    result=None,
+                    error_message="No active ETFs found",
+                ),
+                StrategySignal(
                     signal_date=date(2026, 6, 23),
                     config_version="v1",
                     generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -35,9 +43,9 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                     positions=[
                         StrategySignalPosition(
                             etf_id=spy.id,
-                            rank=1,
-                            score=Decimal("0.800000"),
-                            target_weight=Decimal("0.500000"),
+                            rank=None,
+                            score=None,
+                            target_weight=Decimal("1.000000"),
                         )
                     ],
                 ),
@@ -76,12 +84,13 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "latest_trade_date": "2026-06-23",
     }
     assert body["latest_signal"] == {
-        "signal_id": 1,
+        "signal_id": 2,
         "signal_date": "2026-06-23",
         "config_version": "v1",
         "status": "success",
         "result": "rebalance",
         "generated_at": "2026-06-23T09:30:00",
+        "is_fallback": True,
         "position_count": 1,
     }
     assert body["recent_backtest"]["run_id"] == 1
