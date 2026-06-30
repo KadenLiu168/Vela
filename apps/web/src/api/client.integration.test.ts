@@ -21,5 +21,7 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
       rows_updated: expect.any(Number),
       failed_symbols: expect.any(Array)
     });
+    expect(Object.prototype.hasOwnProperty.call(result, "error_message")).toBe(true);
+    expect(result.error_message === null || typeof result.error_message === "string").toBe(true);
   }
 );

@@ -253,6 +253,37 @@ main {
   gap: 10px;
 }
 
+.operation-summary {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin: 14px 0;
+  padding: 12px 14px;
+}
+
+.operation-summary strong {
+  color: #0f172a;
+  display: block;
+  font-size: 15px;
+}
+
+.operation-summary-success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.operation-summary-partial,
+.operation-summary-failed {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.operation-guidance {
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 12px 0 0;
+}
+
 .operation-list button {
   background: #f8fafc;
   border: 1px solid #cbd5e1;

@@ -4,6 +4,7 @@ import {
   type DashboardBacktestSummary,
   type DashboardResponse,
   type DashboardSignalSummary,
+  type MarketDataFetchResponse,
   fetchIncrementalMarketData,
   getDashboard
 } from "../api/client";
@@ -19,6 +20,7 @@ export function DashboardPage() {
   });
   const [isFetchingMarketData, setIsFetchingMarketData] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
+  const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -43,9 +45,11 @@ export function DashboardPage() {
     setOperationError(null);
 
     try {
-      await fetchIncrementalMarketData();
+      const fetchResult = await fetchIncrementalMarketData();
+      setMarketDataFetchResult(fetchResult);
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
+      setMarketDataFetchResult(null);
       setOperationError(error instanceof ApiClientError ? error.kind : "unavailable");
     } finally {
       setIsFetchingMarketData(false);
@@ -146,6 +150,7 @@ export function DashboardPage() {
           {operationError ? (
             <p className="dashboard-alert operation-alert">Market data fetch failed: {operationError}</p>
           ) : null}
+          {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           <div className="operation-list">
             <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
               {marketFetchAction.isLoading ? "Fetching market data" : "Fetch market data"}
@@ -160,6 +165,32 @@ export function DashboardPage() {
         </article>
       </div>
     </section>
+  );
+}
+
+function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse }) {
+  const hasFailures = result.status === "partial" || result.status === "failed";
+
+  return (
+    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+      <strong>Market data fetch {result.status}</strong>
+      <dl className="compact-list">
+        <Detail label="Fetched" value={`${formatNumber(result.rows_fetched)} rows`} />
+        <Detail label="Inserted" value={`${formatNumber(result.rows_inserted)} rows`} />
+        <Detail label="Updated" value={`${formatNumber(result.rows_updated)} rows`} />
+        {hasFailures ? (
+          <>
+            <Detail label="Failed symbols" value={formatFailedSymbols(result.failed_symbols)} />
+            <Detail label="Error summary" value={formatOptional(result.error_message)} />
+          </>
+        ) : null}
+      </dl>
+      {hasFailures ? (
+        <p className="operation-guidance">
+          Retry the fetch after checking the data source availability and local ETF/data state.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -331,6 +362,10 @@ function formatDefensiveAsset(asset: DashboardResponse["strategy"]["defense"]["a
 
 function formatOptional(value: string | null | undefined): string {
   return value ?? "Not available";
+}
+
+function formatFailedSymbols(symbols: string[]): string {
+  return symbols.length > 0 ? symbols.join(", ") : "Not available";
 }
 
 function formatBoolean(value: boolean): string {

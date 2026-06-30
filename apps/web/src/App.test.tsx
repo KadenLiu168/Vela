@@ -201,9 +201,101 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
   );
 
   expect(await screen.findByText("1,300 rows")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Market data fetch success")).toBeInTheDocument();
+  expect(operations.getAllByText("100 rows")).toHaveLength(2);
+  expect(operations.getByText("0 rows")).toBeInTheDocument();
+  expect(operations.queryByText("Failed symbols")).not.toBeInTheDocument();
   expect(screen.getByText("9 ETFs")).toBeInTheDocument();
   expect(screen.getByText("2026-06-24")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+});
+
+it("shows partial market data fetch failed symbols and guidance", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=incremental") {
+      return Promise.resolve(
+        jsonResponse({
+          status: "partial",
+          requested_etf_count: 2,
+          rows_fetched: 25,
+          rows_inserted: 20,
+          rows_updated: 5,
+          failed_symbols: ["510300"],
+          error_message: "1 symbol failed from provider"
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
+
+  expect(await screen.findByText("Market data fetch partial")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("25 rows")).toBeInTheDocument();
+  expect(operations.getByText("20 rows")).toBeInTheDocument();
+  expect(operations.getByText("5 rows")).toBeInTheDocument();
+  expect(operations.getByText("510300")).toBeInTheDocument();
+  expect(operations.getByText("1 symbol failed from provider")).toBeInTheDocument();
+  expect(
+    operations.getByText("Retry the fetch after checking the data source availability and local ETF/data state.")
+  ).toBeInTheDocument();
+});
+
+it("shows failed market data fetch details and guidance from the response body", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=incremental") {
+      return Promise.resolve(
+        jsonResponse({
+          status: "failed",
+          requested_etf_count: 2,
+          rows_fetched: 0,
+          rows_inserted: 0,
+          rows_updated: 0,
+          failed_symbols: ["510300", "511010"],
+          error_message: "provider unavailable"
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
+
+  expect(await screen.findByText("Market data fetch failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("510300, 511010")).toBeInTheDocument();
+  expect(operations.getByText("provider unavailable")).toBeInTheDocument();
+  expect(
+    operations.getByText("Retry the fetch after checking the data source availability and local ETF/data state.")
+  ).toBeInTheDocument();
 });
 
 it("shows an operation error when incremental market data fetch fails", async () => {
