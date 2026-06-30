@@ -23,6 +23,7 @@ def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
         ("/api/config", ("GET",)),
         ("/api/dashboard", ("GET",)),
         ("/api/health", ("GET",)),
+        ("/api/market-data/fetch", ("POST",)),
     }
 
 
