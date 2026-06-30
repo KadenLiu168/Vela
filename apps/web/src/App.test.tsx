@@ -82,15 +82,20 @@ it("renders empty dashboard states without treating the response as a failure", 
 
   render(<App />);
 
-  expect(await screen.findByText("No successful signal has been generated yet.")).toBeInTheDocument();
+  expect(
+    await screen.findByText("No successful local signal exists yet. Generate signal after market data is ready.")
+  ).toBeInTheDocument();
   const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeDisabled();
-  expect(screen.getByText("No backtest run has been recorded yet.")).toBeInTheDocument();
+  expect(
+    screen.getByText("No local backtest run exists yet. Run backtest after a signal is available.")
+  ).toBeInTheDocument();
   const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   expect(within(backtestPanel as HTMLElement).getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
 
 it("renders an explicit empty state when local market data is missing", async () => {
@@ -117,10 +122,16 @@ it("renders an explicit empty state when local market data is missing", async ()
 
   render(<App />);
 
-  expect(await screen.findByText("No local market data has been stored yet.")).toBeInTheDocument();
+  expect(
+    await screen.findByText("No local market prices are stored yet. Fetch market data to populate dashboard coverage.")
+  ).toBeInTheDocument();
+  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  expect(marketPanel).not.toBeNull();
+  expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
 
 it("keeps the dashboard layout visible when dashboard loading fails", async () => {

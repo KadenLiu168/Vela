@@ -72,7 +72,11 @@ export function DashboardPage() {
             />
           </div>
           {data?.market_data.price_rows === 0 ? (
-            <p className="empty-state market-empty-state">No local market data has been stored yet.</p>
+            <EmptyAction
+              actionLabel="Fetch market data"
+              className="market-empty-state"
+              message="No local market prices are stored yet. Fetch market data to populate dashboard coverage."
+            />
           ) : null}
           <dl className="compact-list">
             <Detail label="Earliest trade date" value={formatOptional(data?.market_data.earliest_trade_date)} />
@@ -151,14 +155,11 @@ function SignalSummary({
 
   if (!signal) {
     return (
-      <>
-        <p className="empty-state">No successful signal has been generated yet.</p>
-        <div className="operation-list signal-empty-action">
-          <button type="button" disabled>
-            Generate signal
-          </button>
-        </div>
-      </>
+      <EmptyAction
+        actionLabel="Generate signal"
+        className="signal-empty-action"
+        message="No successful local signal exists yet. Generate signal after market data is ready."
+      />
     );
   }
 
@@ -189,14 +190,11 @@ function BacktestSummary({
 
   if (!backtest) {
     return (
-      <>
-        <p className="empty-state">No backtest run has been recorded yet.</p>
-        <div className="operation-list backtest-empty-action">
-          <button type="button" disabled>
-            Run backtest
-          </button>
-        </div>
-      </>
+      <EmptyAction
+        actionLabel="Run backtest"
+        className="backtest-empty-action"
+        message="No local backtest run exists yet. Run backtest after a signal is available."
+      />
     );
   }
 
@@ -219,6 +217,27 @@ function PanelHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
     <div className="panel-heading">
       <span>{eyebrow}</span>
       <h3>{title}</h3>
+    </div>
+  );
+}
+
+function EmptyAction({
+  actionLabel,
+  className,
+  message
+}: {
+  actionLabel: string;
+  className?: string;
+  message: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="empty-state">{message}</p>
+      <div className="operation-list empty-action">
+        <button type="button" disabled>
+          {actionLabel}
+        </button>
+      </div>
     </div>
   );
 }

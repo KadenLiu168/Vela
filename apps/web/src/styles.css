@@ -241,7 +241,9 @@ main {
   margin-top: 12px;
 }
 
-.signal-empty-action {
+.empty-action,
+.signal-empty-action,
+.backtest-empty-action {
   margin-top: 14px;
 }
 

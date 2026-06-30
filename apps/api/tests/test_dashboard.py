@@ -102,6 +102,29 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
     assert body["recent_backtest"]["sharpe_ratio"] == "1.100000"
 
 
+def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'empty-dashboard.db'}"
+    _create_database(database_url)
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/dashboard")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["market_data"] == {
+        "price_rows": 0,
+        "covered_etfs": 0,
+        "earliest_trade_date": None,
+        "latest_trade_date": None,
+    }
+    assert body["latest_signal"] is None
+    assert body["recent_backtest"] is None
+
+
 def _create_database(database_url: str) -> sessionmaker[Session]:
     engine = create_engine_from_url(database_url)
     Base.metadata.create_all(engine)
