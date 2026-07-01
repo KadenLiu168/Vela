@@ -973,8 +973,69 @@ it("loads backtest detail data through the shared client", async () => {
   expect(metrics.getByText("Max drawdown")).toBeInTheDocument();
   expect(metrics.getByText("Volatility")).toBeInTheDocument();
   expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
+  const equitySection = screen.getByRole("heading", { name: "Equity curve" }).closest("section");
+  expect(equitySection).not.toBeNull();
+  const equityCurve = within(equitySection as HTMLElement);
+  expect(equityCurve.getByRole("img", { name: "Equity curve net value chart" })).toBeInTheDocument();
+  expect(equityCurve.getByTestId("equity-curve-line")).toBeInTheDocument();
+  expect(equityCurve.getByText("2026-01-02")).toBeInTheDocument();
+  expect(equityCurve.getByText("2026-01-05")).toBeInTheDocument();
+  expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
+  expect(equityCurve.getByText("1.0300")).toBeInTheDocument();
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
+  expect(screen.queryByText(/drawdown curve|monthly returns|return distribution/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests/demo-backtest", undefined);
+});
+
+it("renders an empty equity curve state on the backtest detail route", async () => {
+  window.history.pushState({}, "", "/backtests/8");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createBacktestDetailResponse(),
+        equity_curve: []
+      })
+    )
+  );
+
+  render(<App />);
+
+  const equitySection = (await screen.findByRole("heading", { name: "Equity curve" })).closest(
+    "section"
+  );
+  expect(equitySection).not.toBeNull();
+  const equityCurve = within(equitySection as HTMLElement);
+  expect(equityCurve.getByText("No valid equity curve points are available for this run.")).toBeInTheDocument();
+  expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+});
+
+it("renders a single-point equity curve state on the backtest detail route", async () => {
+  window.history.pushState({}, "", "/backtests/8");
+  const detail = createBacktestDetailResponse();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...detail,
+        equity_curve: detail.equity_curve.slice(0, 1)
+      })
+    )
+  );
+
+  render(<App />);
+
+  const equitySection = (await screen.findByRole("heading", { name: "Equity curve" })).closest(
+    "section"
+  );
+  expect(equitySection).not.toBeNull();
+  const equityCurve = within(equitySection as HTMLElement);
+  expect(equityCurve.getByText("Only one equity curve point is available.")).toBeInTheDocument();
+  expect(equityCurve.getByText("2026-01-02")).toBeInTheDocument();
+  expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
+  expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
 
 it("renders n/a for nullable backtest metric cards", async () => {
@@ -1241,6 +1302,14 @@ function createBacktestDetailResponse() {
         cash: "100.000000",
         market_value: "9900.000000",
         total_assets: "10000.000000",
+        positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
+      },
+      {
+        trade_date: "2026-01-05",
+        net_value: "1.030000",
+        cash: "100.000000",
+        market_value: "10100.000000",
+        total_assets: "10200.000000",
         positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
       }
     ]

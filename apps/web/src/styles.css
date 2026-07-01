@@ -447,6 +447,45 @@ main {
   white-space: pre-wrap;
 }
 
+.equity-curve-card,
+.equity-curve-single-point {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.equity-curve-chart {
+  display: block;
+  height: auto;
+  max-height: 260px;
+  width: 100%;
+}
+
+.equity-curve-grid-line {
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+
+.equity-curve-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.equity-curve-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 14px 0 0;
+  padding: 14px;
+}
+
 .holdings-table-wrap {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -512,6 +551,7 @@ main {
 
   .metric-row,
   .detail-page .metric-card-grid,
+  .equity-curve-summary,
   .compact-list {
     grid-template-columns: 1fr;
   }

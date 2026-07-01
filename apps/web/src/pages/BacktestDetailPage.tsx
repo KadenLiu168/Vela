@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ApiClientError,
   type BacktestDetailResponse,
+  type BacktestEquityCurvePoint,
   getBacktestDetail
 } from "../api/client";
 
@@ -114,11 +115,71 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
           <MetricCard label="Sharpe ratio" value={formatMetricDecimal(metrics.sharpe_ratio)} />
         </dl>
       </section>
+      <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
+        <h3 id="backtest-equity-curve-heading">Equity curve</h3>
+        <EquityCurveChart points={backtestState.data.equity_curve} />
+      </section>
       <section className="holdings-section" aria-labelledby="backtest-parameters-heading">
         <h3 id="backtest-parameters-heading">Parameters</h3>
         <pre className="parameter-summary">{formatParameterSummary(run.parameters_json)}</pre>
       </section>
     </article>
+  );
+}
+
+type EquityCurveChartPoint = {
+  tradeDate: string;
+  netValue: number;
+};
+
+function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
+  const chartPoints = getValidEquityCurvePoints(points);
+
+  if (chartPoints.length === 0) {
+    return <p className="empty-state">No valid equity curve points are available for this run.</p>;
+  }
+
+  if (chartPoints.length === 1) {
+    const point = chartPoints[0];
+
+    return (
+      <div className="equity-curve-single-point">
+        <p className="empty-state">Only one equity curve point is available.</p>
+        <dl className="equity-curve-summary">
+          <Detail label="Trade date" value={point.tradeDate} />
+          <Detail label="Net value" value={formatNetValue(point.netValue)} />
+        </dl>
+      </div>
+    );
+  }
+
+  const path = buildEquityCurvePath(chartPoints);
+  const firstPoint = chartPoints[0];
+  const lastPoint = chartPoints[chartPoints.length - 1];
+  const netValues = chartPoints.map((point) => point.netValue);
+  const minNetValue = Math.min(...netValues);
+  const maxNetValue = Math.max(...netValues);
+
+  return (
+    <div className="equity-curve-card">
+      <svg
+        aria-labelledby="equity-curve-chart-title"
+        className="equity-curve-chart"
+        role="img"
+        viewBox="0 0 640 220"
+      >
+        <title id="equity-curve-chart-title">Equity curve net value chart</title>
+        <line className="equity-curve-grid-line" x1="48" x2="608" y1="24" y2="24" />
+        <line className="equity-curve-grid-line" x1="48" x2="608" y1="176" y2="176" />
+        <path className="equity-curve-line" d={path} data-testid="equity-curve-line" />
+      </svg>
+      <dl className="equity-curve-summary">
+        <Detail label="Start" value={firstPoint.tradeDate} />
+        <Detail label="End" value={lastPoint.tradeDate} />
+        <Detail label="Min net value" value={formatNetValue(minNetValue)} />
+        <Detail label="Max net value" value={formatNetValue(maxNetValue)} />
+      </dl>
+    </div>
   );
 }
 
@@ -138,6 +199,50 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+function getValidEquityCurvePoints(points: BacktestEquityCurvePoint[]): EquityCurveChartPoint[] {
+  return points.flatMap((point) => {
+    if (point.net_value === null) {
+      return [];
+    }
+
+    const netValue = Number(point.net_value);
+    return Number.isFinite(netValue) ? [{ tradeDate: point.trade_date, netValue }] : [];
+  });
+}
+
+function buildEquityCurvePath(points: EquityCurveChartPoint[]): string {
+  const chart = {
+    height: 220,
+    paddingBottom: 44,
+    paddingLeft: 48,
+    paddingRight: 32,
+    paddingTop: 24,
+    width: 640
+  };
+  const drawableWidth = chart.width - chart.paddingLeft - chart.paddingRight;
+  const drawableHeight = chart.height - chart.paddingTop - chart.paddingBottom;
+  const netValues = points.map((point) => point.netValue);
+  const minNetValue = Math.min(...netValues);
+  const maxNetValue = Math.max(...netValues);
+  const netValueRange = maxNetValue - minNetValue;
+
+  return points
+    .map((point, index) => {
+      const x = chart.paddingLeft + (drawableWidth * index) / (points.length - 1);
+      const normalizedY =
+        netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
+      const y = chart.paddingTop + normalizedY * drawableHeight;
+      const command = index === 0 ? "M" : "L";
+
+      return `${command} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function formatNetValue(value: number): string {
+  return value.toFixed(4);
 }
 
 function formatOptional(value: string | null | undefined): string {
