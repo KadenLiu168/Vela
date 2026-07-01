@@ -474,18 +474,13 @@ it("triggers signal generation and refreshes latest signal data", async () => {
       return Promise.resolve(
         jsonResponse({
           ...createDashboardResponse(),
-          latest_signal: {
-            signal_id: 43,
-            signal_date: "2026-06-24",
-            config_version: "v1",
-            status: "success",
-            result: "rebalance",
-            generated_at: "2026-06-24T09:30:00",
-            is_fallback: false,
-            position_count: 2
-          }
+          latest_signal: null
         })
       );
+    }
+
+    if (url === "/api/strategy-signals/latest") {
+      return Promise.resolve(jsonResponse(createGeneratedLatestSignalResponse()));
     }
 
     return Promise.reject(new Error(`Unexpected request: ${url}`));
@@ -539,6 +534,8 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   expect(await within(signalArticle as HTMLElement).findByText("Signal #43")).toBeInTheDocument();
   expect(within(signalArticle as HTMLElement).getByText("2026-06-24")).toBeInTheDocument();
   expect(within(signalArticle as HTMLElement).getByText("No")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals/latest")).toHaveLength(1);
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
@@ -546,6 +543,59 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   expect(operations.getByText("#43")).toBeInTheDocument();
   expect(operations.getByText("2")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
+
+  fireEvent.click(screen.getByRole("link", { name: "Latest Signal" }));
+
+  expect(await screen.findByRole("heading", { name: "Signal Detail" })).toBeInTheDocument();
+  expect(await screen.findByText("Signal #43")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-24")).toBeInTheDocument();
+  expect(screen.getByText("rebalance")).toBeInTheDocument();
+  const holdingsTable = screen.getByRole("table");
+  expect(within(holdingsTable).getByText("SSE")).toBeInTheDocument();
+  expect(within(holdingsTable).getByText("510300")).toBeInTheDocument();
+  expect(within(holdingsTable).getAllByText("50%")).toHaveLength(2);
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals/latest")).toHaveLength(2);
+});
+
+it("restores Dashboard latest signal status from backend data after browser refresh", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          latest_signal: {
+            signal_id: 43,
+            signal_date: "2026-06-24",
+            config_version: "v1",
+            status: "success",
+            result: "rebalance",
+            generated_at: "2026-06-24T09:30:00",
+            is_fallback: false,
+            position_count: 2
+          }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  const signalPanel = await screen.findByRole("heading", { name: "Latest signal" });
+  const signalArticle = signalPanel.closest("article");
+  expect(signalArticle).not.toBeNull();
+  const signal = within(signalArticle as HTMLElement);
+  expect(await signal.findByText("Signal #43")).toBeInTheDocument();
+  expect(signal.getByText("2026-06-24")).toBeInTheDocument();
+  expect(signal.getByText("rebalance")).toBeInTheDocument();
+  expect(signal.getByText("No")).toBeInTheDocument();
+  expect(signal.getByText("2")).toBeInTheDocument();
+  expect(screen.queryByText(/Signal generation success/i)).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
 
 it("shows an operation error when signal generation fails", async () => {
@@ -807,6 +857,38 @@ function createLatestSignalResponse() {
         rank: null,
         score: null,
         is_fallback: true
+      }
+    ]
+  };
+}
+
+function createGeneratedLatestSignalResponse() {
+  return {
+    has_signal: true,
+    signal: {
+      signal_id: 43,
+      signal_date: "2026-06-24",
+      config_version: "v1",
+      result: "rebalance",
+      generated_at: "2026-06-24T09:30:00",
+      is_fallback: false
+    },
+    positions: [
+      {
+        exchange: "SSE",
+        symbol: "510300",
+        target_weight: "0.500000",
+        rank: 1,
+        score: "0.800000",
+        is_fallback: false
+      },
+      {
+        exchange: "SZSE",
+        symbol: "159915",
+        target_weight: "0.500000",
+        rank: 2,
+        score: "0.700000",
+        is_fallback: false
       }
     ]
   };

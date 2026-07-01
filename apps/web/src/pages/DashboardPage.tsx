@@ -5,12 +5,14 @@ import {
   type DashboardFetchLogSummary,
   type DashboardResponse,
   type DashboardSignalSummary,
+  type LatestStrategySignalResponse,
   type MarketDataFetchResponse,
   type StrategySignalGenerationResponse,
   fetchFullMarketData,
   fetchIncrementalMarketData,
   generateStrategySignal,
-  getDashboard
+  getDashboard,
+  getLatestStrategySignal
 } from "../api/client";
 
 type DashboardState =
@@ -84,7 +86,7 @@ export function DashboardPage() {
       const generationResult = await generateStrategySignal();
       setSignalGenerationResult(generationResult);
       setMarketDataFetchResult(null);
-      await loadDashboard(setDashboardState);
+      await refreshDashboardSignalState(generationResult, setDashboardState);
     } catch (error: unknown) {
       setSignalGenerationResult(null);
       setOperationError({
@@ -436,6 +438,41 @@ async function loadDashboard(setState: (state: DashboardState) => void) {
       error: error instanceof ApiClientError ? error.kind : "unavailable"
     });
   }
+}
+
+async function refreshDashboardSignalState(
+  generationResult: StrategySignalGenerationResponse,
+  setState: (state: DashboardState) => void
+) {
+  const [dashboard, latestSignal] = await Promise.all([getDashboard(), getLatestStrategySignal()]);
+  setState({
+    status: "ready",
+    data: backfillLatestSignalSummary(dashboard, latestSignal, generationResult)
+  });
+}
+
+function backfillLatestSignalSummary(
+  dashboard: DashboardResponse,
+  latestSignal: LatestStrategySignalResponse,
+  generationResult: StrategySignalGenerationResponse
+): DashboardResponse {
+  if (!latestSignal.has_signal || latestSignal.signal === null) {
+    return dashboard;
+  }
+
+  return {
+    ...dashboard,
+    latest_signal: {
+      signal_id: latestSignal.signal.signal_id,
+      signal_date: latestSignal.signal.signal_date,
+      config_version: latestSignal.signal.config_version,
+      status: generationResult.status,
+      result: latestSignal.signal.result,
+      generated_at: latestSignal.signal.generated_at,
+      is_fallback: latestSignal.signal.is_fallback,
+      position_count: latestSignal.positions.length
+    }
+  };
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

@@ -56,6 +56,7 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
   async () => {
     const result = await generateStrategySignal();
     const dashboard = await getDashboard();
+    const latestSignal = await getLatestStrategySignal();
 
     expect(result).toMatchObject({
       signal_id: expect.any(Number),
@@ -71,6 +72,11 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
       signal_date: result.signal_date,
       status: result.status
     });
+    expect(latestSignal.signal).toMatchObject({
+      signal_id: result.signal_id,
+      signal_date: result.signal_date
+    });
+    expect(latestSignal.positions).toHaveLength(result.positions.length);
   }
 );
 
