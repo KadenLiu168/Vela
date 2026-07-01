@@ -8,7 +8,7 @@ import { SignalDetailPage } from "./pages/SignalDetailPage";
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
   { href: "/signals/demo-signal", label: "Latest Signal" },
-  { href: "/backtests/demo-backtest", label: "Backtest Detail" }
+  { href: "/backtests/1", label: "Backtest Detail" }
 ];
 
 export default function App() {
@@ -68,7 +68,7 @@ function getActivePath(path: string): string {
   }
 
   if (path.startsWith("/backtests/")) {
-    return "/backtests/demo-backtest";
+    return "/backtests/1";
   }
 
   return "/";

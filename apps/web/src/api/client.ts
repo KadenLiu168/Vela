@@ -138,6 +138,42 @@ export type BacktestRunResponse = {
   sharpe_ratio: string | null;
 };
 
+export type BacktestDetailResponse = {
+  run: BacktestDetailRun;
+  metrics: BacktestDetailMetrics;
+  equity_curve: BacktestEquityCurvePoint[];
+};
+
+export type BacktestDetailRun = {
+  run_id: number;
+  strategy_name: string;
+  config_version: string;
+  start_date: string;
+  end_date: string;
+  parameters_json: string | null;
+  status: string;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
+export type BacktestDetailMetrics = {
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+};
+
+export type BacktestEquityCurvePoint = {
+  trade_date: string;
+  net_value: string | null;
+  cash: string | null;
+  market_value: string | null;
+  total_assets: string | null;
+  positions_json: string | null;
+};
+
 export type StrategySignalGenerationPosition = {
   etf_id: number;
   exchange: string;
@@ -233,6 +269,10 @@ export function runBacktest(startDate: string, endDate: string): Promise<Backtes
   return apiRequest<BacktestRunResponse>(`/backtests/run?${searchParams.toString()}`, {
     method: "POST"
   });
+}
+
+export function getBacktestDetail(runId: string): Promise<BacktestDetailResponse> {
+  return apiRequest<BacktestDetailResponse>(`/backtests/${encodeURIComponent(runId)}`);
 }
 
 export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {

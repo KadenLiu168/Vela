@@ -945,13 +945,61 @@ it("renders an API failure state on the signal detail route", async () => {
   expect(await screen.findByText("Latest signal API unavailable: network")).toBeInTheDocument();
 });
 
-it("renders the backtest detail placeholder route", () => {
+it("loads backtest detail data through the shared client", async () => {
   window.history.pushState({}, "", "/backtests/demo-backtest");
+  const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createBacktestDetailResponse()));
+  vi.stubGlobal("fetch", fetchMock);
 
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "Backtest Detail" })).toBeInTheDocument();
-  expect(screen.getByText("Backtest ID: demo-backtest")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest #8")).toBeInTheDocument();
+  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
+  expect(screen.getByText("v1")).toBeInTheDocument();
+  expect(screen.getByText("2026-01-01 to 2026-01-31")).toBeInTheDocument();
+  expect(screen.getByText("success")).toBeInTheDocument();
+  expect(screen.getByText("2026-02-01T09:00:00")).toBeInTheDocument();
+  expect(screen.getByText("2026-02-01T09:05:00")).toBeInTheDocument();
+  expect(screen.getByText("12.00%")).toBeInTheDocument();
+  expect(screen.getByText("144.00%")).toBeInTheDocument();
+  expect(screen.getByText("-5.00%")).toBeInTheDocument();
+  expect(screen.getByText("20.00%")).toBeInTheDocument();
+  expect(screen.getByText("1.100000")).toBeInTheDocument();
+  expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/demo-backtest", undefined);
+});
+
+it("renders a loading state on the backtest detail route", () => {
+  window.history.pushState({}, "", "/backtests/8");
+  const deferred = createDeferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(deferred.promise));
+
+  render(<App />);
+
+  expect(screen.getByText("Loading backtest detail.")).toBeInTheDocument();
+  expect(screen.queryByText("Backtest #8")).not.toBeInTheDocument();
+});
+
+it("renders a missing state on the backtest detail route", async () => {
+  window.history.pushState({}, "", "/backtests/999");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse({ detail: "Backtest run not found" }, 404))
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("Backtest run 999 was not found.")).toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+});
+
+it("renders an API failure state on the backtest detail route", async () => {
+  window.history.pushState({}, "", "/backtests/8");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
 });
 
 it("exposes local research navigation without production account entry points", () => {
@@ -964,7 +1012,7 @@ it("exposes local research navigation without production account entry points", 
   );
   expect(screen.getByRole("link", { name: "Backtest Detail" })).toHaveAttribute(
     "href",
-    "/backtests/demo-backtest"
+    "/backtests/1"
   );
 
   expect(screen.queryByText(/login|sign up|account|team|deploy|production/i)).not.toBeInTheDocument();
@@ -1128,10 +1176,44 @@ function createBacktestRunResponse() {
   };
 }
 
-function jsonResponse(body: unknown): Response {
+function createBacktestDetailResponse() {
+  return {
+    run: {
+      run_id: 8,
+      strategy_name: "dual_momentum",
+      config_version: "v1",
+      start_date: "2026-01-01",
+      end_date: "2026-01-31",
+      parameters_json: "{\"top_n\": 2}",
+      status: "success",
+      error_message: null,
+      started_at: "2026-02-01T09:00:00",
+      finished_at: "2026-02-01T09:05:00"
+    },
+    metrics: {
+      total_return: "0.120000",
+      annualized_return: "1.440000",
+      max_drawdown: "-0.050000",
+      volatility: "0.200000",
+      sharpe_ratio: "1.100000"
+    },
+    equity_curve: [
+      {
+        trade_date: "2026-01-02",
+        net_value: "1.010000",
+        cash: "100.000000",
+        market_value: "9900.000000",
+        total_assets: "10000.000000",
+        positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
+      }
+    ]
+  };
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
-    status: 200
+    status
   });
 }
 

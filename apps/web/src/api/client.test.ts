@@ -5,6 +5,7 @@ import {
   fetchFullMarketData,
   fetchIncrementalMarketData,
   generateStrategySignal,
+  getBacktestDetail,
   getDashboard,
   getHealth,
   getLatestStrategySignal,
@@ -284,6 +285,50 @@ it("calls run backtest through the shared client", async () => {
       method: "POST"
     }
   );
+});
+
+it("calls backtest detail through the shared client", async () => {
+  const detail = {
+    run: {
+      run_id: 8,
+      strategy_name: "dual_momentum",
+      config_version: "v1",
+      start_date: "2026-01-01",
+      end_date: "2026-01-31",
+      parameters_json: "{\"top_n\": 2}",
+      status: "success",
+      error_message: null,
+      started_at: "2026-02-01T09:00:00",
+      finished_at: "2026-02-01T09:05:00"
+    },
+    metrics: {
+      total_return: "0.120000",
+      annualized_return: "1.440000",
+      max_drawdown: "-0.050000",
+      volatility: "0.200000",
+      sharpe_ratio: "1.100000"
+    },
+    equity_curve: [
+      {
+        trade_date: "2026-01-02",
+        net_value: "1.010000",
+        cash: "100.000000",
+        market_value: "9900.000000",
+        total_assets: "10000.000000",
+        positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(detail), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(getBacktestDetail("8")).resolves.toEqual(detail);
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
 });
 
 it("exposes a typed API client error", () => {
