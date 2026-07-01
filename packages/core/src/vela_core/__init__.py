@@ -85,6 +85,7 @@ from vela_core.strategy_signal_report import (
     StrategySignalReport,
     StrategySignalReportPosition,
     export_latest_strategy_signal_report,
+    get_latest_strategy_signal_report,
 )
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
@@ -147,6 +148,7 @@ __all__ = [
     "generate_historical_strategy_signals",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
+    "get_latest_strategy_signal_report",
     "generate_strategy_signal",
     "export_latest_strategy_signal_report",
     "export_backtest_report",

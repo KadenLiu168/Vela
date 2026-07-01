@@ -11,10 +11,13 @@ from vela_core import (
     GenerateStrategySignalResult,
     MarketDataFetchResult,
     MarketDataProvider,
+    StrategySignalReport,
+    StrategySignalReportPosition,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
     get_dashboard_summary,
+    get_latest_strategy_signal_report,
 )
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import load_strategy_config
@@ -83,6 +86,29 @@ def generate_strategy_signal_endpoint(
     return _strategy_signal_response(result)
 
 
+@app.get("/api/strategy-signals/latest")
+def latest_strategy_signal(session: DatabaseSession) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    report = get_latest_strategy_signal_report(
+        session,
+        config_version=config.version,
+    )
+    if report is None:
+        return {
+            "has_signal": False,
+            "signal": None,
+            "positions": [],
+        }
+
+    return {
+        "has_signal": True,
+        "signal": _latest_strategy_signal_metadata_response(report),
+        "positions": [
+            _latest_strategy_signal_position_response(position) for position in report.positions
+        ],
+    }
+
+
 def _market_data_fetch_response(result: MarketDataFetchResult) -> dict[str, object]:
     return {
         "status": result.status,
@@ -117,6 +143,30 @@ def _strategy_signal_position_response(position: GeneratedSignalPosition) -> dic
         "target_weight": _format_decimal(position.target_weight),
         "rank": position.rank,
         "score": _format_decimal(position.score),
+    }
+
+
+def _latest_strategy_signal_metadata_response(report: StrategySignalReport) -> dict[str, object]:
+    return {
+        "signal_id": report.signal_id,
+        "signal_date": report.signal_date.isoformat(),
+        "config_version": report.config_version,
+        "generated_at": report.generated_at,
+        "result": report.result,
+        "is_fallback": report.is_fallback,
+    }
+
+
+def _latest_strategy_signal_position_response(
+    position: StrategySignalReportPosition,
+) -> dict[str, object]:
+    return {
+        "exchange": position.exchange,
+        "symbol": position.symbol,
+        "target_weight": _format_decimal(position.target_weight),
+        "rank": position.rank,
+        "score": _format_decimal(position.score),
+        "is_fallback": position.is_fallback,
     }
 
 

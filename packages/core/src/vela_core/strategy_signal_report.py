@@ -39,16 +39,32 @@ def export_latest_strategy_signal_report(
     config_version: str,
     signal_date: date | None = None,
 ) -> str:
+    report = get_latest_strategy_signal_report(
+        session,
+        config_version=config_version,
+        signal_date=signal_date,
+    )
+    if report is None:
+        raise LatestStrategySignalReportNotFoundError("No latest successful strategy signal found")
+
+    return _format_report(report)
+
+
+def get_latest_strategy_signal_report(
+    session: Session,
+    *,
+    config_version: str,
+    signal_date: date | None = None,
+) -> StrategySignalReport | None:
     signal = _get_latest_successful_signal(
         session,
         config_version=config_version,
         signal_date=signal_date,
     )
     if signal is None:
-        raise LatestStrategySignalReportNotFoundError("No latest successful strategy signal found")
+        return None
 
-    report = _to_report(session, signal)
-    return _format_report(report)
+    return _to_report(session, signal)
 
 
 def _get_latest_successful_signal(
@@ -63,7 +79,6 @@ def _get_latest_successful_signal(
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .order_by(
-            StrategySignal.signal_date.desc(),
             StrategySignal.generated_at.desc(),
             StrategySignal.id.desc(),
         )

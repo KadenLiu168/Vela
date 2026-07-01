@@ -26,6 +26,7 @@ def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
         ("/api/health", ("GET",)),
         ("/api/market-data/fetch", ("POST",)),
         ("/api/strategy-signals/generate", ("POST",)),
+        ("/api/strategy-signals/latest", ("GET",)),
     }
 
 
