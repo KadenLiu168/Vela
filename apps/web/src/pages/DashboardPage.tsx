@@ -12,7 +12,8 @@ import {
   fetchIncrementalMarketData,
   generateStrategySignal,
   getDashboard,
-  getLatestStrategySignal
+  getLatestStrategySignal,
+  runBacktest
 } from "../api/client";
 
 type DashboardState =
@@ -23,7 +24,13 @@ type DashboardState =
 type MarketDataFetchMode = "incremental" | "full";
 type OperationError =
   | { operation: "marketDataFetch"; kind: string }
-  | { operation: "signalGeneration"; kind: string };
+  | { operation: "signalGeneration"; kind: string }
+  | { operation: "backtestRun"; kind: string };
+
+type BacktestFormState = {
+  startDate: string;
+  endDate: string;
+};
 
 export function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
@@ -31,10 +38,17 @@ export function DashboardPage() {
   });
   const [marketDataFetchMode, setMarketDataFetchMode] = useState<MarketDataFetchMode | null>(null);
   const [isGeneratingSignal, setIsGeneratingSignal] = useState(false);
+  const [isRunningBacktest, setIsRunningBacktest] = useState(false);
   const [operationError, setOperationError] = useState<OperationError | null>(null);
   const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
   const [signalGenerationResult, setSignalGenerationResult] =
     useState<StrategySignalGenerationResponse | null>(null);
+  const [backtestForm, setBacktestForm] = useState<BacktestFormState>({
+    startDate: "",
+    endDate: ""
+  });
+  const [backtestValidationError, setBacktestValidationError] = useState<string | null>(null);
+  const [isBacktestRunSubmitted, setIsBacktestRunSubmitted] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -95,6 +109,40 @@ export function DashboardPage() {
       });
     } finally {
       setIsGeneratingSignal(false);
+    }
+  }
+
+  async function handleBacktestRun(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (isRunningBacktest) {
+      return;
+    }
+
+    const validationError = validateBacktestDates(backtestForm);
+    if (validationError) {
+      setBacktestValidationError(validationError);
+      setIsBacktestRunSubmitted(false);
+      return;
+    }
+
+    setIsRunningBacktest(true);
+    setBacktestValidationError(null);
+    setOperationError(null);
+
+    try {
+      await runBacktest(backtestForm.startDate, backtestForm.endDate);
+      setIsBacktestRunSubmitted(true);
+      setMarketDataFetchResult(null);
+      setSignalGenerationResult(null);
+    } catch (error: unknown) {
+      setIsBacktestRunSubmitted(false);
+      setOperationError({
+        operation: "backtestRun",
+        kind: error instanceof ApiClientError ? error.kind : "unavailable"
+      });
+    } finally {
+      setIsRunningBacktest(false);
     }
   }
 
@@ -212,6 +260,14 @@ export function DashboardPage() {
           ) : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           {signalGenerationResult ? <SignalGenerationSummary result={signalGenerationResult} /> : null}
+          {backtestValidationError ? (
+            <p className="dashboard-alert operation-alert">{backtestValidationError}</p>
+          ) : null}
+          {isBacktestRunSubmitted ? (
+            <p className="dashboard-alert operation-alert" aria-live="polite">
+              Backtest run submitted.
+            </p>
+          ) : null}
           <div className="operation-list">
             <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
@@ -232,10 +288,44 @@ export function DashboardPage() {
             >
               {signalGenerationAction.isLoading ? "Generating signal" : "Generate signal"}
             </button>
-            <button type="button" disabled>
-              Run backtest
-            </button>
           </div>
+          <form className="backtest-run-form" onSubmit={(event) => void handleBacktestRun(event)}>
+            <label>
+              <span>Start date</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="YYYY-MM-DD"
+                value={backtestForm.startDate}
+                onChange={(event) => {
+                  setBacktestForm((current) => ({
+                    ...current,
+                    startDate: event.target.value
+                  }));
+                }}
+              />
+            </label>
+            <label>
+              <span>End date</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="YYYY-MM-DD"
+                value={backtestForm.endDate}
+                onChange={(event) => {
+                  setBacktestForm((current) => ({
+                    ...current,
+                    endDate: event.target.value
+                  }));
+                }}
+              />
+            </label>
+            <div className="operation-list">
+              <button type="submit" disabled={isRunningBacktest}>
+                {isRunningBacktest ? "Running backtest" : "Run backtest"}
+              </button>
+            </div>
+          </form>
         </article>
       </div>
     </section>
@@ -370,11 +460,9 @@ function BacktestSummary({
 
   if (!backtest) {
     return (
-      <EmptyAction
-        actionLabel="Run backtest"
-        className="backtest-empty-action"
-        message="No local backtest run exists yet. Run backtest after a signal is available."
-      />
+      <p className="empty-state">
+        No local backtest run exists yet. Use the Operations panel to run a backtest.
+      </p>
     );
   }
 
@@ -542,9 +630,20 @@ function formatBoolean(value: boolean): string {
 }
 
 function formatOperationError(error: OperationError): string {
-  const operationLabel =
-    error.operation === "signalGeneration" ? "Signal generation" : "Market data fetch";
+  const operationLabel = getOperationLabel(error.operation);
   return `${operationLabel} failed: ${error.kind}`;
+}
+
+function getOperationLabel(operation: OperationError["operation"]): string {
+  if (operation === "signalGeneration") {
+    return "Signal generation";
+  }
+
+  if (operation === "backtestRun") {
+    return "Backtest run";
+  }
+
+  return "Market data fetch";
 }
 
 function formatPercent(value: string | null): string {
@@ -554,4 +653,38 @@ function formatPercent(value: string | null): string {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(2)}%` : value;
+}
+
+function validateBacktestDates(form: BacktestFormState): string | null {
+  const startDate = parseIsoDate(form.startDate);
+  const endDate = parseIsoDate(form.endDate);
+
+  if (!startDate || !endDate) {
+    return "Enter dates in YYYY-MM-DD format.";
+  }
+
+  if (startDate.getTime() > endDate.getTime()) {
+    return "Start date must be on or before end date.";
+  }
+
+  return null;
+}
+
+function parseIsoDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
 }

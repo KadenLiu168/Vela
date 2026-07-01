@@ -7,7 +7,8 @@ import {
   generateStrategySignal,
   getDashboard,
   getHealth,
-  getLatestStrategySignal
+  getLatestStrategySignal,
+  runBacktest
 } from "./client";
 
 afterEach(() => {
@@ -252,6 +253,37 @@ it("calls latest strategy signal through the shared client", async () => {
 
   await expect(getLatestStrategySignal()).resolves.toEqual(latestSignal);
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
+});
+
+it("calls run backtest through the shared client", async () => {
+  const backtestResult = {
+    run_id: 8,
+    status: "success",
+    start_date: "2026-01-01",
+    end_date: "2026-01-31",
+    trading_day_count: 21,
+    signal_count: 5,
+    total_return: "0.120000",
+    annualized_return: "1.440000",
+    max_drawdown: "-0.050000",
+    volatility: "0.200000",
+    sharpe_ratio: "1.100000"
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(backtestResult), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(runBacktest("2026-01-01", "2026-01-31")).resolves.toEqual(backtestResult);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31",
+    {
+      method: "POST"
+    }
+  );
 });
 
 it("exposes a typed API client error", () => {

@@ -257,8 +257,7 @@ main {
 }
 
 .empty-action,
-.signal-empty-action,
-.backtest-empty-action {
+.signal-empty-action {
   margin-top: 14px;
 }
 
@@ -266,6 +265,38 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.backtest-run-form {
+  align-items: end;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.backtest-run-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.backtest-run-form span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.backtest-run-form input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 150px;
+  padding: 9px 10px;
 }
 
 .operation-summary {

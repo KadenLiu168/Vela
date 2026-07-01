@@ -124,6 +124,20 @@ export type StrategySignalGenerationResponse = {
   positions: StrategySignalGenerationPosition[];
 };
 
+export type BacktestRunResponse = {
+  run_id: number;
+  status: string;
+  start_date: string;
+  end_date: string;
+  trading_day_count: number;
+  signal_count: number;
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+};
+
 export type StrategySignalGenerationPosition = {
   etf_id: number;
   exchange: string;
@@ -206,6 +220,17 @@ export function fetchFullMarketData(): Promise<MarketDataFetchResponse> {
 
 export function generateStrategySignal(): Promise<StrategySignalGenerationResponse> {
   return apiRequest<StrategySignalGenerationResponse>("/strategy-signals/generate", {
+    method: "POST"
+  });
+}
+
+export function runBacktest(startDate: string, endDate: string): Promise<BacktestRunResponse> {
+  const searchParams = new URLSearchParams({
+    startDate,
+    endDate
+  });
+
+  return apiRequest<BacktestRunResponse>(`/backtests/run?${searchParams.toString()}`, {
     method: "POST"
   });
 }

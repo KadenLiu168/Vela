@@ -69,7 +69,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Run backtest" })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
@@ -102,11 +102,13 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(
-    screen.getByText("No local backtest run exists yet. Run backtest after a signal is available.")
+    screen.getByText("No local backtest run exists yet. Use the Operations panel to run a backtest.")
   ).toBeInTheDocument();
   const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
-  expect(within(backtestPanel as HTMLElement).getByRole("button", { name: "Run backtest" })).toBeDisabled();
+  expect(
+    within(backtestPanel as HTMLElement).queryByRole("button", { name: "Run backtest" })
+  ).not.toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
@@ -630,6 +632,103 @@ it("shows an operation error when signal generation fails", async () => {
   });
 });
 
+it("submits a Dashboard backtest date range through the shared API", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31") {
+      return Promise.resolve(jsonResponse(createBacktestRunResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-01-01" } });
+  fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  expect(await screen.findByText("Backtest run submitted.")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31",
+    {
+      method: "POST"
+    }
+  );
+});
+
+it("validates Dashboard backtest dates before submitting", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-99-01" } });
+  fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  expect(await screen.findByText("Enter dates in YYYY-MM-DD format.")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/backtests/run"))).toHaveLength(0);
+
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-02-01" } });
+  fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  expect(await screen.findByText("Start date must be on or before end date.")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/backtests/run"))).toHaveLength(0);
+});
+
+it("prevents duplicate Dashboard backtest submissions while pending", async () => {
+  const backtestResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31") {
+      return backtestResult.promise;
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-01-01" } });
+  fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
+  const button = screen.getByRole("button", { name: "Run backtest" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+
+  expect(await screen.findByRole("button", { name: "Running backtest" })).toBeDisabled();
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/backtests/run"))).toHaveLength(1);
+
+  backtestResult.resolve(jsonResponse(createBacktestRunResponse()));
+
+  expect(await screen.findByText("Backtest run submitted.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Run backtest" })).toBeEnabled();
+});
+
 it("renders latest signal data on the signal detail route", async () => {
   window.history.pushState({}, "", "/signals/demo-signal");
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -891,6 +990,22 @@ function createGeneratedLatestSignalResponse() {
         is_fallback: false
       }
     ]
+  };
+}
+
+function createBacktestRunResponse() {
+  return {
+    run_id: 8,
+    status: "success",
+    start_date: "2026-01-01",
+    end_date: "2026-01-31",
+    trading_day_count: 21,
+    signal_count: 5,
+    total_return: "0.120000",
+    annualized_return: "1.440000",
+    max_drawdown: "-0.050000",
+    volatility: "0.200000",
+    sharpe_ratio: "1.100000"
   };
 }
 

@@ -5,7 +5,8 @@ import {
   generateStrategySignal,
   getDashboard,
   getHealth,
-  getLatestStrategySignal
+  getLatestStrategySignal,
+  runBacktest
 } from "./client";
 
 it.runIf(import.meta.env.VITE_API_BASE_URL)(
@@ -77,6 +78,27 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
       signal_date: result.signal_date
     });
     expect(latestSignal.positions).toHaveLength(result.positions.length);
+  }
+);
+
+it.runIf(import.meta.env.VITE_API_BASE_URL)(
+  "calls local API run backtest through the shared client",
+  async () => {
+    const result = await runBacktest("2026-01-01", "2026-01-10");
+
+    expect(result).toMatchObject({
+      run_id: expect.any(Number),
+      status: expect.any(String),
+      start_date: "2026-01-01",
+      end_date: "2026-01-10",
+      trading_day_count: expect.any(Number),
+      signal_count: expect.any(Number)
+    });
+    expect(Object.prototype.hasOwnProperty.call(result, "total_return")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(result, "annualized_return")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(result, "max_drawdown")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(result, "volatility")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(result, "sharpe_ratio")).toBe(true);
   }
 );
 
