@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -21,7 +21,7 @@ from vela_core import (
     get_latest_strategy_signal_report,
     run_backtest,
 )
-from vela_core.models import MarketPrice
+from vela_core.models import BacktestRun, MarketPrice
 from vela_core.strategy_config import load_strategy_config
 
 from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH, get_config_summary
@@ -111,6 +111,19 @@ def latest_strategy_signal(session: DatabaseSession) -> dict[str, object]:
     }
 
 
+@app.get("/api/backtests")
+def list_backtests(
+    session: DatabaseSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> dict[str, object]:
+    runs = session.scalars(
+        select(BacktestRun)
+        .order_by(BacktestRun.started_at.desc(), BacktestRun.id.desc())
+        .limit(limit)
+    ).all()
+    return {"runs": [_backtest_list_item_response(run) for run in runs]}
+
+
 @app.post("/api/backtests/run")
 def run_backtest_endpoint(
     session: DatabaseSession,
@@ -173,6 +186,22 @@ def _backtest_run_response(result: BacktestRunResult) -> dict[str, object]:
     }
 
 
+def _backtest_list_item_response(run: BacktestRun) -> dict[str, object]:
+    return {
+        "run_id": run.id,
+        "start_date": run.start_date.isoformat(),
+        "end_date": run.end_date.isoformat(),
+        "status": run.status,
+        "started_at": _format_datetime(run.started_at),
+        "finished_at": _format_optional_datetime(run.finished_at),
+        "total_return": _format_decimal(run.total_return),
+        "annualized_return": _format_decimal(run.annualized_return),
+        "max_drawdown": _format_decimal(run.max_drawdown),
+        "volatility": _format_decimal(run.volatility),
+        "sharpe_ratio": _format_decimal(run.sharpe_ratio),
+    }
+
+
 def _strategy_signal_position_response(position: GeneratedSignalPosition) -> dict[str, object]:
     return {
         "etf_id": position.etf_id,
@@ -210,3 +239,11 @@ def _latest_strategy_signal_position_response(
 
 def _format_decimal(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _format_optional_datetime(value: datetime | None) -> str | None:
+    return None if value is None else _format_datetime(value)
+
+
+def _format_datetime(value: datetime) -> str:
+    return value.replace(tzinfo=None).isoformat()

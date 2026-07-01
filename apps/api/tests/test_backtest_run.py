@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -104,6 +104,137 @@ def test_run_backtest_endpoint_requires_date_query_params(tmp_path) -> None:
     assert response.status_code == 422
 
 
+def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'list-backtests.db'}"
+    session_factory = _create_database(database_url)
+    with session_factory() as session:
+        session.add_all(
+            [
+                _backtest_run(
+                    start_date=date(2026, 1, 1),
+                    end_date=date(2026, 1, 31),
+                    started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+                    total_return=Decimal("0.120000"),
+                ),
+                _backtest_run(
+                    start_date=date(2026, 2, 1),
+                    end_date=date(2026, 2, 28),
+                    started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
+                    finished_at=None,
+                    status="running",
+                    total_return=None,
+                ),
+                _backtest_run(
+                    start_date=date(2026, 3, 1),
+                    end_date=date(2026, 3, 31),
+                    started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 3, 1, 9, 4, tzinfo=UTC),
+                    total_return=Decimal("0.050000"),
+                ),
+            ]
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "runs": [
+            {
+                "run_id": 3,
+                "start_date": "2026-03-01",
+                "end_date": "2026-03-31",
+                "status": "success",
+                "started_at": "2026-03-01T09:00:00",
+                "finished_at": "2026-03-01T09:04:00",
+                "total_return": "0.050000",
+                "annualized_return": "0.180000",
+                "max_drawdown": "-0.050000",
+                "volatility": "0.200000",
+                "sharpe_ratio": "1.100000",
+            },
+            {
+                "run_id": 2,
+                "start_date": "2026-02-01",
+                "end_date": "2026-02-28",
+                "status": "running",
+                "started_at": "2026-03-01T09:00:00",
+                "finished_at": None,
+                "total_return": None,
+                "annualized_return": "0.180000",
+                "max_drawdown": "-0.050000",
+                "volatility": "0.200000",
+                "sharpe_ratio": "1.100000",
+            },
+            {
+                "run_id": 1,
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-31",
+                "status": "success",
+                "started_at": "2026-02-01T09:00:00",
+                "finished_at": "2026-02-01T09:05:00",
+                "total_return": "0.120000",
+                "annualized_return": "0.180000",
+                "max_drawdown": "-0.050000",
+                "volatility": "0.200000",
+                "sharpe_ratio": "1.100000",
+            },
+        ]
+    }
+
+
+def test_list_backtests_endpoint_supports_limit(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'list-backtests-limit.db'}"
+    session_factory = _create_database(database_url)
+    with session_factory() as session:
+        session.add_all(
+            [
+                _backtest_run(
+                    start_date=date(2026, 1, 1),
+                    end_date=date(2026, 1, 31),
+                    started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+                ),
+                _backtest_run(
+                    start_date=date(2026, 2, 1),
+                    end_date=date(2026, 2, 28),
+                    started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests?limit=1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert [run["run_id"] for run in response.json()["runs"]] == [2]
+
+
+def test_list_backtests_endpoint_returns_empty_list(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'empty-list-backtests.db'}"
+    _create_database(database_url)
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {"runs": []}
+
+
 def _create_database(database_url: str) -> sessionmaker[Session]:
     engine = create_engine_from_url(database_url)
     Base.metadata.create_all(engine)
@@ -120,6 +251,32 @@ def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:
     session.add(etf)
     session.flush()
     return etf
+
+
+def _backtest_run(
+    *,
+    start_date: date,
+    end_date: date,
+    started_at: datetime,
+    finished_at: datetime | None = None,
+    status: str = "success",
+    total_return: Decimal | None = Decimal("0.120000"),
+) -> BacktestRun:
+    return BacktestRun(
+        strategy_name="dual_momentum",
+        config_version="v1",
+        start_date=start_date,
+        end_date=end_date,
+        parameters_json='{"top_n": 2}',
+        started_at=started_at,
+        finished_at=finished_at,
+        status=status,
+        total_return=total_return,
+        annualized_return=Decimal("0.180000"),
+        max_drawdown=Decimal("-0.050000"),
+        volatility=Decimal("0.200000"),
+        sharpe_ratio=Decimal("1.100000"),
+    )
 
 
 def _add_price_history(

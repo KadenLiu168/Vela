@@ -21,6 +21,7 @@ def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
     }
 
     assert routes == {
+        ("/api/backtests", ("GET",)),
         ("/api/backtests/run", ("POST",)),
         ("/api/config", ("GET",)),
         ("/api/dashboard", ("GET",)),
