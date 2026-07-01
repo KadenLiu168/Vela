@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ApiClientError,
+  type LatestStrategySignalPosition,
   type LatestStrategySignalResponse,
   getLatestStrategySignal
 } from "../api/client";
@@ -82,7 +83,46 @@ function renderSignalDetail(signalState: SignalDetailState) {
         <Detail label="Fallback" value={signal.is_fallback ? "Yes" : "No"} />
         <Detail label="Generated at" value={signal.generated_at} />
       </dl>
+      <section className="holdings-section" aria-labelledby="target-holdings-heading">
+        <h3 id="target-holdings-heading">Target holdings</h3>
+        {renderTargetHoldings(signalState.data.positions)}
+      </section>
     </article>
+  );
+}
+
+function renderTargetHoldings(positions: LatestStrategySignalPosition[]) {
+  if (positions.length === 0) {
+    return <p className="empty-state">No target holdings were stored for this signal.</p>;
+  }
+
+  return (
+    <div className="holdings-table-wrap">
+      <table className="holdings-table">
+        <thead>
+          <tr>
+            <th scope="col">Exchange</th>
+            <th scope="col">Symbol</th>
+            <th scope="col">Target weight</th>
+            <th scope="col">Rank</th>
+            <th scope="col">Score</th>
+            <th scope="col">Fallback</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((position) => (
+            <tr key={`${position.exchange}:${position.symbol}`}>
+              <td>{position.exchange}</td>
+              <td>{position.symbol}</td>
+              <td>{formatTargetWeight(position.target_weight)}</td>
+              <td>{formatNullableNumber(position.rank)}</td>
+              <td>{formatNullableDecimal(position.score)}</td>
+              <td>{formatFallback(position.is_fallback)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -97,4 +137,43 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 function formatOptional(value: string | null): string {
   return value ?? "None";
+}
+
+function formatTargetWeight(value: string): string {
+  const percentage = Number(value) * 100;
+
+  if (!Number.isFinite(percentage)) {
+    return value;
+  }
+
+  return `${trimFixed(percentage, 4)}%`;
+}
+
+function formatNullableNumber(value: number | null): string {
+  return value === null ? "None" : String(value);
+}
+
+function formatNullableDecimal(value: string | null): string {
+  if (value === null) {
+    return "None";
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+
+  return trimFixed(numericValue, 6);
+}
+
+function formatFallback(value: boolean): string {
+  return value ? "Yes" : "No";
+}
+
+function trimFixed(value: number, digits: number): string {
+  return value
+    .toFixed(digits)
+    .replace(/(\.\d*?)0+$/, "$1")
+    .replace(/\.$/, "");
 }

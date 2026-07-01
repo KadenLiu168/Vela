@@ -600,10 +600,49 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(screen.getByText("2026-06-23")).toBeInTheDocument();
   expect(screen.getByText("v1")).toBeInTheDocument();
   expect(screen.getByText("rebalance")).toBeInTheDocument();
-  expect(screen.getByText("No")).toBeInTheDocument();
+  expect(screen.getAllByText("No")).toHaveLength(2);
   expect(screen.getByText("2026-06-23T09:30:00")).toBeInTheDocument();
-  expect(screen.queryByText(/rank|score|candidate/i)).not.toBeInTheDocument();
+  const holdingsTable = screen.getByRole("table");
+  const holdings = within(holdingsTable);
+  expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Exchange" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Symbol" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Target weight" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Rank" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Fallback" })).toBeInTheDocument();
+  expect(holdings.getByText("SSE")).toBeInTheDocument();
+  expect(holdings.getByText("510300")).toBeInTheDocument();
+  expect(holdings.getByText("33.3333%")).toBeInTheDocument();
+  expect(holdings.getByText("1")).toBeInTheDocument();
+  expect(holdings.getByText("0.812345")).toBeInTheDocument();
+  expect(holdings.getByText("SZSE")).toBeInTheDocument();
+  expect(holdings.getByText("159915")).toBeInTheDocument();
+  expect(holdings.getByText("100%")).toBeInTheDocument();
+  expect(holdings.getAllByText("None")).toHaveLength(2);
+  expect(holdings.getByText("Yes")).toBeInTheDocument();
+  expect(screen.queryByText(/candidate/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
+});
+
+it("renders an empty target holdings state on the signal detail route", async () => {
+  window.history.pushState({}, "", "/signals/demo-signal");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createLatestSignalResponse(),
+        positions: []
+      })
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("Signal #42")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
+  expect(screen.getByText("No target holdings were stored for this signal.")).toBeInTheDocument();
+  expect(screen.queryByText(/Latest signal API unavailable/i)).not.toBeInTheDocument();
 });
 
 it("renders an empty state on the signal detail route when no latest signal exists", async () => {
@@ -756,10 +795,18 @@ function createLatestSignalResponse() {
       {
         exchange: "SSE",
         symbol: "510300",
-        target_weight: "0.500000",
+        target_weight: "0.333333",
         rank: 1,
-        score: "0.800000",
+        score: "0.812345",
         is_fallback: false
+      },
+      {
+        exchange: "SZSE",
+        symbol: "159915",
+        target_weight: "1.000000",
+        rank: null,
+        score: null,
+        is_fallback: true
       }
     ]
   };

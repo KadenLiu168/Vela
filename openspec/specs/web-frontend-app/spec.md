@@ -357,6 +357,18 @@ The web frontend SHALL render the Signal Detail page as a read-only latest strat
 - **AND** it shows the fallback status
 - **AND** it shows the generated timestamp
 
+#### Scenario: Signal detail shows target holdings table
+- **WHEN** the latest signal API response has `has_signal: true` and includes positions
+- **THEN** the Signal Detail page shows a target holdings table populated from the latest signal API `positions`
+- **AND** the table shows each position's exchange, symbol, target weight, rank, score, and fallback status
+- **AND** target weight is formatted as a clear percentage without losing meaningful decimal precision
+- **AND** score is formatted as a readable decimal value without losing meaningful precision
+
+#### Scenario: Signal detail shows empty target holdings state
+- **WHEN** the latest signal API response has `has_signal: true` and includes no positions
+- **THEN** the Signal Detail page shows a clear empty holdings state
+- **AND** it does not treat the successful latest signal response as a request failure
+
 #### Scenario: Signal detail shows empty latest signal state
 - **WHEN** the latest signal API response has `has_signal: false`
 - **THEN** the Signal Detail page shows a clear empty state explaining that no successful signal exists yet
