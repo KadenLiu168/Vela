@@ -133,6 +133,30 @@ export type StrategySignalGenerationPosition = {
   score: string | null;
 };
 
+export type LatestStrategySignalResponse = {
+  has_signal: boolean;
+  signal: LatestStrategySignal | null;
+  positions: LatestStrategySignalPosition[];
+};
+
+export type LatestStrategySignal = {
+  signal_id: number;
+  signal_date: string;
+  config_version: string;
+  result: string | null;
+  generated_at: string;
+  is_fallback: boolean;
+};
+
+export type LatestStrategySignalPosition = {
+  exchange: string;
+  symbol: string;
+  target_weight: string;
+  rank: number | null;
+  score: string | null;
+  is_fallback: boolean;
+};
+
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
@@ -184,6 +208,10 @@ export function generateStrategySignal(): Promise<StrategySignalGenerationRespon
   return apiRequest<StrategySignalGenerationResponse>("/strategy-signals/generate", {
     method: "POST"
   });
+}
+
+export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {
+  return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
 }
 
 async function getErrorMessage(response: Response): Promise<string> {

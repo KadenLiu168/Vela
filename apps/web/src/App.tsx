@@ -7,7 +7,7 @@ import { SignalDetailPage } from "./pages/SignalDetailPage";
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
-  { href: "/signals/demo-signal", label: "Signal Detail" },
+  { href: "/signals/demo-signal", label: "Latest Signal" },
   { href: "/backtests/demo-backtest", label: "Backtest Detail" }
 ];
 

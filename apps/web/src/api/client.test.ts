@@ -6,7 +6,8 @@ import {
   fetchIncrementalMarketData,
   generateStrategySignal,
   getDashboard,
-  getHealth
+  getHealth,
+  getLatestStrategySignal
 } from "./client";
 
 afterEach(() => {
@@ -217,6 +218,40 @@ it("calls strategy signal generation through the shared client", async () => {
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
     method: "POST"
   });
+});
+
+it("calls latest strategy signal through the shared client", async () => {
+  const latestSignal = {
+    has_signal: true,
+    signal: {
+      signal_id: 42,
+      signal_date: "2026-06-23",
+      config_version: "v1",
+      result: "rebalance",
+      generated_at: "2026-06-23T09:30:00",
+      is_fallback: false
+    },
+    positions: [
+      {
+        exchange: "SSE",
+        symbol: "510300",
+        target_weight: "0.500000",
+        rank: 1,
+        score: "0.800000",
+        is_fallback: false
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(latestSignal), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(getLatestStrategySignal()).resolves.toEqual(latestSignal);
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
 });
 
 it("exposes a typed API client error", () => {

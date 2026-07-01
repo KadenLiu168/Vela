@@ -4,7 +4,8 @@ import {
   fetchIncrementalMarketData,
   generateStrategySignal,
   getDashboard,
-  getHealth
+  getHealth,
+  getLatestStrategySignal
 } from "./client";
 
 it.runIf(import.meta.env.VITE_API_BASE_URL)(
@@ -70,5 +71,30 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
       signal_date: result.signal_date,
       status: result.status
     });
+  }
+);
+
+it.runIf(import.meta.env.VITE_API_BASE_URL)(
+  "calls local API latest strategy signal through the shared client",
+  async () => {
+    const result = await getLatestStrategySignal();
+
+    expect(result).toMatchObject({
+      has_signal: expect.any(Boolean),
+      positions: expect.any(Array)
+    });
+
+    if (result.has_signal) {
+      expect(result.signal).toMatchObject({
+        signal_id: expect.any(Number),
+        signal_date: expect.any(String),
+        config_version: expect.any(String),
+        generated_at: expect.any(String),
+        is_fallback: expect.any(Boolean)
+      });
+    } else {
+      expect(result.signal).toBeNull();
+      expect(result.positions).toEqual([]);
+    }
   }
 );

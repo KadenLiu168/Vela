@@ -580,13 +580,62 @@ it("shows an operation error when signal generation fails", async () => {
   });
 });
 
-it("renders the signal detail placeholder route", () => {
+it("renders latest signal data on the signal detail route", async () => {
   window.history.pushState({}, "", "/signals/demo-signal");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/strategy-signals/latest") {
+      return Promise.resolve(jsonResponse(createLatestSignalResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
 
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "Signal Detail" })).toBeInTheDocument();
-  expect(screen.getByText("Signal ID: demo-signal")).toBeInTheDocument();
+  expect(await screen.findByText("Signal #42")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-23")).toBeInTheDocument();
+  expect(screen.getByText("v1")).toBeInTheDocument();
+  expect(screen.getByText("rebalance")).toBeInTheDocument();
+  expect(screen.getByText("No")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-23T09:30:00")).toBeInTheDocument();
+  expect(screen.queryByText(/rank|score|candidate/i)).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
+});
+
+it("renders an empty state on the signal detail route when no latest signal exists", async () => {
+  window.history.pushState({}, "", "/signals/demo-signal");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        has_signal: false,
+        signal: null,
+        positions: []
+      })
+    )
+  );
+
+  render(<App />);
+
+  expect(
+    await screen.findByText(
+      "No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready."
+    )
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Latest signal API unavailable/i)).not.toBeInTheDocument();
+});
+
+it("renders an API failure state on the signal detail route", async () => {
+  window.history.pushState({}, "", "/signals/demo-signal");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  expect(await screen.findByText("Latest signal API unavailable: network")).toBeInTheDocument();
 });
 
 it("renders the backtest detail placeholder route", () => {
@@ -602,7 +651,7 @@ it("exposes local research navigation without production account entry points", 
   render(<App />);
 
   expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
-  expect(screen.getByRole("link", { name: "Signal Detail" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Latest Signal" })).toHaveAttribute(
     "href",
     "/signals/demo-signal"
   );
@@ -687,6 +736,30 @@ function createDashboardResponse() {
         rows_inserted: 180,
         rows_updated: 20,
         error_summary: null
+      }
+    ]
+  };
+}
+
+function createLatestSignalResponse() {
+  return {
+    has_signal: true,
+    signal: {
+      signal_id: 42,
+      signal_date: "2026-06-23",
+      config_version: "v1",
+      result: "rebalance",
+      generated_at: "2026-06-23T09:30:00",
+      is_fallback: false
+    },
+    positions: [
+      {
+        exchange: "SSE",
+        symbol: "510300",
+        target_weight: "0.500000",
+        rank: 1,
+        score: "0.800000",
+        is_fallback: false
       }
     ]
   };
