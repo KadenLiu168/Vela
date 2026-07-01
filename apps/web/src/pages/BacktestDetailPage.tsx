@@ -103,12 +103,15 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
       </dl>
       <section className="holdings-section" aria-labelledby="backtest-metrics-heading">
         <h3 id="backtest-metrics-heading">Metrics</h3>
-        <dl className="compact-list">
-          <Detail label="Total return" value={formatPercent(metrics.total_return)} />
-          <Detail label="Annualized return" value={formatPercent(metrics.annualized_return)} />
-          <Detail label="Max drawdown" value={formatPercent(metrics.max_drawdown)} />
-          <Detail label="Volatility" value={formatPercent(metrics.volatility)} />
-          <Detail label="Sharpe" value={formatOptional(metrics.sharpe_ratio)} />
+        <dl className="metric-card-grid">
+          <MetricCard label="Total return" value={formatMetricPercent(metrics.total_return)} />
+          <MetricCard
+            label="Annualized return"
+            value={formatMetricPercent(metrics.annualized_return)}
+          />
+          <MetricCard label="Max drawdown" value={formatMetricPercent(metrics.max_drawdown)} />
+          <MetricCard label="Volatility" value={formatMetricPercent(metrics.volatility)} />
+          <MetricCard label="Sharpe ratio" value={formatMetricDecimal(metrics.sharpe_ratio)} />
         </dl>
       </section>
       <section className="holdings-section" aria-labelledby="backtest-parameters-heading">
@@ -128,17 +131,35 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="metric-card">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
 function formatOptional(value: string | null | undefined): string {
   return value ?? "Not available";
 }
 
-function formatPercent(value: string | null): string {
+function formatMetricPercent(value: string | null): string {
   if (value === null) {
-    return "Not available";
+    return "n/a";
   }
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(2)}%` : value;
+}
+
+function formatMetricDecimal(value: string | null): string {
+  if (value === null) {
+    return "n/a";
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : value;
 }
 
 function formatParameterSummary(value: string | null): string {

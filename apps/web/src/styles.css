@@ -214,6 +214,39 @@ main {
   margin-top: 6px;
 }
 
+.detail-page .metric-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.detail-page .metric-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.detail-page .metric-card dt {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.detail-page .metric-card dd {
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0;
+}
+
 .compact-list {
   display: grid;
   gap: 8px 14px;
@@ -478,6 +511,7 @@ main {
   }
 
   .metric-row,
+  .detail-page .metric-card-grid,
   .compact-list {
     grid-template-columns: 1fr;
   }

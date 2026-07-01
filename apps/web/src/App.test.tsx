@@ -964,9 +964,46 @@ it("loads backtest detail data through the shared client", async () => {
   expect(screen.getByText("144.00%")).toBeInTheDocument();
   expect(screen.getByText("-5.00%")).toBeInTheDocument();
   expect(screen.getByText("20.00%")).toBeInTheDocument();
-  expect(screen.getByText("1.100000")).toBeInTheDocument();
+  expect(screen.getByText("1.10")).toBeInTheDocument();
+  const metricsSection = screen.getByRole("heading", { name: "Metrics" }).closest("section");
+  expect(metricsSection).not.toBeNull();
+  const metrics = within(metricsSection as HTMLElement);
+  expect(metrics.getByText("Total return")).toBeInTheDocument();
+  expect(metrics.getByText("Annualized return")).toBeInTheDocument();
+  expect(metrics.getByText("Max drawdown")).toBeInTheDocument();
+  expect(metrics.getByText("Volatility")).toBeInTheDocument();
+  expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests/demo-backtest", undefined);
+});
+
+it("renders n/a for nullable backtest metric cards", async () => {
+  window.history.pushState({}, "", "/backtests/8");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createBacktestDetailResponse(),
+        metrics: {
+          total_return: null,
+          annualized_return: null,
+          max_drawdown: null,
+          volatility: null,
+          sharpe_ratio: null
+        }
+      })
+    )
+  );
+
+  render(<App />);
+
+  const metricsSection = (await screen.findByRole("heading", { name: "Metrics" })).closest(
+    "section"
+  );
+  expect(metricsSection).not.toBeNull();
+  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(5);
+  expect(screen.getByText("Backtest #8")).toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
 
 it("renders a loading state on the backtest detail route", () => {
