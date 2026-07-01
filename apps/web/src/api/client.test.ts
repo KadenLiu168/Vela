@@ -4,6 +4,7 @@ import {
   apiRequest,
   fetchFullMarketData,
   fetchIncrementalMarketData,
+  generateStrategySignal,
   getDashboard,
   getHealth
 } from "./client";
@@ -181,6 +182,39 @@ it("calls full market data fetch through the shared client", async () => {
 
   await expect(fetchFullMarketData()).resolves.toEqual(fetchResult);
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+});
+
+it("calls strategy signal generation through the shared client", async () => {
+  const generateResult = {
+    signal_id: 42,
+    signal_date: "2026-06-23",
+    config_version: "v1",
+    status: "success",
+    result: "rebalance",
+    error_message: null,
+    positions: [
+      {
+        etf_id: 1,
+        exchange: "SSE",
+        symbol: "510300",
+        target_weight: "0.500000",
+        rank: 1,
+        score: "0.800000"
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(generateResult), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(generateStrategySignal()).resolves.toEqual(generateResult);
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
     method: "POST"
   });
 });

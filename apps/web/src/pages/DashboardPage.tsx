@@ -6,8 +6,10 @@ import {
   type DashboardResponse,
   type DashboardSignalSummary,
   type MarketDataFetchResponse,
+  type StrategySignalGenerationResponse,
   fetchFullMarketData,
   fetchIncrementalMarketData,
+  generateStrategySignal,
   getDashboard
 } from "../api/client";
 
@@ -17,14 +19,20 @@ type DashboardState =
   | { status: "error"; data?: never; error: string };
 
 type MarketDataFetchMode = "incremental" | "full";
+type OperationError =
+  | { operation: "marketDataFetch"; kind: string }
+  | { operation: "signalGeneration"; kind: string };
 
 export function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading"
   });
   const [marketDataFetchMode, setMarketDataFetchMode] = useState<MarketDataFetchMode | null>(null);
-  const [operationError, setOperationError] = useState<string | null>(null);
+  const [isGeneratingSignal, setIsGeneratingSignal] = useState(false);
+  const [operationError, setOperationError] = useState<OperationError | null>(null);
   const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
+  const [signalGenerationResult, setSignalGenerationResult] =
+    useState<StrategySignalGenerationResponse | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -51,12 +59,40 @@ export function DashboardPage() {
     try {
       const fetchResult = await (mode === "full" ? fetchFullMarketData() : fetchIncrementalMarketData());
       setMarketDataFetchResult(fetchResult);
+      setSignalGenerationResult(null);
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setMarketDataFetchResult(null);
-      setOperationError(error instanceof ApiClientError ? error.kind : "unavailable");
+      setOperationError({
+        operation: "marketDataFetch",
+        kind: error instanceof ApiClientError ? error.kind : "unavailable"
+      });
     } finally {
       setMarketDataFetchMode(null);
+    }
+  }
+
+  async function handleSignalGeneration() {
+    if (isGeneratingSignal) {
+      return;
+    }
+
+    setIsGeneratingSignal(true);
+    setOperationError(null);
+
+    try {
+      const generationResult = await generateStrategySignal();
+      setSignalGenerationResult(generationResult);
+      setMarketDataFetchResult(null);
+      await loadDashboard(setDashboardState);
+    } catch (error: unknown) {
+      setSignalGenerationResult(null);
+      setOperationError({
+        operation: "signalGeneration",
+        kind: error instanceof ApiClientError ? error.kind : "unavailable"
+      });
+    } finally {
+      setIsGeneratingSignal(false);
     }
   }
 
@@ -65,6 +101,12 @@ export function DashboardPage() {
     isLoading: marketDataFetchMode !== null,
     onClick: () => {
       void handleMarketDataFetch("incremental");
+    }
+  };
+  const signalGenerationAction = {
+    isLoading: isGeneratingSignal,
+    onClick: () => {
+      void handleSignalGeneration();
     }
   };
 
@@ -140,7 +182,12 @@ export function DashboardPage() {
 
         <article className="dashboard-panel signal-panel">
           <PanelHeading eyebrow="Signal" title="Latest signal" />
-          <SignalSummary signal={data?.latest_signal} isLoading={dashboardState.status === "loading"} />
+          <SignalSummary
+            signal={data?.latest_signal}
+            isGeneratingSignal={signalGenerationAction.isLoading}
+            isLoading={dashboardState.status === "loading"}
+            onGenerateSignal={signalGenerationAction.onClick}
+          />
         </article>
 
         <article className="dashboard-panel backtest-panel">
@@ -159,9 +206,10 @@ export function DashboardPage() {
         <article className="dashboard-panel operations-panel">
           <PanelHeading eyebrow="Actions" title="Operations" />
           {operationError ? (
-            <p className="dashboard-alert operation-alert">Market data fetch failed: {operationError}</p>
+            <p className="dashboard-alert operation-alert">{formatOperationError(operationError)}</p>
           ) : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
+          {signalGenerationResult ? <SignalGenerationSummary result={signalGenerationResult} /> : null}
           <div className="operation-list">
             <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
@@ -175,8 +223,12 @@ export function DashboardPage() {
             >
               {marketDataFetchMode === "full" ? "Running full fetch" : "Full fetch for initialization or repair"}
             </button>
-            <button type="button" disabled>
-              Generate signal
+            <button
+              type="button"
+              disabled={signalGenerationAction.isLoading}
+              onClick={signalGenerationAction.onClick}
+            >
+              {signalGenerationAction.isLoading ? "Generating signal" : "Generate signal"}
             </button>
             <button type="button" disabled>
               Run backtest
@@ -185,6 +237,21 @@ export function DashboardPage() {
         </article>
       </div>
     </section>
+  );
+}
+
+function SignalGenerationSummary({ result }: { result: StrategySignalGenerationResponse }) {
+  return (
+    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+      <strong>Signal generation {result.status}</strong>
+      <dl className="compact-list">
+        <Detail label="Signal" value={`#${formatNumber(result.signal_id)}`} />
+        <Detail label="Signal date" value={result.signal_date} />
+        <Detail label="Result" value={formatOptional(result.result)} />
+        <Detail label="Positions" value={formatNumber(result.positions.length)} />
+      </dl>
+      {result.error_message ? <p className="operation-guidance">{result.error_message}</p> : null}
+    </div>
   );
 }
 
@@ -247,10 +314,14 @@ function FetchLogSummary({
 }
 
 function SignalSummary({
+  isGeneratingSignal,
   isLoading,
+  onGenerateSignal,
   signal
 }: {
+  isGeneratingSignal: boolean;
   isLoading: boolean;
+  onGenerateSignal: () => void;
   signal: DashboardSignalSummary | null | undefined;
 }) {
   if (isLoading) {
@@ -262,7 +333,10 @@ function SignalSummary({
       <EmptyAction
         actionLabel="Generate signal"
         className="signal-empty-action"
+        isLoading={isGeneratingSignal}
+        loadingLabel="Generating signal"
         message="No successful local signal exists yet. Generate signal after market data is ready."
+        onClick={onGenerateSignal}
       />
     );
   }
@@ -329,12 +403,14 @@ function EmptyAction({
   actionLabel,
   className,
   isLoading = false,
+  loadingLabel,
   message,
   onClick
 }: {
   actionLabel: string;
   className?: string;
   isLoading?: boolean;
+  loadingLabel?: string;
   message: string;
   onClick?: () => void;
 }) {
@@ -343,7 +419,7 @@ function EmptyAction({
       <p className="empty-state">{message}</p>
       <div className="operation-list empty-action">
         <button type="button" disabled={isLoading || !onClick} onClick={onClick}>
-          {isLoading ? "Fetching market data" : actionLabel}
+          {isLoading ? (loadingLabel ?? actionLabel) : actionLabel}
         </button>
       </div>
     </div>
@@ -426,6 +502,12 @@ function formatFailedSymbols(symbols: string[]): string {
 
 function formatBoolean(value: boolean): string {
   return value ? "Yes" : "No";
+}
+
+function formatOperationError(error: OperationError): string {
+  const operationLabel =
+    error.operation === "signalGeneration" ? "Signal generation" : "Market data fetch";
+  return `${operationLabel} failed: ${error.kind}`;
 }
 
 function formatPercent(value: string | null): string {

@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { fetchFullMarketData, fetchIncrementalMarketData, getHealth } from "./client";
+import {
+  fetchFullMarketData,
+  fetchIncrementalMarketData,
+  generateStrategySignal,
+  getDashboard,
+  getHealth
+} from "./client";
 
 it.runIf(import.meta.env.VITE_API_BASE_URL)(
   "calls local API health through the shared client",
@@ -41,5 +47,28 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
     });
     expect(Object.prototype.hasOwnProperty.call(result, "error_message")).toBe(true);
     expect(result.error_message === null || typeof result.error_message === "string").toBe(true);
+  }
+);
+
+it.runIf(import.meta.env.VITE_API_BASE_URL)(
+  "calls local API strategy signal generation through the shared client",
+  async () => {
+    const result = await generateStrategySignal();
+    const dashboard = await getDashboard();
+
+    expect(result).toMatchObject({
+      signal_id: expect.any(Number),
+      signal_date: expect.any(String),
+      config_version: expect.any(String),
+      status: expect.any(String),
+      positions: expect.any(Array)
+    });
+    expect(Object.prototype.hasOwnProperty.call(result, "error_message")).toBe(true);
+    expect(result.error_message === null || typeof result.error_message === "string").toBe(true);
+    expect(dashboard.latest_signal).toMatchObject({
+      signal_id: result.signal_id,
+      signal_date: result.signal_date,
+      status: result.status
+    });
   }
 );

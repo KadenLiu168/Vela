@@ -114,6 +114,25 @@ export type MarketDataFetchResponse = {
   error_message: string | null;
 };
 
+export type StrategySignalGenerationResponse = {
+  signal_id: number;
+  signal_date: string;
+  config_version: string;
+  status: string;
+  result: string | null;
+  error_message: string | null;
+  positions: StrategySignalGenerationPosition[];
+};
+
+export type StrategySignalGenerationPosition = {
+  etf_id: number;
+  exchange: string;
+  symbol: string;
+  target_weight: string;
+  rank: number | null;
+  score: string | null;
+};
+
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
@@ -157,6 +176,12 @@ export function fetchIncrementalMarketData(): Promise<MarketDataFetchResponse> {
 
 export function fetchFullMarketData(): Promise<MarketDataFetchResponse> {
   return apiRequest<MarketDataFetchResponse>("/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+}
+
+export function generateStrategySignal(): Promise<StrategySignalGenerationResponse> {
+  return apiRequest<StrategySignalGenerationResponse>("/strategy-signals/generate", {
     method: "POST"
   });
 }

@@ -68,7 +68,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(fetchLogs.getByText("2026-06-23T07:05:00")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
@@ -100,7 +100,7 @@ it("renders empty dashboard states without treating the response as a failure", 
   ).toBeInTheDocument();
   const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
   expect(signalPanel).not.toBeNull();
-  expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeDisabled();
+  expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(
     screen.getByText("No local backtest run exists yet. Run backtest after a signal is available.")
   ).toBeInTheDocument();
@@ -447,6 +447,134 @@ it("shows an operation error when incremental market data fetch fails", async ()
 
   expect(await screen.findByText("Market data fetch failed: http")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+  await waitFor(() => {
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
+  });
+});
+
+it("triggers signal generation and refreshes latest signal data", async () => {
+  const generateResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard" && fetchMock.mock.calls.length === 1) {
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          latest_signal: null
+        })
+      );
+    }
+
+    if (url === "/api/strategy-signals/generate") {
+      return generateResult.promise;
+    }
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          latest_signal: {
+            signal_id: 43,
+            signal_date: "2026-06-24",
+            config_version: "v1",
+            status: "success",
+            result: "rebalance",
+            generated_at: "2026-06-24T09:30:00",
+            is_fallback: false,
+            position_count: 2
+          }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  const signalPanel = await screen.findByRole("heading", { name: "Latest signal" });
+  const signalArticle = signalPanel.closest("article");
+  expect(signalArticle).not.toBeNull();
+  const button = within(signalArticle as HTMLElement).getByRole("button", { name: "Generate signal" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+
+  expect(await within(signalArticle as HTMLElement).findByRole("button", { name: "Generating signal" })).toBeDisabled();
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
+    method: "POST"
+  });
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals/generate")).toHaveLength(1);
+
+  generateResult.resolve(
+    jsonResponse({
+      signal_id: 43,
+      signal_date: "2026-06-24",
+      config_version: "v1",
+      status: "success",
+      result: "rebalance",
+      error_message: null,
+      positions: [
+        {
+          etf_id: 1,
+          exchange: "SSE",
+          symbol: "510300",
+          target_weight: "0.500000",
+          rank: 1,
+          score: "0.800000"
+        },
+        {
+          etf_id: 2,
+          exchange: "SZSE",
+          symbol: "159915",
+          target_weight: "0.500000",
+          rank: 2,
+          score: "0.700000"
+        }
+      ]
+    })
+  );
+
+  expect(await within(signalArticle as HTMLElement).findByText("Signal #43")).toBeInTheDocument();
+  expect(within(signalArticle as HTMLElement).getByText("2026-06-24")).toBeInTheDocument();
+  expect(within(signalArticle as HTMLElement).getByText("No")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Signal generation success")).toBeInTheDocument();
+  expect(operations.getByText("#43")).toBeInTheDocument();
+  expect(operations.getByText("2")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
+});
+
+it("shows an operation error when signal generation fails", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/strategy-signals/generate") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ detail: "No local market prices found" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Generate signal" }));
+
+  expect(await screen.findByText("Signal generation failed: http")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
   await waitFor(() => {
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
   });
