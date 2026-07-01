@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from vela_core import (
     AkShareMarketDataProvider,
+    BacktestRunResult,
     GeneratedSignalPosition,
     GenerateStrategySignalResult,
     MarketDataFetchResult,
@@ -18,6 +19,7 @@ from vela_core import (
     generate_strategy_signal,
     get_dashboard_summary,
     get_latest_strategy_signal_report,
+    run_backtest,
 )
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import load_strategy_config
@@ -109,6 +111,26 @@ def latest_strategy_signal(session: DatabaseSession) -> dict[str, object]:
     }
 
 
+@app.post("/api/backtests/run")
+def run_backtest_endpoint(
+    session: DatabaseSession,
+    start_date: Annotated[date, Query(alias="startDate")],
+    end_date: Annotated[date, Query(alias="endDate")],
+) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    try:
+        result = run_backtest(
+            session,
+            config=config,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _backtest_run_response(result)
+
+
 def _market_data_fetch_response(result: MarketDataFetchResult) -> dict[str, object]:
     return {
         "status": result.status,
@@ -132,6 +154,22 @@ def _strategy_signal_response(result: GenerateStrategySignalResult) -> dict[str,
         "positions": [
             _strategy_signal_position_response(position) for position in result.positions
         ],
+    }
+
+
+def _backtest_run_response(result: BacktestRunResult) -> dict[str, object]:
+    return {
+        "run_id": result.backtest_run_id,
+        "status": result.status,
+        "start_date": result.start_date.isoformat(),
+        "end_date": result.end_date.isoformat(),
+        "trading_day_count": result.trading_day_count,
+        "signal_count": result.signal_count,
+        "total_return": _format_decimal(result.total_return),
+        "annualized_return": _format_decimal(result.annualized_return),
+        "max_drawdown": _format_decimal(result.max_drawdown),
+        "volatility": _format_decimal(result.volatility),
+        "sharpe_ratio": _format_decimal(result.sharpe_ratio),
     }
 
 
