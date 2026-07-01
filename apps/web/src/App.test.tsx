@@ -655,7 +655,22 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
   fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
   fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
-  expect(await screen.findByText("Backtest run submitted.")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest run success")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("#8")).toBeInTheDocument();
+  expect(operations.getByText("21")).toBeInTheDocument();
+  expect(operations.getByText("5")).toBeInTheDocument();
+  expect(operations.getByText("12.00%")).toBeInTheDocument();
+  expect(operations.getByText("144.00%")).toBeInTheDocument();
+  expect(operations.getByText("-5.00%")).toBeInTheDocument();
+  expect(operations.getByText("20.00%")).toBeInTheDocument();
+  expect(operations.getByText("1.100000")).toBeInTheDocument();
+  expect(operations.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
+    "href",
+    "/backtests/8"
+  );
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31",
     {
@@ -725,8 +740,52 @@ it("prevents duplicate Dashboard backtest submissions while pending", async () =
 
   backtestResult.resolve(jsonResponse(createBacktestRunResponse()));
 
-  expect(await screen.findByText("Backtest run submitted.")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest run success")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeEnabled();
+});
+
+it("clears a prior Dashboard backtest summary when a later run fails", async () => {
+  let backtestRequestCount = 0;
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31") {
+      backtestRequestCount += 1;
+
+      if (backtestRequestCount === 1) {
+        return Promise.resolve(jsonResponse(createBacktestRunResponse()));
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ detail: "not enough signals" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-01-01" } });
+  fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  expect(await screen.findByText("Backtest run success")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+  expect(await screen.findByText("Backtest run failed: http")).toBeInTheDocument();
+  expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
 });
 
 it("renders latest signal data on the signal detail route", async () => {

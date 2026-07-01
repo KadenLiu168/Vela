@@ -330,6 +330,14 @@ main {
   margin: 12px 0 0;
 }
 
+.operation-link {
+  color: #0f172a;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 12px;
+}
+
 .operation-list button {
   background: #f8fafc;
   border: 1px solid #cbd5e1;

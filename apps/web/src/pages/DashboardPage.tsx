@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ApiClientError,
+  type BacktestRunResponse,
   type DashboardBacktestSummary,
   type DashboardFetchLogSummary,
   type DashboardResponse,
@@ -43,12 +44,12 @@ export function DashboardPage() {
   const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
   const [signalGenerationResult, setSignalGenerationResult] =
     useState<StrategySignalGenerationResponse | null>(null);
+  const [backtestRunResult, setBacktestRunResult] = useState<BacktestRunResponse | null>(null);
   const [backtestForm, setBacktestForm] = useState<BacktestFormState>({
     startDate: "",
     endDate: ""
   });
   const [backtestValidationError, setBacktestValidationError] = useState<string | null>(null);
-  const [isBacktestRunSubmitted, setIsBacktestRunSubmitted] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -76,6 +77,7 @@ export function DashboardPage() {
       const fetchResult = await (mode === "full" ? fetchFullMarketData() : fetchIncrementalMarketData());
       setMarketDataFetchResult(fetchResult);
       setSignalGenerationResult(null);
+      setBacktestRunResult(null);
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setMarketDataFetchResult(null);
@@ -100,6 +102,7 @@ export function DashboardPage() {
       const generationResult = await generateStrategySignal();
       setSignalGenerationResult(generationResult);
       setMarketDataFetchResult(null);
+      setBacktestRunResult(null);
       await refreshDashboardSignalState(generationResult, setDashboardState);
     } catch (error: unknown) {
       setSignalGenerationResult(null);
@@ -122,7 +125,7 @@ export function DashboardPage() {
     const validationError = validateBacktestDates(backtestForm);
     if (validationError) {
       setBacktestValidationError(validationError);
-      setIsBacktestRunSubmitted(false);
+      setBacktestRunResult(null);
       return;
     }
 
@@ -131,12 +134,12 @@ export function DashboardPage() {
     setOperationError(null);
 
     try {
-      await runBacktest(backtestForm.startDate, backtestForm.endDate);
-      setIsBacktestRunSubmitted(true);
+      const result = await runBacktest(backtestForm.startDate, backtestForm.endDate);
+      setBacktestRunResult(result);
       setMarketDataFetchResult(null);
       setSignalGenerationResult(null);
     } catch (error: unknown) {
-      setIsBacktestRunSubmitted(false);
+      setBacktestRunResult(null);
       setOperationError({
         operation: "backtestRun",
         kind: error instanceof ApiClientError ? error.kind : "unavailable"
@@ -260,13 +263,9 @@ export function DashboardPage() {
           ) : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           {signalGenerationResult ? <SignalGenerationSummary result={signalGenerationResult} /> : null}
+          {backtestRunResult ? <BacktestRunSummary result={backtestRunResult} /> : null}
           {backtestValidationError ? (
             <p className="dashboard-alert operation-alert">{backtestValidationError}</p>
-          ) : null}
-          {isBacktestRunSubmitted ? (
-            <p className="dashboard-alert operation-alert" aria-live="polite">
-              Backtest run submitted.
-            </p>
           ) : null}
           <div className="operation-list">
             <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
@@ -369,6 +368,28 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
           Retry the fetch after checking the data source availability and local ETF/data state.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
+  return (
+    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+      <strong>Backtest run {result.status}</strong>
+      <dl className="compact-list">
+        <Detail label="Run" value={`#${formatNumber(result.run_id)}`} />
+        <Detail label="Status" value={result.status} />
+        <Detail label="Trading days" value={formatNumber(result.trading_day_count)} />
+        <Detail label="Signals" value={formatNumber(result.signal_count)} />
+        <Detail label="Total return" value={formatPercent(result.total_return)} />
+        <Detail label="Annualized return" value={formatPercent(result.annualized_return)} />
+        <Detail label="Max drawdown" value={formatPercent(result.max_drawdown)} />
+        <Detail label="Volatility" value={formatPercent(result.volatility)} />
+        <Detail label="Sharpe" value={formatOptional(result.sharpe_ratio)} />
+      </dl>
+      <a className="operation-link" href={`/backtests/${result.run_id}`}>
+        View backtest detail
+      </a>
     </div>
   );
 }
