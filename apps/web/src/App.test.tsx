@@ -633,11 +633,32 @@ it("shows an operation error when signal generation fails", async () => {
 });
 
 it("submits a Dashboard backtest date range through the shared API", async () => {
+  let dashboardRequestCount = 0;
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
     if (url === "/api/dashboard") {
-      return Promise.resolve(jsonResponse(createDashboardResponse()));
+      dashboardRequestCount += 1;
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          recent_backtest:
+            dashboardRequestCount === 1
+              ? null
+              : {
+                  run_id: 8,
+                  strategy_name: "dual_momentum",
+                  config_version: "v1",
+                  start_date: "2026-01-01",
+                  end_date: "2026-01-31",
+                  status: "success",
+                  total_return: "0.120000",
+                  max_drawdown: "-0.050000",
+                  sharpe_ratio: "1.100000",
+                  started_at: "2026-06-25T09:00:00"
+                }
+        })
+      );
     }
 
     if (url === "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31") {
@@ -651,6 +672,9 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
   render(<App />);
 
   await screen.findByText("1,200 rows");
+  expect(
+    screen.getByText("No local backtest run exists yet. Use the Operations panel to run a backtest.")
+  ).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-01-01" } });
   fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });
   fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
@@ -671,6 +695,13 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
     "href",
     "/backtests/8"
   );
+  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  expect(backtestPanel).not.toBeNull();
+  const recentBacktest = within(backtestPanel as HTMLElement);
+  expect(await recentBacktest.findByText("Backtest #8")).toBeInTheDocument();
+  expect(recentBacktest.getByText("2026-01-01 to 2026-01-31")).toBeInTheDocument();
+  expect(recentBacktest.getByText("success")).toBeInTheDocument();
+  expect(dashboardRequestCount).toBe(2);
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-31",
     {
@@ -746,10 +777,12 @@ it("prevents duplicate Dashboard backtest submissions while pending", async () =
 
 it("clears a prior Dashboard backtest summary when a later run fails", async () => {
   let backtestRequestCount = 0;
+  let dashboardRequestCount = 0;
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
     if (url === "/api/dashboard") {
+      dashboardRequestCount += 1;
       return Promise.resolve(jsonResponse(createDashboardResponse()));
     }
 
@@ -780,12 +813,39 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
   fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
   expect(await screen.findByText("Backtest run success")).toBeInTheDocument();
+  await waitFor(() => {
+    expect(dashboardRequestCount).toBe(2);
+  });
 
   fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
   expect(await screen.findByText("Backtest run failed: http")).toBeInTheDocument();
   expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
+  expect(dashboardRequestCount).toBe(2);
+});
+
+it("restores Dashboard recent backtest status from backend data after browser refresh", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  expect(backtestPanel).not.toBeNull();
+  const backtest = within(backtestPanel as HTMLElement);
+  expect(await backtest.findByText("Backtest #7")).toBeInTheDocument();
+  expect(backtest.getByText("2026-01-01 to 2026-06-01")).toBeInTheDocument();
+  expect(backtest.getByText("success")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
 });
 
 it("renders latest signal data on the signal detail route", async () => {

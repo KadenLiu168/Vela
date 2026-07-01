@@ -138,6 +138,7 @@ export function DashboardPage() {
       setBacktestRunResult(result);
       setMarketDataFetchResult(null);
       setSignalGenerationResult(null);
+      await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setBacktestRunResult(null);
       setOperationError({
