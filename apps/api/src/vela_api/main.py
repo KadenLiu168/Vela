@@ -17,11 +17,12 @@ from vela_core import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
+    get_backtest_result,
     get_dashboard_summary,
     get_latest_strategy_signal_report,
     run_backtest,
 )
-from vela_core.models import BacktestRun, MarketPrice
+from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice
 from vela_core.strategy_config import load_strategy_config
 
 from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH, get_config_summary
@@ -144,6 +145,19 @@ def run_backtest_endpoint(
     return _backtest_run_response(result)
 
 
+@app.get("/api/backtests/{run_id}")
+def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
+    run = get_backtest_result(session, run_id=run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+
+    return {
+        "run": _backtest_detail_run_response(run),
+        "metrics": _backtest_metrics_response(run),
+        "equity_curve": [_backtest_curve_point_response(row) for row in run.equity_curve],
+    }
+
+
 def _market_data_fetch_response(result: MarketDataFetchResult) -> dict[str, object]:
     return {
         "status": result.status,
@@ -199,6 +213,42 @@ def _backtest_list_item_response(run: BacktestRun) -> dict[str, object]:
         "max_drawdown": _format_decimal(run.max_drawdown),
         "volatility": _format_decimal(run.volatility),
         "sharpe_ratio": _format_decimal(run.sharpe_ratio),
+    }
+
+
+def _backtest_detail_run_response(run: BacktestRun) -> dict[str, object]:
+    return {
+        "run_id": run.id,
+        "strategy_name": run.strategy_name,
+        "config_version": run.config_version,
+        "start_date": run.start_date.isoformat(),
+        "end_date": run.end_date.isoformat(),
+        "parameters_json": run.parameters_json,
+        "status": run.status,
+        "error_message": run.error_message,
+        "started_at": _format_datetime(run.started_at),
+        "finished_at": _format_optional_datetime(run.finished_at),
+    }
+
+
+def _backtest_metrics_response(run: BacktestRun) -> dict[str, object]:
+    return {
+        "total_return": _format_decimal(run.total_return),
+        "annualized_return": _format_decimal(run.annualized_return),
+        "max_drawdown": _format_decimal(run.max_drawdown),
+        "volatility": _format_decimal(run.volatility),
+        "sharpe_ratio": _format_decimal(run.sharpe_ratio),
+    }
+
+
+def _backtest_curve_point_response(row: BacktestEquityCurve) -> dict[str, object]:
+    return {
+        "trade_date": row.trade_date.isoformat(),
+        "net_value": _format_decimal(row.net_value),
+        "cash": _format_decimal(row.cash),
+        "market_value": _format_decimal(row.market_value),
+        "total_assets": _format_decimal(row.total_assets),
+        "positions_json": row.positions_json,
     }
 
 

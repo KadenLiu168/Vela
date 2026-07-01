@@ -235,6 +235,100 @@ def test_list_backtests_endpoint_returns_empty_list(tmp_path) -> None:
     assert response.json() == {"runs": []}
 
 
+def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-detail.db'}"
+    session_factory = _create_database(database_url)
+    with session_factory() as session:
+        run = _backtest_run(
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+            total_return=Decimal("0.120000"),
+        )
+        session.add(run)
+        session.flush()
+        session.add_all(
+            [
+                _equity_curve_row(
+                    run_id=run.id,
+                    trade_date=date(2026, 1, 3),
+                    net_value=Decimal("1.030000"),
+                ),
+                _equity_curve_row(
+                    run_id=run.id,
+                    trade_date=date(2026, 1, 2),
+                    net_value=Decimal("1.010000"),
+                ),
+            ]
+        )
+        session.commit()
+        run_id = run.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "run": {
+            "run_id": run_id,
+            "strategy_name": "dual_momentum",
+            "config_version": "v1",
+            "start_date": "2026-01-01",
+            "end_date": "2026-01-31",
+            "parameters_json": '{"top_n": 2}',
+            "status": "success",
+            "error_message": None,
+            "started_at": "2026-02-01T09:00:00",
+            "finished_at": "2026-02-01T09:05:00",
+        },
+        "metrics": {
+            "total_return": "0.120000",
+            "annualized_return": "0.180000",
+            "max_drawdown": "-0.050000",
+            "volatility": "0.200000",
+            "sharpe_ratio": "1.100000",
+        },
+        "equity_curve": [
+            {
+                "trade_date": "2026-01-02",
+                "net_value": "1.010000",
+                "cash": "100.000000",
+                "market_value": "9900.000000",
+                "total_assets": "10000.000000",
+                "positions_json": '[{"symbol": "510300", "weight": 1.0}]',
+            },
+            {
+                "trade_date": "2026-01-03",
+                "net_value": "1.030000",
+                "cash": "100.000000",
+                "market_value": "9900.000000",
+                "total_assets": "10000.000000",
+                "positions_json": '[{"symbol": "510300", "weight": 1.0}]',
+            },
+        ],
+    }
+
+
+def test_backtest_detail_endpoint_returns_stable_not_found(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'missing-backtest-detail.db'}"
+    _create_database(database_url)
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests/999")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Backtest run not found"}
+
+
 def _create_database(database_url: str) -> sessionmaker[Session]:
     engine = create_engine_from_url(database_url)
     Base.metadata.create_all(engine)
@@ -302,4 +396,21 @@ def _add_price_history(
         )
         for offset in range(total_days + 1)
         for close_price in [Decimal("100.000000") + daily_step * Decimal(offset)]
+    )
+
+
+def _equity_curve_row(
+    *,
+    run_id: int,
+    trade_date: date,
+    net_value: Decimal,
+) -> BacktestEquityCurve:
+    return BacktestEquityCurve(
+        backtest_run_id=run_id,
+        trade_date=trade_date,
+        net_value=net_value,
+        cash=Decimal("100.000000"),
+        market_value=Decimal("9900.000000"),
+        total_assets=Decimal("10000.000000"),
+        positions_json='[{"symbol": "510300", "weight": 1.0}]',
     )
