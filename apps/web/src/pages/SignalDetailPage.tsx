@@ -5,6 +5,15 @@ import {
   type LatestStrategySignalResponse,
   getLatestStrategySignal
 } from "../api/client";
+import {
+  formatBoolean,
+  formatDate,
+  formatDecimal,
+  formatNullableInteger,
+  formatNullableText,
+  formatTargetWeight,
+  formatTimestamp
+} from "../utils/formatters";
 
 type SignalDetailPageProps = {
   signalId: string;
@@ -77,11 +86,11 @@ function renderSignalDetail(signalState: SignalDetailState) {
     <article className="dashboard-panel">
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
-        <Detail label="Signal date" value={signal.signal_date} />
+        <Detail label="Signal date" value={formatDate(signal.signal_date)} />
         <Detail label="Config version" value={signal.config_version} />
-        <Detail label="Result" value={formatOptional(signal.result)} />
-        <Detail label="Fallback" value={signal.is_fallback ? "Yes" : "No"} />
-        <Detail label="Generated at" value={signal.generated_at} />
+        <Detail label="Result" value={formatNullableText(signal.result)} />
+        <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
+        <Detail label="Generated at" value={formatTimestamp(signal.generated_at)} />
       </dl>
       <section className="holdings-section" aria-labelledby="target-holdings-heading">
         <h3 id="target-holdings-heading">Target holdings</h3>
@@ -115,9 +124,9 @@ function renderTargetHoldings(positions: LatestStrategySignalPosition[]) {
               <td>{position.exchange}</td>
               <td>{position.symbol}</td>
               <td>{formatTargetWeight(position.target_weight)}</td>
-              <td>{formatNullableNumber(position.rank)}</td>
-              <td>{formatNullableDecimal(position.score)}</td>
-              <td>{formatFallback(position.is_fallback)}</td>
+              <td>{formatNullableInteger(position.rank)}</td>
+              <td>{formatDecimal(position.score, 6)}</td>
+              <td>{formatBoolean(position.is_fallback)}</td>
             </tr>
           ))}
         </tbody>
@@ -133,47 +142,4 @@ function Detail({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </>
   );
-}
-
-function formatOptional(value: string | null): string {
-  return value ?? "None";
-}
-
-function formatTargetWeight(value: string): string {
-  const percentage = Number(value) * 100;
-
-  if (!Number.isFinite(percentage)) {
-    return value;
-  }
-
-  return `${trimFixed(percentage, 4)}%`;
-}
-
-function formatNullableNumber(value: number | null): string {
-  return value === null ? "None" : String(value);
-}
-
-function formatNullableDecimal(value: string | null): string {
-  if (value === null) {
-    return "None";
-  }
-
-  const numericValue = Number(value);
-
-  if (!Number.isFinite(numericValue)) {
-    return value;
-  }
-
-  return trimFixed(numericValue, 6);
-}
-
-function formatFallback(value: boolean): string {
-  return value ? "Yes" : "No";
-}
-
-function trimFixed(value: number, digits: number): string {
-  return value
-    .toFixed(digits)
-    .replace(/(\.\d*?)0+$/, "$1")
-    .replace(/\.$/, "");
 }

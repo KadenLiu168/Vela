@@ -5,6 +5,15 @@ import {
   type BacktestEquityCurvePoint,
   getBacktestDetail
 } from "../api/client";
+import {
+  formatDate,
+  formatDecimal,
+  formatInteger,
+  formatNullableText,
+  formatNetValue,
+  formatRatioAsPercent,
+  formatTimestamp
+} from "../utils/formatters";
 
 type BacktestDetailPageProps = {
   backtestId: string;
@@ -96,23 +105,23 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
       <dl className="compact-list">
         <Detail label="Strategy" value={run.strategy_name} />
         <Detail label="Config version" value={run.config_version} />
-        <Detail label="Date range" value={`${run.start_date} to ${run.end_date}`} />
+        <Detail label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
         <Detail label="Status" value={run.status} />
-        <Detail label="Started at" value={run.started_at} />
-        <Detail label="Finished at" value={formatOptional(run.finished_at)} />
-        <Detail label="Error message" value={formatOptional(run.error_message)} />
+        <Detail label="Started at" value={formatTimestamp(run.started_at)} />
+        <Detail label="Finished at" value={formatTimestamp(run.finished_at)} />
+        <Detail label="Error message" value={formatNullableText(run.error_message)} />
       </dl>
       <section className="holdings-section" aria-labelledby="backtest-metrics-heading">
         <h3 id="backtest-metrics-heading">Metrics</h3>
         <dl className="metric-card-grid">
-          <MetricCard label="Total return" value={formatMetricPercent(metrics.total_return)} />
+          <MetricCard label="Total return" value={formatRatioAsPercent(metrics.total_return)} />
           <MetricCard
             label="Annualized return"
-            value={formatMetricPercent(metrics.annualized_return)}
+            value={formatRatioAsPercent(metrics.annualized_return)}
           />
-          <MetricCard label="Max drawdown" value={formatMetricPercent(metrics.max_drawdown)} />
-          <MetricCard label="Volatility" value={formatMetricPercent(metrics.volatility)} />
-          <MetricCard label="Sharpe ratio" value={formatMetricDecimal(metrics.sharpe_ratio)} />
+          <MetricCard label="Max drawdown" value={formatRatioAsPercent(metrics.max_drawdown)} />
+          <MetricCard label="Volatility" value={formatRatioAsPercent(metrics.volatility)} />
+          <MetricCard label="Sharpe ratio" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
         </dl>
       </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
@@ -146,8 +155,8 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
       <div className="equity-curve-single-point">
         <p className="empty-state">Only one equity curve point is available.</p>
         <dl className="equity-curve-summary">
-          <Detail label="Point count" value="1" />
-          <Detail label="Trade date" value={point.tradeDate} />
+          <Detail label="Point count" value={formatInteger(1)} />
+          <Detail label="Trade date" value={formatDate(point.tradeDate)} />
           <Detail label="Net value" value={formatNetValue(point.netValue)} />
         </dl>
       </div>
@@ -175,7 +184,7 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
         <path className="equity-curve-line" d={path} data-testid="equity-curve-line" />
       </svg>
       <dl className="equity-curve-summary">
-        <Detail label="Point count" value={String(chartPoints.length)} />
+        <Detail label="Point count" value={formatInteger(chartPoints.length)} />
         <Detail label="Start point" value={formatEquityCurvePoint(firstPoint)} />
         <Detail label="End point" value={formatEquityCurvePoint(lastPoint)} />
         <Detail label="Min net value" value={formatNetValue(minNetValue)} />
@@ -243,39 +252,13 @@ function buildEquityCurvePath(points: EquityCurveChartPoint[]): string {
     .join(" ");
 }
 
-function formatNetValue(value: number): string {
-  return value.toFixed(4);
-}
-
 function formatEquityCurvePoint(point: EquityCurveChartPoint): string {
-  return `${point.tradeDate} / ${formatNetValue(point.netValue)}`;
-}
-
-function formatOptional(value: string | null | undefined): string {
-  return value ?? "Not available";
-}
-
-function formatMetricPercent(value: string | null): string {
-  if (value === null) {
-    return "n/a";
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(2)}%` : value;
-}
-
-function formatMetricDecimal(value: string | null): string {
-  if (value === null) {
-    return "n/a";
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed.toFixed(2) : value;
+  return `${formatDate(point.tradeDate)} / ${formatNetValue(point.netValue)}`;
 }
 
 function formatParameterSummary(value: string | null): string {
   if (!value) {
-    return "Not available";
+    return formatNullableText(value);
   }
 
   try {

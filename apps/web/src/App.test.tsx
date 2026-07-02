@@ -168,6 +168,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
+  expect(within(marketPanel as HTMLElement).getAllByText("n/a")).toHaveLength(2);
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
@@ -887,7 +888,7 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(holdings.getByText("SZSE")).toBeInTheDocument();
   expect(holdings.getByText("159915")).toBeInTheDocument();
   expect(holdings.getByText("100%")).toBeInTheDocument();
-  expect(holdings.getAllByText("None")).toHaveLength(2);
+  expect(holdings.getAllByText("n/a")).toHaveLength(2);
   expect(holdings.getByText("Yes")).toBeInTheDocument();
   expect(screen.queryByText(/candidate/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
