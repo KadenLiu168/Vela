@@ -37,7 +37,119 @@ describe("apiRequest", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ detail: "not found" }), {
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "not_found",
+              category: "not_found",
+              message: "Backtest run not found"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 404
+          }
+        )
+      )
+    );
+
+    await expect(apiRequest("/missing")).rejects.toMatchObject({
+      category: "not_found",
+      kind: "http",
+      status: 404,
+      message: "Backtest run not found"
+    });
+  });
+
+  it("maps stable validation error envelopes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "validation_error",
+              category: "validation",
+              message: "Request validation failed"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 422
+          }
+        )
+      )
+    );
+
+    await expect(apiRequest("/invalid")).rejects.toMatchObject({
+      category: "validation",
+      kind: "http",
+      status: 422,
+      message: "Request validation failed"
+    });
+  });
+
+  it("maps stable operation failed error envelopes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "no_market_data",
+              category: "operation_failed",
+              message: "No local market prices found"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 400
+          }
+        )
+      )
+    );
+
+    await expect(apiRequest("/operation")).rejects.toMatchObject({
+      category: "operation_failed",
+      kind: "http",
+      status: 400,
+      message: "No local market prices found"
+    });
+  });
+
+  it("maps stable unexpected error envelopes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "unexpected_error",
+              category: "unexpected",
+              message: "Unexpected API error"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 500
+          }
+        )
+      )
+    );
+
+    await expect(apiRequest("/unexpected")).rejects.toMatchObject({
+      category: "unexpected",
+      kind: "http",
+      status: 500,
+      message: "Unexpected API error"
+    });
+  });
+
+  it("falls back to legacy detail messages with status-derived category", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: "legacy not found" }), {
           headers: { "Content-Type": "application/json" },
           status: 404
         })
@@ -45,9 +157,10 @@ describe("apiRequest", () => {
     );
 
     await expect(apiRequest("/missing")).rejects.toMatchObject({
+      category: "not_found",
       kind: "http",
       status: 404,
-      message: "not found"
+      message: "legacy not found"
     });
   });
 
@@ -55,6 +168,7 @@ describe("apiRequest", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
 
     await expect(apiRequest("/health")).rejects.toMatchObject({
+      category: "network",
       kind: "network",
       message: "Network request failed"
     });
@@ -332,9 +446,14 @@ it("calls backtest detail through the shared client", async () => {
 });
 
 it("exposes a typed API client error", () => {
-  const error = new ApiClientError("HTTP request failed", { kind: "http", status: 500 });
+  const error = new ApiClientError("HTTP request failed", {
+    category: "unexpected",
+    kind: "http",
+    status: 500
+  });
 
   expect(error).toMatchObject({
+    category: "unexpected",
     kind: "http",
     status: 500,
     message: "HTTP request failed"

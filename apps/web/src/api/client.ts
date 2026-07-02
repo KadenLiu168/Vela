@@ -1,24 +1,30 @@
 const DEFAULT_API_BASE_URL = "/api";
 
+export type ApiErrorCategory = "validation" | "not_found" | "operation_failed" | "unexpected" | "network";
+
 type ApiClientErrorOptions =
   | {
       kind: "http";
       status: number;
+      category: ApiErrorCategory;
     }
   | {
       kind: "network";
       status?: never;
+      category?: never;
     };
 
 export class ApiClientError extends Error {
   kind: ApiClientErrorOptions["kind"];
   status?: number;
+  category: ApiErrorCategory;
 
   constructor(message: string, options: ApiClientErrorOptions) {
     super(message);
     this.name = "ApiClientError";
     this.kind = options.kind;
     this.status = options.kind === "http" ? options.status : undefined;
+    this.category = options.kind === "http" ? options.category : "network";
   }
 }
 
@@ -225,7 +231,9 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    throw new ApiClientError(await getErrorMessage(response), {
+    const apiError = await getApiError(response);
+    throw new ApiClientError(apiError.message, {
+      category: apiError.category,
       kind: "http",
       status: response.status
     });
@@ -279,18 +287,34 @@ export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse>
   return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
 }
 
-async function getErrorMessage(response: Response): Promise<string> {
+async function getApiError(response: Response): Promise<{ category: ApiErrorCategory; message: string }> {
   try {
     const body: unknown = await response.json();
 
+    if (isStableApiError(body)) {
+      return {
+        category: body.error.category,
+        message: body.error.message
+      };
+    }
+
     if (isObjectWithStringDetail(body)) {
-      return body.detail;
+      return {
+        category: getFallbackCategory(response.status),
+        message: body.detail
+      };
     }
   } catch {
-    return response.statusText || "HTTP request failed";
+    return {
+      category: getFallbackCategory(response.status),
+      message: response.statusText || "HTTP request failed"
+    };
   }
 
-  return response.statusText || "HTTP request failed";
+  return {
+    category: getFallbackCategory(response.status),
+    message: response.statusText || "HTTP request failed"
+  };
 }
 
 function isObjectWithStringDetail(value: unknown): value is { detail: string } {
@@ -300,4 +324,46 @@ function isObjectWithStringDetail(value: unknown): value is { detail: string } {
     "detail" in value &&
     typeof value.detail === "string"
   );
+}
+
+function isStableApiError(value: unknown): value is {
+  error: { category: ApiErrorCategory; message: string };
+} {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("error" in value) ||
+    typeof value.error !== "object" ||
+    value.error === null
+  ) {
+    return false;
+  }
+
+  const error = value.error as Record<string, unknown>;
+  return isApiErrorCategory(error.category) && typeof error.message === "string";
+}
+
+function isApiErrorCategory(value: unknown): value is ApiErrorCategory {
+  return (
+    value === "validation" ||
+    value === "not_found" ||
+    value === "operation_failed" ||
+    value === "unexpected"
+  );
+}
+
+function getFallbackCategory(status: number): ApiErrorCategory {
+  if (status === 422) {
+    return "validation";
+  }
+
+  if (status === 404) {
+    return "not_found";
+  }
+
+  if (status >= 500) {
+    return "unexpected";
+  }
+
+  return "operation_failed";
 }

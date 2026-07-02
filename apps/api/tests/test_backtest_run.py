@@ -86,7 +86,13 @@ def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "start_date must be on or before end_date"}
+    assert response.json() == {
+        "error": {
+            "code": "invalid_date_range",
+            "category": "operation_failed",
+            "message": "start_date must be on or before end_date",
+        }
+    }
     with session_factory() as session:
         assert session.query(BacktestRun).count() == 0
 
@@ -326,7 +332,13 @@ def test_backtest_detail_endpoint_returns_stable_not_found(tmp_path) -> None:
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "Backtest run not found"}
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "category": "not_found",
+            "message": "Backtest run not found",
+        }
+    }
 
 
 def _create_database(database_url: str) -> sessionmaker[Session]:

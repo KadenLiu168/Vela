@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  ApiClientError,
   fetchFullMarketData,
   fetchIncrementalMarketData,
   generateStrategySignal,
@@ -99,6 +100,18 @@ it.runIf(import.meta.env.VITE_API_BASE_URL)(
     expect(Object.prototype.hasOwnProperty.call(result, "max_drawdown")).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(result, "volatility")).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(result, "sharpe_ratio")).toBe(true);
+  }
+);
+
+it.runIf(import.meta.env.VITE_API_BASE_URL)(
+  "maps local API invalid date errors through the shared client",
+  async () => {
+    await expect(runBacktest("2026-01-10", "2026-01-01")).rejects.toMatchObject({
+      category: "operation_failed",
+      kind: "http",
+      status: 400,
+      message: "start_date must be on or before end_date"
+    } satisfies Partial<ApiClientError>);
   }
 );
 

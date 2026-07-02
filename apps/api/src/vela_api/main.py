@@ -3,11 +3,15 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 from vela_core import (
     AkShareMarketDataProvider,
     BacktestRunResult,
+    ConfigError,
     GeneratedSignalPosition,
     GenerateStrategySignalResult,
     MarketDataFetchResult,
@@ -32,6 +36,7 @@ app = FastAPI(title="Vela API")
 initialize_database(app)
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
 MarketDataFetchMode = Literal["incremental", "full"]
+ErrorCategory = Literal["validation", "not_found", "operation_failed", "unexpected"]
 
 
 def get_market_data_provider() -> MarketDataProvider:
@@ -39,6 +44,50 @@ def get_market_data_provider() -> MarketDataProvider:
 
 
 MarketDataProviderDependency = Annotated[MarketDataProvider, Depends(get_market_data_provider)]
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    _request: Request,
+    _exc: RequestValidationError,
+) -> JSONResponse:
+    return _error_response(
+        status_code=422,
+        code="validation_error",
+        category="validation",
+        message="Request validation failed",
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
+    message = _http_exception_message(exc)
+    return _error_response(
+        status_code=exc.status_code,
+        code=_http_error_code(exc.status_code, message),
+        category=_http_error_category(exc.status_code),
+        message=message,
+    )
+
+
+@app.exception_handler(ConfigError)
+async def config_exception_handler(_request: Request, exc: ConfigError) -> JSONResponse:
+    return _error_response(
+        status_code=500,
+        code="config_error",
+        category="operation_failed",
+        message=str(exc),
+    )
+
+
+@app.exception_handler(Exception)
+async def unexpected_exception_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    return _error_response(
+        status_code=500,
+        code="unexpected_error",
+        category="unexpected",
+        message="Unexpected API error",
+    )
 
 
 @app.get("/api/health")
@@ -297,3 +346,51 @@ def _format_optional_datetime(value: datetime | None) -> str | None:
 
 def _format_datetime(value: datetime) -> str:
     return value.replace(tzinfo=None).isoformat()
+
+
+def _error_response(
+    *,
+    status_code: int,
+    code: str,
+    category: ErrorCategory,
+    message: str,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "category": category,
+                "message": message,
+            }
+        },
+    )
+
+
+def _http_exception_message(exc: HTTPException) -> str:
+    return exc.detail if isinstance(exc.detail, str) else "HTTP request failed"
+
+
+def _http_error_category(status_code: int) -> ErrorCategory:
+    if status_code == 404:
+        return "not_found"
+    if status_code == 422:
+        return "validation"
+    if status_code >= 500:
+        return "unexpected"
+    return "operation_failed"
+
+
+def _http_error_code(status_code: int, message: str) -> str:
+    if status_code == 404:
+        return "not_found"
+    if status_code == 422:
+        return "validation_error"
+    if status_code >= 500:
+        return "unexpected_error"
+
+    known_operation_errors = {
+        "No local market prices found": "no_market_data",
+        "start_date must be on or before end_date": "invalid_date_range",
+    }
+    return known_operation_errors.get(message, "operation_failed")

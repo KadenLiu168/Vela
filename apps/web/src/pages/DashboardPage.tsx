@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ApiClientError,
+  type ApiErrorCategory,
   type BacktestRunResponse,
   type DashboardBacktestSummary,
   type DashboardFetchLogSummary,
@@ -35,9 +36,9 @@ type DashboardState =
 type MarketDataFetchMode = "incremental" | "full";
 type ActiveOperation = "backtestRun" | "marketDataFetch" | "signalGeneration";
 type OperationError =
-  | { operation: "marketDataFetch"; kind: string; message: string; status: number | null }
-  | { operation: "signalGeneration"; kind: string; message: string; status: number | null }
-  | { operation: "backtestRun"; kind: string; message: string; status: number | null };
+  | { operation: "marketDataFetch"; category: ApiErrorCategory; message: string; status: number | null }
+  | { operation: "signalGeneration"; category: ApiErrorCategory; message: string; status: number | null }
+  | { operation: "backtestRun"; category: ApiErrorCategory; message: string; status: number | null };
 
 type BacktestFormState = {
   startDate: string;
@@ -586,6 +587,7 @@ function OperationErrorSummary({ error }: { error: OperationError }) {
     <>
       <strong>{getOperationLabel(error.operation)} failed</strong>
       <dl className="compact-list">
+        <Detail label="Type" value={formatOperationErrorCategory(error.category)} />
         <Detail label="Reason" value={formatOperationErrorReason(error)} />
         <Detail label="Next step" value={getOperationErrorGuidance(error.operation)} />
       </dl>
@@ -612,7 +614,7 @@ function createOperationError(operation: OperationError["operation"], error: unk
   if (error instanceof ApiClientError) {
     return {
       operation,
-      kind: error.kind,
+      category: error.category,
       message: error.message,
       status: error.status ?? null
     };
@@ -620,7 +622,7 @@ function createOperationError(operation: OperationError["operation"], error: unk
 
   return {
     operation,
-    kind: "unavailable",
+    category: "unexpected",
     message: "Operation request failed",
     status: null
   };
@@ -720,7 +722,27 @@ function formatFailedSymbols(symbols: string[]): string {
 }
 
 function formatOperationErrorReason(error: OperationError): string {
-  return error.message || error.kind;
+  return error.message || error.category;
+}
+
+function formatOperationErrorCategory(category: ApiErrorCategory): string {
+  if (category === "not_found") {
+    return "Not found";
+  }
+
+  if (category === "operation_failed") {
+    return "Operation failed";
+  }
+
+  if (category === "validation") {
+    return "Validation";
+  }
+
+  if (category === "network") {
+    return "Network";
+  }
+
+  return "Unexpected";
 }
 
 function getOperationLabel(operation: OperationError["operation"]): string {

@@ -469,6 +469,8 @@ it("shows a market data fetch error summary with reason and next step", async ()
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Type")).toBeInTheDocument();
+  expect(operations.getByText("Unexpected")).toBeInTheDocument();
   expect(operations.getByText("Reason")).toBeInTheDocument();
   expect(operations.getByText("AkShare provider timed out while fetching 510300")).toBeInTheDocument();
   expect(operations.getByText("Next step")).toBeInTheDocument();
@@ -641,10 +643,19 @@ it("shows a signal generation error summary with reason and next step", async ()
 
     if (url === "/api/strategy-signals/generate") {
       return Promise.resolve(
-        new Response(JSON.stringify({ detail: "No local market prices found" }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400
-        })
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "no_market_data",
+              category: "operation_failed",
+              message: "No local market prices found"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 400
+          }
+        )
       );
     }
 
@@ -660,6 +671,8 @@ it("shows a signal generation error summary with reason and next step", async ()
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Type")).toBeInTheDocument();
+  expect(operations.getByText("Operation failed")).toBeInTheDocument();
   expect(operations.getByText("Reason")).toBeInTheDocument();
   expect(operations.getByText("No local market prices found")).toBeInTheDocument();
   expect(operations.getByText("Next step")).toBeInTheDocument();
@@ -873,10 +886,19 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
       }
 
       return Promise.resolve(
-        new Response(JSON.stringify({ detail: "not enough signals" }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400
-        })
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "operation_failed",
+              category: "operation_failed",
+              message: "not enough signals"
+            }
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 400
+          }
+        )
       );
     }
 
@@ -902,6 +924,8 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Type")).toBeInTheDocument();
+  expect(operations.getByText("Operation failed")).toBeInTheDocument();
   expect(operations.getByText("Reason")).toBeInTheDocument();
   expect(operations.getByText("not enough signals")).toBeInTheDocument();
   expect(operations.getByText("Next step")).toBeInTheDocument();

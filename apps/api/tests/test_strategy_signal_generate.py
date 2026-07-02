@@ -102,7 +102,13 @@ def test_strategy_signal_generate_endpoint_rejects_missing_local_market_date(tmp
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "No local market prices found"}
+    assert response.json() == {
+        "error": {
+            "code": "no_market_data",
+            "category": "operation_failed",
+            "message": "No local market prices found",
+        }
+    }
 
 
 def test_strategy_signal_generate_endpoint_rejects_invalid_signal_date(tmp_path) -> None:
