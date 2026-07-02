@@ -25,8 +25,20 @@ it("loads dashboard aggregate data through the shared client", async () => {
 
   render(<App />);
 
+  expect(await screen.findByText("Dashboard loaded")).toBeInTheDocument();
   expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
   expect(screen.getByText("8 ETFs")).toBeInTheDocument();
+  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  expect(marketPanel).not.toBeNull();
+  const market = within(marketPanel as HTMLElement);
+  expect(market.getByText("Price rows")).toBeInTheDocument();
+  expect(market.getByText("1,200 rows")).toBeInTheDocument();
+  expect(market.getByText("Covered ETFs")).toBeInTheDocument();
+  expect(market.getByText("8 ETFs")).toBeInTheDocument();
+  expect(market.getByText("Earliest trade date")).toBeInTheDocument();
+  expect(market.getByText("2025-01-02")).toBeInTheDocument();
+  expect(market.getByText("Latest trade date")).toBeInTheDocument();
+  expect(market.getByText("2026-06-23")).toBeInTheDocument();
   const strategyPanel = screen.getByRole("heading", { name: "Strategy summary" }).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
@@ -42,6 +54,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   const signal = within(signalPanel as HTMLElement);
   expect(signal.getByText("Signal #42")).toBeInTheDocument();
   expect(signal.getByText("2026-06-23")).toBeInTheDocument();
+  expect(signal.getByText("success")).toBeInTheDocument();
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("Yes")).toBeInTheDocument();
   expect(signal.getByText("2")).toBeInTheDocument();
@@ -767,6 +780,7 @@ it("shows a signal generation error summary with reason and next step", async ()
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByRole("alert")).toHaveTextContent("Signal generation failed");
   expect(operations.getByText("Type")).toBeInTheDocument();
   expect(operations.getByText("Operation failed")).toBeInTheDocument();
   expect(operations.getByText("Reason")).toBeInTheDocument();
@@ -1080,6 +1094,7 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(screen.getByText("2026-06-23T09:30:00")).toBeInTheDocument();
   const holdingsTable = screen.getByRole("table");
   const holdings = within(holdingsTable);
+  expect(holdings.getAllByRole("row")).toHaveLength(3);
   expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Exchange" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Symbol" })).toBeInTheDocument();
@@ -1188,10 +1203,15 @@ it("loads backtest detail data through the shared client", async () => {
   expect(metricsSection).not.toBeNull();
   const metrics = within(metricsSection as HTMLElement);
   expect(metrics.getByText("Total return")).toBeInTheDocument();
+  expect(metrics.getByText("12.00%")).toBeInTheDocument();
   expect(metrics.getByText("Annualized return")).toBeInTheDocument();
+  expect(metrics.getByText("144.00%")).toBeInTheDocument();
   expect(metrics.getByText("Max drawdown")).toBeInTheDocument();
+  expect(metrics.getByText("-5.00%")).toBeInTheDocument();
   expect(metrics.getByText("Volatility")).toBeInTheDocument();
+  expect(metrics.getByText("20.00%")).toBeInTheDocument();
   expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
+  expect(metrics.getByText("1.10")).toBeInTheDocument();
   const equitySection = screen.getByRole("heading", { name: "Equity curve" }).closest("section");
   expect(equitySection).not.toBeNull();
   const equityCurve = within(equitySection as HTMLElement);
