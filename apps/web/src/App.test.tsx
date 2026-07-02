@@ -173,9 +173,14 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(
     await screen.findByText("No local market prices are stored yet. Fetch market data to populate dashboard coverage.")
   ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "First run setup" })).toBeInTheDocument();
+  expect(
+    screen.getByText("No local market data is available yet. Fetch market data to start using the dashboard.")
+  ).toBeInTheDocument();
   const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
   expect(marketPanel).not.toBeNull();
   expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+  expect(screen.getAllByRole("button", { name: "Fetch market data" })).toHaveLength(2);
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
   expect(within(marketPanel as HTMLElement).getAllByText("n/a")).toHaveLength(2);
@@ -189,9 +194,25 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
   render(<App />);
 
   expect(await screen.findByText("Dashboard API unavailable: network")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "First run setup" })).toBeInTheDocument();
+  expect(
+    screen.getByText("Run vela init-db to initialize the local database, then fetch market data.")
+  ).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Workflow Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+  expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
+});
+
+it("does not render first-run guidance after local market data exists", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse())));
+
+  render(<App />);
+
+  expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "First run setup" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
 });
 
 it("presents full market data fetch after the incremental fetch action", async () => {

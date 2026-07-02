@@ -155,6 +155,7 @@ export function DashboardPage() {
   }
 
   const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
+  const firstRunGuidance = getFirstRunGuidance(dashboardState);
   const hasActiveOperation = activeOperation !== null;
   const marketFetchAction = {
     isDisabled: hasActiveOperation,
@@ -192,6 +193,8 @@ export function DashboardPage() {
       {dashboardState.status === "loading" ? (
         <FeedbackMessage variant="loading">Loading dashboard data.</FeedbackMessage>
       ) : null}
+
+      {firstRunGuidance ? <FirstRunGuidance message={firstRunGuidance} /> : null}
 
       <div className="dashboard-grid" aria-label="Dashboard workflow summary">
         <article className="dashboard-panel market-panel">
@@ -348,6 +351,18 @@ export function DashboardPage() {
           </form>
         </article>
       </div>
+    </section>
+  );
+}
+
+function FirstRunGuidance({ message }: { message: string }) {
+  return (
+    <section className="first-run-guidance" aria-labelledby="first-run-guidance-title">
+      <div>
+        <span>Local setup</span>
+        <h3 id="first-run-guidance-title">First run setup</h3>
+      </div>
+      <p>{message}</p>
     </section>
   );
 }
@@ -541,6 +556,18 @@ function PanelHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
       <h3>{title}</h3>
     </div>
   );
+}
+
+function getFirstRunGuidance(state: DashboardState): string | null {
+  if (state.status === "error") {
+    return "Run vela init-db to initialize the local database, then fetch market data.";
+  }
+
+  if (state.status === "ready" && state.data.market_data.price_rows === 0) {
+    return "No local market data is available yet. Fetch market data to start using the dashboard.";
+  }
+
+  return null;
 }
 
 function EmptyAction({
