@@ -3,17 +3,17 @@ from datetime import date
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 from vela_api.database import initialize_database
 from vela_api.main import app, get_market_data_provider
 from vela_core import ConfigError, DailyPrice
-from vela_core.database import DEFAULT_DATABASE_URL, create_engine_from_url, create_session_factory
-from vela_core.models import Base, ETFInfo
+from vela_core.database import DEFAULT_DATABASE_URL
+
+from tests.integration_data import add_etf, prepare_sqlite_database
 
 
 def test_validation_error_uses_stable_error_envelope(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'validation-error.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -34,7 +34,7 @@ def test_validation_error_uses_stable_error_envelope(tmp_path) -> None:
 
 def test_not_found_error_uses_stable_error_envelope(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'not-found-error.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -55,7 +55,7 @@ def test_not_found_error_uses_stable_error_envelope(tmp_path) -> None:
 
 def test_no_market_data_error_uses_stable_error_envelope(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'no-market-data-error.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -76,7 +76,7 @@ def test_no_market_data_error_uses_stable_error_envelope(tmp_path) -> None:
 
 def test_invalid_date_range_error_uses_stable_error_envelope(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'invalid-date-error.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -120,16 +120,9 @@ def test_config_error_uses_stable_error_envelope(monkeypatch) -> None:
 
 def test_provider_workflow_failure_keeps_stable_fetch_response(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'provider-error.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
-        session.add(
-            ETFInfo(
-                exchange="NYSEARCA",
-                symbol="SPY",
-                name="SPY ETF",
-                currency="USD",
-            )
-        )
+        add_etf(session, symbol="SPY")
         session.commit()
 
     try:
@@ -187,9 +180,3 @@ class FailingMarketDataProvider:
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
         raise RuntimeError("provider unavailable")
-
-
-def _create_database(database_url: str) -> sessionmaker[Session]:
-    engine = create_engine_from_url(database_url)
-    Base.metadata.create_all(engine)
-    return create_session_factory(engine, expire_on_commit=False)

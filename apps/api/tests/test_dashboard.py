@@ -2,31 +2,29 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
 from vela_api.database import initialize_database
 from vela_api.main import app
-from vela_core.database import DEFAULT_DATABASE_URL, create_engine_from_url, create_session_factory
-from vela_core.models import (
-    BacktestRun,
-    Base,
-    DataFetchLog,
-    ETFInfo,
-    MarketPrice,
-    StrategySignal,
-    StrategySignalPosition,
+from vela_core.database import DEFAULT_DATABASE_URL
+from vela_core.models import BacktestRun, StrategySignal, StrategySignalPosition
+
+from tests.integration_data import (
+    add_etf,
+    data_fetch_log,
+    market_price,
+    prepare_sqlite_database,
 )
 
 
 def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'dashboard.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
-        spy = _add_etf(session, symbol="SPY")
-        qqq = _add_etf(session, symbol="QQQ")
+        spy = add_etf(session, symbol="SPY")
+        qqq = add_etf(session, symbol="QQQ")
         session.add_all(
             [
-                _market_price(spy.id, trade_date=date(2026, 6, 22)),
-                _market_price(qqq.id, trade_date=date(2026, 6, 23)),
+                market_price(etf_id=spy.id, trade_date=date(2026, 6, 22)),
+                market_price(etf_id=qqq.id, trade_date=date(2026, 6, 23)),
                 StrategySignal(
                     signal_date=date(2026, 6, 24),
                     config_version="v1",
@@ -63,7 +61,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                     max_drawdown=Decimal("-0.050000"),
                     sharpe_ratio=Decimal("1.100000"),
                 ),
-                _data_fetch_log(
+                data_fetch_log(
                     fetch_mode="incremental",
                     status="failed",
                     started_at=datetime(2026, 6, 24, 7, 59, tzinfo=UTC),
@@ -73,7 +71,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                     rows_updated=0,
                     error_message="provider unavailable",
                 ),
-                _data_fetch_log(
+                data_fetch_log(
                     fetch_mode="full",
                     status="success",
                     started_at=datetime(2026, 6, 23, 7, 0, tzinfo=UTC),
@@ -147,7 +145,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
 
 def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'empty-dashboard.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -167,62 +165,3 @@ def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_pa
     assert body["latest_signal"] is None
     assert body["recent_backtest"] is None
     assert body["recent_fetch_logs"] == []
-
-
-def _create_database(database_url: str) -> sessionmaker[Session]:
-    engine = create_engine_from_url(database_url)
-    Base.metadata.create_all(engine)
-    return create_session_factory(engine, expire_on_commit=False)
-
-
-def _add_etf(session: Session, symbol: str) -> ETFInfo:
-    etf = ETFInfo(
-        exchange="NYSEARCA",
-        symbol=symbol,
-        name=f"{symbol} ETF",
-        currency="USD",
-    )
-    session.add(etf)
-    session.flush()
-    return etf
-
-
-def _market_price(etf_id: int, *, trade_date: date) -> MarketPrice:
-    return MarketPrice(
-        etf_id=etf_id,
-        trade_date=trade_date,
-        open_price=Decimal("100.000000"),
-        high_price=Decimal("101.000000"),
-        low_price=Decimal("99.000000"),
-        close_price=Decimal("100.000000"),
-        adjusted_close=None,
-        volume=1000,
-    )
-
-
-def _data_fetch_log(
-    *,
-    fetch_mode: str,
-    status: str,
-    started_at: datetime,
-    finished_at: datetime | None,
-    rows_fetched: int | None,
-    rows_inserted: int | None,
-    rows_updated: int | None,
-    error_message: str | None,
-) -> DataFetchLog:
-    return DataFetchLog(
-        source="akshare",
-        target_type="market_price",
-        fetch_mode=fetch_mode,
-        range_start=None,
-        range_end=None,
-        requested_symbols=None,
-        started_at=started_at,
-        finished_at=finished_at,
-        status=status,
-        rows_fetched=rows_fetched,
-        rows_inserted=rows_inserted,
-        rows_updated=rows_updated,
-        error_message=error_message,
-    )

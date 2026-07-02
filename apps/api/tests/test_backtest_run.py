@@ -2,22 +2,29 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
 from vela_api.main import app
-from vela_core.database import DEFAULT_DATABASE_URL, create_engine_from_url, create_session_factory
-from vela_core.models import BacktestEquityCurve, BacktestRun, Base, ETFInfo, MarketPrice
+from vela_core.database import DEFAULT_DATABASE_URL
+from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice
+
+from tests.integration_data import (
+    add_etf,
+    backtest_run,
+    equity_curve_row,
+    prepare_sqlite_database,
+)
 
 
 def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'run-backtest.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     start_date = date(2026, 1, 1)
     end_date = date(2026, 1, 10)
     with session_factory() as session:
-        first = _add_etf(session, exchange="SSE", symbol="510300")
-        second = _add_etf(session, exchange="SZSE", symbol="159915")
-        defense = _add_etf(session, exchange="SSE", symbol="511010")
+        first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
+        second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
+        defense = add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
         _add_price_history(session, etf_id=first.id, start_date=start_date, end_date=end_date)
         _add_price_history(
             session,
@@ -74,7 +81,7 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
 
 def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'invalid-range.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -112,18 +119,18 @@ def test_run_backtest_endpoint_requires_date_query_params(tmp_path) -> None:
 
 def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'list-backtests.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
         session.add_all(
             [
-                _backtest_run(
+                backtest_run(
                     start_date=date(2026, 1, 1),
                     end_date=date(2026, 1, 31),
                     started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
                     finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
                     total_return=Decimal("0.120000"),
                 ),
-                _backtest_run(
+                backtest_run(
                     start_date=date(2026, 2, 1),
                     end_date=date(2026, 2, 28),
                     started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
@@ -131,7 +138,7 @@ def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
                     status="running",
                     total_return=None,
                 ),
-                _backtest_run(
+                backtest_run(
                     start_date=date(2026, 3, 1),
                     end_date=date(2026, 3, 31),
                     started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
@@ -197,16 +204,16 @@ def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
 
 def test_list_backtests_endpoint_supports_limit(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'list-backtests-limit.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
         session.add_all(
             [
-                _backtest_run(
+                backtest_run(
                     start_date=date(2026, 1, 1),
                     end_date=date(2026, 1, 31),
                     started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
                 ),
-                _backtest_run(
+                backtest_run(
                     start_date=date(2026, 2, 1),
                     end_date=date(2026, 2, 28),
                     started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
@@ -228,7 +235,7 @@ def test_list_backtests_endpoint_supports_limit(tmp_path) -> None:
 
 def test_list_backtests_endpoint_returns_empty_list(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'empty-list-backtests.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -243,9 +250,9 @@ def test_list_backtests_endpoint_returns_empty_list(tmp_path) -> None:
 
 def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-detail.db'}"
-    session_factory = _create_database(database_url)
+    session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
-        run = _backtest_run(
+        run = backtest_run(
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 31),
             started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
@@ -256,12 +263,12 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
         session.flush()
         session.add_all(
             [
-                _equity_curve_row(
+                equity_curve_row(
                     run_id=run.id,
                     trade_date=date(2026, 1, 3),
                     net_value=Decimal("1.030000"),
                 ),
-                _equity_curve_row(
+                equity_curve_row(
                     run_id=run.id,
                     trade_date=date(2026, 1, 2),
                     net_value=Decimal("1.010000"),
@@ -322,7 +329,7 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
 
 def test_backtest_detail_endpoint_returns_stable_not_found(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'missing-backtest-detail.db'}"
-    _create_database(database_url)
+    prepare_sqlite_database(database_url)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -339,50 +346,6 @@ def test_backtest_detail_endpoint_returns_stable_not_found(tmp_path) -> None:
             "message": "Backtest run not found",
         }
     }
-
-
-def _create_database(database_url: str) -> sessionmaker[Session]:
-    engine = create_engine_from_url(database_url)
-    Base.metadata.create_all(engine)
-    return create_session_factory(engine, expire_on_commit=False)
-
-
-def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:
-    etf = ETFInfo(
-        exchange=exchange,
-        symbol=symbol,
-        name=f"{symbol} ETF",
-        currency="CNY",
-    )
-    session.add(etf)
-    session.flush()
-    return etf
-
-
-def _backtest_run(
-    *,
-    start_date: date,
-    end_date: date,
-    started_at: datetime,
-    finished_at: datetime | None = None,
-    status: str = "success",
-    total_return: Decimal | None = Decimal("0.120000"),
-) -> BacktestRun:
-    return BacktestRun(
-        strategy_name="dual_momentum",
-        config_version="v1",
-        start_date=start_date,
-        end_date=end_date,
-        parameters_json='{"top_n": 2}',
-        started_at=started_at,
-        finished_at=finished_at,
-        status=status,
-        total_return=total_return,
-        annualized_return=Decimal("0.180000"),
-        max_drawdown=Decimal("-0.050000"),
-        volatility=Decimal("0.200000"),
-        sharpe_ratio=Decimal("1.100000"),
-    )
 
 
 def _add_price_history(
@@ -408,21 +371,4 @@ def _add_price_history(
         )
         for offset in range(total_days + 1)
         for close_price in [Decimal("100.000000") + daily_step * Decimal(offset)]
-    )
-
-
-def _equity_curve_row(
-    *,
-    run_id: int,
-    trade_date: date,
-    net_value: Decimal,
-) -> BacktestEquityCurve:
-    return BacktestEquityCurve(
-        backtest_run_id=run_id,
-        trade_date=trade_date,
-        net_value=net_value,
-        cash=Decimal("100.000000"),
-        market_value=Decimal("9900.000000"),
-        total_assets=Decimal("10000.000000"),
-        positions_json='[{"symbol": "510300", "weight": 1.0}]',
     )

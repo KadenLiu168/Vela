@@ -55,6 +55,7 @@ testpaths = [
     "tests",
 ]
 pythonpath = [
+    ".",
     "apps/api/src",
     "apps/cli/src",
     "packages/core/src",
