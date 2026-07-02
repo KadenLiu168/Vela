@@ -112,7 +112,7 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(
-    screen.getByText("No local backtest run exists yet. Use the Operations panel to run a backtest.")
+    screen.getByText("No local backtest run exists yet. Enter a date range in Operations, then run a backtest.")
   ).toBeInTheDocument();
   const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
@@ -215,6 +215,41 @@ it("does not render first-run guidance after local market data exists", async ()
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
 });
 
+it("manually refreshes Dashboard status from the shared Dashboard API", async () => {
+  let dashboardRequestCount = 0;
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      dashboardRequestCount += 1;
+      return Promise.resolve(
+        jsonResponse({
+          ...createDashboardResponse(),
+          market_data: {
+            price_rows: dashboardRequestCount === 1 ? 1200 : 1450,
+            covered_etfs: dashboardRequestCount === 1 ? 8 : 9,
+            earliest_trade_date: "2025-01-02",
+            latest_trade_date: dashboardRequestCount === 1 ? "2026-06-23" : "2026-06-25"
+          }
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Dashboard" }));
+
+  expect(await screen.findByText("1,450 rows")).toBeInTheDocument();
+  expect(screen.getByText("9 ETFs")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-25")).toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
+});
+
 it("presents full market data fetch after the incremental fetch action", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse())));
 
@@ -303,6 +338,46 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
   expect(screen.getByText("9 ETFs")).toBeInTheDocument();
   expect(screen.getByText("2026-06-24")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
+});
+
+it("keeps market data fetch success visible when the follow-up Dashboard refresh fails", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard" && fetchMock.mock.calls.length === 1) {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/market-data/fetch?mode=incremental") {
+      return Promise.resolve(
+        jsonResponse({
+          status: "success",
+          requested_etf_count: 1,
+          rows_fetched: 100,
+          rows_inserted: 100,
+          rows_updated: 0,
+          failed_symbols: [],
+          error_message: null
+        })
+      );
+    }
+
+    if (url === "/api/dashboard") {
+      return Promise.reject(new TypeError("failed"));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
+
+  expect(await screen.findByText("Market data fetch success")).toBeInTheDocument();
+  expect(screen.getByText("Dashboard API unavailable: network")).toBeInTheDocument();
+  expect(screen.queryByText("Market data fetch failed")).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
 });
 
 it("shows partial market data fetch failed symbols and guidance", async () => {
@@ -782,7 +857,7 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
 
   await screen.findByText("1,200 rows");
   expect(
-    screen.getByText("No local backtest run exists yet. Use the Operations panel to run a backtest.")
+    screen.getByText("No local backtest run exists yet. Enter a date range in Operations, then run a backtest.")
   ).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-01-01" } });
   fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-01-31" } });

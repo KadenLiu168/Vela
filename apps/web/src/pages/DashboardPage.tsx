@@ -154,6 +154,15 @@ export function DashboardPage() {
     }
   }
 
+  function handleDashboardRefresh() {
+    if (activeOperation) {
+      return;
+    }
+
+    setDashboardState({ status: "loading" });
+    void loadDashboard(setDashboardState);
+  }
+
   const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
   const firstRunGuidance = getFirstRunGuidance(dashboardState);
   const hasActiveOperation = activeOperation !== null;
@@ -179,9 +188,19 @@ export function DashboardPage() {
           <p>Local research workflow</p>
           <h2>Workflow Dashboard</h2>
         </div>
-        <span className={`dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
-          {getLoadLabel(dashboardState)}
-        </span>
+        <div className="dashboard-heading-actions">
+          <span className={`dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
+            {getLoadLabel(dashboardState)}
+          </span>
+          <button
+            className="dashboard-refresh-action"
+            type="button"
+            disabled={hasActiveOperation || dashboardState.status === "loading"}
+            onClick={handleDashboardRefresh}
+          >
+            Refresh Dashboard
+          </button>
+        </div>
       </div>
 
       {dashboardState.status === "error" ? (
@@ -530,7 +549,7 @@ function BacktestSummary({
   if (!backtest) {
     return (
       <p className="empty-state">
-        No local backtest run exists yet. Use the Operations panel to run a backtest.
+        No local backtest run exists yet. Enter a date range in Operations, then run a backtest.
       </p>
     );
   }
