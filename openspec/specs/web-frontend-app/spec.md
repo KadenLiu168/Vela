@@ -25,11 +25,16 @@ The web frontend SHALL include directories for pages, components, API client cod
 - **THEN** `apps/web/src` provides corresponding locations for that code
 
 ### Requirement: Web skeleton validation commands
-The web frontend SHALL provide package scripts for type checking, linting, testing, and building the skeleton.
+The web frontend SHALL provide package scripts for type checking, linting, testing, and building the skeleton. Type checking and production build validation MUST complete without requiring backend services, local mock services, or API integration test setup.
 
 #### Scenario: Developer validates the frontend skeleton
 - **WHEN** a developer runs the documented frontend validation commands
 - **THEN** the commands complete against the `apps/web` skeleton without requiring backend services
+
+#### Scenario: Developer validates the production frontend build
+- **WHEN** a developer runs `npm --prefix apps/web run typecheck` and `npm --prefix apps/web run build` from the repository root
+- **THEN** TypeScript validation and the production build complete successfully
+- **AND** the commands do not require a running local API service, seeded SQLite data, or frontend mock service
 
 ### Requirement: Shared frontend API client
 The web frontend SHALL provide a shared API client module that wraps API requests, parses JSON responses, and exposes endpoint helpers for frontend code.

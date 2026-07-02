@@ -62,11 +62,16 @@ Run type checking:
 npm --prefix apps/web run typecheck
 ```
 
-Build the frontend:
+Run the frontend build acceptance checks:
 
 ```bash
+npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 ```
+
+These commands validate TypeScript and the production Vite build without
+requiring the local API service, seeded SQLite data, or a frontend mock service.
+API-backed integration checks remain separate and use `test:integration:api`.
 
 ## Structure
 
