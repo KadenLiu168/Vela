@@ -5,6 +5,7 @@ import {
   type BacktestEquityCurvePoint,
   getBacktestDetail
 } from "../api/client";
+import { FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatDate,
   formatDecimal,
@@ -86,7 +87,7 @@ function getCurrentBacktestState(
 
 function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: string) {
   if (backtestState.status === "loading") {
-    return <p className="empty-state">Loading backtest detail.</p>;
+    return <FeedbackMessage variant="loading">Loading backtest detail.</FeedbackMessage>;
   }
 
   if (backtestState.status === "not-found") {
@@ -94,7 +95,11 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
   }
 
   if (backtestState.status === "error") {
-    return <p className="dashboard-alert">Backtest detail API unavailable: {backtestState.error}</p>;
+    return (
+      <FeedbackMessage className="dashboard-alert" variant="error">
+        Backtest detail API unavailable: {backtestState.error}
+      </FeedbackMessage>
+    );
   }
 
   const { metrics, run } = backtestState.data;

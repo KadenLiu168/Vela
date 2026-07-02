@@ -5,6 +5,7 @@ import {
   type LatestStrategySignalResponse,
   getLatestStrategySignal
 } from "../api/client";
+import { FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatBoolean,
   formatDate,
@@ -65,11 +66,15 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
 
 function renderSignalDetail(signalState: SignalDetailState) {
   if (signalState.status === "loading") {
-    return <p className="empty-state">Loading latest signal.</p>;
+    return <FeedbackMessage variant="loading">Loading latest signal.</FeedbackMessage>;
   }
 
   if (signalState.status === "error") {
-    return <p className="dashboard-alert">Latest signal API unavailable: {signalState.error}</p>;
+    return (
+      <FeedbackMessage className="dashboard-alert" variant="error">
+        Latest signal API unavailable: {signalState.error}
+      </FeedbackMessage>
+    );
   }
 
   if (!signalState.data.has_signal || signalState.data.signal === null) {

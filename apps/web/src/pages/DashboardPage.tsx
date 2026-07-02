@@ -16,6 +16,7 @@ import {
   getLatestStrategySignal,
   runBacktest
 } from "../api/client";
+import { FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatBoolean,
   formatCompactNumber,
@@ -32,6 +33,7 @@ type DashboardState =
   | { status: "error"; data?: never; error: string };
 
 type MarketDataFetchMode = "incremental" | "full";
+type ActiveOperation = "backtestRun" | "marketDataFetch" | "signalGeneration";
 type OperationError =
   | { operation: "marketDataFetch"; kind: string }
   | { operation: "signalGeneration"; kind: string }
@@ -46,9 +48,8 @@ export function DashboardPage() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading"
   });
+  const [activeOperation, setActiveOperation] = useState<ActiveOperation | null>(null);
   const [marketDataFetchMode, setMarketDataFetchMode] = useState<MarketDataFetchMode | null>(null);
-  const [isGeneratingSignal, setIsGeneratingSignal] = useState(false);
-  const [isRunningBacktest, setIsRunningBacktest] = useState(false);
   const [operationError, setOperationError] = useState<OperationError | null>(null);
   const [marketDataFetchResult, setMarketDataFetchResult] = useState<MarketDataFetchResponse | null>(null);
   const [signalGenerationResult, setSignalGenerationResult] =
@@ -75,10 +76,11 @@ export function DashboardPage() {
   }, []);
 
   async function handleMarketDataFetch(mode: MarketDataFetchMode) {
-    if (marketDataFetchMode) {
+    if (activeOperation) {
       return;
     }
 
+    setActiveOperation("marketDataFetch");
     setMarketDataFetchMode(mode);
     setOperationError(null);
 
@@ -95,16 +97,17 @@ export function DashboardPage() {
         kind: error instanceof ApiClientError ? error.kind : "unavailable"
       });
     } finally {
+      setActiveOperation(null);
       setMarketDataFetchMode(null);
     }
   }
 
   async function handleSignalGeneration() {
-    if (isGeneratingSignal) {
+    if (activeOperation) {
       return;
     }
 
-    setIsGeneratingSignal(true);
+    setActiveOperation("signalGeneration");
     setOperationError(null);
 
     try {
@@ -120,14 +123,14 @@ export function DashboardPage() {
         kind: error instanceof ApiClientError ? error.kind : "unavailable"
       });
     } finally {
-      setIsGeneratingSignal(false);
+      setActiveOperation(null);
     }
   }
 
   async function handleBacktestRun(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isRunningBacktest) {
+    if (activeOperation) {
       return;
     }
 
@@ -138,7 +141,7 @@ export function DashboardPage() {
       return;
     }
 
-    setIsRunningBacktest(true);
+    setActiveOperation("backtestRun");
     setBacktestValidationError(null);
     setOperationError(null);
 
@@ -155,19 +158,22 @@ export function DashboardPage() {
         kind: error instanceof ApiClientError ? error.kind : "unavailable"
       });
     } finally {
-      setIsRunningBacktest(false);
+      setActiveOperation(null);
     }
   }
 
   const data = dashboardState.status === "ready" ? dashboardState.data : undefined;
+  const hasActiveOperation = activeOperation !== null;
   const marketFetchAction = {
-    isLoading: marketDataFetchMode !== null,
+    isDisabled: hasActiveOperation,
+    isLoading: activeOperation === "marketDataFetch",
     onClick: () => {
       void handleMarketDataFetch("incremental");
     }
   };
   const signalGenerationAction = {
-    isLoading: isGeneratingSignal,
+    isDisabled: hasActiveOperation,
+    isLoading: activeOperation === "signalGeneration",
     onClick: () => {
       void handleSignalGeneration();
     }
@@ -186,7 +192,13 @@ export function DashboardPage() {
       </div>
 
       {dashboardState.status === "error" ? (
-        <p className="dashboard-alert">Dashboard API unavailable: {dashboardState.error}</p>
+        <FeedbackMessage className="dashboard-alert" variant="error">
+          Dashboard API unavailable: {dashboardState.error}
+        </FeedbackMessage>
+      ) : null}
+
+      {dashboardState.status === "loading" ? (
+        <FeedbackMessage variant="loading">Loading dashboard data.</FeedbackMessage>
       ) : null}
 
       <div className="dashboard-grid" aria-label="Dashboard workflow summary">
@@ -206,6 +218,7 @@ export function DashboardPage() {
             <EmptyAction
               actionLabel="Fetch market data"
               className="market-empty-state"
+              isDisabled={marketFetchAction.isDisabled}
               isLoading={marketFetchAction.isLoading}
               message="No local market prices are stored yet. Fetch market data to populate dashboard coverage."
               onClick={marketFetchAction.onClick}
@@ -247,6 +260,7 @@ export function DashboardPage() {
           <PanelHeading eyebrow="Signal" title="Latest signal" />
           <SignalSummary
             signal={data?.latest_signal}
+            isDisabled={signalGenerationAction.isDisabled}
             isGeneratingSignal={signalGenerationAction.isLoading}
             isLoading={dashboardState.status === "loading"}
             onGenerateSignal={signalGenerationAction.onClick}
@@ -268,22 +282,27 @@ export function DashboardPage() {
 
         <article className="dashboard-panel operations-panel">
           <PanelHeading eyebrow="Actions" title="Operations" />
+          {activeOperation ? <OperationPendingFeedback activeOperation={activeOperation} mode={marketDataFetchMode} /> : null}
           {operationError ? (
-            <p className="dashboard-alert operation-alert">{formatOperationError(operationError)}</p>
+            <FeedbackMessage className="dashboard-alert operation-alert" variant="error">
+              {formatOperationError(operationError)}
+            </FeedbackMessage>
           ) : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           {signalGenerationResult ? <SignalGenerationSummary result={signalGenerationResult} /> : null}
           {backtestRunResult ? <BacktestRunSummary result={backtestRunResult} /> : null}
           {backtestValidationError ? (
-            <p className="dashboard-alert operation-alert">{backtestValidationError}</p>
+            <FeedbackMessage className="dashboard-alert operation-alert" variant="error">
+              {backtestValidationError}
+            </FeedbackMessage>
           ) : null}
           <div className="operation-list">
-            <button type="button" disabled={marketFetchAction.isLoading} onClick={marketFetchAction.onClick}>
+            <button type="button" disabled={marketFetchAction.isDisabled} onClick={marketFetchAction.onClick}>
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
             </button>
             <button
               type="button"
-              disabled={marketFetchAction.isLoading}
+              disabled={marketFetchAction.isDisabled}
               onClick={() => {
                 void handleMarketDataFetch("full");
               }}
@@ -292,7 +311,7 @@ export function DashboardPage() {
             </button>
             <button
               type="button"
-              disabled={signalGenerationAction.isLoading}
+              disabled={signalGenerationAction.isDisabled}
               onClick={signalGenerationAction.onClick}
             >
               {signalGenerationAction.isLoading ? "Generating signal" : "Generate signal"}
@@ -330,8 +349,8 @@ export function DashboardPage() {
               />
             </label>
             <div className="operation-list">
-              <button type="submit" disabled={isRunningBacktest}>
-                {isRunningBacktest ? "Running backtest" : "Run backtest"}
+              <button type="submit" disabled={hasActiveOperation}>
+                {activeOperation === "backtestRun" ? "Running backtest" : "Run backtest"}
               </button>
             </div>
           </form>
@@ -343,7 +362,10 @@ export function DashboardPage() {
 
 function SignalGenerationSummary({ result }: { result: StrategySignalGenerationResponse }) {
   return (
-    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+    <FeedbackMessage
+      className={`operation-summary operation-summary-${result.status}`}
+      variant={result.status === "success" ? "success" : "error"}
+    >
       <strong>Signal generation {result.status}</strong>
       <dl className="compact-list">
         <Detail label="Signal" value={`#${formatInteger(result.signal_id)}`} />
@@ -352,7 +374,7 @@ function SignalGenerationSummary({ result }: { result: StrategySignalGenerationR
         <Detail label="Positions" value={formatInteger(result.positions.length)} />
       </dl>
       {result.error_message ? <p className="operation-guidance">{result.error_message}</p> : null}
-    </div>
+    </FeedbackMessage>
   );
 }
 
@@ -360,7 +382,10 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
   const hasFailures = result.status === "partial" || result.status === "failed";
 
   return (
-    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+    <FeedbackMessage
+      className={`operation-summary operation-summary-${result.status}`}
+      variant={result.status === "success" ? "success" : "error"}
+    >
       <strong>Market data fetch {result.status}</strong>
       <dl className="compact-list">
         <Detail label="Fetched" value={formatRows(result.rows_fetched)} />
@@ -378,13 +403,16 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
           Retry the fetch after checking the data source availability and local ETF/data state.
         </p>
       ) : null}
-    </div>
+    </FeedbackMessage>
   );
 }
 
 function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
   return (
-    <div className={`operation-summary operation-summary-${result.status}`} aria-live="polite">
+    <FeedbackMessage
+      className={`operation-summary operation-summary-${result.status}`}
+      variant={result.status === "success" ? "success" : "info"}
+    >
       <strong>Backtest run {result.status}</strong>
       <dl className="compact-list">
         <Detail label="Run" value={`#${formatInteger(result.run_id)}`} />
@@ -400,7 +428,7 @@ function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
       <a className="operation-link" href={`/backtests/${result.run_id}`}>
         View backtest detail
       </a>
-    </div>
+    </FeedbackMessage>
   );
 }
 
@@ -437,12 +465,14 @@ function FetchLogSummary({
 }
 
 function SignalSummary({
+  isDisabled,
   isGeneratingSignal,
   isLoading,
   onGenerateSignal,
   signal
 }: {
   isGeneratingSignal: boolean;
+  isDisabled: boolean;
   isLoading: boolean;
   onGenerateSignal: () => void;
   signal: DashboardSignalSummary | null | undefined;
@@ -456,6 +486,7 @@ function SignalSummary({
       <EmptyAction
         actionLabel="Generate signal"
         className="signal-empty-action"
+        isDisabled={isDisabled}
         isLoading={isGeneratingSignal}
         loadingLabel="Generating signal"
         message="No successful local signal exists yet. Generate signal after market data is ready."
@@ -524,6 +555,7 @@ function EmptyAction({
   actionLabel,
   className,
   isLoading = false,
+  isDisabled = false,
   loadingLabel,
   message,
   onClick
@@ -531,6 +563,7 @@ function EmptyAction({
   actionLabel: string;
   className?: string;
   isLoading?: boolean;
+  isDisabled?: boolean;
   loadingLabel?: string;
   message: string;
   onClick?: () => void;
@@ -539,12 +572,37 @@ function EmptyAction({
     <div className={className}>
       <p className="empty-state">{message}</p>
       <div className="operation-list empty-action">
-        <button type="button" disabled={isLoading || !onClick} onClick={onClick}>
+        <button type="button" disabled={isDisabled || isLoading || !onClick} onClick={onClick}>
           {isLoading ? (loadingLabel ?? actionLabel) : actionLabel}
         </button>
       </div>
     </div>
   );
+}
+
+function OperationPendingFeedback({
+  activeOperation,
+  mode
+}: {
+  activeOperation: ActiveOperation;
+  mode: MarketDataFetchMode | null;
+}) {
+  return <FeedbackMessage variant="loading">{getOperationPendingMessage(activeOperation, mode)}</FeedbackMessage>;
+}
+
+function getOperationPendingMessage(
+  activeOperation: ActiveOperation,
+  mode: MarketDataFetchMode | null
+): string {
+  if (activeOperation === "marketDataFetch") {
+    return mode === "full" ? "Running full market data fetch." : "Fetching market data.";
+  }
+
+  if (activeOperation === "signalGeneration") {
+    return "Generating latest strategy signal.";
+  }
+
+  return "Running backtest.";
 }
 
 async function loadDashboard(setState: (state: DashboardState) => void) {

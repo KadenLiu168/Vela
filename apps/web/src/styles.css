@@ -119,6 +119,35 @@ main {
   padding: 12px 14px;
 }
 
+.feedback-message {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 20px 0 0;
+  padding: 12px 14px;
+}
+
+.feedback-message-loading,
+.feedback-message-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.feedback-message-success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.feedback-message-error {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
 .dashboard-grid,
 .workflow-grid {
   display: grid;

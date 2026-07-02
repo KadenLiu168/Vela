@@ -75,6 +75,16 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
 
+it("renders shared page loading feedback while dashboard data is pending", () => {
+  const dashboardResult = createDeferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(dashboardResult.promise));
+
+  render(<App />);
+
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading dashboard data.");
+  expect(screen.queryByText("1,200 rows")).not.toBeInTheDocument();
+});
+
 it("renders empty dashboard states without treating the response as a failure", async () => {
   vi.stubGlobal(
     "fetch",
@@ -240,6 +250,10 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
   fireEvent.click(button);
 
   expect(await screen.findByRole("button", { name: "Fetching market data" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Fetching market data.");
+  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=incremental", {
     method: "POST"
   });
@@ -352,7 +366,10 @@ it("triggers full market data fetch and reuses the fetch summary", async () => {
   fireEvent.click(button);
 
   expect(await screen.findByRole("button", { name: "Running full fetch" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running full market data fetch.");
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
     method: "POST"
   });
@@ -500,6 +517,10 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   fireEvent.click(button);
 
   expect(await within(signalArticle as HTMLElement).findByRole("button", { name: "Generating signal" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Generating latest strategy signal.");
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
     method: "POST"
   });
@@ -768,6 +789,10 @@ it("prevents duplicate Dashboard backtest submissions while pending", async () =
   fireEvent.click(button);
 
   expect(await screen.findByRole("button", { name: "Running backtest" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running backtest.");
+  expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/backtests/run"))).toHaveLength(1);
 
   backtestResult.resolve(jsonResponse(createBacktestRunResponse()));
@@ -892,6 +917,17 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(holdings.getByText("Yes")).toBeInTheDocument();
   expect(screen.queryByText(/candidate/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
+});
+
+it("renders shared page loading feedback on the signal detail route", () => {
+  window.history.pushState({}, "", "/signals/demo-signal");
+  const latestSignalResult = createDeferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(latestSignalResult.promise));
+
+  render(<App />);
+
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading latest signal.");
+  expect(screen.queryByText("Signal #42")).not.toBeInTheDocument();
 });
 
 it("renders an empty target holdings state on the signal detail route", async () => {
@@ -1082,6 +1118,7 @@ it("renders a loading state on the backtest detail route", () => {
   render(<App />);
 
   expect(screen.getByText("Loading backtest detail.")).toBeInTheDocument();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading backtest detail.");
   expect(screen.queryByText("Backtest #8")).not.toBeInTheDocument();
 });
 
