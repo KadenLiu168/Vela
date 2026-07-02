@@ -35,9 +35,9 @@ type DashboardState =
 type MarketDataFetchMode = "incremental" | "full";
 type ActiveOperation = "backtestRun" | "marketDataFetch" | "signalGeneration";
 type OperationError =
-  | { operation: "marketDataFetch"; kind: string }
-  | { operation: "signalGeneration"; kind: string }
-  | { operation: "backtestRun"; kind: string };
+  | { operation: "marketDataFetch"; kind: string; message: string; status: number | null }
+  | { operation: "signalGeneration"; kind: string; message: string; status: number | null }
+  | { operation: "backtestRun"; kind: string; message: string; status: number | null };
 
 type BacktestFormState = {
   startDate: string;
@@ -92,10 +92,7 @@ export function DashboardPage() {
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setMarketDataFetchResult(null);
-      setOperationError({
-        operation: "marketDataFetch",
-        kind: error instanceof ApiClientError ? error.kind : "unavailable"
-      });
+      setOperationError(createOperationError("marketDataFetch", error));
     } finally {
       setActiveOperation(null);
       setMarketDataFetchMode(null);
@@ -118,10 +115,7 @@ export function DashboardPage() {
       await refreshDashboardSignalState(generationResult, setDashboardState);
     } catch (error: unknown) {
       setSignalGenerationResult(null);
-      setOperationError({
-        operation: "signalGeneration",
-        kind: error instanceof ApiClientError ? error.kind : "unavailable"
-      });
+      setOperationError(createOperationError("signalGeneration", error));
     } finally {
       setActiveOperation(null);
     }
@@ -153,10 +147,7 @@ export function DashboardPage() {
       await loadDashboard(setDashboardState);
     } catch (error: unknown) {
       setBacktestRunResult(null);
-      setOperationError({
-        operation: "backtestRun",
-        kind: error instanceof ApiClientError ? error.kind : "unavailable"
-      });
+      setOperationError(createOperationError("backtestRun", error));
     } finally {
       setActiveOperation(null);
     }
@@ -285,7 +276,7 @@ export function DashboardPage() {
           {activeOperation ? <OperationPendingFeedback activeOperation={activeOperation} mode={marketDataFetchMode} /> : null}
           {operationError ? (
             <FeedbackMessage className="dashboard-alert operation-alert" variant="error">
-              {formatOperationError(operationError)}
+              <OperationErrorSummary error={operationError} />
             </FeedbackMessage>
           ) : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
@@ -590,6 +581,18 @@ function OperationPendingFeedback({
   return <FeedbackMessage variant="loading">{getOperationPendingMessage(activeOperation, mode)}</FeedbackMessage>;
 }
 
+function OperationErrorSummary({ error }: { error: OperationError }) {
+  return (
+    <>
+      <strong>{getOperationLabel(error.operation)} failed</strong>
+      <dl className="compact-list">
+        <Detail label="Reason" value={formatOperationErrorReason(error)} />
+        <Detail label="Next step" value={getOperationErrorGuidance(error.operation)} />
+      </dl>
+    </>
+  );
+}
+
 function getOperationPendingMessage(
   activeOperation: ActiveOperation,
   mode: MarketDataFetchMode | null
@@ -603,6 +606,24 @@ function getOperationPendingMessage(
   }
 
   return "Running backtest.";
+}
+
+function createOperationError(operation: OperationError["operation"], error: unknown): OperationError {
+  if (error instanceof ApiClientError) {
+    return {
+      operation,
+      kind: error.kind,
+      message: error.message,
+      status: error.status ?? null
+    };
+  }
+
+  return {
+    operation,
+    kind: "unavailable",
+    message: "Operation request failed",
+    status: null
+  };
 }
 
 async function loadDashboard(setState: (state: DashboardState) => void) {
@@ -698,9 +719,8 @@ function formatFailedSymbols(symbols: string[]): string {
   return symbols.length > 0 ? symbols.join(", ") : formatNullableText(null);
 }
 
-function formatOperationError(error: OperationError): string {
-  const operationLabel = getOperationLabel(error.operation);
-  return `${operationLabel} failed: ${error.kind}`;
+function formatOperationErrorReason(error: OperationError): string {
+  return error.message || error.kind;
 }
 
 function getOperationLabel(operation: OperationError["operation"]): string {
@@ -713,6 +733,18 @@ function getOperationLabel(operation: OperationError["operation"]): string {
   }
 
   return "Market data fetch";
+}
+
+function getOperationErrorGuidance(operation: OperationError["operation"]): string {
+  if (operation === "signalGeneration") {
+    return "Fetch market data or review local strategy configuration before retrying.";
+  }
+
+  if (operation === "backtestRun") {
+    return "Verify the date range and available local market data or signals before retrying.";
+  }
+
+  return "Retry after checking data source availability and local ETF/data state.";
 }
 
 function validateBacktestDates(form: BacktestFormState): string | null {

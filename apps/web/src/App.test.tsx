@@ -440,7 +440,7 @@ it("shows failed market data fetch details and guidance from the response body",
   ).toBeInTheDocument();
 });
 
-it("shows an operation error when incremental market data fetch fails", async () => {
+it("shows a market data fetch error summary with reason and next step", async () => {
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
@@ -450,7 +450,7 @@ it("shows an operation error when incremental market data fetch fails", async ()
 
     if (url === "/api/market-data/fetch?mode=incremental") {
       return Promise.resolve(
-        new Response(JSON.stringify({ detail: "fetch failed" }), {
+        new Response(JSON.stringify({ detail: "AkShare provider timed out while fetching 510300" }), {
           headers: { "Content-Type": "application/json" },
           status: 500
         })
@@ -465,7 +465,16 @@ it("shows an operation error when incremental market data fetch fails", async ()
 
   fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
 
-  expect(await screen.findByText("Market data fetch failed: http")).toBeInTheDocument();
+  expect(await screen.findByText("Market data fetch failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Reason")).toBeInTheDocument();
+  expect(operations.getByText("AkShare provider timed out while fetching 510300")).toBeInTheDocument();
+  expect(operations.getByText("Next step")).toBeInTheDocument();
+  expect(
+    operations.getByText("Retry after checking data source availability and local ETF/data state.")
+  ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   await waitFor(() => {
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
@@ -622,7 +631,7 @@ it("restores Dashboard latest signal status from backend data after browser refr
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
 
-it("shows an operation error when signal generation fails", async () => {
+it("shows a signal generation error summary with reason and next step", async () => {
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
@@ -647,11 +656,55 @@ it("shows an operation error when signal generation fails", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Generate signal" }));
 
-  expect(await screen.findByText("Signal generation failed: http")).toBeInTheDocument();
+  expect(await screen.findByText("Signal generation failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Reason")).toBeInTheDocument();
+  expect(operations.getByText("No local market prices found")).toBeInTheDocument();
+  expect(operations.getByText("Next step")).toBeInTheDocument();
+  expect(
+    operations.getByText("Fetch market data or review local strategy configuration before retrying.")
+  ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
   await waitFor(() => {
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
   });
+});
+
+it("pairs technical operation error details with user guidance", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/strategy-signals/generate") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ detail: "sqlalchemy.exc.OperationalError: database is locked" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 500
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Generate signal" }));
+
+  expect(await screen.findByText("Signal generation failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("sqlalchemy.exc.OperationalError: database is locked")).toBeInTheDocument();
+  expect(
+    operations.getByText("Fetch market data or review local strategy configuration before retrying.")
+  ).toBeInTheDocument();
 });
 
 it("submits a Dashboard backtest date range through the shared API", async () => {
@@ -845,7 +898,16 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
 
   fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
 
-  expect(await screen.findByText("Backtest run failed: http")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest run failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Reason")).toBeInTheDocument();
+  expect(operations.getByText("not enough signals")).toBeInTheDocument();
+  expect(operations.getByText("Next step")).toBeInTheDocument();
+  expect(
+    operations.getByText("Verify the date range and available local market data or signals before retrying.")
+  ).toBeInTheDocument();
   expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
   expect(dashboardRequestCount).toBe(2);
