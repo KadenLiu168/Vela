@@ -146,6 +146,7 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
       <div className="equity-curve-single-point">
         <p className="empty-state">Only one equity curve point is available.</p>
         <dl className="equity-curve-summary">
+          <Detail label="Point count" value="1" />
           <Detail label="Trade date" value={point.tradeDate} />
           <Detail label="Net value" value={formatNetValue(point.netValue)} />
         </dl>
@@ -174,8 +175,9 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
         <path className="equity-curve-line" d={path} data-testid="equity-curve-line" />
       </svg>
       <dl className="equity-curve-summary">
-        <Detail label="Start" value={firstPoint.tradeDate} />
-        <Detail label="End" value={lastPoint.tradeDate} />
+        <Detail label="Point count" value={String(chartPoints.length)} />
+        <Detail label="Start point" value={formatEquityCurvePoint(firstPoint)} />
+        <Detail label="End point" value={formatEquityCurvePoint(lastPoint)} />
         <Detail label="Min net value" value={formatNetValue(minNetValue)} />
         <Detail label="Max net value" value={formatNetValue(maxNetValue)} />
       </dl>
@@ -243,6 +245,10 @@ function buildEquityCurvePath(points: EquityCurveChartPoint[]): string {
 
 function formatNetValue(value: number): string {
   return value.toFixed(4);
+}
+
+function formatEquityCurvePoint(point: EquityCurveChartPoint): string {
+  return `${point.tradeDate} / ${formatNetValue(point.netValue)}`;
 }
 
 function formatOptional(value: string | null | undefined): string {

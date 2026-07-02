@@ -978,8 +978,12 @@ it("loads backtest detail data through the shared client", async () => {
   const equityCurve = within(equitySection as HTMLElement);
   expect(equityCurve.getByRole("img", { name: "Equity curve net value chart" })).toBeInTheDocument();
   expect(equityCurve.getByTestId("equity-curve-line")).toBeInTheDocument();
-  expect(equityCurve.getByText("2026-01-02")).toBeInTheDocument();
-  expect(equityCurve.getByText("2026-01-05")).toBeInTheDocument();
+  expect(equityCurve.getByText("Point count")).toBeInTheDocument();
+  expect(equityCurve.getByText("2")).toBeInTheDocument();
+  expect(equityCurve.getByText("Start point")).toBeInTheDocument();
+  expect(equityCurve.getByText("2026-01-02 / 1.0100")).toBeInTheDocument();
+  expect(equityCurve.getByText("End point")).toBeInTheDocument();
+  expect(equityCurve.getByText("2026-01-05 / 1.0300")).toBeInTheDocument();
   expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
   expect(equityCurve.getByText("1.0300")).toBeInTheDocument();
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
@@ -1032,6 +1036,8 @@ it("renders a single-point equity curve state on the backtest detail route", asy
   expect(equitySection).not.toBeNull();
   const equityCurve = within(equitySection as HTMLElement);
   expect(equityCurve.getByText("Only one equity curve point is available.")).toBeInTheDocument();
+  expect(equityCurve.getByText("Point count")).toBeInTheDocument();
+  expect(equityCurve.getByText("1")).toBeInTheDocument();
   expect(equityCurve.getByText("2026-01-02")).toBeInTheDocument();
   expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
   expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
