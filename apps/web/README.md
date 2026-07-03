@@ -28,6 +28,8 @@ npm run dev
 
 ## Validation
 
+Use `../../docs/browser-manual-acceptance.md` for browser-side manual acceptance and regression checks covering Dashboard, workflow actions, and detail pages.
+
 Run frontend tests:
 
 ```bash
