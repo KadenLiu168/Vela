@@ -1247,7 +1247,13 @@ it("loads backtest detail data through the shared client", async () => {
   expect(equitySection).not.toBeNull();
   const equityCurve = within(equitySection as HTMLElement);
   expect(equityCurve.getByRole("img", { name: "Equity curve net value chart" })).toBeInTheDocument();
-  expect(equityCurve.getByTestId("equity-curve-line")).toBeInTheDocument();
+  expect(equityCurve.getByTestId("equity-curve-line")).toHaveClass("equity-curve-line");
+  const highlights = equityCurve.getAllByTestId("equity-curve-highlight");
+  expect(highlights).toHaveLength(2);
+  for (const highlight of highlights) {
+    expect(highlight).toHaveClass("equity-curve-highlight");
+    expect(highlight).toHaveAttribute("r", "4");
+  }
   expect(equityCurve.getByText("Point count")).toBeInTheDocument();
   expect(equityCurve.getByText("2")).toBeInTheDocument();
   expect(equityCurve.getByText("Start point")).toBeInTheDocument();
@@ -1282,6 +1288,7 @@ it("renders an empty equity curve state on the backtest detail route", async () 
   const equityCurve = within(equitySection as HTMLElement);
   expect(equityCurve.getByText("No valid equity curve points are available for this run.")).toBeInTheDocument();
   expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
+  expect(equityCurve.queryAllByTestId("equity-curve-highlight")).toHaveLength(0);
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
 
@@ -1311,6 +1318,7 @@ it("renders a single-point equity curve state on the backtest detail route", asy
   expect(equityCurve.getByText("2026-01-02")).toBeInTheDocument();
   expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
   expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
+  expect(equityCurve.queryAllByTestId("equity-curve-highlight")).toHaveLength(0);
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
 

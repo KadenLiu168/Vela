@@ -146,6 +146,12 @@ type EquityCurveChartPoint = {
   netValue: number;
 };
 
+type EquityCurveChartCoordinate = {
+  index: number;
+  x: number;
+  y: number;
+};
+
 function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
   const chartPoints = getValidEquityCurvePoints(points);
 
@@ -168,7 +174,9 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
     );
   }
 
-  const path = buildEquityCurvePath(chartPoints);
+  const chartCoordinates = buildEquityCurveCoordinates(chartPoints);
+  const path = buildEquityCurvePath(chartCoordinates);
+  const highlightCoordinates = getEquityCurveHighlightCoordinates(chartPoints, chartCoordinates);
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
   const netValues = chartPoints.map((point) => point.netValue);
@@ -187,6 +195,16 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
         <line className="equity-curve-grid-line" x1="48" x2="608" y1="24" y2="24" />
         <line className="equity-curve-grid-line" x1="48" x2="608" y1="176" y2="176" />
         <path className="equity-curve-line" d={path} data-testid="equity-curve-line" />
+        {highlightCoordinates.map((coordinate) => (
+          <circle
+            className="equity-curve-highlight"
+            cx={coordinate.x}
+            cy={coordinate.y}
+            data-testid="equity-curve-highlight"
+            key={coordinate.index}
+            r="4"
+          />
+        ))}
       </svg>
       <dl className="equity-curve-summary">
         <Detail label="Point count" value={formatInteger(chartPoints.length)} />
@@ -228,7 +246,7 @@ function getValidEquityCurvePoints(points: BacktestEquityCurvePoint[]): EquityCu
   });
 }
 
-function buildEquityCurvePath(points: EquityCurveChartPoint[]): string {
+function buildEquityCurveCoordinates(points: EquityCurveChartPoint[]): EquityCurveChartCoordinate[] {
   const chart = {
     height: 220,
     paddingBottom: 44,
@@ -244,17 +262,40 @@ function buildEquityCurvePath(points: EquityCurveChartPoint[]): string {
   const maxNetValue = Math.max(...netValues);
   const netValueRange = maxNetValue - minNetValue;
 
-  return points
-    .map((point, index) => {
-      const x = chart.paddingLeft + (drawableWidth * index) / (points.length - 1);
-      const normalizedY =
-        netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
-      const y = chart.paddingTop + normalizedY * drawableHeight;
+  return points.map((point, index) => {
+    const x = chart.paddingLeft + (drawableWidth * index) / (points.length - 1);
+    const normalizedY =
+      netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
+    const y = chart.paddingTop + normalizedY * drawableHeight;
+
+    return { index, x, y };
+  });
+}
+
+function buildEquityCurvePath(coordinates: EquityCurveChartCoordinate[]): string {
+  return coordinates
+    .map((coordinate, index) => {
       const command = index === 0 ? "M" : "L";
 
-      return `${command} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      return `${command} ${coordinate.x.toFixed(2)} ${coordinate.y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+function getEquityCurveHighlightCoordinates(
+  points: EquityCurveChartPoint[],
+  coordinates: EquityCurveChartCoordinate[]
+): EquityCurveChartCoordinate[] {
+  const netValues = points.map((point) => point.netValue);
+  const minNetValue = Math.min(...netValues);
+  const maxNetValue = Math.max(...netValues);
+  const highlightIndexes = new Set([
+    points.length - 1,
+    points.findIndex((point) => point.netValue === minNetValue),
+    points.findIndex((point) => point.netValue === maxNetValue)
+  ]);
+
+  return [...highlightIndexes].map((index) => coordinates[index]);
 }
 
 function formatEquityCurvePoint(point: EquityCurveChartPoint): string {
