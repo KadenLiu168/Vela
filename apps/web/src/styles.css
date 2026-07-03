@@ -98,6 +98,11 @@ body {
   gap: var(--spacing-20);
 }
 
+.app-brand {
+  display: grid;
+  gap: var(--spacing-8);
+}
+
 .app-header h1 {
   color: var(--color-graphite);
   font-family: var(--font-polysans);
@@ -108,30 +113,39 @@ body {
   margin: 0;
 }
 
-.app-header span {
+.app-api-meta {
   color: var(--color-slate);
+  display: block;
   font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
 }
 
-.app-header nav {
+.app-nav {
+  align-items: center;
+  background: var(--surface-ash-surface);
+  border: 1px solid var(--color-mist);
+  border-radius: var(--radius-nav-pills);
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-8);
+  justify-content: flex-end;
+  padding: var(--spacing-8);
 }
 
-.app-header a {
-  border: 1px solid var(--color-mist);
-  border-radius: 6px;
-  color: var(--color-steel);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
+.app-nav-link {
+  border-radius: var(--radius-nav-pills);
+  color: var(--color-graphite);
+  font-family: var(--font-polysans);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: 1;
   padding: var(--spacing-8) var(--spacing-12);
   text-decoration: none;
 }
 
-.app-header a[aria-current="page"] {
+.app-nav-link[aria-current="page"] {
   background: var(--color-graphite);
-  border-color: var(--color-graphite);
   color: var(--color-canvas-white);
 }
 
@@ -702,6 +716,16 @@ main {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .app-nav-link {
+    flex: 1 1 auto;
+    text-align: center;
   }
 
   .dashboard-heading {

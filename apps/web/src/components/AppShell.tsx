@@ -23,14 +23,15 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
+        <div className="app-brand">
           <h1>Vela Research</h1>
-          <span>API: {apiBaseUrl}</span>
+          <span className="app-api-meta">API: {apiBaseUrl}</span>
         </div>
-        <nav aria-label="Research navigation">
+        <nav aria-label="Research navigation" className="app-nav">
           {navItems.map((item) => (
             <a
               aria-current={item.href === activePath ? "page" : undefined}
+              className="app-nav-link"
               href={item.href}
               key={item.href}
               onClick={(event) => {
