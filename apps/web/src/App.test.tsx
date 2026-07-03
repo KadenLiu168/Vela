@@ -58,6 +58,10 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("Yes")).toBeInTheDocument();
   expect(signal.getByText("2")).toBeInTheDocument();
+  expect(signal.getByRole("link", { name: "View signal detail" })).toHaveAttribute(
+    "href",
+    "/signals/42"
+  );
   const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   const backtest = within(backtestPanel as HTMLElement);
@@ -67,6 +71,10 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("12.00%")).toBeInTheDocument();
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
+  expect(backtest.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
+    "href",
+    "/backtests/7"
+  );
   const fetchLogPanel = screen.getByRole("heading", { name: "Recent fetches" }).closest("article");
   expect(fetchLogPanel).not.toBeNull();
   const fetchLogs = within(fetchLogPanel as HTMLElement);
@@ -738,6 +746,10 @@ it("restores Dashboard latest signal status from backend data after browser refr
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("No")).toBeInTheDocument();
   expect(signal.getByText("2")).toBeInTheDocument();
+  expect(signal.getByRole("link", { name: "View signal detail" })).toHaveAttribute(
+    "href",
+    "/signals/43"
+  );
   expect(screen.queryByText(/Signal generation success/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
 });
@@ -1043,7 +1055,13 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
     operations.getByText("Verify the date range and available local market data or signals before retrying.")
   ).toBeInTheDocument();
   expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
+  expect(within(operationsPanel as HTMLElement).queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
+  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  expect(backtestPanel).not.toBeNull();
+  expect(within(backtestPanel as HTMLElement).getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
+    "href",
+    "/backtests/7"
+  );
   expect(dashboardRequestCount).toBe(2);
 });
 
@@ -1067,6 +1085,10 @@ it("restores Dashboard recent backtest status from backend data after browser re
   expect(await backtest.findByText("Backtest #7")).toBeInTheDocument();
   expect(backtest.getByText("2026-01-01 to 2026-06-01")).toBeInTheDocument();
   expect(backtest.getByText("success")).toBeInTheDocument();
+  expect(backtest.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
+    "href",
+    "/backtests/7"
+  );
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
 });
 

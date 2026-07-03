@@ -531,6 +531,9 @@ function SignalSummary({
         <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
         <Detail label="Target holdings" value={formatInteger(signal.position_count)} />
       </dl>
+      <a className="operation-link" href={`/signals/${signal.signal_id}`}>
+        View signal detail
+      </a>
     </>
   );
 }
@@ -564,6 +567,9 @@ function BacktestSummary({
         <Detail label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
         <Detail label="Sharpe" value={formatNullableText(backtest.sharpe_ratio)} />
       </dl>
+      <a className="operation-link" href={`/backtests/${backtest.run_id}`}>
+        View backtest detail
+      </a>
     </>
   );
 }
