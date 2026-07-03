@@ -500,6 +500,28 @@ main {
   margin: 0;
 }
 
+.signal-detail-page {
+  display: grid;
+  gap: var(--spacing-20);
+}
+
+.signal-detail-page .dashboard-panel {
+  background: var(--surface-ash-surface);
+  border-color: var(--color-mist);
+  min-height: auto;
+  padding: var(--spacing-20);
+}
+
+.signal-detail-page .panel-primary {
+  color: var(--color-graphite);
+  font-family: var(--font-polysans);
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.02em;
+  line-height: var(--leading-subheading);
+  margin-bottom: var(--spacing-16);
+}
+
 .compact-list {
   display: grid;
   gap: 8px 14px;
@@ -703,6 +725,29 @@ main {
   padding: var(--spacing-20);
 }
 
+.signal-detail-page .compact-list {
+  background: var(--surface-page-canvas);
+  gap: var(--spacing-12) var(--spacing-20);
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.signal-detail-page .compact-list dt {
+  color: var(--color-slate);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  margin: 0;
+}
+
+.signal-detail-page .compact-list dd {
+  color: var(--color-steel);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  margin: 0;
+}
+
 .detail-page dd {
   margin: 0;
 }
@@ -711,11 +756,22 @@ main {
   margin-top: 24px;
 }
 
+.signal-detail-page .holdings-section {
+  margin-top: var(--spacing-20);
+}
+
 .holdings-section h3 {
   color: var(--color-graphite);
   font-size: var(--text-subheading);
   line-height: var(--leading-subheading);
   margin: 0 0 var(--spacing-12);
+}
+
+.signal-detail-page .holdings-section h3 {
+  font-family: var(--font-polysans);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--spacing-12);
 }
 
 .parameter-summary {
@@ -776,10 +832,19 @@ main {
   overflow-x: auto;
 }
 
+.signal-detail-page .holdings-table-wrap {
+  background: var(--surface-page-canvas);
+  border-color: var(--color-mist);
+}
+
 .holdings-table {
   border-collapse: collapse;
   min-width: 640px;
   width: 100%;
+}
+
+.signal-detail-page .holdings-table {
+  min-width: 720px;
 }
 
 .holdings-table th,
@@ -803,8 +868,50 @@ main {
   font-weight: var(--font-weight-semibold);
 }
 
+.signal-detail-page .holdings-table th,
+.signal-detail-page .holdings-table td {
+  line-height: var(--leading-caption);
+  padding: var(--spacing-12) var(--spacing-16);
+}
+
+.signal-detail-page .holdings-table th {
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.signal-detail-page .holdings-table td {
+  color: var(--color-steel);
+  font-weight: var(--font-weight-medium);
+}
+
+.signal-detail-page .holdings-table th:nth-child(3),
+.signal-detail-page .holdings-table th:nth-child(4),
+.signal-detail-page .holdings-table th:nth-child(5),
+.signal-detail-page .holdings-table td:nth-child(3),
+.signal-detail-page .holdings-table td:nth-child(4),
+.signal-detail-page .holdings-table td:nth-child(5) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.signal-detail-page .holdings-table td:nth-child(2) {
+  color: var(--color-graphite);
+  font-weight: var(--font-weight-semibold);
+}
+
 .holdings-table tr:last-child td {
   border-bottom: 0;
+}
+
+.signal-detail-page > .empty-state,
+.signal-detail-page .holdings-section .empty-state {
+  background: var(--surface-fog-surface);
+  border: 1px solid var(--color-mist);
+  border-radius: var(--radius-cards);
+  color: var(--color-steel);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  padding: var(--spacing-16);
 }
 
 @media (max-width: 720px) {
@@ -852,6 +959,10 @@ main {
   .detail-page .metric-card-grid,
   .equity-curve-summary,
   .compact-list {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-detail-page .compact-list {
     grid-template-columns: 1fr;
   }
 }
