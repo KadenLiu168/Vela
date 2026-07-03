@@ -98,3 +98,12 @@ The repository SHALL include automated pytest coverage for the COP-124 market da
 - **AND** the test MUST verify persisted `MarketPrice` and `DataFetchLog` rows
 - **AND** the test MUST verify a follow-up Dashboard API response reflects the newly persisted market data status and fetch operation summary
 
+### Requirement: Signal generation display loop validation
+The repository SHALL include automated pytest coverage for the COP-125 signal generation to frontend display data-source loop.
+
+#### Scenario: Pytest validates signal generation display loop
+- **WHEN** a developer runs the API strategy signal generation tests through pytest
+- **THEN** pytest MUST execute a test that triggers the signal generation API using deterministic SQLite market data
+- **AND** the test MUST verify persisted `StrategySignal` and `StrategySignalPosition` rows
+- **AND** the test MUST verify follow-up latest signal and Dashboard API responses reflect the same generated signal result
+
