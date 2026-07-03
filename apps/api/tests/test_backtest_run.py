@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
 from vela_api.main import app
 from vela_core.database import DEFAULT_DATABASE_URL
-from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice
+from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice, StrategySignal
 
 from tests.integration_data import (
     add_etf,
@@ -77,6 +77,80 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
     assert run.status == "success"
     assert len(curve_rows) == body["trading_day_count"]
     assert curve_rows[0].backtest_run_id == run.id
+
+
+def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'run-backtest-detail-loop.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    start_date = date(2026, 1, 1)
+    end_date = date(2026, 1, 10)
+    with session_factory() as session:
+        first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
+        second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
+        defense = add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
+        _add_price_history(session, etf_id=first.id, start_date=start_date, end_date=end_date)
+        _add_price_history(
+            session,
+            etf_id=second.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.08"),
+        )
+        _add_price_history(
+            session,
+            etf_id=defense.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.01"),
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+        client = TestClient(app)
+
+        run_response = client.post("/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10")
+        detail_response = client.get(f"/api/backtests/{run_response.json()['run_id']}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert run_response.status_code == 200
+    run_body = run_response.json()
+    assert run_body["run_id"] == 1
+    assert run_body["status"] == "success"
+    assert run_body["trading_day_count"] == 10
+    assert run_body["signal_count"] == 2
+    assert run_body["total_return"] is not None
+
+    with session_factory() as session:
+        run = session.query(BacktestRun).one()
+        signals = session.query(StrategySignal).order_by(StrategySignal.signal_date).all()
+        curve_rows = (
+            session.query(BacktestEquityCurve).order_by(BacktestEquityCurve.trade_date).all()
+        )
+
+    assert run.id == run_body["run_id"]
+    assert run.status == "success"
+    assert [signal.status for signal in signals] == ["success", "success"]
+    assert len(curve_rows) == run_body["trading_day_count"]
+
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["run"]["run_id"] == run_body["run_id"]
+    assert detail["run"]["start_date"] == run_body["start_date"]
+    assert detail["run"]["end_date"] == run_body["end_date"]
+    assert detail["run"]["status"] == run_body["status"]
+    assert detail["metrics"] == {
+        "total_return": run_body["total_return"],
+        "annualized_return": run_body["annualized_return"],
+        "max_drawdown": run_body["max_drawdown"],
+        "volatility": run_body["volatility"],
+        "sharpe_ratio": run_body["sharpe_ratio"],
+    }
+    assert len(detail["equity_curve"]) == len(curve_rows)
+    assert detail["equity_curve"][0]["trade_date"] == curve_rows[0].trade_date.isoformat()
+    assert detail["equity_curve"][-1]["trade_date"] == curve_rows[-1].trade_date.isoformat()
+    assert detail["equity_curve"][-1]["net_value"] == str(curve_rows[-1].net_value)
 
 
 def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:
