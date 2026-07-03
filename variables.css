@@ -1,3 +1,8 @@
+/*
+ * Design reference only.
+ * This file is not imported by apps/web and does not drive the web build.
+ * Update apps/web/src/styles.css :root for current implementation tokens.
+ */
 :root {
   /* Colors */
   --color-graphite: #202020;
