@@ -15,6 +15,8 @@
   --font-polysans: "PolySans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --text-caption: 14px;
+  --text-micro: 12px;
+  --text-label: 13px;
   --leading-caption: 1.43;
   --text-subheading: 18px;
   --leading-subheading: 1.25;
@@ -39,6 +41,8 @@
   --spacing-12: 12px;
   --spacing-16: 16px;
   --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
   --spacing-36: 36px;
   --spacing-40: 40px;
   --spacing-60: 60px;
@@ -94,7 +98,7 @@ body {
 
 .app-shell {
   min-height: 100vh;
-  padding: 32px;
+  padding: var(--spacing-32);
 }
 
 .app-header {
@@ -156,11 +160,13 @@ body {
 }
 
 main {
-  margin-top: 32px;
+  margin-top: var(--spacing-32);
 }
 
 .page {
   max-width: var(--page-max-width);
+  min-width: 0;
+  width: 100%;
 }
 
 .page-heading p {
@@ -247,7 +253,7 @@ main {
   font-weight: var(--font-weight-regular);
   letter-spacing: -0.02em;
   line-height: 1;
-  padding: 10px var(--spacing-20);
+  padding: var(--spacing-12) var(--spacing-20);
 }
 
 .dashboard-refresh-action:disabled {
@@ -265,7 +271,7 @@ main {
   font-weight: var(--font-weight-medium);
   line-height: var(--leading-caption);
   margin: var(--spacing-20) 0 0;
-  padding: var(--spacing-12) 14px;
+  padding: var(--spacing-12) var(--spacing-16);
 }
 
 .first-run-guidance {
@@ -277,13 +283,13 @@ main {
   gap: var(--spacing-16);
   justify-content: space-between;
   margin-top: var(--spacing-20);
-  padding: 14px var(--spacing-16);
+  padding: var(--spacing-16);
 }
 
 .first-run-guidance span {
   color: var(--color-slate);
   display: block;
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
 }
@@ -292,7 +298,7 @@ main {
   color: var(--color-graphite);
   font-size: var(--text-subheading);
   line-height: var(--leading-subheading);
-  margin: 4px 0 0;
+  margin: var(--spacing-unit) 0 0;
 }
 
 .first-run-guidance p {
@@ -306,7 +312,7 @@ main {
 .feedback-message {
   border-radius: var(--radius-cards);
   margin: var(--spacing-20) 0 0;
-  padding: var(--spacing-12) 14px;
+  padding: var(--spacing-12) var(--spacing-16);
 }
 
 .feedback-message-loading,
@@ -351,7 +357,7 @@ main {
 .workflow-grid {
   gap: var(--spacing-12);
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 24px;
+  margin-top: var(--spacing-24);
 }
 
 .dashboard-panel,
@@ -363,6 +369,7 @@ main {
 }
 
 .dashboard-panel {
+  min-width: 0;
   min-height: 180px;
 }
 
@@ -405,7 +412,7 @@ main {
 
 .panel-heading span {
   color: var(--color-slate);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
   line-height: 1.15;
   text-transform: uppercase;
@@ -424,8 +431,8 @@ main {
 .panel-primary {
   color: var(--color-graphite);
   display: block;
-  font-size: 20px;
-  margin-bottom: 14px;
+  font-size: var(--text-subheading);
+  margin-bottom: var(--spacing-16);
 }
 
 .dashboard-page .panel-primary {
@@ -452,7 +459,7 @@ main {
 .compact-list dt {
   color: var(--color-slate);
   display: block;
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -549,9 +556,9 @@ main {
 
 .compact-list {
   display: grid;
-  gap: 8px 14px;
+  gap: var(--spacing-8) var(--spacing-16);
   grid-template-columns: max-content minmax(0, 1fr);
-  margin: 14px 0 0;
+  margin: var(--spacing-16) 0 0;
 }
 
 .dashboard-page .compact-list {
@@ -616,13 +623,13 @@ main {
 
 .empty-action,
 .signal-empty-action {
-  margin-top: 14px;
+  margin-top: var(--spacing-16);
 }
 
 .operation-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--spacing-12);
 }
 
 .backtest-run-form {
@@ -636,6 +643,7 @@ main {
 }
 
 .backtest-run-form label {
+  flex: 1 1 150px;
   display: grid;
   gap: var(--spacing-8);
 }
@@ -658,6 +666,7 @@ main {
   line-height: var(--leading-caption);
   min-width: 150px;
   padding: var(--spacing-8) var(--spacing-12);
+  width: 100%;
 }
 
 .operation-summary {
@@ -665,8 +674,8 @@ main {
   border: 1px solid var(--color-mist);
   border-left: 3px solid var(--feedback-accent);
   border-radius: var(--radius-cards);
-  margin: 14px 0;
-  padding: var(--spacing-12) 14px;
+  margin: var(--spacing-16) 0;
+  padding: var(--spacing-12) var(--spacing-16);
 }
 
 .operation-summary strong {
@@ -719,7 +728,7 @@ main {
   font-weight: var(--font-weight-regular);
   letter-spacing: -0.02em;
   line-height: 1;
-  padding: 10px var(--spacing-20);
+  padding: var(--spacing-12) var(--spacing-20);
 }
 
 .operation-list button:disabled {
@@ -731,7 +740,7 @@ main {
 .detail-page dt {
   color: var(--color-slate);
   display: block;
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: var(--font-weight-semibold);
   margin-bottom: var(--spacing-8);
 }
@@ -746,7 +755,7 @@ main {
 .api-status {
   color: var(--color-steel);
   font-size: var(--text-body);
-  margin: 24px 0 0;
+  margin: var(--spacing-24) 0 0;
 }
 
 .detail-page dl {
@@ -755,7 +764,7 @@ main {
   border-radius: var(--radius-cards);
   display: grid;
   gap: var(--spacing-16);
-  margin: 24px 0 0;
+  margin: var(--spacing-24) 0 0;
   padding: var(--spacing-20);
 }
 
@@ -787,7 +796,8 @@ main {
 }
 
 .holdings-section {
-  margin-top: 24px;
+  margin-top: var(--spacing-24);
+  min-width: 0;
 }
 
 .signal-detail-page .holdings-section {
@@ -870,6 +880,7 @@ main {
 .holdings-table-wrap {
   border: 1px solid var(--color-mist);
   border-radius: var(--radius-cards);
+  min-width: 0;
   overflow-x: auto;
 }
 
@@ -892,7 +903,7 @@ main {
 .holdings-table td {
   border-bottom: 1px solid var(--color-mist);
   font-size: var(--text-caption);
-  padding: 10px 12px;
+  padding: var(--spacing-12);
   text-align: left;
   white-space: nowrap;
 }
@@ -900,7 +911,7 @@ main {
 .holdings-table th {
   background: var(--surface-fog-surface);
   color: var(--color-slate);
-  font-size: 12px;
+  font-size: var(--text-micro);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -981,6 +992,15 @@ main {
     flex-direction: column;
   }
 
+  .dashboard-heading-actions,
+  .dashboard-load-state,
+  .dashboard-refresh-action,
+  .backtest-run-form,
+  .backtest-run-form label,
+  .operation-list button {
+    width: 100%;
+  }
+
   .first-run-guidance {
     align-items: flex-start;
     flex-direction: column;
@@ -989,6 +1009,10 @@ main {
   .dashboard-grid,
   .workflow-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
+    padding: var(--spacing-16);
   }
 
   .market-panel,
