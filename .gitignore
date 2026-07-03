@@ -39,6 +39,14 @@ dist/
 
 *.egg-info/
 
+# Local database
+
+*.db
+
+*.sqlite
+
+*.sqlite3
+
 # OS
 
 .DS_Store
