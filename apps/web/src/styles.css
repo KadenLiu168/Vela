@@ -242,8 +242,8 @@ main {
 
 .first-run-guidance {
   align-items: center;
-  background: var(--surface-page-canvas);
-  border: 1px solid #bfdbfe;
+  background: var(--surface-fog-surface);
+  border: 1px solid var(--color-mist);
   border-radius: var(--radius-cards);
   display: flex;
   gap: var(--spacing-16);
@@ -253,10 +253,10 @@ main {
 }
 
 .first-run-guidance span {
-  color: #2563eb;
+  color: var(--color-slate);
   display: block;
   font-size: 12px;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
 }
 
@@ -307,17 +307,23 @@ main {
 .dashboard-grid,
 .workflow-grid {
   display: grid;
-  gap: var(--spacing-12);
-  margin-top: 24px;
 }
 
 .dashboard-grid {
+  background: var(--surface-ash-surface);
+  border: 1px solid var(--color-mist);
+  border-radius: var(--radius-cards);
   align-items: stretch;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-20);
+  margin-top: var(--spacing-20);
+  padding: var(--spacing-20);
 }
 
 .workflow-grid {
+  gap: var(--spacing-12);
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
 }
 
 .dashboard-panel,
@@ -332,9 +338,28 @@ main {
   min-height: 180px;
 }
 
+.dashboard-page .dashboard-panel {
+  background: var(--surface-fog-surface);
+  padding: var(--spacing-20);
+}
+
+.market-panel,
+.strategy-panel,
+.signal-panel,
+.backtest-panel,
+.fetch-log-panel,
+.operations-panel {
+  box-shadow: none;
+}
+
 .market-panel,
 .strategy-panel {
   grid-column: span 2;
+}
+
+.dashboard-page .market-panel,
+.dashboard-page .strategy-panel {
+  background: var(--surface-page-canvas);
 }
 
 .operations-panel {
@@ -345,21 +370,25 @@ main {
 .panel-heading {
   align-items: baseline;
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-12);
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: var(--spacing-16);
 }
 
 .panel-heading span {
   color: var(--color-slate);
   font-size: 12px;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.15;
   text-transform: uppercase;
 }
 
 .panel-heading h3 {
   color: var(--color-graphite);
+  font-family: var(--font-polysans);
   font-size: var(--text-subheading);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.02em;
   line-height: var(--leading-subheading);
   margin: 0;
 }
@@ -371,17 +400,24 @@ main {
   margin-bottom: 14px;
 }
 
+.dashboard-page .panel-primary {
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-subheading);
+  margin-bottom: var(--spacing-16);
+}
+
 .metric-row {
   display: grid;
-  gap: 10px;
+  gap: var(--spacing-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .metric {
   background: var(--surface-fog-surface);
   border: 1px solid var(--color-mist);
-  border-radius: 6px;
-  padding: var(--spacing-12);
+  border-radius: var(--radius-cards);
+  padding: var(--spacing-16);
 }
 
 .metric span,
@@ -392,11 +428,19 @@ main {
   font-weight: var(--font-weight-semibold);
 }
 
+.dashboard-page .metric span,
+.dashboard-page .compact-list dt {
+  font-weight: var(--font-weight-medium);
+  line-height: 1.15;
+}
+
 .metric strong {
   color: var(--color-graphite);
   display: block;
-  font-size: 22px;
-  margin-top: 6px;
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-subheading);
+  margin-top: var(--spacing-8);
 }
 
 .detail-page .metric-card-grid {
@@ -439,6 +483,11 @@ main {
   margin: 14px 0 0;
 }
 
+.dashboard-page .compact-list {
+  gap: var(--spacing-8) var(--spacing-16);
+  margin: var(--spacing-16) 0 0;
+}
+
 .compact-list dd {
   color: var(--color-graphite);
   font-size: var(--text-caption);
@@ -446,6 +495,12 @@ main {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.dashboard-page .compact-list dd {
+  color: var(--color-steel);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
 }
 
 .fetch-log-list {
@@ -468,6 +523,11 @@ main {
   font-size: var(--text-caption);
   font-weight: var(--font-weight-semibold);
   margin: 0;
+}
+
+.dashboard-page .empty-state {
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
 }
 
 .market-empty-state {
