@@ -17,7 +17,7 @@ import {
   getLatestStrategySignal,
   runBacktest
 } from "../api/client";
-import { FeedbackMessage } from "../components/FeedbackMessage";
+import { EmptyState, FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatBoolean,
   formatCompactNumber,
@@ -189,7 +189,7 @@ export function DashboardPage() {
           <h2>Workflow Dashboard</h2>
         </div>
         <div className="dashboard-heading-actions">
-          <span className={`dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
+          <span className={`status-surface dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
             {getLoadLabel(dashboardState)}
           </span>
           <button
@@ -466,11 +466,11 @@ function FetchLogSummary({
   logs: DashboardFetchLogSummary[] | undefined;
 }) {
   if (isLoading) {
-    return <p className="empty-state">Loading fetch history.</p>;
+    return <EmptyState>Loading fetch history.</EmptyState>;
   }
 
   if (!logs || logs.length === 0) {
-    return <p className="empty-state">No market data fetch history exists yet.</p>;
+    return <EmptyState>No market data fetch history exists yet.</EmptyState>;
   }
 
   return (
@@ -504,7 +504,7 @@ function SignalSummary({
   signal: DashboardSignalSummary | null | undefined;
 }) {
   if (isLoading) {
-    return <p className="empty-state">Loading latest signal.</p>;
+    return <EmptyState>Loading latest signal.</EmptyState>;
   }
 
   if (!signal) {
@@ -546,14 +546,14 @@ function BacktestSummary({
   isLoading: boolean;
 }) {
   if (isLoading) {
-    return <p className="empty-state">Loading recent backtest.</p>;
+    return <EmptyState>Loading recent backtest.</EmptyState>;
   }
 
   if (!backtest) {
     return (
-      <p className="empty-state">
+      <EmptyState>
         No local backtest run exists yet. Enter a date range in Operations, then run a backtest.
-      </p>
+      </EmptyState>
     );
   }
 
@@ -614,7 +614,7 @@ function EmptyAction({
 }) {
   return (
     <div className={className}>
-      <p className="empty-state">{message}</p>
+      <EmptyState>{message}</EmptyState>
       <div className="operation-list empty-action">
         <button type="button" disabled={isDisabled || isLoading || !onClick} onClick={onClick}>
           {isLoading ? (loadingLabel ?? actionLabel) : actionLabel}

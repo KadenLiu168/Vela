@@ -8,7 +8,7 @@ type FeedbackMessageProps = {
 
 export function FeedbackMessage({ children, className, variant }: FeedbackMessageProps) {
   const role = variant === "error" ? "alert" : "status";
-  const classes = ["feedback-message", `feedback-message-${variant}`, className]
+  const classes = ["status-surface", "feedback-message", `feedback-message-${variant}`, className]
     .filter(Boolean)
     .join(" ");
 
@@ -17,4 +17,12 @@ export function FeedbackMessage({ children, className, variant }: FeedbackMessag
       {children}
     </div>
   );
+}
+
+export function EmptyState({ children, className }: { children: ReactNode; className?: string }) {
+  const classes = ["status-surface", "status-surface-empty", "empty-state", className]
+    .filter(Boolean)
+    .join(" ");
+
+  return <p className={classes}>{children}</p>;
 }

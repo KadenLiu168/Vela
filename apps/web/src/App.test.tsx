@@ -102,7 +102,14 @@ it("renders shared page loading feedback while dashboard data is pending", () =>
 
   render(<App />);
 
-  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading dashboard data.");
+  const loadingFeedback = screen.getByRole("status", { name: "" });
+  expect(loadingFeedback).toHaveTextContent("Loading dashboard data.");
+  expect(loadingFeedback).toHaveClass("status-surface", "feedback-message", "feedback-message-loading");
+  expect(screen.getByText("Loading dashboard")).toHaveClass(
+    "status-surface",
+    "dashboard-load-state",
+    "dashboard-load-state-loading"
+  );
   expect(screen.queryByText("1,200 rows")).not.toBeInTheDocument();
 });
 
@@ -126,9 +133,11 @@ it("renders empty dashboard states without treating the response as a failure", 
 
   render(<App />);
 
-  expect(
-    await screen.findByText("No successful local signal exists yet. Generate signal after market data is ready.")
-  ).toBeInTheDocument();
+  const signalEmptyState = await screen.findByText(
+    "No successful local signal exists yet. Generate signal after market data is ready."
+  );
+  expect(signalEmptyState).toBeInTheDocument();
+  expect(signalEmptyState).toHaveClass("status-surface", "status-surface-empty", "empty-state");
   const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();

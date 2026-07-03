@@ -5,7 +5,7 @@ import {
   type BacktestEquityCurvePoint,
   getBacktestDetail
 } from "../api/client";
-import { FeedbackMessage } from "../components/FeedbackMessage";
+import { EmptyState, FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatDate,
   formatDecimal,
@@ -91,7 +91,7 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
   }
 
   if (backtestState.status === "not-found") {
-    return <p className="empty-state">Backtest run {backtestId} was not found.</p>;
+    return <EmptyState>Backtest run {backtestId} was not found.</EmptyState>;
   }
 
   if (backtestState.status === "error") {
@@ -150,7 +150,7 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
   const chartPoints = getValidEquityCurvePoints(points);
 
   if (chartPoints.length === 0) {
-    return <p className="empty-state">No valid equity curve points are available for this run.</p>;
+    return <EmptyState>No valid equity curve points are available for this run.</EmptyState>;
   }
 
   if (chartPoints.length === 1) {
@@ -158,7 +158,7 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
 
     return (
       <div className="equity-curve-single-point">
-        <p className="empty-state">Only one equity curve point is available.</p>
+        <EmptyState>Only one equity curve point is available.</EmptyState>
         <dl className="equity-curve-summary">
           <Detail label="Point count" value={formatInteger(1)} />
           <Detail label="Trade date" value={formatDate(point.tradeDate)} />

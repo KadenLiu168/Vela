@@ -5,7 +5,7 @@ import {
   type LatestStrategySignalResponse,
   getLatestStrategySignal
 } from "../api/client";
-import { FeedbackMessage } from "../components/FeedbackMessage";
+import { EmptyState, FeedbackMessage } from "../components/FeedbackMessage";
 import {
   formatBoolean,
   formatDate,
@@ -79,9 +79,9 @@ function renderSignalDetail(signalState: SignalDetailState) {
 
   if (!signalState.data.has_signal || signalState.data.signal === null) {
     return (
-      <p className="empty-state">
+      <EmptyState>
         No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready.
-      </p>
+      </EmptyState>
     );
   }
 
@@ -107,7 +107,7 @@ function renderSignalDetail(signalState: SignalDetailState) {
 
 function renderTargetHoldings(positions: LatestStrategySignalPosition[]) {
   if (positions.length === 0) {
-    return <p className="empty-state">No target holdings were stored for this signal.</p>;
+    return <EmptyState>No target holdings were stored for this signal.</EmptyState>;
   }
 
   return (

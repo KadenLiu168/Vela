@@ -71,6 +71,8 @@
   --feedback-accent-error: var(--color-ember-orange);
   --feedback-accent-success: var(--color-brass);
   --feedback-accent-loading: var(--color-graphite);
+  --feedback-accent-info: var(--color-slate);
+  --feedback-accent-empty: var(--color-mist);
 
   color: var(--color-graphite);
   background: var(--surface-page-canvas);
@@ -187,9 +189,19 @@ main {
   justify-content: space-between;
 }
 
-.dashboard-load-state {
+.status-surface {
+  background: var(--surface-page-canvas);
   border: 1px solid var(--color-mist);
-  border-left: 3px solid var(--feedback-accent-loading);
+  border-left: 3px solid var(--status-accent, var(--feedback-accent));
+  color: var(--color-steel);
+  font-family: var(--font-inter);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+}
+
+.dashboard-load-state {
+  --status-accent: var(--feedback-accent-loading);
   border-radius: var(--radius-buttons);
   color: var(--color-steel);
   font-family: var(--font-inter);
@@ -205,16 +217,14 @@ main {
 }
 
 .dashboard-load-state-ready {
+  --status-accent: var(--feedback-accent-success);
   background: var(--surface-page-canvas);
-  border-color: var(--color-mist);
-  border-left-color: var(--feedback-accent-success);
   color: var(--color-graphite);
 }
 
 .dashboard-load-state-error {
+  --status-accent: var(--feedback-accent-error);
   background: var(--surface-page-canvas);
-  border-color: var(--color-mist);
-  border-left-color: var(--feedback-accent-error);
   color: var(--color-graphite);
 }
 
@@ -294,37 +304,31 @@ main {
 }
 
 .feedback-message {
-  background: var(--surface-page-canvas);
-  border: 1px solid var(--color-mist);
-  border-left: 3px solid var(--feedback-accent);
   border-radius: var(--radius-cards);
-  color: var(--color-steel);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
   margin: var(--spacing-20) 0 0;
   padding: var(--spacing-12) 14px;
 }
 
 .feedback-message-loading,
 .feedback-message-info {
+  --status-accent: var(--feedback-accent-info);
   background: var(--surface-fog-surface);
-  border-color: var(--color-mist);
-  border-left-color: var(--feedback-accent-loading);
   color: var(--color-steel);
 }
 
+.feedback-message-loading {
+  --status-accent: var(--feedback-accent-loading);
+}
+
 .feedback-message-success {
+  --status-accent: var(--feedback-accent-success);
   background: var(--surface-page-canvas);
-  border-color: var(--color-mist);
-  border-left-color: var(--feedback-accent-success);
   color: var(--color-graphite);
 }
 
 .feedback-message-error {
+  --status-accent: var(--feedback-accent-error);
   background: var(--surface-page-canvas);
-  border-color: var(--color-mist);
-  border-left-color: var(--feedback-accent-error);
   color: var(--color-graphite);
 }
 
@@ -586,24 +590,24 @@ main {
 }
 
 .empty-state {
+  --status-accent: var(--feedback-accent-empty);
+  background: var(--surface-fog-surface);
+  border-radius: var(--radius-cards);
   color: var(--color-steel);
   font-size: var(--text-caption);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
   margin: 0;
+  padding: var(--spacing-12) var(--spacing-16);
 }
 
 .detail-page:not(.signal-detail-page) .holdings-section > .empty-state {
   background: var(--surface-page-canvas);
-  border: 1px solid var(--color-mist);
-  border-radius: var(--radius-2xl);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
   padding: var(--spacing-20);
 }
 
 .dashboard-page .empty-state {
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  background: var(--surface-page-canvas);
 }
 
 .market-empty-state {
@@ -944,6 +948,7 @@ main {
 .signal-detail-page .holdings-section .empty-state {
   background: var(--surface-fog-surface);
   border: 1px solid var(--color-mist);
+  border-left: 3px solid var(--status-accent, var(--feedback-accent-empty));
   border-radius: var(--radius-cards);
   color: var(--color-steel);
   font-weight: var(--font-weight-medium);
