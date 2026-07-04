@@ -79,7 +79,7 @@
   --surface-fog-surface: var(--color-fog);
   --surface-ivory-surface: var(--color-ivory);
   --feedback-accent: var(--color-mist);
-  --feedback-accent-error: var(--color-ember-orange);
+  --feedback-accent-error: var(--color-graphite);
   --feedback-accent-success: var(--color-brass);
   --feedback-accent-loading: var(--color-graphite);
   --feedback-accent-info: var(--color-slate);
