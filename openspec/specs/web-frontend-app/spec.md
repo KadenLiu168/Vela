@@ -1035,9 +1035,11 @@ request fonts from Google Fonts at runtime.
 
 #### Scenario: Monospace family is self-hosted
 - **WHEN** a developer inspects `apps/web/src/styles.css`
-- **THEN** an `@font-face` block declares
-  `font-family: 'JetBrains Mono'` and points
-  `src: url('/fonts/JetBrainsMono.woff2')`
+- **THEN** one or more `@font-face` blocks declare
+  `font-family: 'JetBrains Mono'` and point to
+  `src: url('/fonts/JetBrainsMono-Regular.woff2')` for
+  weight 400 and `src: url('/fonts/JetBrainsMono-Medium.woff2')`
+  for weights 500–600
 - **AND** no `<link>` to Google Fonts remains in
   `apps/web/index.html`
 
