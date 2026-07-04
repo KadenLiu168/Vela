@@ -24,6 +24,7 @@ from vela_core.dashboard_aggregation import (
     DashboardSignalSummary,
     get_dashboard_summary,
 )
+from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
     fetch_full_market_prices,
@@ -108,6 +109,7 @@ __all__ = [
     "DefensiveFallbackSelection",
     "ETFConfig",
     "ETFPoolConfig",
+    "ETFPoolSyncResult",
     "GeneratedSignalPosition",
     "GenerateStrategySignalResult",
     "MarketDataProvider",
@@ -162,6 +164,7 @@ __all__ = [
     "run_backtest",
     "select_with_defensive_fallback",
     "select_top_n_etfs",
+    "sync_etf_pool_to_db",
     "to_market_price",
     "upsert_market_prices",
     "__version__",

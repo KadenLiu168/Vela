@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from vela_core import (
     BacktestReportNotFoundError,
     BacktestRunResult,
+    ETFPoolSyncResult,
     GenerateStrategySignalResult,
     LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
@@ -19,6 +20,8 @@ from vela_core import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
+    load_app_config,
+    sync_etf_pool_to_db,
 )
 from vela_core import (
     export_backtest_report as export_core_backtest_report,
@@ -83,6 +86,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--incremental",
         action="store_true",
         help="Fetch only market data newer than the latest local market price date",
+    )
+
+    sync_etf_pool_parser = subparsers.add_parser(
+        "sync-etf-pool",
+        help="Sync the configured ETF pool into the local database",
+    )
+    sync_etf_pool_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to write ETF metadata into",
+    )
+    sync_etf_pool_parser.add_argument(
+        "--strategy-config",
+        default=str(DEFAULT_STRATEGY_CONFIG_PATH),
+        help="Strategy configuration YAML path",
     )
 
     generate_signal_parser = subparsers.add_parser(
@@ -213,6 +231,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_fetch_summary(fetch_result)
         return 1 if fetch_result.status == "failed" else 0
 
+    if args.command == "sync-etf-pool":
+        try:
+            sync_result = sync_etf_pool(
+                args.database_url,
+                strategy_config_path=Path(args.strategy_config),
+            )
+        except Exception as exc:
+            print(f"Failed to sync ETF pool into {args.database_url}: {exc}", file=sys.stderr)
+            return 1
+
+        _print_etf_pool_sync_summary(sync_result)
+        return 0
+
     if args.command == "generate-signal":
         try:
             signal_result = generate_signal(
@@ -304,6 +335,18 @@ def fetch_incremental_market_data(database_url: str) -> MarketDataFetchResult:
         return fetch_incremental_market_prices(session, provider=TencentMarketDataProvider())
 
 
+def sync_etf_pool(
+    database_url: str,
+    *,
+    strategy_config_path: Path,
+) -> ETFPoolSyncResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    config = load_app_config(strategy_config_path)
+    with managed_session(session_factory) as session:
+        return sync_etf_pool_to_db(session, config.etf_pool)
+
+
 def generate_signal(
     database_url: str,
     *,
@@ -379,6 +422,15 @@ def _print_fetch_summary(result: MarketDataFetchResult) -> None:
         print(f"Failed symbols: {', '.join(result.failed_symbols)}")
     if result.error_message:
         print(f"Error: {result.error_message}")
+
+
+def _print_etf_pool_sync_summary(result: ETFPoolSyncResult) -> None:
+    print("ETF pool sync status: success")
+    print(f"Pool: {result.pool_id}")
+    print(f"Total ETFs: {result.total_etfs}")
+    print(f"Inserted: {result.inserted_count}")
+    print(f"Updated: {result.updated_count}")
+    print(f"Unchanged: {result.unchanged_count}")
 
 
 def _print_signal_summary(result: GenerateStrategySignalResult) -> None:
