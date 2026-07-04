@@ -87,6 +87,7 @@ from vela_core.strategy_signal_report import (
     export_latest_strategy_signal_report,
     get_latest_strategy_signal_report,
 )
+from vela_core.tencent_market_data_provider import TencentMarketDataProvider
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
 __version__ = "0.1.0"
@@ -126,6 +127,7 @@ __all__ = [
     "StrategySharpeRatio",
     "StrategyVolatility",
     "StrategySignalPersistenceResult",
+    "TencentMarketDataProvider",
     "StrategySignalPositionInput",
     "StrategySignalReport",
     "StrategySignalReportPosition",

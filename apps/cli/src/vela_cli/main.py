@@ -9,12 +9,12 @@ from pathlib import Path
 from alembic.config import Config
 from sqlalchemy import func, select
 from vela_core import (
-    AkShareMarketDataProvider,
     BacktestReportNotFoundError,
     BacktestRunResult,
     GenerateStrategySignalResult,
     LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
+    TencentMarketDataProvider,
     export_latest_strategy_signal_report,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
@@ -294,14 +294,14 @@ def fetch_full_market_data(database_url: str) -> MarketDataFetchResult:
     engine = create_engine_from_url(database_url)
     session_factory = create_session_factory(engine)
     with managed_session(session_factory) as session:
-        return fetch_full_market_prices(session, provider=AkShareMarketDataProvider())
+        return fetch_full_market_prices(session, provider=TencentMarketDataProvider())
 
 
 def fetch_incremental_market_data(database_url: str) -> MarketDataFetchResult:
     engine = create_engine_from_url(database_url)
     session_factory = create_session_factory(engine)
     with managed_session(session_factory) as session:
-        return fetch_incremental_market_prices(session, provider=AkShareMarketDataProvider())
+        return fetch_incremental_market_prices(session, provider=TencentMarketDataProvider())
 
 
 def generate_signal(

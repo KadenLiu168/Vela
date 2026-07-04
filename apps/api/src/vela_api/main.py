@@ -9,7 +9,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from vela_core import (
-    AkShareMarketDataProvider,
     BacktestRunResult,
     ConfigError,
     GeneratedSignalPosition,
@@ -18,6 +17,7 @@ from vela_core import (
     MarketDataProvider,
     StrategySignalReport,
     StrategySignalReportPosition,
+    TencentMarketDataProvider,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
     generate_strategy_signal,
@@ -40,7 +40,7 @@ ErrorCategory = Literal["validation", "not_found", "operation_failed", "unexpect
 
 
 def get_market_data_provider() -> MarketDataProvider:
-    return AkShareMarketDataProvider()
+    return TencentMarketDataProvider()
 
 
 MarketDataProviderDependency = Annotated[MarketDataProvider, Depends(get_market_data_provider)]
