@@ -270,30 +270,6 @@ export function DashboardPage() {
           </dl>
         </article>
 
-        <article className="dashboard-panel signal-panel">
-          <PanelHeading eyebrow="Signal" title="Latest signal" />
-          <SignalSummary
-            signal={data?.latest_signal}
-            isDisabled={signalGenerationAction.isDisabled}
-            isGeneratingSignal={signalGenerationAction.isLoading}
-            isLoading={dashboardState.status === "loading"}
-            onGenerateSignal={signalGenerationAction.onClick}
-          />
-        </article>
-
-        <article className="dashboard-panel backtest-panel">
-          <PanelHeading eyebrow="Backtest" title="Recent backtest" />
-          <BacktestSummary
-            backtest={data?.recent_backtest}
-            isLoading={dashboardState.status === "loading"}
-          />
-        </article>
-
-        <article className="dashboard-panel fetch-log-panel">
-          <PanelHeading eyebrow="History" title="Recent fetches" />
-          <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
-        </article>
-
         <article className="dashboard-panel operations-panel">
           <PanelHeading eyebrow="Actions" title="Operations" />
           {activeOperation ? <OperationPendingFeedback activeOperation={activeOperation} mode={marketDataFetchMode} /> : null}
@@ -368,6 +344,30 @@ export function DashboardPage() {
               </button>
             </div>
           </form>
+        </article>
+
+        <article className="dashboard-panel signal-panel">
+          <PanelHeading eyebrow="Signal" title="Latest signal" />
+          <SignalSummary
+            signal={data?.latest_signal}
+            isDisabled={signalGenerationAction.isDisabled}
+            isGeneratingSignal={signalGenerationAction.isLoading}
+            isLoading={dashboardState.status === "loading"}
+            onGenerateSignal={signalGenerationAction.onClick}
+          />
+        </article>
+
+        <article className="dashboard-panel backtest-panel">
+          <PanelHeading eyebrow="Backtest" title="Recent backtest" />
+          <BacktestSummary
+            backtest={data?.recent_backtest}
+            isLoading={dashboardState.status === "loading"}
+          />
+        </article>
+
+        <article className="dashboard-panel fetch-log-panel">
+          <PanelHeading eyebrow="History" title="Recent fetches" />
+          <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
         </article>
       </div>
     </section>

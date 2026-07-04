@@ -640,6 +640,13 @@ main {
 .fetch-log-list {
   display: grid;
   gap: var(--spacing-12);
+  margin: var(--spacing-16) 0 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.fetch-log-panel {
+  align-self: start;
 }
 
 .fetch-log-entry {
