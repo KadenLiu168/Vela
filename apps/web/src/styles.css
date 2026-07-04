@@ -1018,8 +1018,12 @@ main {
 }
 
 .signal-detail-page .holdings-table th {
-  font-size: var(--text-caption);
+  color: var(--color-slate);
+  font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  padding-block: var(--spacing-8);
+  text-transform: uppercase;
 }
 
 .signal-detail-page .holdings-table td {
@@ -1035,6 +1039,27 @@ main {
 .signal-detail-page .holdings-table td:nth-child(5) {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.signal-detail-page .holdings-table th:nth-child(3),
+.signal-detail-page .holdings-table td:nth-child(3) {
+  min-width: 128px;
+}
+
+.signal-detail-page .holdings-table th:nth-child(4),
+.signal-detail-page .holdings-table td:nth-child(4),
+.signal-detail-page .holdings-table th:nth-child(5),
+.signal-detail-page .holdings-table td:nth-child(5) {
+  min-width: 96px;
+}
+
+.signal-detail-page .holdings-table th:nth-child(1),
+.signal-detail-page .holdings-table th:nth-child(2),
+.signal-detail-page .holdings-table th:nth-child(6),
+.signal-detail-page .holdings-table td:nth-child(1),
+.signal-detail-page .holdings-table td:nth-child(2),
+.signal-detail-page .holdings-table td:nth-child(6) {
+  text-align: left;
 }
 
 .signal-detail-page .holdings-table td:nth-child(2) {
