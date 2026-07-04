@@ -1,229 +1,272 @@
-# Ventriloc — Style Reference
-> Editorial data observatory on warm paper — a single orange ember punctuating monochrome precision.
+# Linear — Style Reference
+> midnight precision instrument
 
-**Theme:** light
+**Theme:** dark
 
-Ventriloc speaks in a quiet, editorial voice: warm paper-white canvas, monospaced-precision data cards, and a single orange ember that punctuates the monochrome like a highlighter on a printed report. The system pairs a custom neo-grotesque (PolySans) at weight 400 for headings — unusual restraint that trades authority-through-volume for authority-through-precision — against Inter for body and UI chrome. Surfaces are warm grays and ivory rather than cool tech-blue, cards wear asymmetric corner radii (sharp top-right, soft elsewhere), and interactive elements split into two clear dialects: sharp-cornered text-style buttons and pill-shaped navigation containers. Color is rationed: pages should read 95% achromatic with orange appearing only as functional punctuation for highlights, link underlines, and decorative data accents.
+Linear's design system is a midnight command center built on near-black surfaces (#08090a) with paper-white type and one electric acid-lime accent (#e4f222) that functions as a functional flashlight — small, high-contrast, and used sparingly to signal action. The interface treats darkness as a substrate rather than a theme: text is crisp white at tight tracking (-0.022em), weights sit in a low 400–510 band rather than bold, and borders are hairline-thin (0.5px) to let geometry do the work that shadows usually would. Components feel precision-machined — 6px and 12px radii, compact 8–12px paddings, and almost no decorative ornament — letting the product UI (issue cards, kanban boards, AI agent panels) be the only visual texture in an otherwise quiet system.
+
+
 
 ## Tokens — Colors
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Graphite | `#202020` | `--color-graphite` | Primary text, headings, nav links, icon strokes — the typographic anchor of every surface |
-| Canvas White | `#ffffff` | `--color-canvas-white` | Page background, card elevation, icon fills — the brightest surface in the system |
-| Ash | `#efefef` | `--color-ash` | Primary card and section background, nav pill container — the dominant warm-gray surface |
-| Fog | `#f5f5f5` | `--color-fog` | Subtle background tone for nested surfaces and secondary containers |
-| Ivory | `#ebe6dd` | `--color-ivory` | Warm accent background wash for featured blocks — the paper-stock feel |
-| Steel | `#4d4d4d` | `--color-steel` | Secondary body text, long-form paragraph copy |
-| Slate | `#828282` | `--color-slate` | Muted helper text, tertiary nav items, inactive controls |
-| Mist | `#e8e8e8` | `--color-mist` | Hairline dividers, nav background fills |
-| Ember Orange | `#ff682c` | `--color-ember-orange` | Orange text accent for links, tags, and emphasized short phrases. Do not promote it to the primary CTA color |
-| Brass | `#816729` | `--color-brass` | Secondary accent for chart strokes, decorative SVG lines, and tag text — a muted warm counterpoint to Ember |
+| Void | `#08090a` | `--color-void` | Page canvas, full-bleed backgrounds — the default everything sits on |
+| Carbon | `#0f1011` | `--color-carbon` | Card surfaces, nav bars — one step above canvas for contained content |
+| Obsidian | `#161718` | `--color-obsidian` | Elevated surfaces, deeper card panels |
+| Graphite | `#23252a` | `--color-graphite` | Subtle borders, dividers, ghost button outlines — low-contrast structural edges |
+| Smoke | `#383b3f` | `--color-smoke` | Hairline borders at higher contrast than graphite — section separators |
+| Ash | `#62666d` | `--color-ash` | Muted body text, inactive icons, secondary metadata |
+| Fog | `#8a8f98` | `--color-fog` | Tertiary text, placeholder copy, icon fills |
+| Mist | `#d0d6e0` | `--color-mist` | Secondary headings, button text on dark surfaces |
+| Bone | `#e5e5e6` | `--color-bone` | Near-white surface fills, high-contrast button text |
+| Paper | `#ffffff` | `--color-paper` | Primary headings, hero type, max-contrast emphasis text |
+| Acid Lime | `#e4f222` | `--color-acid-lime` | Primary action buttons, active nav indicators — electric accent that breaks the monochrome system |
+| Pulse Green | `#27a644` | `--color-pulse-green` | Green outline accent for tags, dividers, and focused UI edges. Use as a supporting accent, not as a status color |
+| Coral Red | `#eb5757` | `--color-coral-red` | Red wash for highlight backgrounds, decorative bands, and soft emphasis behind content. Use as a supporting accent, not as a status color |
+| Signal Teal | `#02b8cc` | `--color-signal-teal` | Decorative accent, informational icon fills |
+| Iris Violet | `#6366f1` | `--color-iris-violet` | Tag/badge fills — soft chromatic punctuation on tags and labels |
+| Lavender | `#8b5cf6` | `--color-lavender` | Secondary tag fills, category indicators |
 
 ## Tokens — Typography
 
-### PolySans — Headings and display text — custom neo-grotesque used exclusively at weight 400 with -0.02em tracking creates a whisper-weight editorial authority that no bold headline could replicate · `--font-polysans`
-- **Substitute:** Inter Tight or Space Grotesk at weight 400
-- **Weights:** 400
-- **Sizes:** 12px, 13px, 16px, 32px, 40px, 66px
-- **Line height:** 0.91–1.38
-- **Letter spacing:** -0.0200em
-- **Role:** Headings and display text — custom neo-grotesque used exclusively at weight 400 with -0.02em tracking creates a whisper-weight editorial authority that no bold headline could replicate
+### Inter Variable — Primary UI and heading typeface — used across nav, body, headings, buttons, cards · `--font-inter-variable`
+- **Substitute:** Inter (variable), or system-ui as fallback
+- **Weights:** 300, 400, 510, 590
+- **Sizes:** 10, 11, 12, 13, 14, 15, 16, 17, 20, 24, 32, 48, 64, 72
+- **Line height:** 1.0–2.75
+- **Letter spacing:** -0.022em at 48–72px, -0.012em at 20–32px, -0.011em at 15px, -0.010em at 13–16px
+- **OpenType features:** `"cv01" on, "ss03" on, "zero" on`
+- **Role:** Primary UI and heading typeface — used across nav, body, headings, buttons, cards
 
-### Inter — Body copy, UI labels, button text, captions, metadata — the workhorse sans for everything that isn't a headline · `--font-inter`
-- **Substitute:** system-ui or Roboto
-- **Weights:** 400, 500, 600
-- **Sizes:** 12px, 13px, 14px, 15px, 16px, 18px
-- **Line height:** 1.15–1.50
-- **Role:** Body copy, UI labels, button text, captions, metadata — the workhorse sans for everything that isn't a headline
+### Berkeley Mono — Code-adjacent UI text — issue IDs (ENG-2703), keyboard shortcuts, monospaced metadata · `--font-berkeley-mono`
+- **Substitute:** JetBrains Mono, IBM Plex Mono, or ui-monospace
+- **Weights:** 400
+- **Sizes:** 12, 14
+- **Line height:** 1.40–1.71
+- **Letter spacing:** -0.013em
+- **OpenType features:** `"cv01" on, "ss03" on`
+- **Role:** Code-adjacent UI text — issue IDs (ENG-2703), keyboard shortcuts, monospaced metadata
 
 ### Type Scale
 
 | Role | Size | Line Height | Letter Spacing | Token |
 |------|------|-------------|----------------|-------|
-| caption | 14px | 1.43 | — | `--text-caption` |
-| subheading | 18px | 1.25 | — | `--text-subheading` |
-| heading | 32px | 1.19 | -0.64px | `--text-heading` |
-| heading-lg | 40px | 1.2 | -0.8px | `--text-heading-lg` |
-| display | 66px | 0.91 | -1.32px | `--text-display` |
+| caption | 13px | 1.2 | — | `--text-caption` |
+| body-sm | 15px | 1.6 | -0.165px | `--text-body-sm` |
+| body-lg | 20px | 1.33 | -0.24px | `--text-body-lg` |
+| subheading | 24px | 1.33 | -0.288px | `--text-subheading` |
+| heading-sm | 32px | 1.13 | -0.704px | `--text-heading-sm` |
+| heading | 48px | 1 | -1.056px | `--text-heading` |
+| heading-lg | 64px | 1 | -1.408px | `--text-heading-lg` |
+| display | 72px | 1 | -1.584px | `--text-display` |
 
 ## Tokens — Spacing & Shapes
 
 **Base unit:** 4px
 
-**Density:** comfortable
+**Density:** compact
 
 ### Spacing Scale
 
 | Name | Value | Token |
 |------|-------|-------|
+| 4 | 4px | `--spacing-4` |
 | 8 | 8px | `--spacing-8` |
 | 12 | 12px | `--spacing-12` |
 | 16 | 16px | `--spacing-16` |
 | 20 | 20px | `--spacing-20` |
+| 24 | 24px | `--spacing-24` |
+| 28 | 28px | `--spacing-28` |
+| 32 | 32px | `--spacing-32` |
 | 36 | 36px | `--spacing-36` |
 | 40 | 40px | `--spacing-40` |
-| 60 | 60px | `--spacing-60` |
-| 140 | 140px | `--spacing-140` |
+| 48 | 48px | `--spacing-48` |
+| 56 | 56px | `--spacing-56` |
+| 64 | 64px | `--spacing-64` |
+| 80 | 80px | `--spacing-80` |
+| 96 | 96px | `--spacing-96` |
+| 128 | 128px | `--spacing-128` |
 
 ### Border Radius
 
 | Element | Value |
 |---------|-------|
-| tags | 20px |
-| cards | 8px |
-| buttons | 0px |
-| nav-pills | 200px |
-| asymmetric-card | 6px 0px 0px |
+| cards | 12px |
+| pills | 9999px |
+| small | 2px |
+| badges | 4px |
+| inputs | 6px |
+| buttons | 6px |
+
+### Shadows
+
+| Name | Value | Token |
+|------|-------|-------|
+| sm | `rgba(0, 0, 0, 0.4) 0px 2px 4px 0px` | `--shadow-sm` |
+| md | `rgba(0, 0, 0, 0.2) 0px 0px 12px 0px inset` | `--shadow-md` |
+| subtle | `rgb(35, 37, 42) 0px 0px 0px 1px inset` | `--shadow-subtle` |
+| subtle-2 | `rgba(0, 0, 0, 0.2) 0px 0px 0px 1px` | `--shadow-subtle-2` |
+| subtle-3 | `rgba(0, 0, 0, 0.01) 0px 5px 2px 0px, rgba(0, 0, 0, 0.04) ...` | `--shadow-subtle-3` |
+| xl | `rgba(8, 9, 10, 0.6) 0px 4px 32px 0px` | `--shadow-xl` |
+| subtle-4 | `rgba(255, 255, 255, 0.03) 0px 0px 0px 1px inset, rgba(255...` | `--shadow-subtle-4` |
+| subtle-5 | `rgba(0, 0, 0, 0.1) 0px 0px 0px 2px` | `--shadow-subtle-5` |
 
 ### Layout
 
 - **Page max-width:** 1200px
-- **Section gap:** 80px
-- **Card padding:** 40px
-- **Element gap:** 20px
+- **Section gap:** 96px
+- **Card padding:** 24px
+- **Element gap:** 8px
 
 ## Components
 
-### Primary CTA Button
-**Role:** High-emphasis action button used for conversion and contact
+### Primary Action Button (Acid Lime)
+**Role:** High-emphasis CTA — the one chromatic button in the system
 
-Dark filled (Graphite #202020 background, white text), sharp 0px corners, PolySans 16px weight 400, padding 10px 20px, letter-spacing -0.02em. No shadow, no border-radius — the square edge is deliberate contrast to the rounded cards
+Background #e4f222, text #08090a, border-radius 6px, padding 10px 16px, Inter 14px / weight 510, letter-spacing -0.011em. Sits as the sole filled chromatic element — every other button on the site is neutral.
 
-### Ghost Outlined Button
-**Role:** Secondary action with minimal visual weight
+### Nav Text Button
+**Role:** Top navigation items
 
-Transparent background, 1px Graphite border, Graphite text, 0px radius, padding 10px 20px, PolySans 16px weight 400. Sits beside the primary CTA as a quieter alternative
+Transparent background, text #d0d6e0, padding 8px 12px, Inter 13px / weight 400. No border, no fill — pure typographic nav with underline on hover.
 
-### Navigation Pill Container
-**Role:** Houses dropdown nav items in a floating capsule
+### Pill Button
+**Role:** Tag chips, status pills, compact action triggers
 
-Ash (#efefef) background, 200px border-radius (fully pill-shaped), 8px vertical padding, 18px horizontal padding, wraps dropdown-trigger links. PolySans 16px for items inside
+Background rgba(255,255,255,0.05), text #d0d6e0, border-radius 9999px, padding 4px 12px, Inter 12–13px / weight 400.
 
-### Language Toggle Link
-**Role:** Locale switcher in header
+### Ghost / Outline Button
+**Role:** Secondary actions, less prominent CTAs
 
-Plain text link in Slate (#828282), PolySans 16px, no background or border. Sits inline with nav items
+Transparent background, border 1px #23252a, text #d0d6e0, border-radius 6px, padding 8px 12px, Inter 13px / weight 400.
 
-### Asymmetric Radius Card
-**Role:** Featured content panel with a distinctive cut corner
+### Sign-up Button (Rounded Pill, Neutral)
+**Role:** High-emphasis nav CTA
 
-Ash (#efefef) background, border-radius 6px 0px 0px (soft top-left, sharp everywhere else), generous internal padding (70px top, 60px left). This asymmetric radius is the signature card shape — no shadow, surface color does the lifting
+Background #ffffff, text #08090a, border-radius 9999px, padding 8px 16px, Inter 13px / weight 510. White pill against the dark nav bar — the second highest-contrast element after the acid-lime CTA.
 
-### Data Dashboard Card
-**Role:** Chart widget for analytics visualization
+### Card (Product Screenshot Frame)
+**Role:** Large showcase surface for product UI screenshots
 
-White (#ffffff) surface, 20px border-radius, thin border or no border, contains revenue/profitability charts with Ember Orange and Brass accent strokes. No shadow — floats on the Ash page background
+Background #0f1011, border-radius 12px, inset shadow rgb(35,37,42) 0 0 0 1px, padding 24px. Hairline inner border defines the card edge — no outer shadow, no glow.
 
-### Hero Headline Block
-**Role:** Above-the-fold typographic statement
+### Card (Subtle)
+**Role:** Small content cards, nested panels
 
-PolySans 66px weight 400, line-height 0.91, letter-spacing -1.32px, Graphite color. Followed by 18px Inter body text in Steel (#4d4d4d). No background — sits directly on white canvas
+Background rgba(255,255,255,0.02), border-radius 6px, shadow rgba(0,0,0,0.4) 0 2px 4px, padding 8px. Almost invisible — the card barely separates from the canvas.
 
-### Partner Logo Strip
-**Role:** Social proof bar showing client/partner logos
+### Text Input
+**Role:** Form fields, search inputs
 
-Row of monochrome (Graphite) partner logos on white canvas, separated by generous horizontal spacing (~20px gap), with a "Trusted by 80+ partners" caption in PolySans 13px Brass color above
+Background rgba(255,255,255,0.02), border 1px rgba(255,255,255,0.08), text #d0d6e0, border-radius 6px, padding 12px 14px, Inter 14px / weight 400. Focus ring: border brightens to #d0d6e0.
 
-### Text-Style Nav Link
-**Role:** Dropdown trigger in the pill nav container
+### Badge / Status Tag
+**Role:** Issue status, category labels, inline metadata
 
-Graphite (#202020) text, PolySans 16px weight 400, with a small chevron icon. No underline by default, no background — active state may show a subtle color shift
+Background rgba(255,255,255,0.05), text #8a8f98, border-radius 4px, padding 0px 6px, Inter 12px / weight 400. Color-coded variants use Pulse Green, Coral Red, Iris Violet, or Lavender fills.
 
-### Link with Orange Underline
-**Role:** Inline text link with the accent color
+### Logo Mark
+**Role:** Brand identification in nav
 
-Text in base color with a 1px Ember Orange (#ff682c) underline offset 2-3px below baseline. Used sparingly for the one or two most important links per page
+Linear wordmark + geometric glyph, Inter 16px / weight 510, color #ffffff. Glyph rendered as inline SVG in white.
 
-### Section Divider
-**Role:** Horizontal break between content sections
+### Logo Bar (Customer Strip)
+**Role:** Social proof — customer logos in a horizontal row
 
-No visible line — sections are separated purely by 80px vertical whitespace and alternating surface colors (white → ash → white)
+Neutral grey logos (Vercel, Cursor, Oscar, OpenAI, Coinbase, Cash App, Boom, Ramp) at #8a8f98–#d0d6e0, evenly spaced with 48–64px gaps, no card backgrounds.
 
-### Cookie Preferences Link
-**Role:** Footer utility link
+### Hero Gradient Floor
+**Role:** Atmospheric base under the product screenshot
 
-Small text in Slate (#828282), PolySans 13px, no decoration. Bottom-of-page placement
+Linear gradient from rgb(8,9,10) at 10% to rgb(208,214,224) at 100% — a subtle light wash that grounds the floating product UI against the void.
 
 ## Do's and Don'ts
 
 ### Do
-- Use PolySans exclusively at weight 400 for all headings — never bold the display type; the whisper-weight is the signature
-- Apply the asymmetric border-radius 6px 0px 0px to featured content cards; reserve 20px radius for data widgets and 0px for buttons
-- Keep pages 95% achromatic; let Ember Orange (#ff682c) appear only as link underlines, chart highlights, and small icon accents
-- Use 20px for element gaps and 80px between sections — the generous whitespace is what makes the editorial voice work
-- Pair Inter for all body and UI text; PolySans for headings, nav items, and button labels only
-- Separate sections by alternating white canvas and Ash (#efefef) surface bands rather than dividers or shadows
-- Use letter-spacing -0.02em on every PolySans text element — it's baked into the font's identity
+- Use Inter Variable with font-feature-settings 'cv01' on, 'ss03' on, 'zero' on — these alternate glyphs define Linear's typographic identity
+- Use #e4f222 exclusively for the single primary action per view — never for decoration, never for secondary buttons
+- Set body text at 16px Inter weight 400 with line-height 1.5 — larger reading sizes (17px+ at weight 590) are reserved for body emphasis blocks
+- Use letter-spacing -0.022em at 48px and above — tight tracking is non-negotiable for display type
+- Set card radius to 12px, button radius to 6px, pill radius to 9999px — three radii is the entire radius vocabulary
+- Use 0.5px hairline borders (#23252a or #383b3f) instead of shadows for surface separation — Linear's elevation comes from borders and subtle inner shadows
+- Keep section gaps at 96px and element gaps at 8px — the 8/12/24/96 spacing ladder is the rhythm
 
 ### Don't
-- Do not bold PolySans headings — weight 400 at large size is the whole point; bolding destroys the editorial restraint
-- Do not use Ember Orange as a filled button background — it is an accent for highlights and links, not a CTA fill
-- Do not add box-shadows to cards or buttons — depth comes from surface color contrast, not elevation
-- Do not use symmetric border-radius on all elements; the asymmetric 6px 0px 0px and the 0px button radius are deliberate contrast
-- Do not introduce blue, green, or other chromatic colors — the two-warm-accent system (Ember + Brass) is the limit
-- Do not set line-height above 1.25 on display headings; the 0.91 leading on 66px creates the tight, poster-like headline
-- Do not crowd the layout — if you need to add decoration, increase whitespace instead
+- Do not use bold weights (700+) — Linear's type scale caps at weight 590, the system deliberately avoids heavy display weights
+- Do not use decorative gradients on buttons, cards, or text — gradients are reserved for the hero atmospheric floor only
+- Do not introduce additional chromatic accent colors as actions — the acid-lime button is the only chromatic UI element
+- Do not use large radii (16px+) on cards or panels — 12px is the max card radius in this system
+- Do not use shadows to separate cards from the canvas — use hairline borders (#23252a) and inner inset shadows instead
+- Do not use chromatic text colors for body copy — all body text sits in the #d0d6e0 / #8a8f98 / #62666d grey scale
+- Do not use Berkeley Mono for headings or marketing copy — it is reserved for issue IDs, keyboard shortcuts, and technical metadata
 
 ## Surfaces
 
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
-| 0 | Page Canvas | `#ffffff` | Primary page background — the brightest base layer |
-| 1 | Ash Surface | `#efefef` | Card and section panels — dominant warm-gray surface |
-| 2 | Fog Surface | `#f5f5f5` | Nested containers and secondary backgrounds |
-| 3 | Ivory Surface | `#ebe6dd` | Warm accent wash for featured or editorial blocks |
+| 0 | Void | `#08090a` | Page canvas — the default full-bleed background |
+| 1 | Carbon | `#0f1011` | Card surfaces, product screenshot frames, nav containers |
+| 2 | Obsidian | `#161718` | Elevated panels, deeper nested surfaces |
+| 3 | Slate | `#23252a` | Interactive surface tint, ghost button fills, border-adjacent backgrounds |
 
 ## Elevation
 
-- **Data Card (chart widget):** `0px 0px 0px 0px (no shadow — cards float on warm-gray surfaces without elevation)`
-- **Nav Pill:** `0px 0px 0px 0px (flat — no shadow)`
+Elevation in Linear's system is achieved almost entirely through hairline borders (0.5px #23252a or 1px inset #23252a) and subtle dark drop shadows (rgba(0,0,0,0.4) 0 2px 4px) rather than layered shadow stacks. The visual hierarchy comes from the surface-level progression (#08090a → #0f1011 → #161718 → #23252a) and border definition, not from ambient shadow. The acid-lime CTA button uses an inset shadow stack (0px 5px 2px / 0px 3px 2px / 0px 1px 1px) — the only place in the system where a real shadow is applied to a chrome element.
 
 ## Imagery
 
-Visuals are almost entirely data-driven: chart widgets (line graphs, circular progress indicators, stat cards) rendered in a flat, minimal style with thin strokes in Ember Orange and Brass against white card surfaces. No lifestyle photography, no stock imagery, no hero illustrations. The only photographic content is partner/client logos presented in monochrome Graphite. The visual language is closer to a printed annual report than a typical SaaS site — the charts ARE the imagery. Icons are thin-stroke, monoline, and Graphite-colored, appearing sparingly in nav and card headers.
+Linear's visual language is product-screenshot-first: the hero and section illustrations are real Linear app UI captured at full fidelity — issue cards, kanban boards, AI agent panels, command palettes — placed inside framed card containers with hairline borders. No stock photography, no lifestyle imagery, no abstract illustration. Logos appear as a customer strip in neutral grey (#8a8f98) at uniform size. Icons are minimal line-art SVGs in single-color grey scale. The hero screenshot floats on a subtle linear gradient (dark-to-light) that creates atmospheric depth without literal scenery. Every visual element is a functional artifact of the product itself.
 
 ## Layout
 
-Max-width 1200px centered container with generous 80px section gaps. The hero is a two-column split: left side holds the headline, subtext, and dual-button CTA stack; right side shows a cluster of three overlapping data dashboard cards (finance chart, revenue stat, profitability ring) floating on the white canvas. Below the hero, a full-width partner logo strip on white. Subsequent sections alternate between Ash (#efefef) and white bands. Navigation is a floating pill container centered in the header, with the brand wordmark left-aligned and a dark Contact-us button right-aligned. The overall rhythm is spacious and editorial — wide margins, tall sections, and the data cards as the only visual punctuation beyond typography.
+Layout is max-width contained at ~1200px, centered, with full-bleed dark backgrounds extending to viewport edges. The hero is a left-aligned oversized headline (64–72px) paired with a right-aligned link CTA, followed by a large product screenshot that bleeds beyond the max-width slightly. Section rhythm alternates between text-left/image-right 2-column compositions and full-width product showcase bands, separated by 96px vertical gaps. The customer logo strip is a single horizontal row. The page never uses 3-column card grids or masonry — information density stays low, with most sections using generous whitespace and a single focal point per screen. Navigation is a fixed top bar with left-aligned logo and right-aligned links, no sidebar, no mega-menu.
 
 ## Agent Prompt Guide
 
-Quick Color Reference:
-- text: #202020 (Graphite)
-- background: #ffffff (Canvas White)
-- surface/card: #efefef (Ash)
-- border/divider: #e8e8e8 (Mist)
-- accent: #ff682c (Ember Orange)
-- secondary text: #4d4d4d (Steel)
-- primary action: no distinct CTA color
+**Quick Color Reference:**
+- text (primary heading): #ffffff
+- text (body): #d0d6e0
+- text (muted): #8a8f98
+- background (canvas): #08090a
+- background (card): #0f1011
+- border (hairline): #23252a
+- accent (CTA): #e4f222
+- primary action: #e4f222 (filled action)
 
-Example Component Prompts:
+**3-5 Example Component Prompts:**
 
-1. Hero Section: White canvas background. Headline "Your Headline Here" at 66px PolySans weight 400, #202020, line-height 0.91, letter-spacing -1.32px. Subtext at 18px Inter weight 400, #4d4d4d, line-height 1.25. Two buttons side by side: filled Graphite button "Contact us" (#202020 bg, white text, 0px radius, 10px 20px padding, PolySans 16px) and ghost outlined button "About us" (transparent bg, 1px #202020 border, #202020 text, 0px radius).
+1. **Hero headline block:** Full-bleed #08090a canvas. Headline at 64px Inter Variable weight 510, color #ffffff, letter-spacing -0.022em, line-height 1.0. Subtext at 16px Inter weight 400, color #8a8f98. No button — secondary link text in #d0d6e0 with arrow glyph.
 
-2. Asymmetric Card: Ash (#efefef) background, border-radius 6px 0px 0px, padding 70px top and 60px left. Contains an 18px Inter body paragraph in #4d4d4d. No shadow, no border.
+2. **Product screenshot card:** Background #0f1011, border-radius 12px, inset border 1px #23252a via box-shadow, padding 24px. Contains a simulated app UI at full opacity over the card surface. No outer drop shadow.
 
-3. Data Dashboard Card: White (#ffffff) background, 20px border-radius, 40px padding. Contains a chart with Ember Orange (#ff682c) data line and Brass (#816729) secondary line. Card title in PolySans 18px weight 400, #202020.
+3. **Acid-lime primary action button:** Background #e4f222, text #08090a, border-radius 6px, padding 10px 16px, Inter 14px weight 510, letter-spacing -0.011em. Only one per view.
 
-4. Navigation Bar: Floating pill container with Ash (#efefef) background and 200px border-radius, wrapping nav items. Items are PolySans 16px weight 400, #202020, separated by 20px gaps. Language toggle "FR" in Slate (#828282) sits to the right.
+4. **Nav top bar:** Background #08090a (transparent over canvas), padding 16px horizontal, max-width 1200px centered. Logo wordmark #ffffff at 16px weight 510 left-aligned. Nav links #d0d6e0 at 13px weight 400, 8px gaps. Right-aligned white pill sign-up button: bg #ffffff, text #08090a, border-radius 9999px, padding 8px 16px.
 
-5. Partner Logo Strip: White background. Caption "Trusted by 80+ partners" in PolySans 13px weight 400, #816729. Row of 7 partner logos in #202020, 20px gap between each, no borders or containers.
+5. **Status badge row:** Horizontal flex, 8px gap. Each badge: background rgba(255,255,255,0.05), text #8a8f98, border-radius 4px, padding 0px 6px, Inter 12px weight 400. Color-coded variants: #27a644 for success, #eb5757 for error, #6366f1 for tags.
 
-## Typography Philosophy
+## Type Scale Detail
 
-PolySans is the voice; Inter is the grammar. Every heading, nav item, and button label uses PolySans at weight 400 — never 500 or 600. This is counterintuitive (most sites bold their headlines) but it's what makes Ventriloc feel editorial rather than corporate. The tight letter-spacing (-0.02em) compensates for the light weight at display sizes. Inter handles all body copy, captions, and metadata at 500 weight for UI labels and 400 for paragraphs. The 16px PolySans with line-height 1.0 is used for buttons — the tight leading makes labels feel precise and architectural.
-
-## Asymmetric Radius System
-
-The most distinctive structural choice in this system is the asymmetric border-radius 6px 0px 0px on featured cards. This single design decision signals: this is not a standard card grid, this is editorial layout. The soft top-left corner draws the eye downward and rightward, creating visual flow. Pair it with 0px radius on buttons and 200px on nav pills, and you get a three-radius system that creates rhythm: sharp (buttons) → asymmetric (cards) → fully round (navigation). Do not apply symmetric radius to feature cards — the asymmetry is the signature.
+Display: 72px / 510 / lh 1.0 / ls -0.022em
+Hero: 64px / 510 / lh 1.0 / ls -0.022em
+Section heading: 48px / 510 / lh 1.0 / ls -0.022em
+Subheading: 32px / 400 / lh 1.13 / ls -0.022em
+Heading: 24px / 400 / lh 1.33 / ls -0.012em
+Body emphasis: 20px / 590 / lh 1.33 / ls -0.012em
+Body large: 17px / 590 / lh 1.6 / ls default
+Body: 16px / 400 / lh 1.5 / ls default
+Body small: 15px / 400 / lh 1.6 / ls -0.011em
+Caption: 13px / 400 / lh 1.2 / ls default
+Label: 12px / 400 / lh 1.4 / ls default
+Micro: 10px / 510 / lh 1.5 / ls default
 
 ## Similar Brands
 
-- **Stripe** — Same editorial restraint with monochrome palette and generous whitespace; both use a single warm accent color for highlights rather than a dominant brand fill
-- **Linear** — Shared taste for sharp 0px-radius buttons against soft rounded surfaces, and a near-monochrome interface that lets typography do the heavy lifting
-- **Plaid** — Similar data-product aesthetic with dashboard-card imagery and warm-gray surfaces; both treat charts as editorial content rather than decoration
-- **Figma Config** — Matching sparse, poster-like typographic headlines at extreme sizes with tight tracking, and a commitment to letting negative space carry the design
+- **Vercel** — Same dark-canvas-first approach with hairline borders, tight Inter typography, and product-screenshot-as-hero layout — both treat the product UI as the visual content rather than illustration
+- **Cursor** — Identical midnight dark mode with acid-lime accent CTA, compact Inter type at 400–510 weights, and product-screenshot showcase cards at 12px radius
+- **Raycast** — Shared dark precision-instrument aesthetic — compact spacing, 6px button radius, monochromatic chrome with a single functional accent color for active states
+- **Framer** — Same dark-canvas layout language with large 48–64px Inter headings at tight tracking, product-screenshot hero cards, and minimal ornament between sections
 
 ## Quick Start
 
@@ -232,77 +275,115 @@ The most distinctive structural choice in this system is the asymmetric border-r
 ```css
 :root {
   /* Colors */
-  --color-graphite: #202020;
-  --color-canvas-white: #ffffff;
-  --color-ash: #efefef;
-  --color-fog: #f5f5f5;
-  --color-ivory: #ebe6dd;
-  --color-steel: #4d4d4d;
-  --color-slate: #828282;
-  --color-mist: #e8e8e8;
-  --color-ember-orange: #ff682c;
-  --color-brass: #816729;
+  --color-void: #08090a;
+  --color-carbon: #0f1011;
+  --color-obsidian: #161718;
+  --color-graphite: #23252a;
+  --color-smoke: #383b3f;
+  --color-ash: #62666d;
+  --color-fog: #8a8f98;
+  --color-mist: #d0d6e0;
+  --color-bone: #e5e5e6;
+  --color-paper: #ffffff;
+  --color-acid-lime: #e4f222;
+  --color-pulse-green: #27a644;
+  --color-coral-red: #eb5757;
+  --color-signal-teal: #02b8cc;
+  --color-iris-violet: #6366f1;
+  --color-lavender: #8b5cf6;
 
   /* Typography — Font Families */
-  --font-polysans: 'PolySans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-inter-variable: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-berkeley-mono: 'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Typography — Scale */
-  --text-caption: 14px;
-  --leading-caption: 1.43;
-  --text-subheading: 18px;
-  --leading-subheading: 1.25;
-  --text-heading: 32px;
-  --leading-heading: 1.19;
-  --tracking-heading: -0.64px;
-  --text-heading-lg: 40px;
-  --leading-heading-lg: 1.2;
-  --tracking-heading-lg: -0.8px;
-  --text-display: 66px;
-  --leading-display: 0.91;
-  --tracking-display: -1.32px;
+  --text-caption: 13px;
+  --leading-caption: 1.2;
+  --text-body-sm: 15px;
+  --leading-body-sm: 1.6;
+  --tracking-body-sm: -0.165px;
+  --text-body-lg: 20px;
+  --leading-body-lg: 1.33;
+  --tracking-body-lg: -0.24px;
+  --text-subheading: 24px;
+  --leading-subheading: 1.33;
+  --tracking-subheading: -0.288px;
+  --text-heading-sm: 32px;
+  --leading-heading-sm: 1.13;
+  --tracking-heading-sm: -0.704px;
+  --text-heading: 48px;
+  --leading-heading: 1;
+  --tracking-heading: -1.056px;
+  --text-heading-lg: 64px;
+  --leading-heading-lg: 1;
+  --tracking-heading-lg: -1.408px;
+  --text-display: 72px;
+  --leading-display: 1;
+  --tracking-display: -1.584px;
 
   /* Typography — Weights */
+  --font-weight-light: 300;
   --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
+  --font-weight-w510: 510;
+  --font-weight-w590: 590;
 
   /* Spacing */
   --spacing-unit: 4px;
+  --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
   --spacing-16: 16px;
   --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-32: 32px;
   --spacing-36: 36px;
   --spacing-40: 40px;
-  --spacing-60: 60px;
-  --spacing-140: 140px;
+  --spacing-48: 48px;
+  --spacing-56: 56px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+  --spacing-128: 128px;
 
   /* Layout */
   --page-max-width: 1200px;
-  --section-gap: 80px;
-  --card-padding: 40px;
-  --element-gap: 20px;
+  --section-gap: 96px;
+  --card-padding: 24px;
+  --element-gap: 8px;
 
   /* Border Radius */
-  --radius-sm: 3px;
-  --radius-lg: 8px;
+  --radius-sm: 2px;
+  --radius-md: 6px;
   --radius-xl: 12px;
-  --radius-2xl: 20px;
-  --radius-full: 200px;
+  --radius-2xl: 16px;
+  --radius-2xl-2: 22px;
+  --radius-full: 400px;
+  --radius-full-2: 9999px;
 
   /* Named Radii */
-  --radius-tags: 20px;
-  --radius-cards: 8px;
-  --radius-buttons: 0px;
-  --radius-nav-pills: 200px;
-  --radius-asymmetric-card: 6px 0px 0px;
+  --radius-cards: 12px;
+  --radius-pills: 9999px;
+  --radius-small: 2px;
+  --radius-badges: 4px;
+  --radius-inputs: 6px;
+  --radius-buttons: 6px;
+
+  /* Shadows */
+  --shadow-sm: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px;
+  --shadow-md: rgba(0, 0, 0, 0.2) 0px 0px 12px 0px inset;
+  --shadow-subtle: rgb(35, 37, 42) 0px 0px 0px 1px inset;
+  --shadow-subtle-2: rgba(0, 0, 0, 0.2) 0px 0px 0px 1px;
+  --shadow-subtle-3: rgba(0, 0, 0, 0.01) 0px 5px 2px 0px, rgba(0, 0, 0, 0.04) 0px 3px 2px 0px, rgba(0, 0, 0, 0.07) 0px 1px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 1px 0px;
+  --shadow-xl: rgba(8, 9, 10, 0.6) 0px 4px 32px 0px;
+  --shadow-subtle-4: rgba(255, 255, 255, 0.03) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.04) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.6) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 4px 4px 0px;
+  --shadow-subtle-5: rgba(0, 0, 0, 0.1) 0px 0px 0px 2px;
 
   /* Surfaces */
-  --surface-page-canvas: #ffffff;
-  --surface-ash-surface: #efefef;
-  --surface-fog-surface: #f5f5f5;
-  --surface-ivory-surface: #ebe6dd;
+  --surface-void: #08090a;
+  --surface-carbon: #0f1011;
+  --surface-obsidian: #161718;
+  --surface-slate: #23252a;
 }
 ```
 
@@ -311,51 +392,87 @@ The most distinctive structural choice in this system is the asymmetric border-r
 ```css
 @theme {
   /* Colors */
-  --color-graphite: #202020;
-  --color-canvas-white: #ffffff;
-  --color-ash: #efefef;
-  --color-fog: #f5f5f5;
-  --color-ivory: #ebe6dd;
-  --color-steel: #4d4d4d;
-  --color-slate: #828282;
-  --color-mist: #e8e8e8;
-  --color-ember-orange: #ff682c;
-  --color-brass: #816729;
+  --color-void: #08090a;
+  --color-carbon: #0f1011;
+  --color-obsidian: #161718;
+  --color-graphite: #23252a;
+  --color-smoke: #383b3f;
+  --color-ash: #62666d;
+  --color-fog: #8a8f98;
+  --color-mist: #d0d6e0;
+  --color-bone: #e5e5e6;
+  --color-paper: #ffffff;
+  --color-acid-lime: #e4f222;
+  --color-pulse-green: #27a644;
+  --color-coral-red: #eb5757;
+  --color-signal-teal: #02b8cc;
+  --color-iris-violet: #6366f1;
+  --color-lavender: #8b5cf6;
 
   /* Typography */
-  --font-polysans: 'PolySans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-inter-variable: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-berkeley-mono: 'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Typography — Scale */
-  --text-caption: 14px;
-  --leading-caption: 1.43;
-  --text-subheading: 18px;
-  --leading-subheading: 1.25;
-  --text-heading: 32px;
-  --leading-heading: 1.19;
-  --tracking-heading: -0.64px;
-  --text-heading-lg: 40px;
-  --leading-heading-lg: 1.2;
-  --tracking-heading-lg: -0.8px;
-  --text-display: 66px;
-  --leading-display: 0.91;
-  --tracking-display: -1.32px;
+  --text-caption: 13px;
+  --leading-caption: 1.2;
+  --text-body-sm: 15px;
+  --leading-body-sm: 1.6;
+  --tracking-body-sm: -0.165px;
+  --text-body-lg: 20px;
+  --leading-body-lg: 1.33;
+  --tracking-body-lg: -0.24px;
+  --text-subheading: 24px;
+  --leading-subheading: 1.33;
+  --tracking-subheading: -0.288px;
+  --text-heading-sm: 32px;
+  --leading-heading-sm: 1.13;
+  --tracking-heading-sm: -0.704px;
+  --text-heading: 48px;
+  --leading-heading: 1;
+  --tracking-heading: -1.056px;
+  --text-heading-lg: 64px;
+  --leading-heading-lg: 1;
+  --tracking-heading-lg: -1.408px;
+  --text-display: 72px;
+  --leading-display: 1;
+  --tracking-display: -1.584px;
 
   /* Spacing */
+  --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
   --spacing-16: 16px;
   --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-32: 32px;
   --spacing-36: 36px;
   --spacing-40: 40px;
-  --spacing-60: 60px;
-  --spacing-140: 140px;
+  --spacing-48: 48px;
+  --spacing-56: 56px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+  --spacing-128: 128px;
 
   /* Border Radius */
-  --radius-sm: 3px;
-  --radius-lg: 8px;
+  --radius-sm: 2px;
+  --radius-md: 6px;
   --radius-xl: 12px;
-  --radius-2xl: 20px;
-  --radius-full: 200px;
+  --radius-2xl: 16px;
+  --radius-2xl-2: 22px;
+  --radius-full: 400px;
+  --radius-full-2: 9999px;
+
+  /* Shadows */
+  --shadow-sm: rgba(0, 0, 0, 0.4) 0px 2px 4px 0px;
+  --shadow-md: rgba(0, 0, 0, 0.2) 0px 0px 12px 0px inset;
+  --shadow-subtle: rgb(35, 37, 42) 0px 0px 0px 1px inset;
+  --shadow-subtle-2: rgba(0, 0, 0, 0.2) 0px 0px 0px 1px;
+  --shadow-subtle-3: rgba(0, 0, 0, 0.01) 0px 5px 2px 0px, rgba(0, 0, 0, 0.04) 0px 3px 2px 0px, rgba(0, 0, 0, 0.07) 0px 1px 1px 0px, rgba(0, 0, 0, 0.08) 0px 0px 1px 0px;
+  --shadow-xl: rgba(8, 9, 10, 0.6) 0px 4px 32px 0px;
+  --shadow-subtle-4: rgba(255, 255, 255, 0.03) 0px 0px 0px 1px inset, rgba(255, 255, 255, 0.04) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.6) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 4px 4px 0px;
+  --shadow-subtle-5: rgba(0, 0, 0, 0.1) 0px 0px 0px 2px;
 }
 ```

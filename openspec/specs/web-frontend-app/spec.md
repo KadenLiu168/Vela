@@ -560,26 +560,26 @@ The web frontend SHALL render a net value equity curve on the Backtest Detail pa
 - **WHEN** the Backtest Detail page renders equity curve data
 - **THEN** it does not render a drawdown curve, monthly returns chart, or return distribution chart
 
-### Requirement: Backtest detail equity curve ember highlights
-The web frontend SHALL render restrained Ember Orange highlight points on Backtest Detail equity curve charts that contain two or more valid points, while retaining the Brass equity curve line.
+### Requirement: Backtest detail equity curve acid-lime highlights
+The web frontend SHALL render restrained Acid Lime highlight points on Backtest Detail equity curve charts that contain two or more valid points, while retaining the Acid Lime equity curve line.
 
-#### Scenario: Multi-point equity curve shows ember highlight points
+#### Scenario: Multi-point equity curve shows acid-lime highlight points
 - **WHEN** the Backtest Detail API returns two or more valid equity curve rows with finite net values
 - **THEN** the Backtest Detail page renders the existing equity curve line using `data-testid="equity-curve-line"`
-- **AND** it renders small Ember Orange circle highlights for selected end or extreme points
-- **AND** the highlights do not replace the Brass equity curve line
+- **AND** it renders small Acid Lime circle highlights for selected end or extreme points
+- **AND** the highlights do not replace the Acid Lime equity curve line
 
 #### Scenario: Empty equity curve does not render highlights
 - **WHEN** the Backtest Detail API returns no valid equity curve rows
 - **THEN** the Backtest Detail page renders the empty equity curve state
 - **AND** it does not render the equity curve line
-- **AND** it does not render Ember Orange chart highlight points
+- **AND** it does not render Acid Lime chart highlight points
 
 #### Scenario: Single-point equity curve does not render chart highlights
 - **WHEN** the Backtest Detail API returns exactly one valid equity curve row
 - **THEN** the Backtest Detail page renders the single-point equity curve state
 - **AND** it does not render the equity curve line
-- **AND** it does not render Ember Orange chart highlight points
+- **AND** it does not render Acid Lime chart highlight points
 
 ### Requirement: Backtest detail equity curve summary
 The web frontend SHALL render a basic equity curve summary on the Backtest Detail page from valid `equity_curve` rows returned by `GET /api/backtests/{run_id}`.
@@ -831,21 +831,47 @@ The web frontend SHALL provide a browser manual acceptance checklist for local v
 - **THEN** the checklist explicitly marks that backend data requirement
 
 ### Requirement: Web global design token foundation
-The web frontend SHALL expose the provided design token foundation through CSS custom properties in `apps/web/src/styles.css`, covering core colors, typography, spacing, layout, radius, and surface tokens from the project design reference.
+The web frontend SHALL expose the Linear design tokens through
+global CSS custom properties and use them for base page
+typography, surfaces, radius, spacing, layout, and shadow
+defaults; the global stylesheet SHALL adopt Linear semantic
+token names.
 
-#### Scenario: Global stylesheet defines design tokens
-- **WHEN** a developer inspects `apps/web/src/styles.css`
-- **THEN** the stylesheet defines CSS custom properties for the provided core colors, font families, type scale, spacing scale, layout values, border radii, and surface values
-- **AND** those properties are available from the global `:root` scope
+#### Scenario: Linear color tokens are exposed
+- **WHEN** a developer inspects the `:root` block of
+  `apps/web/src/styles.css`
+- **THEN** it declares at least the Linear color tokens
+  `--color-void`, `--color-carbon`, `--color-obsidian`,
+  `--color-graphite`, `--color-smoke`, `--color-ash`,
+  `--color-fog`, `--color-mist`, `--color-bone`,
+  `--color-paper`, `--color-acid-lime`,
+  `--color-pulse-green`, `--color-coral-red`,
+  `--color-signal-teal`, `--color-iris-violet`, and
+  `--color-lavender`
 
-#### Scenario: Base page styles use design tokens
-- **WHEN** the web frontend renders any route
-- **THEN** the base document typography, text color, and page background are driven by the global design token custom properties
-- **AND** the rendered route structure, API calls, and business behavior remain unchanged
+#### Scenario: Linear typography tokens are exposed
+- **WHEN** a developer inspects the `:root` block
+- **THEN** it declares font families `--font-inter-variable`
+  and `--font-berkeley-mono` (or the named substitute
+  `--font-jetbrains-mono`); and the Linear type scale
+  (`--text-caption`, `--text-body-sm`, `--text-body-lg`,
+  `--text-subheading`, `--text-heading-sm`,
+  `--text-heading`, `--text-heading-lg`, `--text-display`)
 
-#### Scenario: Token wiring avoids new build dependencies
-- **WHEN** a developer validates the frontend package
-- **THEN** the design token foundation is available without adding a token build pipeline, UI framework, or new runtime dependency
+#### Scenario: Linear shadow tokens are exposed
+- **WHEN** a developer inspects the `:root` block
+- **THEN** it declares the Linear shadow tokens
+  (`--shadow-sm`, `--shadow-md`, `--shadow-subtle`,
+  `--shadow-subtle-2`, `--shadow-subtle-3`, `--shadow-xl`,
+  `--shadow-subtle-4`, `--shadow-subtle-5`)
+
+#### Scenario: Base page surfaces use Linear dark palette
+- **WHEN** the web frontend renders any page
+- **THEN** the body background uses the Linear void/carbon
+  surface
+- **AND** the default text color uses the Linear
+  paper/bone/mist scale appropriate to the content role
+- **AND** no light-theme fallback is rendered by default
 
 ### Requirement: App Shell editorial header navigation
 The web frontend SHALL render the App Shell header and navigation with the tokenized editorial visual system while preserving existing navigation semantics and behavior.
@@ -862,7 +888,7 @@ The web frontend SHALL render the App Shell header and navigation with the token
 
 #### Scenario: Navigation renders as a responsive pill group
 - **WHEN** the App Shell renders on desktop or narrow viewport widths
-- **THEN** the navigation appears as a warm-gray pill-style group with text-style nav items
+- **THEN** the navigation appears as a dark Carbon pill-style group with text-style nav items
 - **AND** the group remains readable and can wrap without introducing new routes, dropdowns, or controls
 
 ### Requirement: Dashboard data observatory card styling
@@ -870,14 +896,14 @@ The web frontend SHALL render the Dashboard overview cards and workflow grid usi
 
 #### Scenario: Dashboard cards use editorial surfaces
 - **WHEN** the Dashboard route renders its overview grid
-- **THEN** the grid and panels use the existing Ash, Fog, Canvas, and Mist surface tokens for backgrounds and borders
+- **THEN** the grid and panels use the existing Void, Carbon, Obsidian, and Graphite surface tokens for backgrounds and borders
 - **AND** the cards do not use box shadows or blue admin-dashboard surfaces
 
 #### Scenario: Dashboard data hierarchy uses design text colors
 - **WHEN** the Dashboard route renders panel headings, metrics, compact details, and empty states
-- **THEN** headings and primary values use Graphite
-- **AND** body/data text uses Steel
-- **AND** metadata labels use Slate
+- **THEN** headings and primary values use Paper
+- **AND** body/data text uses Mist
+- **AND** metadata labels use Fog
 
 #### Scenario: Dashboard responsive readability is preserved
 - **WHEN** the Dashboard route is viewed at desktop and mobile widths
@@ -886,11 +912,11 @@ The web frontend SHALL render the Dashboard overview cards and workflow grid usi
 ### Requirement: Dashboard action and feedback styling follows design tokens
 The web frontend SHALL render Dashboard operation actions, empty-state action buttons, Backtest run form controls, load states, alerts, operation summaries, operation guidance, and operation links using the project design-token visual language.
 
-#### Scenario: Dashboard actions use Graphite action dialects
+#### Scenario: Dashboard actions use Acid Lime action dialects
 - **WHEN** the Dashboard renders operation buttons, empty-state action buttons, and the refresh action
-- **THEN** the actions use 0px button radius
-- **AND** filled actions use Graphite backgrounds instead of Ember Orange backgrounds
-- **AND** outlined actions use tokenized Graphite, Mist, Canvas, Fog, and typography values
+- **THEN** the actions use a 6px button radius
+- **AND** filled actions use Acid Lime backgrounds
+- **AND** outlined actions use tokenized Mist, Graphite, Carbon, Obsidian, and typography values
 
 #### Scenario: Backtest form controls use tokens
 - **WHEN** the Dashboard renders the Backtest run date inputs
@@ -898,7 +924,7 @@ The web frontend SHALL render Dashboard operation actions, empty-state action bu
 
 #### Scenario: Operation feedback avoids broad chromatic blocks
 - **WHEN** Dashboard loading, error, success, partial, failed, and validation feedback is visible
-- **THEN** the feedback uses neutral tokenized surfaces and borders with narrow Ember or Brass accents
+- **THEN** the feedback uses neutral tokenized surfaces and borders with narrow Acid Lime or Pulse Green accents
 - **AND** broad blue, green, or red filled feedback blocks are not used
 
 #### Scenario: Dashboard operation behavior is preserved
@@ -912,12 +938,12 @@ The web frontend SHALL render the Signal Detail metadata and Target holdings tab
 #### Scenario: Signal metadata uses editorial token hierarchy
 - **WHEN** the Signal Detail page renders latest signal metadata
 - **THEN** the metadata block uses existing tokenized neutral surfaces, borders, spacing, and typography
-- **AND** metadata labels use Slate
-- **AND** metadata values use Graphite or Steel for readable data hierarchy
+- **AND** metadata labels use Fog
+- **AND** metadata values use Paper or Mist for readable data hierarchy
 
 #### Scenario: Target holdings table uses restrained editorial styling
 - **WHEN** the Signal Detail page renders target holdings
-- **THEN** the table container, header, row dividers, and cells use existing Graphite, Steel, Slate, Mist, Fog, Ash, Canvas, spacing, typography, and radius tokens
+- **THEN** the table container, header, row dividers, and cells use existing Paper, Mist, Fog, Graphite, Obsidian, Carbon, Void, spacing, typography, and radius tokens
 - **AND** target weight, rank, and score columns are visually readable as numeric data
 - **AND** the table does not introduce default blue admin-dashboard styling, box shadows, sorting, filtering, or pagination
 
@@ -942,7 +968,7 @@ The web frontend SHALL render the Backtest Detail metrics, equity curve, and par
 #### Scenario: Equity curve uses warm chart accent
 - **WHEN** the Backtest Detail route renders a multi-point equity curve
 - **THEN** the hand-written SVG chart remains present with `data-testid="equity-curve-line"`
-- **AND** the equity curve stroke MUST use the `DESIGN.md` Ember or Brass accent token instead of a blue chart stroke
+- **AND** the equity curve stroke MUST use the `DESIGN.md` Acid Lime accent token instead of a blue chart stroke
 - **AND** the equity curve path calculation, API data usage, and chart summary values remain unchanged
 
 #### Scenario: Equity curve empty and single-point states remain readable
@@ -971,7 +997,7 @@ The web frontend SHALL render shared loading, error, info, success, and empty-st
 
 #### Scenario: Detail and dashboard states avoid broad chromatic blocks
 - **WHEN** Dashboard load states, page loading feedback, page error feedback, operation feedback, or empty states are visible
-- **THEN** the visible state presentation uses neutral project tokens with narrow Ember, Brass, Graphite, Slate, or Mist accents
+- **THEN** the visible state presentation uses neutral project tokens with narrow Acid Lime, Pulse Green, Graphite, Fog, or Mist accents
 - **AND** broad blue, green, or red filled feedback blocks are not used
 - **AND** existing API calls, route targets, loading timing, error categorization, and message meaning remain unchanged
 
@@ -980,7 +1006,7 @@ The web frontend SHALL keep the Dashboard, Signal Detail, Backtest Detail, AppSh
 
 #### Scenario: Required frontend routes pass visual QA
 - **WHEN** a developer inspects `/`, `/signals/demo-signal`, and `/backtests/1`
-- **THEN** the visible UI uses the established graphite, canvas, ash, fog, ivory, ember, and brass design tokens instead of a blue or green default admin palette
+- **THEN** the visible UI uses the established void, carbon, obsidian, graphite, smoke, acid-lime, and pulse-green design tokens instead of a blue or green default admin palette
 - **AND** buttons, cards, tables, forms, navigation, and feedback states use consistent tokenized radius, typography, spacing, and surface treatments
 
 #### Scenario: Required frontend routes remain readable on mobile
@@ -992,24 +1018,42 @@ The web frontend SHALL keep the Dashboard, Signal Detail, Backtest Detail, AppSh
 - **THEN** existing business logic, API calls, and route structure remain unchanged
 - **AND** the frontend does not add a large UI framework or new production dependency
 
-### Requirement: Web frontend font loading baseline
-The web frontend SHALL load Inter for body and UI text and SHALL provide a non-system PolySans substitute for heading, navigation, and button typography until licensed PolySans assets are self-hosted.
+### Requirement: Web frontend self-hosted font loading
+The web frontend SHALL load Inter Variable and the chosen
+monospace family (`JetBrains Mono` as the Berkeley Mono
+substitute) from self-hosted woff2 files via `@font-face`
+in `apps/web/src/styles.css`; the web frontend SHALL NOT
+request fonts from Google Fonts at runtime.
 
-#### Scenario: Frontend document loads configured web fonts
-- **WHEN** a developer inspects the web frontend HTML entrypoint
-- **THEN** it includes a font loading source for Inter weights used by the CSS tokens
-- **AND** it includes a font loading source for the configured PolySans substitute
-- **AND** the font loading source uses a swap strategy so text does not remain invisible while fonts load
+#### Scenario: Inter Variable is self-hosted
+- **WHEN** a developer inspects `apps/web/src/styles.css`
+- **THEN** an `@font-face` block declares
+  `font-family: 'Inter Variable'` and points
+  `src: url('/fonts/InterVariable.woff2')`
+- **AND** `apps/web/index.html` includes a
+  `<link rel="preload">` for that woff2
 
-#### Scenario: PolySans stack preserves future self-hosting priority
-- **WHEN** a developer inspects `apps/web/src/styles.css :root`
-- **THEN** `--font-polysans` keeps `"PolySans"` before the substitute family
-- **AND** it includes the current substitute before system font fallbacks
+#### Scenario: Monospace family is self-hosted
+- **WHEN** a developer inspects `apps/web/src/styles.css`
+- **THEN** an `@font-face` block declares
+  `font-family: 'JetBrains Mono'` and points
+  `src: url('/fonts/JetBrainsMono.woff2')`
+- **AND** no `<link>` to Google Fonts remains in
+  `apps/web/index.html`
 
-#### Scenario: Body text uses Inter stack
-- **WHEN** a developer inspects the global web frontend CSS
-- **THEN** body and root typography use `--font-inter`
-- **AND** `--font-inter` includes `"Inter"` before system font fallbacks
+### Requirement: Web font load validation
+The web frontend SHALL continue to render text without
+requiring web font network requests; `font-display: swap`
+SHALL be set on every `@font-face` block so the system
+fallback shows immediately.
+
+#### Scenario: System fallback renders before web font loads
+- **WHEN** a developer throttles the network in DevTools
+  to "Slow 3G" and reloads any page
+- **THEN** the body text is visible using the system
+  fallback within the first paint
+- **AND** the Inter Variable / JetBrains Mono swap
+  completes once the woff2 is decoded
 
 ### Requirement: Web frontend token source documentation
 The repository SHALL document that `apps/web/src/styles.css :root` is the current web frontend implementation token source, while `tokens.json` and `variables.css` are design references that do not directly drive the build.
@@ -1109,8 +1153,8 @@ The web frontend SHALL render the Signal Detail target holdings table with repor
 
 #### Scenario: Holdings table uses restrained header and hairline rhythm
 - **WHEN** the Signal Detail target holdings table renders
-- **THEN** the header MUST use the existing Slate and micro/caption typography hierarchy
-- **AND** body rows MUST use Mist hairline separators with the final row divider removed
+- **THEN** the header MUST use the existing Fog and micro/caption typography hierarchy
+- **AND** body rows MUST use Graphite hairline separators with the final row divider removed
 - **AND** row padding and line height MUST remain consistent with the editorial data style in `DESIGN.md`
 
 #### Scenario: Holdings table preserves narrow-screen scrolling
@@ -1118,19 +1162,19 @@ The web frontend SHALL render the Signal Detail target holdings table with repor
 - **THEN** the target holdings table MUST keep horizontal scrolling through `holdings-table-wrap`
 - **AND** the implementation MUST preserve existing table DOM structure, rendered text, API calls, route behavior, and test selectors
 
-### Requirement: Shared status states use restrained Ember accents
-The web frontend SHALL keep empty, error, and operation status surfaces primarily achromatic, reserving Ember Orange for small functional accents rather than broad error presentation.
+### Requirement: Shared status states use restrained Acid Lime accents
+The web frontend SHALL keep empty, error, and operation status surfaces primarily achromatic, reserving Acid Lime for small functional accents rather than broad error presentation.
 
-#### Scenario: Error surfaces avoid broad Ember rails
+#### Scenario: Error surfaces avoid broad chromatic rails
 - **WHEN** Dashboard, Signal Detail, or Backtest Detail renders page-level error feedback
 - **THEN** the error surface MUST use neutral project tokens for its primary border, text, and background treatment
-- **AND** it MUST NOT rely on an Ember Orange rail or filled chromatic block as the main error identifier
+- **AND** it MUST NOT rely on an Acid Lime rail or filled chromatic block as the main error identifier
 - **AND** existing `role="alert"`, `aria-live`, and error message text MUST remain unchanged
 
-#### Scenario: Operation failed states remain recognizable without Ember as the status color
+#### Scenario: Operation failed states remain recognizable without overusing the primary accent
 - **WHEN** Dashboard operation feedback renders failed or partial-failure summaries
 - **THEN** the summary surface MUST remain visually distinct using neutral borders, text hierarchy, and existing status copy
-- **AND** Ember Orange MAY be used only for small functional punctuation such as operation link underlines
+- **AND** Acid Lime MAY be used only for small functional punctuation such as operation link underlines
 - **AND** existing operation result text, guidance, and route behavior MUST remain unchanged
 
 #### Scenario: Empty and non-error states stay visually unified
