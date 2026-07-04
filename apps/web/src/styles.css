@@ -84,6 +84,7 @@
   --feedback-accent-loading: var(--color-graphite);
   --feedback-accent-info: var(--color-slate);
   --feedback-accent-empty: var(--color-mist);
+  --focus-ring-color: var(--color-ember-orange);
 
   color: var(--color-graphite);
   background: var(--surface-page-canvas);
@@ -101,6 +102,11 @@ body {
   color: var(--color-graphite);
   font-family: var(--font-inter);
   margin: 0;
+}
+
+:where(a, button, input):focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
 }
 
 .app-shell {
@@ -159,11 +165,22 @@ body {
   line-height: 1;
   padding: var(--spacing-8) var(--spacing-12);
   text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.app-nav-link:hover {
+  background: var(--surface-page-canvas);
 }
 
 .app-nav-link[aria-current="page"] {
   background: var(--color-graphite);
   color: var(--color-canvas-white);
+}
+
+.app-nav-link[aria-current="page"]:hover {
+  background: var(--color-steel);
 }
 
 main {
@@ -278,6 +295,15 @@ main {
   letter-spacing: -0.02em;
   line-height: 1;
   padding: var(--spacing-12) var(--spacing-20);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.dashboard-refresh-action:not(:disabled):hover {
+  background: var(--surface-fog-surface);
+  border-color: var(--color-steel);
 }
 
 .dashboard-refresh-action:disabled {
@@ -696,7 +722,19 @@ main {
   line-height: var(--leading-caption);
   min-width: 150px;
   padding: var(--spacing-8) var(--spacing-12);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
   width: 100%;
+}
+
+.backtest-run-form input:hover {
+  border-color: var(--color-slate);
+}
+
+.backtest-run-form input:focus-visible {
+  border-color: var(--color-graphite);
 }
 
 .operation-summary {
@@ -745,6 +783,14 @@ main {
   text-decoration-color: var(--color-ember-orange);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  transition:
+    color 140ms ease,
+    text-decoration-color 140ms ease;
+}
+
+.operation-link:hover {
+  color: var(--color-steel);
+  text-decoration-color: var(--color-brass);
 }
 
 .operation-list button {
@@ -759,6 +805,15 @@ main {
   letter-spacing: -0.02em;
   line-height: 1;
   padding: var(--spacing-12) var(--spacing-20);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.operation-list button:not(:disabled):hover {
+  background: var(--color-steel);
+  border-color: var(--color-steel);
 }
 
 .operation-list button:disabled {
@@ -1001,6 +1056,119 @@ main {
   font-weight: var(--font-weight-medium);
   line-height: var(--leading-caption);
   padding: var(--spacing-16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-link,
+  .dashboard-refresh-action,
+  .backtest-run-form input,
+  .operation-link,
+  .operation-list button {
+    transition-duration: 0ms;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    padding: var(--spacing-36) var(--spacing-24);
+  }
+
+  .dashboard-heading {
+    align-items: flex-start;
+  }
+
+  .dashboard-heading > div:first-child {
+    max-width: 620px;
+  }
+
+  .dashboard-heading h2 {
+    font-size: var(--text-heading-lg);
+    letter-spacing: var(--tracking-heading-lg);
+    line-height: var(--leading-heading-lg);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--spacing-32);
+  }
+
+  .market-panel,
+  .strategy-panel,
+  .operations-panel {
+    grid-column: span 2;
+  }
+
+  .detail-page:not(.signal-detail-page) .dashboard-panel,
+  .signal-detail-page .dashboard-panel,
+  .parameter-summary,
+  .equity-curve-card,
+  .equity-curve-single-point {
+    padding: var(--spacing-32);
+  }
+
+  .detail-page .metric-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .equity-curve-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signal-detail-page .holdings-table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-header,
+  .dashboard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-nav {
+    justify-content: flex-start;
+  }
+
+  .dashboard-heading-actions {
+    justify-content: flex-start;
+  }
+
+  .dashboard-grid {
+    gap: var(--spacing-16);
+    padding: var(--spacing-24);
+  }
+
+  .dashboard-page .dashboard-panel {
+    padding: var(--spacing-16);
+  }
+
+  .metric-row,
+  .detail-page .metric-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-page,
+  .signal-detail-page {
+    gap: var(--spacing-60);
+  }
+
+  .detail-page:not(.signal-detail-page) .dashboard-panel,
+  .signal-detail-page .dashboard-panel,
+  .parameter-summary,
+  .equity-curve-card,
+  .equity-curve-single-point {
+    padding: var(--spacing-24);
+  }
+
+  .holdings-section,
+  .signal-detail-page .holdings-section {
+    margin-top: var(--spacing-60);
+  }
+
+  .signal-detail-page .compact-list {
+    grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 720px) {
