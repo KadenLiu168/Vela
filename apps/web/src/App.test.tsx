@@ -1724,7 +1724,8 @@ function createDashboardResponse() {
         }
       },
       costs: { transaction_cost_bps: 5 },
-      performance: { rebalance_frequency: "weekly" }
+      performance: { risk_free_rate: 0.02 },
+      rebalance: { frequency: "weekly" }
     },
     market_data: {
       price_rows: 1200,

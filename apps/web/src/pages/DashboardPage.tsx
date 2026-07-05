@@ -298,6 +298,15 @@ export function DashboardPage() {
               value={data ? `${formatCompactNumber(data.strategy.costs.transaction_cost_bps)} bps` : "Loading"}
             />
             <Detail label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
+            <Detail
+              label="Rebalance frequency"
+              value={
+                data
+                  ? data.strategy.rebalance.frequency.charAt(0).toUpperCase() +
+                    data.strategy.rebalance.frequency.slice(1)
+                  : "Loading"
+              }
+            />
           </dl>
         </article>
 

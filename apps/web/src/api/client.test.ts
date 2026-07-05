@@ -194,14 +194,23 @@ it("calls dashboard through the shared client", async () => {
     strategy: {
       strategy_id: "dual_momentum",
       version: "v1",
-      universe_config_path: "config/etf_universe.yaml",
-      momentum_windows: [20, 60, 120],
-      score_weights: [0.2, 0.3, 0.5],
+      universe_config: "config/etf_universe.yaml",
+      momentum: {
+        short_window_days: 20,
+        long_window_days: 60
+      },
+      score_weights: { short: 0.4, long: 0.6 },
       trend_filter: { enabled: true },
       selection: { top_n: 2 },
-      defense_asset: { symbol: "BIL" },
+      defense: {
+        asset: {
+          exchange: "NASDAQ",
+          symbol: "BIL"
+        }
+      },
       costs: { transaction_cost_bps: 5 },
-      performance: { rebalance_frequency: "weekly" }
+      performance: { risk_free_rate: 0.02 },
+      rebalance: { frequency: "weekly" }
     },
     market_data: {
       price_rows: 1200,

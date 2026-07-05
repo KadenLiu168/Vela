@@ -26,6 +26,7 @@ def _serialize_config(config: AppConfig) -> dict[str, Any]:
             "defense": config.strategy.defense.model_dump(),
             "costs": config.strategy.costs.model_dump(),
             "performance": config.strategy.performance.model_dump(),
+            "rebalance": config.strategy.rebalance.model_dump(),
         },
         "etf_pool": {
             "pool_id": config.etf_pool.pool_id,

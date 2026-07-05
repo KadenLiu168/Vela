@@ -66,6 +66,9 @@ export type DashboardStrategySummary = {
     transaction_cost_bps: number;
   };
   performance: Record<string, unknown>;
+  rebalance: {
+    frequency: string;
+  };
 };
 
 export type DashboardMarketDataStatus = {
