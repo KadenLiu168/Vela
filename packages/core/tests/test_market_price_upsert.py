@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import create_engine
@@ -153,6 +153,65 @@ def test_upsert_market_prices_deduplicates_repeated_etf_trade_date_writes() -> N
         assert price.volume == 3000
 
 
+def test_upsert_market_prices_handles_large_batch_under_sqlite_variable_limit() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etfs = [_add_etf(session, symbol=f"E{i:02d}") for i in range(6)]
+        rows = _build_unique_market_prices(etfs, days_per_etf=3000)
+
+        result = upsert_market_prices(session, rows)
+        session.commit()
+
+        assert result.rows_inserted == len(rows)
+        assert result.rows_updated == 0
+        assert session.query(MarketPrice).count() == len(rows)
+
+
+def test_upsert_market_prices_handles_large_batch_with_existing_rows() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etfs = [_add_etf(session, symbol=f"E{i:02d}") for i in range(6)]
+
+        existing = _build_unique_market_prices(
+            etfs,
+            days_per_etf=10,
+            start_day=0,
+            close_price=Decimal("100.00"),
+            volume=1000,
+        )
+        upsert_market_prices(session, existing)
+        session.commit()
+
+        updated = _build_unique_market_prices(
+            etfs,
+            days_per_etf=3000,
+            start_day=0,
+            close_price=Decimal("200.00"),
+            volume=2000,
+        )
+        result = upsert_market_prices(session, updated)
+        session.commit()
+
+        assert result.rows_inserted == len(updated) - len(existing)
+        assert result.rows_updated == len(existing)
+        assert session.query(MarketPrice).count() == len(updated)
+
+        overlap = (
+            session.query(MarketPrice)
+            .filter(
+                MarketPrice.etf_id.in_([etf.id for etf in etfs]),
+                MarketPrice.trade_date <= date(2024, 1, 10),
+            )
+            .all()
+        )
+        assert len(overlap) == len(existing)
+        for price in overlap:
+            assert price.close_price == Decimal("200.000000")
+            assert price.volume == 2000
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -177,10 +236,11 @@ def _market_price(
     close_price: Decimal,
     adjusted_close: Decimal | None = None,
     volume: int | None = 1000,
+    trade_date: date = date(2026, 6, 18),
 ) -> MarketPrice:
     return MarketPrice(
         etf_id=etf_id,
-        trade_date=date(2026, 6, 18),
+        trade_date=trade_date,
         open_price=Decimal("100.00"),
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
@@ -188,3 +248,26 @@ def _market_price(
         adjusted_close=adjusted_close,
         volume=volume,
     )
+
+
+def _build_unique_market_prices(
+    etfs: list[ETFInfo],
+    *,
+    days_per_etf: int,
+    start_day: int = 0,
+    close_price: Decimal = Decimal("100.00"),
+    volume: int = 1000,
+) -> list[MarketPrice]:
+    base = date(2024, 1, 1)
+    rows: list[MarketPrice] = []
+    for etf in etfs:
+        for offset in range(start_day, start_day + days_per_etf):
+            rows.append(
+                _market_price(
+                    etf_id=etf.id,
+                    close_price=close_price,
+                    volume=volume,
+                    trade_date=base + timedelta(days=offset),
+                )
+            )
+    return rows
