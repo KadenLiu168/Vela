@@ -738,18 +738,19 @@ main {
 
 .compact-list {
   display: grid;
-  gap: var(--spacing-8) var(--spacing-16);
+  gap: var(--spacing-16) var(--spacing-16);
   grid-template-columns: max-content minmax(0, 1fr);
   margin: var(--spacing-16) 0 0;
+  align-items: baseline;
 }
 
 .dashboard-page .compact-list {
-  gap: var(--spacing-8) var(--spacing-16);
+  gap: var(--spacing-16) var(--spacing-16);
   margin: var(--spacing-16) 0 0;
 }
 
 .detail-page .compact-list {
-  gap: var(--spacing-8) var(--spacing-16);
+  gap: var(--spacing-16) var(--spacing-16);
   margin: var(--spacing-16) 0 0;
   padding: var(--spacing-16);
 }
@@ -1091,7 +1092,7 @@ main {
 
 .signal-detail-page .compact-list {
   background: var(--surface-obsidian);
-  gap: var(--spacing-12) var(--spacing-20);
+  gap: var(--spacing-16) var(--spacing-20);
   grid-template-columns: max-content minmax(0, 1fr);
   margin: 0;
   padding: var(--spacing-16);
