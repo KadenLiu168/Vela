@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import generate_historical_strategy_signals, generate_strategy_signal
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import RebalanceConfig, StrategyConfig
 
 
 def test_generate_strategy_signal_persists_ranked_positions() -> None:
@@ -194,6 +194,54 @@ def test_generate_historical_strategy_signals_returns_empty_without_persisting_r
 
     assert results == []
     assert signal_count == 0
+
+
+def test_generate_historical_strategy_signals_uses_configured_rebalance_frequency() -> None:
+    session_factory = _create_session_factory()
+    weekly_config = _strategy_config(top_n=1).model_copy(
+        update={"rebalance": RebalanceConfig(frequency="weekly")}
+    )
+    monthly_config = _strategy_config(top_n=1).model_copy(
+        update={"rebalance": RebalanceConfig(frequency="monthly")}
+    )
+
+    trading_dates = [_trade_date(offset) for offset in range(0, 130)]
+
+    with session_factory() as session:
+        first = _add_etf(session, exchange="SSE", symbol="510300")
+        second = _add_etf(session, exchange="SSE", symbol="159915")
+        _add_etf(session, exchange="SSE", symbol="511010")
+        _add_price_history(session, etf_id=first.id, current_price=Decimal("180"), end_offset=130)
+        _add_price_history(session, etf_id=second.id, current_price=Decimal("160"), end_offset=130)
+
+        weekly_results = generate_historical_strategy_signals(
+            session,
+            historical_trading_dates=trading_dates,
+            config=weekly_config,
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+        )
+        weekly_count = len(weekly_results)
+
+        monthly_results = generate_historical_strategy_signals(
+            session,
+            historical_trading_dates=trading_dates,
+            config=monthly_config,
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+        )
+        monthly_signal_dates = [result.signal_date for result in monthly_results]
+
+    # Precondition: ensure trading dates span at least 4 months so monthly < weekly is meaningful
+    months_in_range = {(d.year, d.month) for d in trading_dates}
+    assert len(months_in_range) >= 4
+
+    assert weekly_count > 0
+    assert len(monthly_signal_dates) < weekly_count
+    assert monthly_signal_dates == sorted(monthly_signal_dates)
+    # Each monthly signal date must be the last available trading date of its calendar month
+    last_per_month = {(d.year, d.month): d for d in sorted(set(trading_dates))}
+    last_per_month_by_key = last_per_month
+    for signal_date in monthly_signal_dates:
+        assert signal_date == last_per_month_by_key[(signal_date.year, signal_date.month)]
 
 
 def _create_session_factory() -> sessionmaker[Session]:

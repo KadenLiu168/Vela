@@ -9,6 +9,7 @@ from vela_core.config import (
     load_etf_pool_config,
     load_yaml_config,
 )
+from vela_core.rebalance_dates import RebalanceFrequency
 
 
 class ETFIdentity(BaseModel):
@@ -16,6 +17,12 @@ class ETFIdentity(BaseModel):
 
     exchange: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
+
+
+class RebalanceConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    frequency: RebalanceFrequency = "weekly"
 
 
 class MomentumConfig(BaseModel):
@@ -82,6 +89,7 @@ class StrategyConfig(BaseModel):
     strategy_id: str = Field(min_length=1)
     version: Literal["v1"]
     universe_config: str = Field(min_length=1)
+    rebalance: RebalanceConfig = Field(default_factory=RebalanceConfig)
     momentum: MomentumConfig
     score_weights: ScoreWeightsConfig
     trend_filter: TrendFilterConfig

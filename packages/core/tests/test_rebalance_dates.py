@@ -1,6 +1,11 @@
 from datetime import date
 
-from vela_core import generate_weekly_rebalance_dates
+import pytest
+from vela_core import (
+    generate_monthly_rebalance_dates,
+    generate_rebalance_dates,
+    generate_weekly_rebalance_dates,
+)
 
 
 def test_generates_last_available_trading_date_per_iso_week() -> None:
@@ -64,3 +69,86 @@ def test_groups_dates_by_iso_week_across_calendar_year_boundary() -> None:
 
 def test_returns_empty_list_for_empty_trading_dates() -> None:
     assert generate_weekly_rebalance_dates([]) == []
+
+
+def test_monthly_generates_last_available_trading_date_per_calendar_month() -> None:
+    trading_dates = [
+        date(2026, 1, 5),
+        date(2026, 1, 15),
+        date(2026, 1, 30),
+        date(2026, 2, 2),
+        date(2026, 2, 10),
+        date(2026, 2, 27),
+        date(2026, 3, 31),
+    ]
+
+    assert generate_monthly_rebalance_dates(trading_dates) == [
+        date(2026, 1, 30),
+        date(2026, 2, 27),
+        date(2026, 3, 31),
+    ]
+
+
+def test_monthly_uses_last_available_input_date_when_month_has_missing_trading_days() -> None:
+    trading_dates = [
+        date(2026, 2, 17),
+        date(2026, 2, 18),
+        date(2026, 2, 19),
+    ]
+
+    assert generate_monthly_rebalance_dates(trading_dates) == [date(2026, 2, 19)]
+
+
+def test_monthly_groups_months_across_calendar_year_boundary() -> None:
+    trading_dates = [
+        date(2025, 12, 29),
+        date(2025, 12, 31),
+        date(2026, 1, 2),
+        date(2026, 1, 5),
+    ]
+
+    assert generate_monthly_rebalance_dates(trading_dates) == [
+        date(2025, 12, 31),
+        date(2026, 1, 5),
+    ]
+
+
+def test_monthly_sorts_and_deduplicates_trading_dates() -> None:
+    trading_dates = [
+        date(2026, 1, 30),
+        date(2026, 1, 5),
+        date(2026, 1, 30),
+        date(2026, 2, 27),
+    ]
+
+    assert generate_monthly_rebalance_dates(trading_dates) == [
+        date(2026, 1, 30),
+        date(2026, 2, 27),
+    ]
+
+
+def test_monthly_returns_empty_list_for_empty_trading_dates() -> None:
+    assert generate_monthly_rebalance_dates([]) == []
+
+
+def test_dispatcher_weekly_routes_to_weekly_generator() -> None:
+    trading_dates = [date(2026, 1, 5), date(2026, 1, 6), date(2026, 1, 12)]
+
+    assert generate_rebalance_dates(trading_dates, frequency="weekly") == [
+        date(2026, 1, 6),
+        date(2026, 1, 12),
+    ]
+
+
+def test_dispatcher_monthly_routes_to_monthly_generator() -> None:
+    trading_dates = [date(2026, 1, 5), date(2026, 1, 30), date(2026, 2, 10)]
+
+    assert generate_rebalance_dates(trading_dates, frequency="monthly") == [
+        date(2026, 1, 30),
+        date(2026, 2, 10),
+    ]
+
+
+def test_dispatcher_rejects_unsupported_frequency() -> None:
+    with pytest.raises(ValueError, match="Unsupported rebalance frequency"):
+        generate_rebalance_dates([date(2026, 1, 5)], frequency="biweekly")  # type: ignore[arg-type]

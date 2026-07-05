@@ -14,7 +14,7 @@ from vela_core.momentum_scoring import (
     rank_momentum_scores,
     select_with_defensive_fallback,
 )
-from vela_core.rebalance_dates import generate_weekly_rebalance_dates
+from vela_core.rebalance_dates import generate_rebalance_dates
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_signal_persistence import (
     StrategySignalPositionInput,
@@ -133,6 +133,10 @@ def generate_historical_strategy_signals(
     config: StrategyConfig,
     generated_at: datetime | None = None,
 ) -> list[GenerateStrategySignalResult]:
+    rebalance_dates = generate_rebalance_dates(
+        historical_trading_dates,
+        frequency=config.rebalance.frequency,
+    )
     return [
         generate_strategy_signal(
             session,
@@ -140,7 +144,7 @@ def generate_historical_strategy_signals(
             config=config,
             generated_at=generated_at,
         )
-        for rebalance_date in generate_weekly_rebalance_dates(historical_trading_dates)
+        for rebalance_date in rebalance_dates
     ]
 
 

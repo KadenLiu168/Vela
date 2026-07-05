@@ -2,6 +2,9 @@ strategy_id: dual_momentum
 version: v1
 universe_config: config/etf_pool.yaml
 
+rebalance:
+  frequency: weekly
+
 momentum:
   short_window_days: 63
   long_window_days: 126

@@ -61,7 +61,12 @@ from vela_core.portfolio_holdings import (
     PortfolioHoldingSnapshot,
     calculate_portfolio_holdings,
 )
-from vela_core.rebalance_dates import generate_weekly_rebalance_dates
+from vela_core.rebalance_dates import (
+    RebalanceFrequency,
+    generate_monthly_rebalance_dates,
+    generate_rebalance_dates,
+    generate_weekly_rebalance_dates,
+)
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
@@ -129,6 +134,7 @@ __all__ = [
     "MomentumScore",
     "PortfolioHolding",
     "PortfolioHoldingSnapshot",
+    "RebalanceFrequency",
     "LatestStrategySignalReportNotFoundError",
     "StrategyEquityCurvePoint",
     "StrategyAnnualizedReturn",
@@ -157,6 +163,8 @@ __all__ = [
     "get_backtest_result",
     "get_dashboard_summary",
     "generate_historical_strategy_signals",
+    "generate_monthly_rebalance_dates",
+    "generate_rebalance_dates",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
     "get_latest_strategy_signal_report",

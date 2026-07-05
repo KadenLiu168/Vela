@@ -26,6 +26,7 @@ def test_strategy_v1_config_loads_and_validates() -> None:
     assert config.defense.asset.symbol == "511010"
     assert config.costs.transaction_cost_bps == 5
     assert config.performance.risk_free_rate == 0.02
+    assert config.rebalance.frequency == "weekly"
 
 
 def test_strategy_config_accepts_valid_schema_input() -> None:
@@ -321,6 +322,43 @@ def test_strategy_config_rejects_negative_risk_free_rate() -> None:
     message = str(exc_info.value)
     assert "performance.risk_free_rate" in message
     assert "greater than or equal to 0" in message
+
+
+def test_rebalance_config_defaults_to_weekly_when_omitted() -> None:
+    config = _valid_strategy_config()
+
+    validated = StrategyConfig.model_validate(config)
+
+    assert validated.rebalance.frequency == "weekly"
+
+
+def test_rebalance_config_accepts_weekly_frequency() -> None:
+    config = _valid_strategy_config()
+    config["rebalance"] = {"frequency": "weekly"}
+
+    validated = StrategyConfig.model_validate(config)
+
+    assert validated.rebalance.frequency == "weekly"
+
+
+def test_rebalance_config_accepts_monthly_frequency() -> None:
+    config = _valid_strategy_config()
+    config["rebalance"] = {"frequency": "monthly"}
+
+    validated = StrategyConfig.model_validate(config)
+
+    assert validated.rebalance.frequency == "monthly"
+
+
+def test_rebalance_config_rejects_unsupported_frequency() -> None:
+    config = _valid_strategy_config()
+    config["rebalance"] = {"frequency": "biweekly"}
+
+    with pytest.raises(ValidationError) as exc_info:
+        StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "rebalance.frequency" in message
 
 
 @pytest.mark.parametrize("field", ["exchange", "symbol"])
