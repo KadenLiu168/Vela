@@ -69,3 +69,7 @@ dist/
 
 # Local runtime outputs
 .run/
+.runtime/
+
+# Local runtime logs
+fetch.log
