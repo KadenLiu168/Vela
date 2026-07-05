@@ -181,6 +181,10 @@ export function DashboardPage() {
     }
   };
 
+  const signalStatusPill = deriveSignalStatusPill(dashboardState, data);
+  const backtestStatusPill = deriveBacktestStatusPill(dashboardState, data);
+  const fetchStatusPill = deriveFetchStatusPill(dashboardState, data);
+
   return (
     <section className="page dashboard-page">
       <div className="page-heading dashboard-heading">
@@ -346,8 +350,8 @@ export function DashboardPage() {
           </form>
         </article>
 
-        <article className="dashboard-panel signal-panel">
-          <PanelHeading eyebrow="Signal" title="Latest signal" />
+        <article className="dashboard-panel signal-panel" data-testid="workflow-panel-signal">
+          <PanelHeading eyebrow="Latest" title="Signal" statusPill={signalStatusPill} />
           <SignalSummary
             signal={data?.latest_signal}
             isDisabled={signalGenerationAction.isDisabled}
@@ -357,16 +361,16 @@ export function DashboardPage() {
           />
         </article>
 
-        <article className="dashboard-panel backtest-panel">
-          <PanelHeading eyebrow="Backtest" title="Recent backtest" />
+        <article className="dashboard-panel backtest-panel" data-testid="workflow-panel-backtest">
+          <PanelHeading eyebrow="Latest" title="Backtest" statusPill={backtestStatusPill} />
           <BacktestSummary
             backtest={data?.recent_backtest}
             isLoading={dashboardState.status === "loading"}
           />
         </article>
 
-        <article className="dashboard-panel fetch-log-panel">
-          <PanelHeading eyebrow="History" title="Recent fetches" />
+        <article className="dashboard-panel fetch-log-panel" data-testid="workflow-panel-fetches">
+          <PanelHeading eyebrow="History" title="Fetches" statusPill={fetchStatusPill} />
           <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
         </article>
       </div>
@@ -476,18 +480,44 @@ function FetchLogSummary({
   return (
     <div className="fetch-log-list">
       {logs.map((log) => (
-        <dl className="compact-list fetch-log-entry" key={log.fetch_log_id}>
-          <Detail label="Fetch time" value={log.fetch_time} />
-          <Detail label="Mode" value={log.mode} />
-          <Detail label="Status" value={log.status} />
-          <Detail label="Fetched" value={formatRows(log.rows_fetched)} />
-          <Detail label="Inserted" value={formatRows(log.rows_inserted)} />
-          <Detail label="Updated" value={formatRows(log.rows_updated)} />
-          <Detail label="Error summary" value={formatNullableText(log.error_summary)} />
-        </dl>
+        <div className="fetch-log-entry" key={log.fetch_log_id}>
+          <div className="fetch-log-entry__head">
+            <time className="fetch-log-entry__time" dateTime={log.fetch_time}>
+              {log.fetch_time}
+            </time>
+            <StatusPillBadge {...deriveFetchEntryPill(log.status)} />
+          </div>
+          <div className="fetch-log-entry__meta">
+            {`Fetched ${formatRows(log.rows_fetched)} · Inserted ${formatRows(
+              log.rows_inserted
+            )} · Updated ${formatRows(log.rows_updated)}`}
+          </div>
+          {log.error_summary ? (
+            <details className="fetch-log-entry__error">
+              <summary>Show error</summary>
+              <p className="fetch-log-entry__error-body">{log.error_summary}</p>
+            </details>
+          ) : null}
+        </div>
       ))}
     </div>
   );
+}
+
+function deriveFetchEntryPill(status: string): StatusPill {
+  if (status === "success") {
+    return { label: "Active", variant: "success" };
+  }
+
+  if (status === "partial") {
+    return { label: "Partial", variant: "partial" };
+  }
+
+  if (status === "failed") {
+    return { label: "Errors", variant: "error" };
+  }
+
+  return { label: status || "Unknown", variant: "neutral" };
 }
 
 function SignalSummary({
@@ -574,11 +604,114 @@ function BacktestSummary({
   );
 }
 
-function PanelHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
+function deriveSignalStatusPill(
+  state: DashboardState,
+  data: DashboardResponse | undefined
+): StatusPill {
+  if (state.status === "loading") {
+    return { label: "Loading", variant: "loading" };
+  }
+
+  const signal = data?.latest_signal ?? null;
+  if (!signal) {
+    return { label: "No data", variant: "neutral" };
+  }
+
+  if (signal.status === "success") {
+    return { label: "Active", variant: "success" };
+  }
+
+  if (signal.status === "partial") {
+    return { label: "Partial", variant: "partial" };
+  }
+
+  if (signal.status === "failed") {
+    return { label: "Errors", variant: "error" };
+  }
+
+  return { label: "No data", variant: "neutral" };
+}
+
+function deriveBacktestStatusPill(
+  state: DashboardState,
+  data: DashboardResponse | undefined
+): StatusPill {
+  if (state.status === "loading") {
+    return { label: "Loading", variant: "loading" };
+  }
+
+  const backtest = data?.recent_backtest ?? null;
+  if (!backtest) {
+    return { label: "No data", variant: "neutral" };
+  }
+
+  if (backtest.status === "success") {
+    return { label: "Active", variant: "success" };
+  }
+
+  if (backtest.status === "partial") {
+    return { label: "Partial", variant: "partial" };
+  }
+
+  if (backtest.status === "failed") {
+    return { label: "Errors", variant: "error" };
+  }
+
+  return { label: "No data", variant: "neutral" };
+}
+
+function deriveFetchStatusPill(
+  state: DashboardState,
+  data: DashboardResponse | undefined
+): StatusPill {
+  if (state.status === "loading") {
+    return { label: "Loading", variant: "loading" };
+  }
+
+  const logs = data?.recent_fetch_logs ?? [];
+  if (logs.length === 0) {
+    return { label: "No data", variant: "neutral" };
+  }
+
+  const latestStatus = logs[0]?.status;
+  if (latestStatus === "success") {
+    return { label: "Active", variant: "success" };
+  }
+
+  if (latestStatus === "partial") {
+    return { label: "Partial", variant: "partial" };
+  }
+
+  if (latestStatus === "failed") {
+    return { label: "Errors", variant: "error" };
+  }
+
+  return { label: "No data", variant: "neutral" };
+}
+
+type StatusPillVariant = "success" | "partial" | "error" | "neutral" | "loading";
+
+type StatusPill = {
+  label: string;
+  variant: StatusPillVariant;
+};
+
+function StatusPillBadge({ label, variant }: StatusPill) {
+  return (
+    <span className={`status-pill status-pill-${variant}`} aria-label={`Status: ${label}`}>
+      {label}
+    </span>
+  );
+}
+
+function PanelHeading({ eyebrow, title, statusPill }: { eyebrow: string; title: string; statusPill?: StatusPill }) {
   return (
     <div className="panel-heading">
       <span>{eyebrow}</span>
-      <h3>{title}</h3>
+      <div className="panel-heading-end">
+        <h3>{title}</h3>
+        {statusPill ? <StatusPillBadge {...statusPill} /> : null}
+      </div>
     </div>
   );
 }

@@ -49,7 +49,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(strategy.getByText("2")).toBeInTheDocument();
   expect(strategy.getByText("SSE:511010")).toBeInTheDocument();
   expect(strategy.getByText("5 bps")).toBeInTheDocument();
-  const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
+  const signalPanel = screen.getByRole("heading", { name: "Signal" }).closest("article");
   expect(signalPanel).not.toBeNull();
   const signal = within(signalPanel as HTMLElement);
   expect(signal.getByText("Signal #42")).toBeInTheDocument();
@@ -62,7 +62,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
     "href",
     "/signals/42"
   );
-  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   const backtest = within(backtestPanel as HTMLElement);
   expect(backtest.getByText("Backtest #7")).toBeInTheDocument();
@@ -75,17 +75,20 @@ it("loads dashboard aggregate data through the shared client", async () => {
     "href",
     "/backtests/7"
   );
-  const fetchLogPanel = screen.getByRole("heading", { name: "Recent fetches" }).closest("article");
+  const fetchLogPanel = screen.getByRole("heading", { name: "Fetches" }).closest("article");
   expect(fetchLogPanel).not.toBeNull();
   const fetchLogs = within(fetchLogPanel as HTMLElement);
   const firstFetchLog = within((fetchLogPanel as HTMLElement).querySelector(".fetch-log-entry") as HTMLElement);
   expect(firstFetchLog.getByText("2026-06-24T08:00:00")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("incremental")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("partial")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("25 rows")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("20 rows")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("5 rows")).toBeInTheDocument();
-  expect(firstFetchLog.getByText("QQQ: provider timeout")).toBeInTheDocument();
+  expect(firstFetchLog.getByText("Fetched 25 rows · Inserted 20 rows · Updated 5 rows")).toBeInTheDocument();
+  const firstEntryStatus = firstFetchLog.getByText("Partial");
+  expect(firstEntryStatus).toHaveClass("status-pill-partial");
+  const firstEntryError = firstFetchLog.getByText("QQQ: provider timeout");
+  expect(firstEntryError).not.toBeVisible();
+  const firstEntryElement = (fetchLogPanel as HTMLElement).querySelector(".fetch-log-entry") as HTMLElement;
+  const firstEntrySummary = within(firstEntryElement).getByText("Show error");
+  fireEvent.click(firstEntrySummary);
+  expect(within(firstEntryElement).getByText("QQQ: provider timeout")).toBeVisible();
   expect(fetchLogs.getByText("2026-06-23T07:05:00")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
@@ -138,13 +141,13 @@ it("renders empty dashboard states without treating the response as a failure", 
   );
   expect(signalEmptyState).toBeInTheDocument();
   expect(signalEmptyState).toHaveClass("status-surface", "status-surface-empty", "empty-state");
-  const signalPanel = screen.getByRole("heading", { name: "Latest signal" }).closest("article");
+  const signalPanel = screen.getByRole("heading", { name: "Signal" }).closest("article");
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(
     screen.getByText("No local backtest run exists yet. Enter a date range in Operations, then run a backtest.")
   ).toBeInTheDocument();
-  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   expect(
     within(backtestPanel as HTMLElement).queryByRole("button", { name: "Run backtest" })
@@ -278,6 +281,160 @@ it("manually refreshes Dashboard status from the shared Dashboard API", async ()
   expect(screen.getByText("9 ETFs")).toBeInTheDocument();
   expect(screen.getByText("2026-06-25")).toBeInTheDocument();
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
+});
+
+it("derives Signal panel status pill from signal state", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse()))
+  );
+
+  render(<App />);
+
+  const signalPanel = await screen.findByTestId("workflow-panel-signal");
+  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(signalPill).not.toBeNull();
+  expect(signalPill).toHaveTextContent("Active");
+  expect(signalPill).toHaveClass("status-pill-success");
+});
+
+it("renders Signal panel status pill as No data when the signal is missing", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createDashboardResponse(),
+        latest_signal: null
+      })
+    )
+  );
+
+  render(<App />);
+
+  const signalPanel = await screen.findByTestId("workflow-panel-signal");
+  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(signalPill).not.toBeNull();
+  expect(signalPill).toHaveTextContent("No data");
+  expect(signalPill).toHaveClass("status-pill-neutral");
+});
+
+it("derives Backtest panel status pill from recent backtest state", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse()))
+  );
+
+  render(<App />);
+
+  const backtestPanel = await screen.findByTestId("workflow-panel-backtest");
+  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(backtestPill).not.toBeNull();
+  expect(backtestPill).toHaveTextContent("Active");
+  expect(backtestPill).toHaveClass("status-pill-success");
+});
+
+it("renders Backtest panel status pill as No data when the backtest is missing", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createDashboardResponse(),
+        recent_backtest: null
+      })
+    )
+  );
+
+  render(<App />);
+
+  const backtestPanel = await screen.findByTestId("workflow-panel-backtest");
+  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(backtestPill).not.toBeNull();
+  expect(backtestPill).toHaveTextContent("No data");
+  expect(backtestPill).toHaveClass("status-pill-neutral");
+});
+
+it("derives Fetches panel status pill from the latest log row", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse()))
+  );
+
+  render(<App />);
+
+  const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(fetchesPill).not.toBeNull();
+  expect(fetchesPill).toHaveTextContent("Partial");
+  expect(fetchesPill).toHaveClass("status-pill-partial");
+});
+
+it("renders Fetches panel status pill as Errors when the latest log is failed", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createDashboardResponse(),
+        recent_fetch_logs: [
+          {
+            fetch_log_id: 12,
+            fetch_time: "2026-06-25T08:00:00",
+            mode: "full",
+            status: "failed",
+            rows_fetched: 0,
+            rows_inserted: 0,
+            rows_updated: 0,
+            error_summary: "all symbols failed"
+          }
+        ]
+      })
+    )
+  );
+
+  render(<App />);
+
+  const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(fetchesPill).not.toBeNull();
+  expect(fetchesPill).toHaveTextContent("Errors");
+  expect(fetchesPill).toHaveClass("status-pill-error");
+});
+
+it("renders Fetches panel status pill as No data when the log list is empty", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createDashboardResponse(),
+        recent_fetch_logs: []
+      })
+    )
+  );
+
+  render(<App />);
+
+  const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
+  expect(fetchesPill).not.toBeNull();
+  expect(fetchesPill).toHaveTextContent("No data");
+  expect(fetchesPill).toHaveClass("status-pill-neutral");
+});
+
+it("keeps the fetch log error text hidden until the disclosure is expanded", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse()))
+  );
+
+  render(<App />);
+
+  const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
+  const errorText = within(fetchesPanel as HTMLElement).getByText("QQQ: provider timeout");
+  expect(errorText).not.toBeVisible();
+
+  const summary = within(fetchesPanel as HTMLElement).getByText("Show error");
+  fireEvent.click(summary);
+
+  expect(within(fetchesPanel as HTMLElement).getByText("QQQ: provider timeout")).toBeVisible();
 });
 
 it("presents full market data fetch after the incremental fetch action", async () => {
@@ -646,7 +803,7 @@ it("triggers signal generation and refreshes latest signal data", async () => {
 
   render(<App />);
 
-  const signalPanel = await screen.findByRole("heading", { name: "Latest signal" });
+  const signalPanel = await screen.findByRole("heading", { name: "Signal" });
   const signalArticle = signalPanel.closest("article");
   expect(signalArticle).not.toBeNull();
   const button = within(signalArticle as HTMLElement).getByRole("button", { name: "Generate signal" });
@@ -746,7 +903,7 @@ it("restores Dashboard latest signal status from backend data after browser refr
 
   render(<App />);
 
-  const signalPanel = await screen.findByRole("heading", { name: "Latest signal" });
+  const signalPanel = await screen.findByRole("heading", { name: "Signal" });
   const signalArticle = signalPanel.closest("article");
   expect(signalArticle).not.toBeNull();
   const signal = within(signalArticle as HTMLElement);
@@ -914,7 +1071,7 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
     "href",
     "/backtests/8"
   );
-  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   const recentBacktest = within(backtestPanel as HTMLElement);
   expect(await recentBacktest.findByText("Backtest #8")).toBeInTheDocument();
@@ -1065,7 +1222,7 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
   ).toBeInTheDocument();
   expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
   expect(within(operationsPanel as HTMLElement).queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
-  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   expect(within(backtestPanel as HTMLElement).getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
@@ -1088,7 +1245,7 @@ it("restores Dashboard recent backtest status from backend data after browser re
 
   render(<App />);
 
-  const backtestPanel = screen.getByRole("heading", { name: "Recent backtest" }).closest("article");
+  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
   expect(backtestPanel).not.toBeNull();
   const backtest = within(backtestPanel as HTMLElement);
   expect(await backtest.findByText("Backtest #7")).toBeInTheDocument();

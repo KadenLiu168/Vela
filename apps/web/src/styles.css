@@ -532,6 +532,15 @@ main {
   margin-bottom: var(--spacing-16);
 }
 
+.panel-heading-end {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--spacing-12);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .panel-heading span {
   color: var(--color-fog);
   font-size: var(--text-micro);
@@ -549,6 +558,10 @@ main {
   letter-spacing: var(--tracking-subheading);
   line-height: var(--leading-subheading);
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-primary {
@@ -556,6 +569,43 @@ main {
   display: block;
   font-size: var(--text-subheading);
   margin-bottom: var(--spacing-16);
+}
+
+.status-pill {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  color: var(--color-ash);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: var(--font-inter-variable);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  padding: var(--spacing-4) var(--spacing-8);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-pill-success {
+  color: var(--color-pulse-green);
+}
+
+.status-pill-partial {
+  color: var(--color-signal-teal);
+}
+
+.status-pill-error {
+  color: var(--color-coral-red);
+}
+
+.status-pill-neutral {
+  color: var(--color-ash);
+}
+
+.status-pill-loading {
+  color: var(--color-fog);
 }
 
 .dashboard-page .panel-primary {
@@ -712,10 +762,26 @@ main {
 
 .fetch-log-list {
   display: grid;
-  gap: var(--spacing-12);
+  gap: 0;
   margin: var(--spacing-16) 0 0;
   max-height: 320px;
   overflow-y: auto;
+  scrollbar-color: var(--color-graphite) transparent;
+  scrollbar-width: thin;
+}
+
+.fetch-log-list::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.fetch-log-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fetch-log-list::-webkit-scrollbar-thumb {
+  background: var(--color-graphite);
+  border-radius: var(--radius-sm);
 }
 
 .fetch-log-panel {
@@ -724,12 +790,79 @@ main {
 
 .fetch-log-entry {
   border-top: 1px solid var(--color-graphite);
-  padding-top: var(--spacing-12);
+  display: grid;
+  gap: var(--spacing-4);
+  padding: var(--spacing-12) 0;
 }
 
 .fetch-log-entry:first-child {
   border-top: 0;
   padding-top: 0;
+}
+
+.fetch-log-entry__head {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-8);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.fetch-log-entry__time {
+  color: var(--color-mist);
+  font-family: var(--font-jetbrains-mono);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.013em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fetch-log-entry__meta {
+  color: var(--color-mist);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  overflow-wrap: anywhere;
+}
+
+.fetch-log-entry__error {
+  margin: 0;
+}
+
+.fetch-log-entry__error > summary {
+  color: var(--color-fog);
+  cursor: pointer;
+  font-family: var(--font-inter-variable);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.fetch-log-entry__error > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fetch-log-entry__error[open] > summary {
+  margin-bottom: var(--spacing-8);
+}
+
+.fetch-log-entry__error-body {
+  color: var(--color-mist);
+  font-family: var(--font-jetbrains-mono);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.013em;
+  line-height: var(--leading-caption);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .empty-state {
@@ -742,6 +875,13 @@ main {
   line-height: var(--leading-caption);
   margin: 0;
   padding: var(--spacing-12) var(--spacing-16);
+}
+
+.dashboard-panel .empty-state {
+  background: transparent;
+  border: 1px dashed var(--color-graphite);
+  color: var(--color-fog);
+  padding: var(--spacing-20) var(--spacing-16);
 }
 
 .detail-page:not(.signal-detail-page) .holdings-section > .empty-state {
