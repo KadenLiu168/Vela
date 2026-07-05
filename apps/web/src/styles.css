@@ -748,6 +748,12 @@ main {
   margin: var(--spacing-16) 0 0;
 }
 
+.detail-page .compact-list {
+  gap: var(--spacing-8) var(--spacing-16);
+  margin: var(--spacing-16) 0 0;
+  padding: var(--spacing-16);
+}
+
 .compact-list dd {
   color: var(--color-paper);
   font-size: var(--text-caption);
@@ -761,6 +767,10 @@ main {
   color: var(--color-mist);
   font-weight: var(--font-weight-medium);
   line-height: var(--leading-caption);
+}
+
+.detail-page .compact-list dt {
+  margin-bottom: 0;
 }
 
 .fetch-log-list {
