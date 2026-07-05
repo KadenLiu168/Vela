@@ -180,6 +180,20 @@ export type BacktestEquityCurvePoint = {
   positions_json: string | null;
 };
 
+export type BootstrapResponse = {
+  status: string;
+  failed_step: string | null;
+  total_duration_seconds: number;
+  steps: BootstrapStepResult[];
+};
+
+export type BootstrapStepResult = {
+  name: string;
+  status: string;
+  duration_seconds: number;
+  error_message: string | null;
+};
+
 export type StrategySignalGenerationPosition = {
   etf_id: number;
   exchange: string;
@@ -258,6 +272,12 @@ export function fetchIncrementalMarketData(): Promise<MarketDataFetchResponse> {
 
 export function fetchFullMarketData(): Promise<MarketDataFetchResponse> {
   return apiRequest<MarketDataFetchResponse>("/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+}
+
+export function bootstrapLocalDatabase(): Promise<BootstrapResponse> {
+  return apiRequest<BootstrapResponse>("/setup/bootstrap", {
     method: "POST"
   });
 }

@@ -3,6 +3,7 @@ import {
   ApiClientError,
   type ApiErrorCategory,
   type BacktestRunResponse,
+  type BootstrapResponse,
   type DashboardBacktestSummary,
   type DashboardFetchLogSummary,
   type DashboardResponse,
@@ -10,6 +11,7 @@ import {
   type LatestStrategySignalResponse,
   type MarketDataFetchResponse,
   type StrategySignalGenerationResponse,
+  bootstrapLocalDatabase,
   fetchFullMarketData,
   fetchIncrementalMarketData,
   generateStrategySignal,
@@ -34,8 +36,9 @@ type DashboardState =
   | { status: "error"; data?: never; error: string };
 
 type MarketDataFetchMode = "incremental" | "full";
-type ActiveOperation = "backtestRun" | "marketDataFetch" | "signalGeneration";
+type ActiveOperation = "backtestRun" | "bootstrap" | "marketDataFetch" | "signalGeneration";
 type OperationError =
+  | { operation: "bootstrap"; category: ApiErrorCategory; message: string; status: number | null }
   | { operation: "marketDataFetch"; category: ApiErrorCategory; message: string; status: number | null }
   | { operation: "signalGeneration"; category: ApiErrorCategory; message: string; status: number | null }
   | { operation: "backtestRun"; category: ApiErrorCategory; message: string; status: number | null };
@@ -61,6 +64,7 @@ export function DashboardPage() {
     endDate: ""
   });
   const [backtestValidationError, setBacktestValidationError] = useState<string | null>(null);
+  const [bootstrapResult, setBootstrapResult] = useState<BootstrapResponse | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -149,6 +153,29 @@ export function DashboardPage() {
     } catch (error: unknown) {
       setBacktestRunResult(null);
       setOperationError(createOperationError("backtestRun", error));
+    } finally {
+      setActiveOperation(null);
+    }
+  }
+
+  async function handleBootstrap() {
+    if (activeOperation) {
+      return;
+    }
+
+    setActiveOperation("bootstrap");
+    setOperationError(null);
+    setBootstrapResult(null);
+    setMarketDataFetchResult(null);
+    setSignalGenerationResult(null);
+    setBacktestRunResult(null);
+
+    try {
+      const result = await bootstrapLocalDatabase();
+      setBootstrapResult(result);
+      await loadDashboard(setDashboardState);
+    } catch (error: unknown) {
+      setOperationError(createOperationError("bootstrap", error));
     } finally {
       setActiveOperation(null);
     }
@@ -282,6 +309,7 @@ export function DashboardPage() {
               <OperationErrorSummary error={operationError} />
             </FeedbackMessage>
           ) : null}
+          {bootstrapResult ? <BootstrapSummary result={bootstrapResult} /> : null}
           {marketDataFetchResult ? <MarketDataFetchSummary result={marketDataFetchResult} /> : null}
           {signalGenerationResult ? <SignalGenerationSummary result={signalGenerationResult} /> : null}
           {backtestRunResult ? <BacktestRunSummary result={backtestRunResult} /> : null}
@@ -296,19 +324,20 @@ export function DashboardPage() {
             </button>
             <button
               type="button"
-              disabled={marketFetchAction.isDisabled}
-              onClick={() => {
-                void handleMarketDataFetch("full");
-              }}
-            >
-              {marketDataFetchMode === "full" ? "Running full fetch" : "Full fetch for initialization or repair"}
-            </button>
-            <button
-              type="button"
               disabled={signalGenerationAction.isDisabled}
               onClick={signalGenerationAction.onClick}
             >
               {signalGenerationAction.isLoading ? "Generating signal" : "Generate signal"}
+            </button>
+            <button
+              className="bootstrap-action"
+              type="button"
+              disabled={hasActiveOperation}
+              onClick={() => {
+                void handleBootstrap();
+              }}
+            >
+              {activeOperation === "bootstrap" ? "Running bootstrap" : "Bootstrap / Setup database & data"}
             </button>
           </div>
           <form className="backtest-run-form" onSubmit={(event) => void handleBacktestRun(event)}>
@@ -387,6 +416,50 @@ function FirstRunGuidance({ message }: { message: string }) {
       </div>
       <p>{message}</p>
     </section>
+  );
+}
+
+function BootstrapSummary({ result }: { result: BootstrapResponse }) {
+  return (
+    <FeedbackMessage
+      className={`operation-summary operation-summary-${result.status}`}
+      variant={result.status === "success" ? "success" : "error"}
+    >
+      <strong>Bootstrap {result.status}</strong>
+      <dl className="compact-list">
+        {result.steps.map((step) => (
+          <BootstrapStepRow key={step.name} step={step} />
+        ))}
+      </dl>
+      <p className="operation-guidance">
+        Total duration: {result.total_duration_seconds.toFixed(1)}s
+      </p>
+      {result.status === "failed" ? (
+        <p className="operation-guidance">
+          Fix the reported issue in {result.failed_step} and re-run the bootstrap action.
+        </p>
+      ) : null}
+    </FeedbackMessage>
+  );
+}
+
+function BootstrapStepRow({ step }: { step: { name: string; status: string; error_message: string | null } }) {
+  const stepLabel =
+    step.name === "migrate"
+      ? "Migrate"
+      : step.name === "sync_etf_pool"
+        ? "Sync ETF pool"
+        : "Fetch full market data";
+  const statusIcon = step.status === "success" ? "✓" : "✗";
+  const statusClass = step.status === "success" ? "bootstrap-step-success" : "bootstrap-step-failed";
+
+  return (
+    <>
+      <dt className={statusClass}>
+        {statusIcon} {stepLabel}
+      </dt>
+      <dd>{step.error_message ? formatNullableText(step.error_message) : step.status}</dd>
+    </>
   );
 }
 
@@ -784,6 +857,10 @@ function getOperationPendingMessage(
   activeOperation: ActiveOperation,
   mode: MarketDataFetchMode | null
 ): string {
+  if (activeOperation === "bootstrap") {
+    return "Running local setup bootstrap.";
+  }
+
   if (activeOperation === "marketDataFetch") {
     return mode === "full" ? "Running full market data fetch." : "Fetching market data.";
   }
@@ -931,6 +1008,10 @@ function formatOperationErrorCategory(category: ApiErrorCategory): string {
 }
 
 function getOperationLabel(operation: OperationError["operation"]): string {
+  if (operation === "bootstrap") {
+    return "Bootstrap";
+  }
+
   if (operation === "signalGeneration") {
     return "Signal generation";
   }
@@ -943,6 +1024,10 @@ function getOperationLabel(operation: OperationError["operation"]): string {
 }
 
 function getOperationErrorGuidance(operation: OperationError["operation"]): string {
+  if (operation === "bootstrap") {
+    return "Verify local strategy configuration and database state before retrying.";
+  }
+
   if (operation === "signalGeneration") {
     return "Fetch market data or review local strategy configuration before retrying.";
   }

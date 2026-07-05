@@ -1,8 +1,5 @@
-# web-frontend-app Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change 2026-07-05-add-setup-bootstrap-endpoint. Update Purpose after archive.
-## Requirements
 ### Requirement: Dashboard setup bootstrap action
 The web frontend SHALL expose a Dashboard action that triggers the local setup bootstrap endpoint through the shared frontend API client and renders a three-step status display.
 
@@ -33,4 +30,3 @@ The web frontend SHALL render the "Bootstrap / Setup database & data" Dashboard 
 - **THEN** the bootstrap action uses the primary (filled) button variant
 - **AND** the bootstrap action is the rightmost button in the action list
 - **AND** the existing "Fetch market data", "Full fetch", and "Generate signal" buttons continue to use the secondary (outline) variant
-

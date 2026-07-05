@@ -91,7 +91,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(within(firstEntryElement).getByText("QQQ: provider timeout")).toBeVisible();
   expect(fetchLogs.getByText("2026-06-23T07:05:00")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Bootstrap / Setup database & data" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeEnabled();
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
@@ -449,8 +449,8 @@ it("presents full market data fetch after the incremental fetch action", async (
 
   expect(actions.map((button) => button.textContent)).toEqual([
     "Fetch market data",
-    "Full fetch for initialization or repair",
     "Generate signal",
+    "Bootstrap / Setup database & data",
     "Run backtest"
   ]);
 });
@@ -494,7 +494,7 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
 
   expect(await screen.findByRole("button", { name: "Fetching market data" })).toBeDisabled();
   expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Fetching market data.");
-  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Bootstrap / Setup database & data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=incremental", {
@@ -611,8 +611,8 @@ it("shows partial market data fetch failed symbols and guidance", async () => {
   ).toBeInTheDocument();
 });
 
-it("triggers full market data fetch and reuses the fetch summary", async () => {
-  const fetchResult = createDeferred<Response>();
+it("triggers bootstrap and displays three-step status", async () => {
+  const bootstrapResult = createDeferred<Response>();
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
@@ -620,8 +620,8 @@ it("triggers full market data fetch and reuses the fetch summary", async () => {
       return Promise.resolve(jsonResponse(createDashboardResponse()));
     }
 
-    if (url === "/api/market-data/fetch?mode=full") {
-      return fetchResult.promise;
+    if (url === "/api/setup/bootstrap") {
+      return bootstrapResult.promise;
     }
 
     if (url === "/api/dashboard") {
@@ -644,29 +644,30 @@ it("triggers full market data fetch and reuses the fetch summary", async () => {
 
   render(<App />);
 
-  const button = await screen.findByRole("button", { name: "Full fetch for initialization or repair" });
+  const button = await screen.findByRole("button", { name: "Bootstrap / Setup database & data" });
   fireEvent.click(button);
   fireEvent.click(button);
 
-  expect(await screen.findByRole("button", { name: "Running full fetch" })).toBeDisabled();
-  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running full market data fetch.");
+  expect(await screen.findByRole("button", { name: "Running bootstrap" })).toBeDisabled();
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running local setup bootstrap.");
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
-  expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
+  expect(fetchMock).toHaveBeenCalledWith("/api/setup/bootstrap", {
     method: "POST"
   });
-  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/market-data/fetch?mode=full")).toHaveLength(1);
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/setup/bootstrap")).toHaveLength(1);
 
-  fetchResult.resolve(
+  bootstrapResult.resolve(
     jsonResponse({
       status: "success",
-      requested_etf_count: 2,
-      rows_fetched: 300,
-      rows_inserted: 250,
-      rows_updated: 50,
-      failed_symbols: [],
-      error_message: null
+      failed_step: null,
+      total_duration_seconds: 0.5,
+      steps: [
+        { name: "migrate", status: "success", duration_seconds: 0.1, error_message: null },
+        { name: "sync_etf_pool", status: "success", duration_seconds: 0.2, error_message: null },
+        { name: "fetch_full_market_data", status: "success", duration_seconds: 0.2, error_message: null }
+      ]
     })
   );
 
@@ -674,12 +675,56 @@ it("triggers full market data fetch and reuses the fetch summary", async () => {
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
   expect(operationsPanel).not.toBeNull();
   const operations = within(operationsPanel as HTMLElement);
-  expect(operations.getByText("Market data fetch success")).toBeInTheDocument();
-  expect(operations.getByText("300 rows")).toBeInTheDocument();
-  expect(operations.getByText("250 rows")).toBeInTheDocument();
-  expect(operations.getByText("50 rows")).toBeInTheDocument();
-  expect(operations.queryByText("Failed symbols")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeEnabled();
+  expect(operations.getByText("Bootstrap success")).toBeInTheDocument();
+  expect(operations.getByText("Total duration: 0.5s")).toBeInTheDocument();
+  expect(operations.getByText("✓ Migrate")).toBeInTheDocument();
+  expect(operations.getByText("✓ Sync ETF pool")).toBeInTheDocument();
+  expect(operations.getByText("✓ Fetch full market data")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Bootstrap / Setup database & data" })).toBeEnabled();
+});
+
+it("shows failed bootstrap status with error message on the failing step", async () => {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/setup/bootstrap") {
+      return Promise.resolve(
+        jsonResponse({
+          status: "failed",
+          failed_step: "sync_etf_pool",
+          total_duration_seconds: 1.2,
+          steps: [
+            { name: "migrate", status: "success", duration_seconds: 0.1, error_message: null },
+            { name: "sync_etf_pool", status: "failed", duration_seconds: 0.1, error_message: "ETF pool config missing" },
+            { name: "fetch_full_market_data", status: "success", duration_seconds: 1.0, error_message: null }
+          ]
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Bootstrap / Setup database & data" }));
+
+  expect(await screen.findByText("Bootstrap failed")).toBeInTheDocument();
+  const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
+  expect(operationsPanel).not.toBeNull();
+  const operations = within(operationsPanel as HTMLElement);
+  expect(operations.getByText("Total duration: 1.2s")).toBeInTheDocument();
+  expect(operations.getByText("✓ Migrate")).toBeInTheDocument();
+  expect(operations.getByText("✗ Sync ETF pool")).toBeInTheDocument();
+  expect(operations.getByText("ETF pool config missing")).toBeInTheDocument();
+  expect(
+    operations.getByText("Fix the reported issue in sync_etf_pool and re-run the bootstrap action.")
+  ).toBeInTheDocument();
 });
 
 it("shows failed market data fetch details and guidance from the response body", async () => {
@@ -813,7 +858,7 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   expect(await within(signalArticle as HTMLElement).findByRole("button", { name: "Generating signal" })).toBeDisabled();
   expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Generating latest strategy signal.");
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Bootstrap / Setup database & data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Run backtest" })).toBeDisabled();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
     method: "POST"
@@ -1145,7 +1190,7 @@ it("prevents duplicate Dashboard backtest submissions while pending", async () =
   expect(await screen.findByRole("button", { name: "Running backtest" })).toBeDisabled();
   expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running backtest.");
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Full fetch for initialization or repair" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Bootstrap / Setup database & data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();
   expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/backtests/run"))).toHaveLength(1);
 

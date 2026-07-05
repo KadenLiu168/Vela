@@ -1,8 +1,5 @@
-# http-api-service Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change 2026-07-05-add-setup-bootstrap-endpoint. Update Purpose after archive.
-## Requirements
 ### Requirement: API setup bootstrap endpoint
 The API service SHALL expose `POST /api/setup/bootstrap` as a local-development endpoint that runs the compound local setup bootstrap operation.
 
@@ -34,4 +31,3 @@ The API service SHALL load the strategy configuration once at startup and store 
 - **WHEN** the `GET /api/config` and `POST /api/setup/bootstrap` endpoints run during the same API process lifetime
 - **THEN** both endpoints observe the same `strategy_config` instance loaded at startup
 - **AND** neither endpoint re-reads the strategy config YAML from disk on each request
-

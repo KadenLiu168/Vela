@@ -12,6 +12,7 @@ from vela_core.database import (
 
 def initialize_database(app, database_url: str = DEFAULT_DATABASE_URL) -> None:
     engine = create_engine_from_url(database_url)
+    app.state.database_url = database_url
     app.state.session_factory = create_session_factory(engine)
 
 

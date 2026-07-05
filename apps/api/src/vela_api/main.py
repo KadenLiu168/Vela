@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 from vela_core import (
     BacktestRunResult,
+    BootstrapResult,
     ConfigError,
     GeneratedSignalPosition,
     GenerateStrategySignalResult,
@@ -24,7 +25,9 @@ from vela_core import (
     get_backtest_result,
     get_dashboard_summary,
     get_latest_strategy_signal_report,
+    load_app_config,
     run_backtest,
+    run_local_setup_bootstrap,
 )
 from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice
 from vela_core.strategy_config import load_strategy_config
@@ -34,6 +37,7 @@ from vela_api.database import get_database_session, initialize_database
 
 app = FastAPI(title="Vela API")
 initialize_database(app)
+app.state.strategy_config = load_app_config(DEFAULT_STRATEGY_CONFIG_PATH)
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
 MarketDataFetchMode = Literal["incremental", "full"]
 ErrorCategory = Literal["validation", "not_found", "operation_failed", "unexpected"]
@@ -120,6 +124,21 @@ def fetch_market_data(
     return _market_data_fetch_response(result)
 
 
+@app.post("/api/setup/bootstrap")
+def setup_bootstrap(
+    request: Request,
+    session: DatabaseSession,
+    provider: MarketDataProviderDependency,
+) -> dict[str, object]:
+    result = run_local_setup_bootstrap(
+        session,
+        provider=provider,
+        app_config=request.app.state.strategy_config,
+        database_url=request.app.state.database_url,
+    )
+    return _bootstrap_response(result)
+
+
 @app.post("/api/strategy-signals/generate")
 def generate_strategy_signal_endpoint(
     session: DatabaseSession,
@@ -204,6 +223,23 @@ def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
         "run": _backtest_detail_run_response(run),
         "metrics": _backtest_metrics_response(run),
         "equity_curve": [_backtest_curve_point_response(row) for row in run.equity_curve],
+    }
+
+
+def _bootstrap_response(result: BootstrapResult) -> dict[str, object]:
+    return {
+        "status": result.status,
+        "failed_step": result.failed_step,
+        "total_duration_seconds": result.total_duration_seconds,
+        "steps": [
+            {
+                "name": step.name,
+                "status": step.status,
+                "duration_seconds": step.duration_seconds,
+                "error_message": step.error_message,
+            }
+            for step in result.steps
+        ],
     }
 
 

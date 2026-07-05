@@ -12,6 +12,11 @@ from vela_core.backtest_result_persistence import (
     persist_backtest_result,
 )
 from vela_core.backtest_runner import BacktestRunResult, run_backtest
+from vela_core.bootstrap import (
+    BootstrapResult,
+    BootstrapStepResult,
+    run_local_setup_bootstrap,
+)
 from vela_core.config import (
     ConfigError,
     ETFConfig,
@@ -101,6 +106,8 @@ __all__ = [
     "BacktestResultRunInput",
     "BacktestReportNotFoundError",
     "BacktestRunResult",
+    "BootstrapResult",
+    "BootstrapStepResult",
     "ConfigError",
     "DailyPrice",
     "DashboardBacktestSummary",
@@ -162,6 +169,7 @@ __all__ = [
     "persist_backtest_result",
     "rank_momentum_scores",
     "run_backtest",
+    "run_local_setup_bootstrap",
     "select_with_defensive_fallback",
     "select_top_n_etfs",
     "sync_etf_pool_to_db",

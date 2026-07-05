@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiClientError,
   apiRequest,
+  bootstrapLocalDatabase,
   fetchFullMarketData,
   fetchIncrementalMarketData,
   generateStrategySignal,
@@ -299,6 +300,31 @@ it("calls full market data fetch through the shared client", async () => {
 
   await expect(fetchFullMarketData()).resolves.toEqual(fetchResult);
   expect(fetchMock).toHaveBeenCalledWith("/api/market-data/fetch?mode=full", {
+    method: "POST"
+  });
+});
+
+it("calls bootstrap local database through the shared client", async () => {
+  const bootstrapResult = {
+    status: "success",
+    failed_step: null,
+    total_duration_seconds: 0.5,
+    steps: [
+      { name: "migrate", status: "success", duration_seconds: 0.1, error_message: null },
+      { name: "sync_etf_pool", status: "success", duration_seconds: 0.2, error_message: null },
+      { name: "fetch_full_market_data", status: "success", duration_seconds: 0.2, error_message: null }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(bootstrapResult), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(bootstrapLocalDatabase()).resolves.toEqual(bootstrapResult);
+  expect(fetchMock).toHaveBeenCalledWith("/api/setup/bootstrap", {
     method: "POST"
   });
 });
