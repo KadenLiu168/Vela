@@ -67,6 +67,10 @@ dist/
 
 .understand-anything/
 
+# Node.js
+
+node_modules/
+
 # Local runtime outputs
 .run/
 .runtime/
