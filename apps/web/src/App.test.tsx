@@ -1587,6 +1587,104 @@ it("renders an API failure state on the backtest detail route", async () => {
   expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
 });
 
+it("loads the latest backtest detail when navigating to /backtests without an ID", async () => {
+  window.history.pushState({}, "", "/backtests");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/backtests?limit=1") {
+      return Promise.resolve(
+        jsonResponse({
+          runs: [
+            {
+              run_id: 8,
+              start_date: "2026-01-01",
+              end_date: "2026-01-31",
+              status: "success",
+              started_at: "2026-02-01T09:00:00",
+              finished_at: "2026-02-01T09:05:00",
+              total_return: "0.120000",
+              annualized_return: "1.440000",
+              max_drawdown: "-0.050000",
+              volatility: "0.200000",
+              sharpe_ratio: "1.100000"
+            }
+          ]
+        })
+      );
+    }
+
+    if (url === "/api/backtests/8") {
+      return Promise.resolve(jsonResponse(createBacktestDetailResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByText("Backtest #8")).toBeInTheDocument();
+  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=1", undefined);
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
+});
+
+it("shows an empty state on /backtests when no backtest runs exist", async () => {
+  window.history.pushState({}, "", "/backtests");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/backtests?limit=1") {
+      return Promise.resolve(jsonResponse({ runs: [] }));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(
+    await screen.findByText(
+      "No local backtest run exists yet. Run a backtest from the Dashboard to see its detail here."
+    )
+  ).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=1", undefined);
+});
+
+it("shows an error state on /backtests when the backtests list API fails", async () => {
+  window.history.pushState({}, "", "/backtests");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
+});
+
+it("shows an error state on /backtests when the backtests list API returns a server error", async () => {
+  window.history.pushState({}, "", "/backtests");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/backtests?limit=1") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ detail: "Internal error" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 500
+        })
+      );
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByText("Backtest detail API unavailable: http")).toBeInTheDocument();
+});
+
 it("exposes local research navigation without production account entry points", () => {
   render(<App />);
 
@@ -1597,7 +1695,7 @@ it("exposes local research navigation without production account entry points", 
   );
   expect(screen.getByRole("link", { name: "Backtest Detail" })).toHaveAttribute(
     "href",
-    "/backtests/1"
+    "/backtests"
   );
 
   expect(screen.queryByText(/login|sign up|account|team|deploy|production/i)).not.toBeInTheDocument();

@@ -8,7 +8,7 @@ import { SignalDetailPage } from "./pages/SignalDetailPage";
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
   { href: "/signals/demo-signal", label: "Latest Signal" },
-  { href: "/backtests/1", label: "Backtest Detail" }
+  { href: "/backtests", label: "Backtest Detail" }
 ];
 
 export default function App() {
@@ -53,6 +53,10 @@ function renderRoute(path: string) {
     return <SignalDetailPage signalId={decodeURIComponent(signalMatch[1])} />;
   }
 
+  if (path === "/backtests") {
+    return <BacktestDetailPage />;
+  }
+
   const backtestMatch = path.match(/^\/backtests\/([^/]+)$/);
 
   if (backtestMatch) {
@@ -67,8 +71,8 @@ function getActivePath(path: string): string {
     return "/signals/demo-signal";
   }
 
-  if (path.startsWith("/backtests/")) {
-    return "/backtests/1";
+  if (path === "/backtests" || path.startsWith("/backtests/")) {
+    return "/backtests";
   }
 
   return "/";

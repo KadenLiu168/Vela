@@ -227,6 +227,24 @@ export type LatestStrategySignalPosition = {
   is_fallback: boolean;
 };
 
+export type BacktestListItem = {
+  run_id: number;
+  start_date: string;
+  end_date: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+};
+
+export type BacktestListResponse = {
+  runs: BacktestListItem[];
+};
+
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
@@ -305,6 +323,10 @@ export function getBacktestDetail(runId: string): Promise<BacktestDetailResponse
 
 export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {
   return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
+}
+
+export function listBacktests(limit = 10): Promise<BacktestListResponse> {
+  return apiRequest<BacktestListResponse>(`/backtests?limit=${limit}`);
 }
 
 async function getApiError(response: Response): Promise<{ category: ApiErrorCategory; message: string }> {
