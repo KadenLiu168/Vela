@@ -1,49 +1,56 @@
 # Web Token Source
 
-Vela keeps design tokens in more than one format. The web app currently uses one implementation source and three reference artifacts.
+Vela keeps design tokens in **one** file for the web frontend:
+`apps/web/src/styles/tokens.css`. That file is the canonical,
+on-disk source of every CSS custom property the web app uses as a
+design token; it is imported by `apps/web/src/styles.css` and is
+the only place under `apps/web/src/` allowed to declare a
+`:root { ... }` block (see the `design-system` OpenSpec capability
+at `openspec/specs/design-system/`).
 
-## Implementation Source
+## Implementation source
 
-`apps/web/src/styles.css :root` is the current implementation token source for `apps/web`. The file is imported by `apps/web/src/main.tsx`, so the custom properties directly affect the built frontend. New web UI styling should use and update this `:root` block unless a future issue adds a token build pipeline.
+`apps/web/src/styles/tokens.css` is the implementation source. It is
+imported into `apps/web/src/styles.css` via
+`@import "./styles/tokens.css";` at the top of the stylesheet; Vite
+inlines it into the built bundle. New web UI styling MUST consume
+tokens by referencing `var(--<token-name>)` and MUST NOT declare
+new CSS custom properties anywhere under `apps/web/src/`.
 
-The same `:root` block also declares the `@font-face` rules that load `Inter Variable` and `JetBrains Mono` from `apps/web/public/fonts/`. The stylesheet is the only place that owns the live web font binding.
+## Font loading
 
-## Design References
+`apps/web/src/styles.css` holds the `@font-face` declarations that
+load `Inter Variable` and `JetBrains Mono` from
+`apps/web/public/fonts/`. The monospace family token
+(`--font-berkeley-mono`) chains the value
+`'JetBrains Mono', 'Berkeley Mono', ui-monospace, ...` so the served
+woff2 actually renders today; the token name keeps the design intent
+(Berkeley Mono) so a future swap of the served font needs only one
+line of CSS.
 
-`DESIGN.md` is the visual style reference for the web frontend (Linear: midnight surfaces, acid-lime primary accent, Inter Variable + Berkeley-Mono-substitute type system).
+The same `apps/web/src/styles.css` file holds the page-level
+declarations for `background`, `color`, `font-family`, and
+`color-scheme: dark` on `body`. Those are application-level rules,
+not token declarations.
 
-`tokens.json` is a structured design-token reference. It is not consumed by the Vite build and does not generate CSS today.
+## Token groups declared in `tokens.css`
 
-`variables.css` is a CSS reference snapshot at the repository root. It is not imported by `apps/web`, is not linked from `apps/web/index.html`, and does not drive build output.
+Colors (`--color-*`), Surfaces (`--surface-*`), Font families
+(`--font-*`), Typography scale (`--text-*`, `--leading-*`,
+`--tracking-*`), Font weights (`--font-weight-*`), Spacing
+(`--spacing-*`), Layout (`--page-max-width`, `--section-gap`,
+`--card-padding`, `--element-gap`), Border radius (`--radius-*`),
+Shadow (`--shadow-*`), Feedback accents (`--feedback-accent-*`,
+`--focus-ring-color`), Motion (`--duration-*`, `--ease-out`). The
+file's leading comment block lists the same groups.
 
-## Font Loading
+## Why this changed
 
-`apps/web/index.html` preloads `/fonts/InterVariable.woff2` and removes the previous Google Fonts `<link>` and `preconnect` hints. The full `@font-face` rules (with `font-display: swap` and the system-font fallback stack) live in `apps/web/src/styles.css`.
-
-`--font-inter-variable` is the implementation alias for the Inter Variable family (300–700) used for body, headings, navigation, buttons, and the rest of the UI.
-
-`--font-jetbrains-mono` is the implementation alias for the chosen monospace substitute. `DESIGN.md` lists Berkeley Mono as the design intent; JetBrains Mono (OFL, free) is the loaded substitute, served by `JetBrainsMono-Regular.woff2` (weight 400) and `JetBrainsMono-Medium.woff2` (weights 500–600).
-
-## Implementation Additions
-
-`apps/web/src/styles.css :root` declares the Linear scale plus a small set of current implementation-only tokens that are not part of the DESIGN.md reference scale:
-
-| Token | Value | Current role |
-| --- | --- | --- |
-| `--text-micro` | `11px` | Tight uppercase eyebrow labels (panel headers, table headers) |
-| `--text-label` | `12px` | Detail-page `dt` metadata labels |
-| `--text-body` | `15px` | Body copy (Linear's `--text-body-sm` re-pointed for direct use) |
-| `--feedback-accent` | `var(--color-acid-lime)` | Default semantic feedback rail (dashboard load status) |
-| `--feedback-accent-error` | `var(--color-coral-red)` | Error feedback rail (alerts, operation failures) |
-| `--feedback-accent-success` | `var(--color-pulse-green)` | Success feedback rail (operation summaries) |
-| `--feedback-accent-loading` | `var(--color-acid-lime)` | Loading feedback rail |
-| `--feedback-accent-info` | `var(--color-signal-teal)` | Info feedback rail |
-| `--feedback-accent-empty` | `var(--color-smoke)` | Empty-state feedback rail |
-| `--focus-ring-color` | `var(--color-acid-lime)` | `:focus-visible` ring color |
-| `--radius-cards` | `12px` | Card / panel radius alias for `--radius-xl` |
-| `--radius-pills` | `9999px` | Pill / nav-pill radius alias for `--radius-full-2` |
-| `--surface-slate` | `var(--color-graphite)` | Highest surface tint, ghost button fill alias |
-
-The `--surface-void`, `--surface-carbon`, `--surface-obsidian` surface aliases are part of the Linear four-level surface stack and are not implementation additions.
-
-Linear reserves the following type-scale and radius tokens in `:root` for future use; they are not yet referenced by component rules: `--text-body-sm`, `--text-body-lg`, `--text-heading-lg`, `--tracking-body-sm`, `--tracking-body-lg`, `--tracking-heading-lg`, `--radius-lg`, `--radius-full`, `--radius-full-2`, plus the full Linear spacing scale above `--spacing-40`.
+Before this change, the design-token references for the web
+frontend were scattered: `DESIGN.md` and `tokens.json` (both
+deleted) were style guides, `/variables.css` was an unimported CSS
+snapshot, and `apps/web/src/styles.css` had its own `:root { ... }`
+block that drifted from those references. The drift caused today's
+half-applied font rename and was the kind of bug a future change
+must route through an OpenSpec proposal. The `design-system`
+capability closes that loop.
