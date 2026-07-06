@@ -217,7 +217,7 @@ export function DashboardPage() {
       <div className="page-heading dashboard-heading">
         <div>
           <p>Local research workflow</p>
-          <h2>Workflow Dashboard</h2>
+          <h1>Workflow Dashboard</h1>
         </div>
         <div className="dashboard-heading-actions">
           <span className={`status-surface dashboard-load-state dashboard-load-state-${dashboardState.status}`}>

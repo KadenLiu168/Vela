@@ -113,7 +113,7 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
     <section className="page detail-page">
       <div className="page-heading">
         <p>Backtest research workspace</p>
-        <h2>Backtest Detail</h2>
+        <h1>Backtest Detail</h1>
       </div>
       {renderBacktestDetail(backtestState)}
     </section>

@@ -169,7 +169,7 @@ main {
   text-transform: uppercase;
 }
 
-.page-heading h2 {
+.page-heading h1 {
   color: var(--color-paper);
   font-family: var(--font-inter-variable);
   font-size: var(--text-heading);
@@ -191,7 +191,7 @@ main {
   max-width: 760px;
 }
 
-.dashboard-heading h2 {
+.dashboard-heading h1 {
   font-size: clamp(var(--text-heading), 6vw, var(--text-display));
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-display);
@@ -440,7 +440,7 @@ main {
   color: var(--color-fog);
   font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
-  line-height: 1.15;
+  line-height: var(--leading-tight);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -477,7 +477,7 @@ main {
   font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.04em;
-  line-height: 1.15;
+  line-height: var(--leading-tight);
   padding: var(--spacing-4) var(--spacing-8);
   text-transform: uppercase;
   white-space: nowrap;
@@ -534,7 +534,7 @@ main {
 .dashboard-page .metric span,
 .dashboard-page .compact-list dt {
   font-weight: var(--font-weight-medium);
-  line-height: 1.15;
+  line-height: var(--leading-tight);
 }
 
 .metric strong {
@@ -744,7 +744,7 @@ main {
   font-size: var(--text-micro);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.04em;
-  line-height: 1.15;
+  line-height: var(--leading-tight);
   list-style: none;
   text-transform: uppercase;
 }
@@ -1236,7 +1236,7 @@ main {
     max-width: 620px;
   }
 
-  .dashboard-heading h2 {
+  .dashboard-heading h1 {
     font-size: var(--text-heading);
     letter-spacing: var(--tracking-heading);
     line-height: var(--leading-heading);
@@ -1333,7 +1333,7 @@ main {
     margin-top: var(--spacing-32);
   }
 
-  .page-heading h2 {
+  .page-heading h1 {
     font-size: var(--text-heading);
     letter-spacing: var(--tracking-heading);
     line-height: var(--leading-heading);
@@ -1359,7 +1359,7 @@ main {
     flex-direction: column;
   }
 
-  .dashboard-heading h2 {
+  .dashboard-heading h1 {
     font-size: var(--text-heading);
     letter-spacing: var(--tracking-heading);
     line-height: var(--leading-heading);

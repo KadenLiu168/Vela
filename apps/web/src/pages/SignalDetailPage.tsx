@@ -57,7 +57,7 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
     <section className="page detail-page signal-detail-page">
       <div className="page-heading">
         <p>Signal research workspace</p>
-        <h2>Signal Detail</h2>
+        <h1>Signal Detail</h1>
       </div>
       {renderSignalDetail(signalState)}
     </section>
