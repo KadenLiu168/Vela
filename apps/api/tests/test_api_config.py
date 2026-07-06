@@ -19,6 +19,7 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
         "defense": {"asset": {"exchange": "SSE", "symbol": "511010"}},
         "costs": {"transaction_cost_bps": 5.0},
         "performance": {"risk_free_rate": 0.02},
+        "rebalance": {"frequency": "weekly"},
     }
     assert body["etf_pool"]["pool_id"] == "phase1_core"
     assert body["etf_pool"]["version"] == 1
