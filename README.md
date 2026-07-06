@@ -142,6 +142,37 @@ manages request-scoped SQLAlchemy sessions through the core session lifecycle.
 It also exposes `GET /api/config` for the current read-only strategy and ETF
 pool summary.
 
+
+Initialize or upgrade the local SQLite database to the current migration head:
+
+```bash
+uv run alembic upgrade head
+```
+
+Reset the local development database from scratch:
+
+```bash
+rm -f vela.db && uv run alembic upgrade head
+```
+
+Sync the configured ETF pool into the local database:
+
+```bash
+uv run vela sync-etf-pool
+```
+
+Fetch full daily market data for active ETFs:
+
+```bash
+uv run vela fetch-market-data
+```
+
+Or fetch only data newer than the latest local market price date:
+
+```bash
+uv run vela fetch-market-data --incremental
+```
+
 ## Database Migrations
 
 Vela uses Alembic for database schema migrations. The default local development
