@@ -6,7 +6,7 @@ import {
   getBacktestDetail,
   listBacktests
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components/FeedbackMessage";
+import { EmptyState, FeedbackMessage } from "../components";
 import {
   formatDate,
   formatDecimal,

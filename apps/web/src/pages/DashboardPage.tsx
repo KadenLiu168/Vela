@@ -19,7 +19,7 @@ import {
   getLatestStrategySignal,
   runBacktest
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components/FeedbackMessage";
+import { EmptyState, FeedbackMessage } from "../components";
 import {
   formatBoolean,
   formatCompactNumber,

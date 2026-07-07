@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getApiBaseUrl } from "./api/client";
 import { type NavItem, AppShell } from "./components/AppShell";
+import { ErrorBoundary } from "./components";
 import { BacktestDetailPage } from "./pages/BacktestDetailPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SignalDetailPage } from "./pages/SignalDetailPage";
@@ -41,7 +42,7 @@ export default function App() {
       navItems={navItems}
       onNavigate={navigate}
     >
-      {renderRoute(path)}
+      <ErrorBoundary>{renderRoute(path)}</ErrorBoundary>
     </AppShell>
   );
 }
