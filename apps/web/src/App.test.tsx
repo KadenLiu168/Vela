@@ -35,9 +35,9 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(market.getByText("1,200 rows")).toBeInTheDocument();
   expect(market.getByText("Covered ETFs")).toBeInTheDocument();
   expect(market.getByText("8 ETFs")).toBeInTheDocument();
-  expect(market.getByText("Earliest trade date")).toBeInTheDocument();
+  expect(market.getByText("Earliest")).toBeInTheDocument();
   expect(market.getByText("2025-01-02")).toBeInTheDocument();
-  expect(market.getByText("Latest trade date")).toBeInTheDocument();
+  expect(market.getByText("Latest")).toBeInTheDocument();
   expect(market.getByText("2026-06-23")).toBeInTheDocument();
   expect(market.getByText("SPY")).toBeInTheDocument();
   expect(market.getByText("SPY ETF")).toBeInTheDocument();
@@ -221,7 +221,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(screen.getAllByRole("button", { name: "Fetch market data" })).toHaveLength(2);
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
-  expect(within(marketPanel as HTMLElement).getAllByText("n/a")).toHaveLength(2);
+  expect(within(marketPanel as HTMLElement).queryAllByText("n/a")).toHaveLength(0);
   expect(within(marketPanel as HTMLElement).queryByText("SPY")).not.toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
