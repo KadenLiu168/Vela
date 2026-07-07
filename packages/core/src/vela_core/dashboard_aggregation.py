@@ -24,6 +24,7 @@ class EtfBrief:
     symbol: str
     name: str
     category: str | None
+    earliest_trade_date: date | None = None
 
     def to_dict(self) -> dict[str, str | None]:
         return {
@@ -31,6 +32,7 @@ class EtfBrief:
             "symbol": self.symbol,
             "name": self.name,
             "category": self.category,
+            "earliest_trade_date": _format_date(self.earliest_trade_date),
         }
 
 
@@ -152,10 +154,15 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
         )
     ).one()
     etf_rows = session.execute(
-        select(ETFInfo.exchange, ETFInfo.symbol, ETFInfo.name, ETFInfo.category)
-        .where(ETFInfo.id.in_(
-            select(MarketPrice.etf_id).distinct()
-        ))
+        select(
+            ETFInfo.exchange,
+            ETFInfo.symbol,
+            ETFInfo.name,
+            ETFInfo.category,
+            func.min(MarketPrice.trade_date).label("earliest_trade_date"),
+        )
+        .join(MarketPrice, MarketPrice.etf_id == ETFInfo.id)
+        .group_by(ETFInfo.id, ETFInfo.exchange, ETFInfo.symbol, ETFInfo.name, ETFInfo.category)
         .order_by(ETFInfo.exchange, ETFInfo.symbol)
     ).all()
     return DashboardMarketDataStatus(
@@ -164,7 +171,13 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
         earliest_trade_date=earliest_trade_date,
         latest_trade_date=latest_trade_date,
         etf_list=tuple(
-            EtfBrief(exchange=row.exchange, symbol=row.symbol, name=row.name, category=row.category)
+            EtfBrief(
+                exchange=row.exchange,
+                symbol=row.symbol,
+                name=row.name,
+                category=row.category,
+                earliest_trade_date=row.earliest_trade_date,
+            )
             for row in etf_rows
         ),
     )

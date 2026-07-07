@@ -84,7 +84,8 @@ const defaultProps: CommandPaletteProps = {
         exchange: r.exchange,
         symbol: r.symbol,
         name: r.label,
-        category: r.category
+        category: r.category,
+        earliest_trade_date: null,
       }))
     )
   ),

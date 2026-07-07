@@ -441,7 +441,8 @@ describe("CommandPalette", () => {
                   exchange: "ARCX",
                   symbol: "VTI",
                   name: "VTI ETF",
-                  category: "equity_us"
+                  category: "equity_us",
+                  earliest_trade_date: null,
                 }
               ])
             ),

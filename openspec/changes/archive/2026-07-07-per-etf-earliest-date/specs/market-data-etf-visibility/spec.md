@@ -1,8 +1,5 @@
-# market-data-etf-visibility Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change dashboard-market-etf-list. Update Purpose after archive.
-## Requirements
 ### Requirement: Dashboard API returns ETF list with market data
 
 The system SHALL include an `etf_list` field in the dashboard `/api/dashboard` response under `market_data`, listing ETFs that have at least one row in `MarketPrice`.
@@ -42,4 +39,3 @@ Each row SHALL show a colored accent bar, the symbol in monospace, a dot separat
 - **WHEN** `market_data.etf_list` is `[]`
 - **THEN** no `.etf-row-list` container SHALL be rendered
 - **AND** the card layout SHALL remain intact
-

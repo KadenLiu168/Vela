@@ -308,6 +308,7 @@ export function DashboardPage({
                   <span className="etf-row-symbol">{etf.symbol}</span>
                   <span className="etf-row-dot">·</span>
                   <span className="etf-row-name">{etf.name}</span>
+                  <span className="etf-row-date">{etf.earliest_trade_date ? formatDate(etf.earliest_trade_date) : "—"}</span>
                 </div>
               ))}
             </div>

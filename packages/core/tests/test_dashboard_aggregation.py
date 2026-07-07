@@ -28,6 +28,7 @@ def test_dashboard_summary_reports_empty_persisted_workflow_data() -> None:
             "covered_etfs": 0,
             "earliest_trade_date": None,
             "latest_trade_date": None,
+            "etf_list": [],
         },
         "latest_signal": None,
         "recent_backtest": None,
@@ -139,6 +140,22 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
             "covered_etfs": 2,
             "earliest_trade_date": "2026-06-22",
             "latest_trade_date": "2026-06-23",
+            "etf_list": [
+                {
+                    "exchange": "NYSEARCA",
+                    "symbol": "QQQ",
+                    "name": "QQQ ETF",
+                    "category": None,
+                    "earliest_trade_date": "2026-06-23",
+                },
+                {
+                    "exchange": "NYSEARCA",
+                    "symbol": "SPY",
+                    "name": "SPY ETF",
+                    "category": None,
+                    "earliest_trade_date": "2026-06-22",
+                },
+            ],
         },
         "latest_signal": {
             "signal_id": 2,
