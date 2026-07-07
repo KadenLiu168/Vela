@@ -57,10 +57,10 @@
 
   /* 3. Typography families */
   /* --font-berkeley-mono name follows the design intent (Linear uses
-     Berkeley Mono). JetBrains Mono is the OFL substitute loaded as the
+     Berkeley Mono). IBM Plex Mono is the OFL substitute loaded as the
      served woff2; Berkeley Mono would resolve if/when added. */
   --font-inter-variable: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-berkeley-mono: "JetBrains Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-berkeley-mono: "IBM Plex Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   /* --font-display is the editorial mono applied to .panel-heading h3
      and .page-heading h1. IBM Plex Mono (OFL) is loaded as three woff2
      files in apps/web/public/fonts/ (Regular / Medium / SemiBold).

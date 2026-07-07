@@ -9,24 +9,20 @@
  *
  * Fonts are self-hosted from apps/web/public/fonts/ with font-display: swap:
  *   - InterVariable.woff2           : Inter Variable (300–700, OFL)
- *   - JetBrainsMono-Regular.woff2   : JetBrains Mono weight 400 (OFL)
- *   - JetBrainsMono-Medium.woff2    : JetBrains Mono weights 500–600 (OFL)
  *   - IBMPlexMono-Regular.woff2     : IBM Plex Mono weight 400 (OFL)
  *   - IBMPlexMono-Medium.woff2      : IBM Plex Mono weight 500 (OFL)
  *   - IBMPlexMono-SemiBold.woff2    : IBM Plex Mono weight 600 (OFL)
  *
- * JetBrains Mono is the OFL substitute for the design intent
- * `--font-berkeley-mono`. The token value chain in tokens.css puts
- * JetBrains Mono first so the served woff2 actually renders; Berkeley
- * Mono would resolve if/when added to apps/web/public/fonts/.
+ * IBM Plex Mono serves both `--font-berkeley-mono` (data mono token) and
+ * `--font-display` (editorial display token). The two tokens resolve to
+ * the same physical font family; hierarchy is created through weight and
+ * size (SemiBold 600 for headings, Medium 500 for data, Regular 400 for
+ * labels). Both tokens enable `tnum` + `zero` OpenType features so
+ * numeric content gets tabular numerals and slashed zeros by default.
  *
- * IBM Plex Mono is the OFL substitute for the design intent
- * `--font-display`. The token chain puts IBM Plex Mono first; Söhne Mono
- * would resolve if/when added. The IBM Plex Mono `@font-face` rule
- * below also enables `tnum` + `zero` OpenType features so numeric
- * content rendered through `--font-display` (or `--font-berkeley-mono`
- * which shares the same fallback chain) gets tabular numerals and
- * slashed zeros by default.
+ * Söhne Mono and Berkeley Mono are the respective design intents for
+ * `--font-display` and `--font-berkeley-mono`; they would resolve
+ * if/when added to apps/web/public/fonts/.
  */
 @import url("./styles/tokens.css");
 
@@ -38,24 +34,6 @@
   font-style: normal;
   font-display: swap;
   font-feature-settings: var(--font-feature-settings-default);
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  font-feature-settings: "tnum", "zero";
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
-  font-weight: 500 600;
-  font-style: normal;
-  font-display: swap;
-  font-feature-settings: "tnum", "zero";
 }
 
 @font-face {
