@@ -302,7 +302,7 @@ it("derives Signal panel status pill from signal state", async () => {
   render(<App />);
 
   const signalPanel = await screen.findByTestId("workflow-panel-signal");
-  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(signalPill).not.toBeNull();
   expect(signalPill).toHaveTextContent("Active");
   expect(signalPill).toHaveClass("status-pill-success");
@@ -322,7 +322,7 @@ it("renders Signal panel status pill as No data when the signal is missing", asy
   render(<App />);
 
   const signalPanel = await screen.findByTestId("workflow-panel-signal");
-  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const signalPill = (signalPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(signalPill).not.toBeNull();
   expect(signalPill).toHaveTextContent("No data");
   expect(signalPill).toHaveClass("status-pill-neutral");
@@ -337,7 +337,7 @@ it("derives Backtest panel status pill from recent backtest state", async () => 
   render(<App />);
 
   const backtestPanel = await screen.findByTestId("workflow-panel-backtest");
-  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(backtestPill).not.toBeNull();
   expect(backtestPill).toHaveTextContent("Active");
   expect(backtestPill).toHaveClass("status-pill-success");
@@ -357,7 +357,7 @@ it("renders Backtest panel status pill as No data when the backtest is missing",
   render(<App />);
 
   const backtestPanel = await screen.findByTestId("workflow-panel-backtest");
-  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const backtestPill = (backtestPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(backtestPill).not.toBeNull();
   expect(backtestPill).toHaveTextContent("No data");
   expect(backtestPill).toHaveClass("status-pill-neutral");
@@ -372,7 +372,7 @@ it("derives Fetches panel status pill from the latest log row", async () => {
   render(<App />);
 
   const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
-  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(fetchesPill).not.toBeNull();
   expect(fetchesPill).toHaveTextContent("Partial");
   expect(fetchesPill).toHaveClass("status-pill-partial");
@@ -403,7 +403,7 @@ it("renders Fetches panel status pill as Errors when the latest log is failed", 
   render(<App />);
 
   const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
-  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(fetchesPill).not.toBeNull();
   expect(fetchesPill).toHaveTextContent("Errors");
   expect(fetchesPill).toHaveClass("status-pill-error");
@@ -423,7 +423,7 @@ it("renders Fetches panel status pill as No data when the log list is empty", as
   render(<App />);
 
   const fetchesPanel = await screen.findByTestId("workflow-panel-fetches");
-  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-start .status-pill");
+  const fetchesPill = (fetchesPanel as HTMLElement).querySelector(".panel-heading-end .status-pill");
   expect(fetchesPill).not.toBeNull();
   expect(fetchesPill).toHaveTextContent("No data");
   expect(fetchesPill).toHaveClass("status-pill-neutral");

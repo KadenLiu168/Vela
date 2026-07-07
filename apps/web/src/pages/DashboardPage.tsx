@@ -814,11 +814,13 @@ function StatusPillBadge({ label, variant }: StatusPill) {
 function PanelHeading({ eyebrow, title, statusPill }: { eyebrow?: string; title: string; statusPill?: StatusPill }) {
   return (
     <div className="panel-heading">
-      <div className="panel-heading-start">
-        <h3>{title}</h3>
-        {statusPill ? <StatusPillBadge {...statusPill} /> : null}
-      </div>
-      {eyebrow ? <span>{eyebrow}</span> : null}
+      <h3>{title}</h3>
+      {eyebrow || statusPill ? (
+        <div className="panel-heading-end">
+          {statusPill ? <StatusPillBadge {...statusPill} /> : null}
+          {eyebrow ? <span>{eyebrow}</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
