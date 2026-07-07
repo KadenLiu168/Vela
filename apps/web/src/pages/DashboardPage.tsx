@@ -815,6 +815,8 @@ function getFirstRunGuidance(state: DashboardState): string | null {
   return null;
 }
 
+type EmptyActionVariant = "button-primary" | "button-secondary" | "button-tertiary";
+
 function EmptyAction({
   actionLabel,
   className,
@@ -822,7 +824,8 @@ function EmptyAction({
   isDisabled = false,
   loadingLabel,
   message,
-  onClick
+  onClick,
+  variant = "button-secondary"
 }: {
   actionLabel: string;
   className?: string;
@@ -831,13 +834,14 @@ function EmptyAction({
   loadingLabel?: string;
   message: string;
   onClick?: () => void;
+  variant?: EmptyActionVariant;
 }) {
   return (
     <div className={className}>
       <EmptyState>{message}</EmptyState>
       <div className="operation-list empty-action">
         <button
-          className="button-secondary"
+          className={variant}
           type="button"
           disabled={isDisabled || isLoading || !onClick}
           onClick={onClick}

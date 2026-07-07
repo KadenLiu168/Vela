@@ -65,6 +65,7 @@
   --tracking-body-sm: -0.165px;
   --text-body: 16px;
   --leading-body: 1.5;
+  --leading-snug: 1.4;
   /* Body-size ladder (14 / 16 / 17) — paired with --leading-* at 1.5 */
   --text-14: 14px;
   --leading-14: 1.5;
