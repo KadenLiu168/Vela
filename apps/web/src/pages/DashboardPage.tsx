@@ -53,38 +53,6 @@ type DashboardPageProps = {
   onBacktestFormChange?: (form: BacktestFormState) => void;
 };
 
-// Market data display helpers
-const CATEGORY_LABEL: Record<string, string> = {
-  equity_us: "US Equities",
-  equity_hk: "HK Equities",
-  equity_cn: "China Equities",
-  bond: "Bonds",
-};
-
-const CATEGORY_COLOR: Record<string, string> = {
-  equity_us: "var(--color-iris-violet)",
-  equity_hk: "var(--color-signal-teal)",
-  equity_cn: "var(--color-coral-red)",
-  bond: "var(--color-coral-red)",
-};
-
-function groupEtfsByCategory<T extends { category: string | null | undefined }>(
-  etfs: readonly T[]
-): Array<{ category: string; label: string; color: string; etfs: T[] }> {
-  const groups = new Map<string, T[]>();
-  for (const etf of etfs) {
-    const key = etf.category ?? "other";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(etf);
-  }
-  return Array.from(groups.entries()).map(([category, etfs]) => ({
-    category,
-    label: CATEGORY_LABEL[category] ?? category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    color: CATEGORY_COLOR[category] ?? "var(--color-fog)",
-    etfs,
-  }));
-}
-
 export function DashboardPage({
   backtestForm: externalBacktestForm,
   onBacktestFormChange
@@ -333,21 +301,13 @@ export function DashboardPage({
             />
           ) : null}
           {data?.market_data.etf_list != null && data.market_data.etf_list.length > 0 ? (
-            <div className="etf-groups">
-              {groupEtfsByCategory(data.market_data.etf_list).map((group) => (
-                <div className="etf-group" key={group.category}>
-                  <h4 className="etf-group-heading">
-                    <span className="etf-group-bar" style={{ backgroundColor: group.color }} />
-                    {group.label}
-                  </h4>
-                  {group.etfs.map((etf) => (
-                    <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
-                      <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
-                      <span className="etf-row-symbol">{etf.symbol}</span>
-                      <span className="etf-row-dot">·</span>
-                      <span className="etf-row-name">{etf.name}</span>
-                    </div>
-                  ))}
+            <div className="etf-row-list">
+              {data.market_data.etf_list.map((etf) => (
+                <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
+                  <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
+                  <span className="etf-row-symbol">{etf.symbol}</span>
+                  <span className="etf-row-dot">·</span>
+                  <span className="etf-row-name">{etf.name}</span>
                 </div>
               ))}
             </div>
