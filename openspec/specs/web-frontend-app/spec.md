@@ -114,3 +114,29 @@ capability.
 - **AND** the visual outcome is byte-identical to the
       pre-change render of those two call sites
 
+### Requirement: PanelHeading 标签语义一致性
+
+The web frontend Dashboard SHALL use semantically consistent PanelHeading label pairs across all workflow cards, eliminating redundant or conflicting eyebrow/title combinations.
+
+#### Scenario: Market card shows domain-content labels
+
+- **WHEN** the Dashboard renders the Market panel
+- **THEN** the PanelHeading SHALL display `Market` as eyebrow and `Price data` as title
+
+#### Scenario: Strategy card shows domain-content labels
+
+- **WHEN** the Dashboard renders the Strategy panel
+- **THEN** the PanelHeading SHALL display `Strategy` as eyebrow and `Parameters` as title
+
+#### Scenario: Signal card shows contextual result labels
+
+- **WHEN** the Dashboard renders the Signal panel
+- **THEN** the PanelHeading SHALL display `Signal` as eyebrow and `Latest result` as title
+- **AND** the statusPill SHALL be preserved in its current position
+
+#### Scenario: Backtest card shows contextual result labels
+
+- **WHEN** the Dashboard renders the Backtest panel
+- **THEN** the PanelHeading SHALL display `Backtest` as eyebrow and `Latest result` as title
+- **AND** the statusPill SHALL be preserved in its current position
+

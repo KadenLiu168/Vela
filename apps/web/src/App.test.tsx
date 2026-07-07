@@ -28,7 +28,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(await screen.findByText("Dashboard loaded")).toBeInTheDocument();
   expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
   expect(screen.getByText("8 ETFs")).toBeInTheDocument();
-  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  const marketPanel = screen.getByRole("heading", { name: "Price data" }).closest("article");
   expect(marketPanel).not.toBeNull();
   const market = within(marketPanel as HTMLElement);
   expect(market.getByText("Price rows")).toBeInTheDocument();
@@ -43,7 +43,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(market.getByText("SPY ETF")).toBeInTheDocument();
   expect(market.getByText("QQQ")).toBeInTheDocument();
   expect(market.getByText("QQQ ETF")).toBeInTheDocument();
-  const strategyPanel = screen.getByRole("heading", { name: "Strategy summary" }).closest("article");
+  const strategyPanel = screen.getByRole("heading", { name: "Parameters" }).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
   expect(strategy.getByText("dual_momentum")).toBeInTheDocument();
@@ -53,7 +53,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(strategy.getByText("2")).toBeInTheDocument();
   expect(strategy.getByText("SSE:511010")).toBeInTheDocument();
   expect(strategy.getByText("5 bps")).toBeInTheDocument();
-  const signalPanel = screen.getByRole("heading", { name: "Signal" }).closest("article");
+  const signalPanel = screen.getByTestId("workflow-panel-signal");
   expect(signalPanel).not.toBeNull();
   const signal = within(signalPanel as HTMLElement);
   expect(signal.getByText("Signal #42")).toBeInTheDocument();
@@ -66,7 +66,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
     "href",
     "/signals/42"
   );
-  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
+  const backtestPanel = screen.getByTestId("workflow-panel-backtest");
   expect(backtestPanel).not.toBeNull();
   const backtest = within(backtestPanel as HTMLElement);
   expect(backtest.getByText("Backtest #7")).toBeInTheDocument();
@@ -145,13 +145,13 @@ it("renders empty dashboard states without treating the response as a failure", 
   );
   expect(signalEmptyState).toBeInTheDocument();
   expect(signalEmptyState).toHaveClass("status-surface", "status-surface-empty", "empty-state");
-  const signalPanel = screen.getByRole("heading", { name: "Signal" }).closest("article");
+  const signalPanel = screen.getByTestId("workflow-panel-signal");
   expect(signalPanel).not.toBeNull();
   expect(within(signalPanel as HTMLElement).getByRole("button", { name: "Generate signal" })).toBeEnabled();
   expect(
     screen.getByText("No local backtest run exists yet. Enter a date range in Operations, then run a backtest.")
   ).toBeInTheDocument();
-  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
+  const backtestPanel = screen.getByTestId("workflow-panel-backtest");
   expect(backtestPanel).not.toBeNull();
   expect(
     within(backtestPanel as HTMLElement).queryByRole("button", { name: "Run backtest" })
@@ -215,7 +215,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(
     screen.getByText("No local market data is available yet. Fetch market data to start using the dashboard.")
   ).toBeInTheDocument();
-  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  const marketPanel = screen.getByRole("heading", { name: "Price data" }).closest("article");
   expect(marketPanel).not.toBeNull();
   expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getAllByRole("button", { name: "Fetch market data" })).toHaveLength(2);
@@ -238,7 +238,7 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
     screen.getByText("Run vela init-db to initialize the local database, then fetch market data.")
   ).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Price data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
@@ -270,8 +270,8 @@ it("manually refreshes Dashboard status from the shared Dashboard API", async ()
             earliest_trade_date: "2025-01-02",
             latest_trade_date: dashboardRequestCount === 1 ? "2026-06-23" : "2026-06-25",
             etf_list: [
-              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
-              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
             ],
           }
         })
@@ -488,8 +488,8 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
             earliest_trade_date: "2025-01-02",
             latest_trade_date: "2026-06-24",
             etf_list: [
-              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
-              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
             ],
           }
         })
@@ -648,8 +648,8 @@ it("triggers bootstrap and displays three-step status", async () => {
             earliest_trade_date: "2024-01-02",
             latest_trade_date: "2026-06-24",
             etf_list: [
-              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
-              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
             ],
           }
         })
@@ -866,8 +866,7 @@ it("triggers signal generation and refreshes latest signal data", async () => {
 
   render(<App />);
 
-  const signalPanel = await screen.findByRole("heading", { name: "Signal" });
-  const signalArticle = signalPanel.closest("article");
+  const signalArticle = await screen.findByTestId("workflow-panel-signal");
   expect(signalArticle).not.toBeNull();
   const button = within(signalArticle as HTMLElement).getByRole("button", { name: "Generate signal" });
   fireEvent.click(button);
@@ -966,8 +965,7 @@ it("restores Dashboard latest signal status from backend data after browser refr
 
   render(<App />);
 
-  const signalPanel = await screen.findByRole("heading", { name: "Signal" });
-  const signalArticle = signalPanel.closest("article");
+  const signalArticle = await screen.findByTestId("workflow-panel-signal");
   expect(signalArticle).not.toBeNull();
   const signal = within(signalArticle as HTMLElement);
   expect(await signal.findByText("Signal #43")).toBeInTheDocument();
@@ -1134,7 +1132,7 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
     "href",
     "/backtests/8"
   );
-  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
+  const backtestPanel = screen.getByTestId("workflow-panel-backtest");
   expect(backtestPanel).not.toBeNull();
   const recentBacktest = within(backtestPanel as HTMLElement);
   expect(await recentBacktest.findByText("Backtest #8")).toBeInTheDocument();
@@ -1285,7 +1283,7 @@ it("clears a prior Dashboard backtest summary when a later run fails", async () 
   ).toBeInTheDocument();
   expect(screen.queryByText("Backtest run success")).not.toBeInTheDocument();
   expect(within(operationsPanel as HTMLElement).queryByRole("link", { name: "View backtest detail" })).not.toBeInTheDocument();
-  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
+  const backtestPanel = screen.getByTestId("workflow-panel-backtest");
   expect(backtestPanel).not.toBeNull();
   expect(within(backtestPanel as HTMLElement).getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
@@ -1308,7 +1306,7 @@ it("restores Dashboard recent backtest status from backend data after browser re
 
   render(<App />);
 
-  const backtestPanel = screen.getByRole("heading", { name: "Backtest" }).closest("article");
+  const backtestPanel = screen.getByTestId("workflow-panel-backtest");
   expect(backtestPanel).not.toBeNull();
   const backtest = within(backtestPanel as HTMLElement);
   expect(await backtest.findByText("Backtest #7")).toBeInTheDocument();
@@ -1751,8 +1749,8 @@ function createDashboardResponse() {
       earliest_trade_date: "2025-01-02",
       latest_trade_date: "2026-06-23",
       etf_list: [
-        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
-        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
+        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
       ],
     },
     latest_signal: {

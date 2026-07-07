@@ -248,7 +248,7 @@ export function DashboardPage() {
 
       <div className="dashboard-grid" aria-label="Dashboard workflow summary">
         <article className="dashboard-panel market-panel">
-          <PanelHeading eyebrow="Market" title="Market data" />
+          <PanelHeading eyebrow="Market" title="Price data" />
           <div className="metric-row">
             <Metric
               label="Price rows"
@@ -286,7 +286,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel strategy-panel">
-          <PanelHeading eyebrow="Strategy" title="Strategy summary" />
+          <PanelHeading eyebrow="Strategy" title="Parameters" />
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
             <Detail label="Version" value={data?.strategy.version ?? "Loading"} />
@@ -404,7 +404,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel signal-panel" data-testid="workflow-panel-signal">
-          <PanelHeading eyebrow="Latest" title="Signal" statusPill={signalStatusPill} />
+          <PanelHeading eyebrow="Signal" title="Latest result" statusPill={signalStatusPill} />
           <SignalSummary
             signal={data?.latest_signal}
             isDisabled={signalGenerationAction.isDisabled}
@@ -415,7 +415,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel backtest-panel" data-testid="workflow-panel-backtest">
-          <PanelHeading eyebrow="Latest" title="Backtest" statusPill={backtestStatusPill} />
+          <PanelHeading eyebrow="Backtest" title="Latest result" statusPill={backtestStatusPill} />
           <BacktestSummary
             backtest={data?.recent_backtest}
             isLoading={dashboardState.status === "loading"}
