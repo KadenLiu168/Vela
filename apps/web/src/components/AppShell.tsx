@@ -9,6 +9,7 @@ type AppShellProps = {
   activePath: string;
   apiBaseUrl: string;
   children: ReactNode;
+  commandPalette?: ReactNode;
   navItems: NavItem[];
   onNavigate: (path: string) => void;
 };
@@ -17,6 +18,7 @@ export function AppShell({
   activePath,
   apiBaseUrl,
   children,
+  commandPalette,
   navItems,
   onNavigate
 }: AppShellProps) {
@@ -45,6 +47,7 @@ export function AppShell({
         </nav>
       </header>
       <main>{children}</main>
+      {commandPalette}
     </div>
   );
 }

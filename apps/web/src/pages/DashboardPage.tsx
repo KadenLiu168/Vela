@@ -48,7 +48,15 @@ type BacktestFormState = {
   endDate: string;
 };
 
-export function DashboardPage() {
+type DashboardPageProps = {
+  backtestForm?: BacktestFormState;
+  onBacktestFormChange?: (form: BacktestFormState) => void;
+};
+
+export function DashboardPage({
+  backtestForm: externalBacktestForm,
+  onBacktestFormChange
+}: DashboardPageProps = {}) {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading"
   });
@@ -59,10 +67,12 @@ export function DashboardPage() {
   const [signalGenerationResult, setSignalGenerationResult] =
     useState<StrategySignalGenerationResponse | null>(null);
   const [backtestRunResult, setBacktestRunResult] = useState<BacktestRunResponse | null>(null);
-  const [backtestForm, setBacktestForm] = useState<BacktestFormState>({
+  const [internalForm, setInternalForm] = useState<BacktestFormState>({
     startDate: "",
     endDate: ""
   });
+  const backtestForm = externalBacktestForm ?? internalForm;
+  const updateBacktestForm = onBacktestFormChange ?? setInternalForm;
   const [backtestValidationError, setBacktestValidationError] = useState<string | null>(null);
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapResponse | null>(null);
 
@@ -379,10 +389,10 @@ export function DashboardPage() {
                 placeholder="YYYY-MM-DD"
                 value={backtestForm.startDate}
                 onChange={(event) => {
-                  setBacktestForm((current) => ({
-                    ...current,
+                  updateBacktestForm({
+                    ...backtestForm,
                     startDate: event.target.value
-                  }));
+                  });
                 }}
               />
             </label>
@@ -394,10 +404,10 @@ export function DashboardPage() {
                 placeholder="YYYY-MM-DD"
                 value={backtestForm.endDate}
                 onChange={(event) => {
-                  setBacktestForm((current) => ({
-                    ...current,
+                  updateBacktestForm({
+                    ...backtestForm,
                     endDate: event.target.value
-                  }));
+                  });
                 }}
               />
             </label>

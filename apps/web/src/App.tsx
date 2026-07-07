@@ -1,5 +1,18 @@
-import { useEffect, useState } from "react";
-import { getApiBaseUrl } from "./api/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ActionRow,
+  type PageRow,
+  CommandPalette
+} from "./components";
+import {
+  getApiBaseUrl,
+  getDashboard,
+  getLatestStrategySignal,
+  listBacktests,
+  runBacktest,
+  bootstrapLocalDatabase,
+  generateStrategySignal
+} from "./api/client";
 import { type NavItem, AppShell } from "./components/AppShell";
 import { ErrorBoundary } from "./components";
 import { BacktestDetailPage } from "./pages/BacktestDetailPage";
@@ -12,8 +25,36 @@ const navItems: NavItem[] = [
   { href: "/backtests", label: "Backtest Detail" }
 ];
 
+const pageRows: PageRow[] = navItems.map((item) => ({
+  kind: "page" as const,
+  id: `page-${item.href === "/" ? "dashboard" : item.href.replace(/^\//, "").replace(/\//g, "-")}`,
+  label: item.label,
+  path: item.href,
+  keywords: []
+}));
+
 export default function App() {
   const [path, setPath] = useState(getCurrentPath);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const isPaletteOpenRef = useRef(isPaletteOpen);
+
+  // Lifted backtest form state from DashboardPage
+  const [backtestStartDate, setBacktestStartDate] = useState("");
+  const [backtestEndDate, setBacktestEndDate] = useState("");
+  const backtestStartDateRef = useRef(backtestStartDate);
+  const backtestEndDateRef = useRef(backtestEndDate);
+
+  useEffect(() => {
+    backtestStartDateRef.current = backtestStartDate;
+  }, [backtestStartDate]);
+
+  useEffect(() => {
+    backtestEndDateRef.current = backtestEndDate;
+  }, [backtestEndDate]);
+
+  useEffect(() => {
+    isPaletteOpenRef.current = isPaletteOpen;
+  }, [isPaletteOpen]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -27,6 +68,35 @@ export default function App() {
     };
   }, []);
 
+  // Global keydown: open palette via Cmd+K / Ctrl+K / /
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isFormInput =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable;
+
+      // Cmd+K / Ctrl+K — toggle palette
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // Slash — open palette when not in a form input
+      if (!isFormInput && e.key === "/" && !isPaletteOpenRef.current) {
+        e.preventDefault();
+        setIsPaletteOpen(true);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const navigate = (nextPath: string) => {
     if (nextPath !== getCurrentPath()) {
       window.history.pushState({}, "", nextPath);
@@ -35,19 +105,76 @@ export default function App() {
     setPath(nextPath);
   };
 
+  // Actions for the command palette
+  const [paletteActions] = useState<ActionRow[]>(() => [
+    {
+      kind: "action",
+      id: "action-bootstrap",
+      label: "Bootstrap local database",
+      path: null,
+      keywords: ["setup", "init"],
+      action: async () => {
+        await bootstrapLocalDatabase();
+      }
+    },
+    {
+      kind: "action",
+      id: "action-generate-signal",
+      label: "Generate strategy signal",
+      path: null,
+      keywords: ["signal"],
+      action: async () => {
+        await generateStrategySignal();
+      }
+    },
+    {
+      kind: "action",
+      id: "action-run-backtest",
+      label: "Run backtest",
+      path: null,
+      keywords: ["backtest", "run"],
+      action: async () => {
+        await runBacktest(backtestStartDateRef.current, backtestEndDateRef.current);
+      }
+    }
+  ]);
+
+  // Stable fetch callbacks to avoid re-triggering CommandPalette's data effect
+  const fetchBacktestsCb = useCallback(() => listBacktests(10), []);
+  const fetchDashboardCb = useCallback(() => getDashboard(), []);
+  const fetchLatestSignalCb = useCallback(() => getLatestStrategySignal(), []);
+
   return (
     <AppShell
       activePath={getActivePath(path)}
       apiBaseUrl={getApiBaseUrl()}
+      commandPalette={
+        <CommandPalette
+          actions={paletteActions}
+          fetchBacktests={fetchBacktestsCb}
+          fetchDashboard={fetchDashboardCb}
+          fetchLatestSignal={fetchLatestSignalCb}
+          isOpen={isPaletteOpen}
+          onClose={() => setIsPaletteOpen(false)}
+          onNavigate={navigate}
+          pages={pageRows}
+        />
+      }
       navItems={navItems}
       onNavigate={navigate}
     >
-      <ErrorBoundary>{renderRoute(path)}</ErrorBoundary>
+      <ErrorBoundary>{renderRoute(path, backtestStartDate, backtestEndDate, setBacktestStartDate, setBacktestEndDate)}</ErrorBoundary>
     </AppShell>
   );
 }
 
-function renderRoute(path: string) {
+function renderRoute(
+  path: string,
+  backtestStartDate?: string,
+  backtestEndDate?: string,
+  setBacktestStartDate?: (value: string) => void,
+  setBacktestEndDate?: (value: string) => void
+) {
   const signalMatch = path.match(/^\/signals\/([^/]+)$/);
 
   if (signalMatch) {
@@ -64,7 +191,19 @@ function renderRoute(path: string) {
     return <BacktestDetailPage backtestId={decodeURIComponent(backtestMatch[1])} />;
   }
 
-  return <DashboardPage />;
+  return (
+    <DashboardPage
+      backtestForm={{ startDate: backtestStartDate ?? "", endDate: backtestEndDate ?? "" }}
+      onBacktestFormChange={
+        setBacktestStartDate && setBacktestEndDate
+          ? (form) => {
+              setBacktestStartDate(form.startDate);
+              setBacktestEndDate(form.endDate);
+            }
+          : undefined
+      }
+    />
+  );
 }
 
 function getActivePath(path: string): string {
