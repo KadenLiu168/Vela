@@ -1,0 +1,48 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "rules": {
+    "selector-disallowed-list": [
+      "/\\.operation-list\\s+button/",
+      "/\\.operation-list\\s+>\\s+button/",
+      "/\\.dashboard-refresh-action/",
+      "/\\.operation-list\\s+button:hover/"
+    ],
+    "declaration-property-value-disallowed-list": {
+      "/^line-height$/": [
+        "/^[0-9.]+\\s*$/",
+        "/^[0-9.]+(px|em|rem|%)/"
+      ],
+      "/^border-radius$/": [
+        "/^[0-9]+(px|em|rem)$/"
+      ],
+      "/^background-color$/": [
+        "/var\\(--color-acid-lime\\)/"
+      ],
+      "/^outline-color$/": [
+        "/var\\(--color-acid-lime\\)/"
+      ]
+    },
+    "color-no-invalid-hex": true,
+    "declaration-empty-line-before": null,
+    "rule-empty-line-before": null,
+    "no-descending-specificity": null,
+    "value-keyword-case": null,
+    "comment-empty-line-before": null,
+    "color-function-notation": null,
+    "alpha-value-notation": null,
+    "comment-whitespace-inside": null,
+    "media-feature-range-notation": null,
+    "color-hex-length": null,
+    "selector-class-pattern": null,
+    "declaration-block-no-shorthand-property-overrides": null
+  },
+  "overrides": [
+    {
+      "files": ["src/styles/tokens.css"],
+      "rules": {
+        "selector-class-pattern": null,
+        "no-empty-source": null
+      }
+    }
+  ]
+}

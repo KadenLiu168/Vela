@@ -17,7 +17,7 @@
  * JetBrains Mono first so the served woff2 actually renders; Berkeley
  * Mono would resolve if/when added to apps/web/public/fonts/.
  */
-@import "./styles/tokens.css";
+@import url("./styles/tokens.css");
 
 
 @font-face {
@@ -47,11 +47,6 @@
 /* Inter Variable OT features — applied to default body text.
    Token resolves to "cv01", "ss03", "zero", "calt" per the
    design-system capability. */
-body {
-  font-feature-settings: var(--font-feature-settings-default);
-}
-
-
 *,
 *::before,
 *::after {
@@ -62,6 +57,7 @@ body {
   background: var(--surface-void);
   color: var(--color-mist);
   font-family: var(--font-inter-variable);
+  font-feature-settings: var(--font-feature-settings-default);
   color-scheme: dark;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -450,7 +446,7 @@ main {
 }
 
 .etf-row-bar {
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   height: 20px;
   width: 3px;
@@ -530,7 +526,7 @@ main {
 
 .status-pill {
   align-items: center;
-  border: 1px solid currentColor;
+  border: 1px solid currentcolor;
   border-radius: var(--radius-sm);
   color: var(--color-ash);
   display: inline-flex;
@@ -1336,7 +1332,7 @@ main {
   }
 }
 
-@media (max-width: 1024px) {
+@media (width <= 1024px) {
   .app-shell {
     padding: var(--spacing-36) var(--spacing-24);
   }
@@ -1380,7 +1376,7 @@ main {
   }
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .app-header,
   .dashboard-heading {
     align-items: flex-start;
@@ -1431,7 +1427,7 @@ main {
   }
 }
 
-@media (max-width: 720px) {
+@media (width <= 720px) {
   .app-shell {
     padding: var(--spacing-20);
   }
