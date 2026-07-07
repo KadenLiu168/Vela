@@ -477,6 +477,91 @@ main {
   white-space: nowrap;
 }
 
+/* ── Coverage timeline ── */
+.coverage-timeline {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-12);
+  margin: var(--spacing-12) 0;
+}
+
+.coverage-timeline-end {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--spacing-2);
+}
+
+.coverage-timeline-label {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  text-transform: uppercase;
+}
+
+.coverage-timeline-date {
+  color: var(--color-paper);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.coverage-timeline-bar {
+  flex: 1;
+  height: 2px;
+  background: var(--color-graphite);
+  border-radius: 1px;
+  min-width: 40px;
+}
+
+/* ── Grouped ETF list ── */
+.etf-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  margin: var(--spacing-16) 0 0;
+}
+
+.etf-group {
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-8) var(--spacing-12);
+}
+
+.etf-group-heading {
+  align-items: center;
+  color: var(--color-fog);
+  display: flex;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  gap: var(--spacing-8);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  margin: 0 0 var(--spacing-4);
+  text-transform: uppercase;
+}
+
+.etf-group-bar {
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 12px;
+  width: 3px;
+}
+
+.etf-group .etf-row {
+  padding: var(--spacing-2) var(--spacing-4);
+}
+
+.etf-group .etf-row:first-of-type {
+  border-top: none;
+}
+
 .operations-panel {
   grid-column: span 3;
   min-height: auto;

@@ -53,6 +53,38 @@ type DashboardPageProps = {
   onBacktestFormChange?: (form: BacktestFormState) => void;
 };
 
+// Market data display helpers
+const CATEGORY_LABEL: Record<string, string> = {
+  equity_us: "US Equities",
+  equity_hk: "HK Equities",
+  equity_cn: "China Equities",
+  bond: "Bonds",
+};
+
+const CATEGORY_COLOR: Record<string, string> = {
+  equity_us: "var(--color-iris-violet)",
+  equity_hk: "var(--color-signal-teal)",
+  equity_cn: "var(--color-coral-red)",
+  bond: "var(--color-coral-red)",
+};
+
+function groupEtfsByCategory<T extends { category: string | null | undefined }>(
+  etfs: readonly T[]
+): Array<{ category: string; label: string; color: string; etfs: T[] }> {
+  const groups = new Map<string, T[]>();
+  for (const etf of etfs) {
+    const key = etf.category ?? "other";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(etf);
+  }
+  return Array.from(groups.entries()).map(([category, etfs]) => ({
+    category,
+    label: CATEGORY_LABEL[category] ?? category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    color: CATEGORY_COLOR[category] ?? "var(--color-fog)",
+    etfs,
+  }));
+}
+
 export function DashboardPage({
   backtestForm: externalBacktestForm,
   onBacktestFormChange
@@ -277,6 +309,19 @@ export function DashboardPage({
               value={data ? `${formatInteger(data.market_data.covered_etfs)} ETFs` : "Loading"}
             />
           </div>
+          {data?.market_data.earliest_trade_date && data?.market_data.latest_trade_date ? (
+            <div className="coverage-timeline">
+              <span className="coverage-timeline-end">
+                <span className="coverage-timeline-label">Earliest</span>
+                <time className="coverage-timeline-date">{formatDate(data.market_data.earliest_trade_date)}</time>
+              </span>
+              <div className="coverage-timeline-bar" />
+              <span className="coverage-timeline-end">
+                <span className="coverage-timeline-label">Latest</span>
+                <time className="coverage-timeline-date">{formatDate(data.market_data.latest_trade_date)}</time>
+              </span>
+            </div>
+          ) : null}
           {data?.market_data.price_rows === 0 ? (
             <EmptyAction
               actionLabel="Fetch market data"
@@ -288,21 +333,25 @@ export function DashboardPage({
             />
           ) : null}
           {data?.market_data.etf_list != null && data.market_data.etf_list.length > 0 ? (
-            <div className="etf-row-list">
-              {data.market_data.etf_list.map((etf) => (
-                <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
-                  <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
-                  <span className="etf-row-symbol">{etf.symbol}</span>
-                  <span className="etf-row-dot">·</span>
-                  <span className="etf-row-name">{etf.name}</span>
+            <div className="etf-groups">
+              {groupEtfsByCategory(data.market_data.etf_list).map((group) => (
+                <div className="etf-group" key={group.category}>
+                  <h4 className="etf-group-heading">
+                    <span className="etf-group-bar" style={{ backgroundColor: group.color }} />
+                    {group.label}
+                  </h4>
+                  {group.etfs.map((etf) => (
+                    <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
+                      <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
+                      <span className="etf-row-symbol">{etf.symbol}</span>
+                      <span className="etf-row-dot">·</span>
+                      <span className="etf-row-name">{etf.name}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
           ) : null}
-          <dl className="compact-list">
-            <Detail label="Earliest trade date" value={formatDate(data?.market_data.earliest_trade_date)} />
-            <Detail label="Latest trade date" value={formatDate(data?.market_data.latest_trade_date)} />
-          </dl>
         </article>
 
         <article className="dashboard-panel strategy-panel">
