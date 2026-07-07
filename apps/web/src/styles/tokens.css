@@ -13,13 +13,16 @@
  *   3. Typography families  --font-*
  *   4. Typography scale     --text-*, --leading-*, --tracking-*
  *   5. Font weights         --font-weight-*
- *   6. Spacing              --spacing-*
+ *   6. Spacing              --spacing-* (primitives),
+ *                             --space-* (8px-grid semantic ladder)
  *   7. Layout               --page-max-width, --section-gap,
  *                             --card-padding, --element-gap
  *   8. Border radius        --radius-*
  *   9. Shadow               --shadow-*
  *  10. Feedback accents     --feedback-accent-*, --focus-ring-color
  *  11. Motion               --duration-*, --ease-out
+ *  12. Font features        --font-feature-settings-default
+ *  13. Card primitives      --card-*
  */
 
 :root {
@@ -60,13 +63,21 @@
   --text-body-sm: 15px;
   --leading-body-sm: 1.6;
   --tracking-body-sm: -0.165px;
-  --text-body: 15px;
-  --leading-body: 1.6;
+  --text-body: 16px;
+  --leading-body: 1.5;
+  /* Body-size ladder (14 / 16 / 17) — paired with --leading-* at 1.5 */
+  --text-14: 14px;
+  --leading-14: 1.5;
+  --text-16: 16px;
+  --leading-16: 1.5;
+  --text-17: 17px;
+  --leading-17: 1.5;
   --text-body-lg: 20px;
   --leading-body-lg: 1.33;
   --tracking-body-lg: -0.24px;
   --text-micro: 11px;
   --text-label: 12px;
+  --leading-label: 1.5;
   --text-subheading: 24px;
   --leading-subheading: 1.33;
   --leading-tight: 1.15;
@@ -98,7 +109,6 @@
   --spacing-16: 16px;
   --spacing-20: 20px;
   --spacing-24: 24px;
-  --spacing-28: 28px;
   --spacing-32: 32px;
   --spacing-36: 36px;
   --spacing-40: 40px;
@@ -109,7 +119,17 @@
   --spacing-80: 80px;
   --spacing-96: 96px;
   --spacing-128: 128px;
-  --spacing-140: 140px;
+
+  /* 6a. Spacing — 8px-grid semantic ladder (preferred for layout gaps).
+     Each rung aliases an existing 8px-grid primitive so the ladder
+     re-tunes automatically if the primitive ever changes. */
+  --space-xs: var(--spacing-8);
+  --space-sm: var(--spacing-16);
+  --space-md: var(--spacing-24);
+  --space-lg: var(--spacing-32);
+  --space-xl: var(--spacing-48);
+  --space-2xl: var(--spacing-64);
+  --space-3xl: var(--spacing-96);
 
   /* 7. Layout */
   --page-max-width: 1200px;
@@ -157,4 +177,18 @@
   --duration-base: 200ms;
   --duration-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* 12. Font features — Inter Variable OT features for default text */
+  --font-feature-settings-default: "cv01", "ss03", "zero", "calt";
+
+  /* 13. Card primitives — shared by .panel-primary, .dashboard-card,
+     .metric-card, and similar surfaces. Aliases onto existing primitives;
+     consumer migration is the follow-up `design-system-component-polish`. */
+  --card-bg: var(--surface-obsidian);
+  --card-border-color: rgba(255, 255, 255, 0.06);
+  --card-padding-x: var(--spacing-24);
+  --card-padding-y: var(--spacing-20);
+  --card-radius: var(--radius-cards);
+  --card-shadow: var(--shadow-subtle-3);
+  --card-gap: var(--element-gap);
 }

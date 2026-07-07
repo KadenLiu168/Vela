@@ -44,6 +44,13 @@
   font-display: swap;
 }
 
+/* Inter Variable OT features — applied to default body text.
+   Token resolves to "cv01", "ss03", "zero", "calt" per the
+   design-system capability. */
+body {
+  font-feature-settings: var(--font-feature-settings-default);
+}
+
 
 *,
 *::before,
