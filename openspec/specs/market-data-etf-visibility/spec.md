@@ -22,19 +22,31 @@ When no `MarketPrice` rows exist, `etf_list` SHALL be an empty array.
 - **THEN** `etf_list` SHALL be `[]`
 - **AND** `covered_etfs` SHALL be 0
 
-### Requirement: Dashboard UI displays ETF badges
+### Requirement: Dashboard UI displays ETF groups
 
-The Market Data card on the dashboard SHALL render each entry in `etf_list` as a badge showing `symbol` and `name`.
+The Market Data card on the dashboard SHALL render each entry in `etf_list` within category-grouped sub-panels, each showing `symbol` and `name` per row.
 
-Badges SHALL appear between the metric row (Price rows / Covered ETFs) and the compact date list (Earliest / Latest trade date). Badges SHALL flow in a flex-wrap row, each containing the symbol on the first line and the name on the second line. Badge styling SHALL use design system tokens from `tokens.css`.
+Groups SHALL appear between the coverage timeline and the card bottom. Each group SHALL be a bordered sub-panel (`.etf-group`) with:
+- A colored accent bar (3px wide, 12px tall) matching the ETF's category color
+- An uppercase category heading (e.g. "US Equities", "HK Equities", "China Equities", "Bonds")
+- ETF rows arranged in a 2-column CSS grid, each row showing symbol in monospace followed by a dot separator and the full name
 
-#### Scenario: Market data card shows ETF badges
+ETF rows SHALL NOT have per-row border-top separators; the group border provides the visual enclosure.
+
+#### Scenario: Market data card shows ETF groups
 - **WHEN** the dashboard page renders with non-empty `market_data.etf_list`
-- **THEN** each ETF badge MUST display its `symbol` and `name`
-- **AND** badges MUST be visually contained within the Market Data card
+- **THEN** each ETF SHALL be placed into a category-based `.etf-group` sub-panel
+- **AND** each ETF row MUST display its `symbol` and `name` within the group
+- **AND** groups MUST be visually contained within the Market Data card
 
 #### Scenario: Empty ETF list renders nothing
 - **WHEN** `market_data.etf_list` is `[]`
-- **THEN** no ETF badge section SHALL be rendered
+- **THEN** no `.etf-groups` container SHALL be rendered
 - **AND** the card layout SHALL remain intact
+
+#### Scenario: Category color mapping matches barColor helper
+- **WHEN** an ETF belongs to a recognized category
+- **THEN** the group heading accent bar SHALL use the same color as the ETF's `.etf-row-bar`
+- **AND** the mapping SHALL be: `equity_us` → `var(--color-iris-violet)`, `equity_hk` → `var(--color-signal-teal)`, `equity_cn` and `bond` → `var(--color-coral-red)`
+- **AND** unknown categories SHALL fall back to `var(--color-fog)`
 

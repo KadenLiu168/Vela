@@ -174,3 +174,37 @@ The `PanelHeading` component SHALL make `eyebrow` optional; cards without an eye
 - **THEN** the PanelHeading SHALL display `Data fetches` as the title with no eyebrow
 - **AND** the statusPill SHALL remain adjacent to the title
 
+### Requirement: Market data card internal layout
+
+The Market data card (`.market-panel`) SHALL render its content in the following order from top to bottom:
+
+1. **Metric row** — two `.metric` tiles in a 2-column grid: "Price rows" (total row count) and "Covered ETFs" (number of ETFs with data).
+2. **Coverage timeline** — a horizontal layout with earliest trade date on the left, a graphite connector bar in the middle, and latest trade date on the right. Each date endpoint shows a label (uppercase "Earliest" / "Latest") above the date in monospace.
+3. **ETF groups** — ETFs sorted by category into bordered sub-panels, each with a colored accent bar and uppercase category heading.
+
+#### Scenario: Coverage timeline shows date range
+
+- **WHEN** the Dashboard renders the Market panel with non-null `earliest_trade_date` and `latest_trade_date`
+- **THEN** a `.coverage-timeline` element SHALL appear between the metric row and the ETF groups
+- **AND** it SHALL display `Earliest` label above the earliest date on the left and `Latest` label above the latest date on the right
+- **AND** a `.coverage-timeline-bar` SHALL connect the two endpoints
+
+#### Scenario: Coverage timeline omitted when dates are null
+
+- **WHEN** `earliest_trade_date` or `latest_trade_date` is null
+- **THEN** NO `.coverage-timeline` SHALL be rendered
+
+#### Scenario: ETF groups are categorized
+
+- **WHEN** the Dashboard renders the Market panel with a non-empty `etf_list`
+- **THEN** each ETF SHALL be placed into a `.etf-group` sub-panel based on its `category` field
+- **AND** each `.etf-group` SHALL display an uppercase heading with a 3px-wide colored accent bar (US Equities → `var(--color-iris-violet)`, HK Equities → `var(--color-signal-teal)`, China Equities → `var(--color-coral-red)`, Bonds → `var(--color-coral-red)`)
+- **AND** ETF rows within each group SHALL be arranged in a 2-column CSS grid (`grid-template-columns: repeat(2, 1fr)`)
+- **AND** each ETF row SHALL show the symbol in monospace followed by `·` and the full name
+
+#### Scenario: Empty ETF list renders nothing
+
+- **WHEN** `etf_list` is empty
+- **THEN** no `.etf-groups` container SHALL be rendered
+- **AND** the card content SHALL stop after the coverage timeline (or metric row if timeline is also absent)
+
