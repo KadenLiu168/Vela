@@ -55,18 +55,18 @@
   --surface-obsidian: var(--color-obsidian);
   --surface-slate: var(--color-graphite);
 
-  /* 3. Typography families */
-  /* --font-berkeley-mono name follows the design intent (Linear uses
-     Berkeley Mono). IBM Plex Mono is the OFL substitute loaded as the
-     served woff2; Berkeley Mono would resolve if/when added. */
+  /* 3. Typography families — Inter Variable is the sole loaded font.
+       --font-berkeley-mono and --font-display are semantic aliases that
+       also resolve to Inter Variable at runtime. Visual hierarchy
+       (heading vs data vs body) is created through font weight and
+       letter-spacing, not through font-family switching.
+
+       Berkeley Mono and Söhne Mono remain in the fallback chains as
+       the respective design intents for --font-berkeley-mono and
+       --font-display; they would resolve if/when added. */
   --font-inter-variable: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-berkeley-mono: "IBM Plex Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  /* --font-display is the editorial mono applied to .panel-heading h3
-     and .page-heading h1. IBM Plex Mono (OFL) is loaded as three woff2
-     files in apps/web/public/fonts/ (Regular / Medium / SemiBold).
-     Söhne Mono is the design intent; IBM Plex Mono is the OFL substitute
-     (see OpenSpec change dashboard-card-typography). */
-  --font-display: "IBM Plex Mono", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-berkeley-mono: "Inter Variable", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: "Inter Variable", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* 4. Typography scale */
   --text-caption: 13px;
