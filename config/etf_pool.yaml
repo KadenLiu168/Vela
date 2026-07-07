@@ -5,33 +5,74 @@ provider: akshare
 currency: CNY
 
 etfs:
+  # 中国权益
   - exchange: SSE
     symbol: "510300"
     name: 沪深300ETF
     category: equity_cn_large
     is_active: true
+
   - exchange: SZSE
     symbol: "159915"
     name: 创业板ETF
     category: equity_cn_growth
     is_active: true
+
   - exchange: SSE
     symbol: "512100"
     name: 中证1000ETF
     category: equity_cn_small
     is_active: true
+
+  - exchange: SSE
+    symbol: "588000"
+    name: 科创50ETF
+    category: equity_cn_technology
+    is_active: true
+
+  - exchange: SSE
+    symbol: "515080"
+    name: 中证红利ETF
+    category: equity_cn_dividend
+    is_active: true
+
+  # 港股权益
+  - exchange: SSE
+    symbol: "513130"
+    name: 恒生科技ETF
+    category: equity_hk_technology
+    is_active: true
+
+  # 美股权益
+  - exchange: SSE
+    symbol: "513100"
+    name: 纳指ETF
+    category: equity_us_technology
+    is_active: true
+
   - exchange: SSE
     symbol: "513500"
     name: 标普500ETF
     category: equity_us
     is_active: true
+
+  # 商品
   - exchange: SSE
     symbol: "518880"
     name: 黄金ETF
     category: commodity_gold
     is_active: true
+
+  # 固收
   - exchange: SSE
     symbol: "511010"
     name: 国债ETF
     category: bond_cn
+    is_active: true
+
+  # 现金
+  - exchange: SSE
+    symbol: "511880"
+    name: 银华日利ETF
+    category: cash_cn
     is_active: true
