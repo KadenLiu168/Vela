@@ -212,6 +212,14 @@ export function DashboardPage() {
   const backtestStatusPill = deriveBacktestStatusPill(dashboardState, data);
   const fetchStatusPill = deriveFetchStatusPill(dashboardState, data);
 
+  const barColor = (category: string | null | undefined): string => {
+    if (category == null) return "var(--color-fog)";
+    if (category.startsWith("equity_cn") || category.startsWith("bond")) return "var(--color-coral-red)";
+    if (category.startsWith("equity_us")) return "var(--color-iris-violet)";
+    if (category.startsWith("equity_hk")) return "var(--color-signal-teal)";
+    return "var(--color-fog)";
+  };
+
   return (
     <section className="page dashboard-page">
       <div className="page-heading dashboard-heading">
@@ -270,11 +278,13 @@ export function DashboardPage() {
             />
           ) : null}
           {data?.market_data.etf_list != null && data.market_data.etf_list.length > 0 ? (
-            <div className="etf-badge-list">
+            <div className="etf-row-list">
               {data.market_data.etf_list.map((etf) => (
-                <div className="etf-badge" key={`${etf.exchange}:${etf.symbol}`}>
-                  <span className="etf-badge-symbol">{etf.symbol}</span>
-                  <span className="etf-badge-name">{etf.name}</span>
+                <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
+                  <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
+                  <span className="etf-row-symbol">{etf.symbol}</span>
+                  <span className="etf-row-dot">·</span>
+                  <span className="etf-row-name">{etf.name}</span>
                 </div>
               ))}
             </div>

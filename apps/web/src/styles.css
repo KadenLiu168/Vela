@@ -428,34 +428,53 @@ main {
   background: var(--surface-obsidian);
 }
 
-.etf-badge-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-8);
+.etf-row-list {
   margin: var(--spacing-12) 0;
 }
 
-.etf-badge {
-  background: var(--surface-carbon);
-  border: 1px solid var(--color-graphite);
-  border-radius: var(--radius-sm);
+.etf-row {
+  align-items: center;
+  border-top: 1px solid var(--color-graphite);
+  display: flex;
+  gap: var(--spacing-8);
   padding: var(--spacing-4) var(--spacing-8);
-  text-align: center;
+  transition: background var(--duration-fast) var(--ease-out);
 }
 
-.etf-badge-symbol {
-  display: block;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-medium);
+.etf-row:first-child {
+  border-top: none;
+}
+
+.etf-row:hover {
+  background: var(--surface-slate);
+}
+
+.etf-row-bar {
+  border-radius: 2px;
+  flex-shrink: 0;
+  height: 20px;
+  width: 3px;
+}
+
+.etf-row-symbol {
   color: var(--color-paper);
-  line-height: var(--leading-label);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--text-14);
+  line-height: var(--leading-14);
 }
 
-.etf-badge-name {
-  display: block;
-  font-size: var(--text-micro);
+.etf-row-dot {
+  color: var(--color-smoke);
+  font-size: var(--text-14);
+}
+
+.etf-row-name {
   color: var(--color-fog);
-  line-height: var(--leading-caption);
+  font-size: var(--text-14);
+  line-height: var(--leading-14);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operations-panel {

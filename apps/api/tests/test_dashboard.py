@@ -102,8 +102,8 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "earliest_trade_date": "2026-06-22",
         "latest_trade_date": "2026-06-23",
         "etf_list": [
-            {"exchange": "NYSEARCA", "symbol": "QQQ", "name": "QQQ ETF"},
-            {"exchange": "NYSEARCA", "symbol": "SPY", "name": "SPY ETF"},
+            {"exchange": "NYSEARCA", "symbol": "QQQ", "name": "QQQ ETF", "category": None},
+            {"exchange": "NYSEARCA", "symbol": "SPY", "name": "SPY ETF", "category": None},
         ],
     }
     assert body["latest_signal"] == {

@@ -75,6 +75,7 @@ export type EtfBrief = {
   exchange: string;
   symbol: string;
   name: string;
+  category: string | null;
 };
 
 export type DashboardMarketDataStatus = {

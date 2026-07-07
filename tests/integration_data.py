@@ -157,12 +157,14 @@ def add_etf(
     symbol: str,
     exchange: str = "NYSEARCA",
     currency: str = "USD",
+    category: str | None = None,
 ) -> ETFInfo:
     etf = ETFInfo(
         exchange=exchange,
         symbol=symbol,
         name=f"{symbol} ETF",
         currency=currency,
+        category=category,
     )
     session.add(etf)
     session.flush()
