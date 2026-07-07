@@ -530,6 +530,9 @@ main {
 .etf-group {
   border: 1px solid var(--color-graphite);
   border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--spacing-4) var(--spacing-12);
+  grid-template-columns: repeat(2, 1fr);
   padding: var(--spacing-8) var(--spacing-12);
 }
 
@@ -541,9 +544,10 @@ main {
   font-size: var(--card-meta-size);
   font-weight: var(--font-weight-semibold);
   gap: var(--spacing-8);
+  grid-column: 1 / -1;
   letter-spacing: var(--tracking-meta);
   line-height: var(--leading-meta);
-  margin: 0 0 var(--spacing-4);
+  margin: 0 0 var(--spacing-2);
   text-transform: uppercase;
 }
 
@@ -555,11 +559,8 @@ main {
 }
 
 .etf-group .etf-row {
-  padding: var(--spacing-2) var(--spacing-4);
-}
-
-.etf-group .etf-row:first-of-type {
   border-top: none;
+  padding: var(--spacing-1) var(--spacing-4);
 }
 
 .operations-panel {
