@@ -71,11 +71,18 @@ export type DashboardStrategySummary = {
   };
 };
 
+export type EtfBrief = {
+  exchange: string;
+  symbol: string;
+  name: string;
+};
+
 export type DashboardMarketDataStatus = {
   price_rows: number;
   covered_etfs: number;
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
+  etf_list: EtfBrief[];
 };
 
 export type DashboardSignalSummary = {

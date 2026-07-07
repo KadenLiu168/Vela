@@ -101,6 +101,10 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "covered_etfs": 2,
         "earliest_trade_date": "2026-06-22",
         "latest_trade_date": "2026-06-23",
+        "etf_list": [
+            {"exchange": "NYSEARCA", "symbol": "QQQ", "name": "QQQ ETF"},
+            {"exchange": "NYSEARCA", "symbol": "SPY", "name": "SPY ETF"},
+        ],
     }
     assert body["latest_signal"] == {
         "signal_id": 2,
@@ -161,6 +165,7 @@ def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_pa
         "covered_etfs": 0,
         "earliest_trade_date": None,
         "latest_trade_date": None,
+        "etf_list": [],
     }
     assert body["latest_signal"] is None
     assert body["recent_backtest"] is None

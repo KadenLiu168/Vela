@@ -216,7 +216,11 @@ it("calls dashboard through the shared client", async () => {
       price_rows: 1200,
       covered_etfs: 8,
       earliest_trade_date: "2025-01-02",
-      latest_trade_date: "2026-06-23"
+      latest_trade_date: "2026-06-23",
+      etf_list: [
+        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+      ],
     },
     latest_signal: {
       signal_id: 42,

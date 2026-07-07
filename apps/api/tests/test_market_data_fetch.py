@@ -112,6 +112,9 @@ def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
         "covered_etfs": 1,
         "earliest_trade_date": "2026-06-17",
         "latest_trade_date": "2026-06-18",
+        "etf_list": [
+            {"exchange": "NYSEARCA", "symbol": "SPY", "name": "SPY ETF"},
+        ],
     }
     assert dashboard["recent_fetch_logs"] == [
         {

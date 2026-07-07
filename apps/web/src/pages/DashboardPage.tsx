@@ -217,7 +217,7 @@ export function DashboardPage() {
       <div className="page-heading dashboard-heading">
         <div>
           <p>Local research workflow</p>
-          <h1>Workflow Dashboard</h1>
+          <h1>Dashboard</h1>
         </div>
         <div className="dashboard-heading-actions">
           <span className={`status-surface dashboard-load-state dashboard-load-state-${dashboardState.status}`}>
@@ -268,6 +268,16 @@ export function DashboardPage() {
               message="No local market prices are stored yet. Fetch market data to populate dashboard coverage."
               onClick={marketFetchAction.onClick}
             />
+          ) : null}
+          {data?.market_data.etf_list != null && data.market_data.etf_list.length > 0 ? (
+            <div className="etf-badge-list">
+              {data.market_data.etf_list.map((etf) => (
+                <div className="etf-badge" key={`${etf.exchange}:${etf.symbol}`}>
+                  <span className="etf-badge-symbol">{etf.symbol}</span>
+                  <span className="etf-badge-name">{etf.name}</span>
+                </div>
+              ))}
+            </div>
           ) : null}
           <dl className="compact-list">
             <Detail label="Earliest trade date" value={formatDate(data?.market_data.earliest_trade_date)} />

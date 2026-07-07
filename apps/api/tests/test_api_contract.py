@@ -127,6 +127,7 @@ def test_api_empty_state_response_contracts(tmp_path) -> None:
         "covered_etfs": 0,
         "earliest_trade_date": None,
         "latest_trade_date": None,
+        "etf_list": [],
     }
     assert dashboard.json()["latest_signal"] is None
     assert dashboard.json()["recent_backtest"] is None

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from vela_core.models import (
     BacktestRun,
     DataFetchLog,
+    ETFInfo,
     MarketPrice,
     StrategySignal,
 )
@@ -18,11 +19,26 @@ RECENT_FETCH_LOG_LIMIT = 5
 
 
 @dataclass(frozen=True)
+class EtfBrief:
+    exchange: str
+    symbol: str
+    name: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "exchange": self.exchange,
+            "symbol": self.symbol,
+            "name": self.name,
+        }
+
+
+@dataclass(frozen=True)
 class DashboardMarketDataStatus:
     price_rows: int
     covered_etfs: int
     earliest_trade_date: date | None
     latest_trade_date: date | None
+    etf_list: tuple[EtfBrief, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -30,6 +46,7 @@ class DashboardMarketDataStatus:
             "covered_etfs": self.covered_etfs,
             "earliest_trade_date": _format_date(self.earliest_trade_date),
             "latest_trade_date": _format_date(self.latest_trade_date),
+            "etf_list": [etf.to_dict() for etf in self.etf_list],
         }
 
 
@@ -132,11 +149,22 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
             func.max(MarketPrice.trade_date),
         )
     ).one()
+    etf_rows = session.execute(
+        select(ETFInfo.exchange, ETFInfo.symbol, ETFInfo.name)
+        .where(ETFInfo.id.in_(
+            select(MarketPrice.etf_id).distinct()
+        ))
+        .order_by(ETFInfo.exchange, ETFInfo.symbol)
+    ).all()
     return DashboardMarketDataStatus(
         price_rows=price_rows,
         covered_etfs=covered_etfs,
         earliest_trade_date=earliest_trade_date,
         latest_trade_date=latest_trade_date,
+        etf_list=tuple(
+            EtfBrief(exchange=row.exchange, symbol=row.symbol, name=row.name)
+            for row in etf_rows
+        ),
     )
 
 

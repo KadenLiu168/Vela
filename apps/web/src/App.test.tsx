@@ -10,7 +10,7 @@ afterEach(() => {
 it("renders the workflow dashboard on the default route", () => {
   render(<App />);
 
-  expect(screen.getByRole("heading", { name: "Workflow Dashboard" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   expect(screen.getByText("Local research workflow")).toBeInTheDocument();
 });
 
@@ -39,6 +39,10 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(market.getByText("2025-01-02")).toBeInTheDocument();
   expect(market.getByText("Latest trade date")).toBeInTheDocument();
   expect(market.getByText("2026-06-23")).toBeInTheDocument();
+  expect(market.getByText("SPY")).toBeInTheDocument();
+  expect(market.getByText("SPY ETF")).toBeInTheDocument();
+  expect(market.getByText("QQQ")).toBeInTheDocument();
+  expect(market.getByText("QQQ ETF")).toBeInTheDocument();
   const strategyPanel = screen.getByRole("heading", { name: "Strategy summary" }).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
@@ -190,7 +194,8 @@ it("renders an explicit empty state when local market data is missing", async ()
             price_rows: 0,
             covered_etfs: 0,
             earliest_trade_date: null,
-            latest_trade_date: null
+            latest_trade_date: null,
+            etf_list: [],
           }
         }),
         {
@@ -217,6 +222,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(screen.getByText("0 rows")).toBeInTheDocument();
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
   expect(within(marketPanel as HTMLElement).getAllByText("n/a")).toHaveLength(2);
+  expect(within(marketPanel as HTMLElement).queryByText("SPY")).not.toBeInTheDocument();
   expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
@@ -231,7 +237,7 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
   expect(
     screen.getByText("Run vela init-db to initialize the local database, then fetch market data.")
   ).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Workflow Dashboard" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
@@ -262,7 +268,11 @@ it("manually refreshes Dashboard status from the shared Dashboard API", async ()
             price_rows: dashboardRequestCount === 1 ? 1200 : 1450,
             covered_etfs: dashboardRequestCount === 1 ? 8 : 9,
             earliest_trade_date: "2025-01-02",
-            latest_trade_date: dashboardRequestCount === 1 ? "2026-06-23" : "2026-06-25"
+            latest_trade_date: dashboardRequestCount === 1 ? "2026-06-23" : "2026-06-25",
+            etf_list: [
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+            ],
           }
         })
       );
@@ -476,7 +486,11 @@ it("triggers incremental market data fetch and refreshes dashboard data", async 
             price_rows: 1300,
             covered_etfs: 9,
             earliest_trade_date: "2025-01-02",
-            latest_trade_date: "2026-06-24"
+            latest_trade_date: "2026-06-24",
+            etf_list: [
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+            ],
           }
         })
       );
@@ -632,7 +646,11 @@ it("triggers bootstrap and displays three-step status", async () => {
             price_rows: 2400,
             covered_etfs: 9,
             earliest_trade_date: "2024-01-02",
-            latest_trade_date: "2026-06-24"
+            latest_trade_date: "2026-06-24",
+            etf_list: [
+              { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+              { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+            ],
           }
         })
       );
@@ -1731,7 +1749,11 @@ function createDashboardResponse() {
       price_rows: 1200,
       covered_etfs: 8,
       earliest_trade_date: "2025-01-02",
-      latest_trade_date: "2026-06-23"
+      latest_trade_date: "2026-06-23",
+      etf_list: [
+        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF" },
+      ],
     },
     latest_signal: {
       signal_id: 42,
