@@ -194,17 +194,17 @@ The Market data card (`.market-panel`) SHALL render its content in the following
 - **WHEN** `earliest_trade_date` or `latest_trade_date` is null
 - **THEN** NO `.coverage-timeline` SHALL be rendered
 
-#### Scenario: ETF groups are categorized
+#### Scenario: ETF list renders as flat 2-column grid
 
 - **WHEN** the Dashboard renders the Market panel with a non-empty `etf_list`
-- **THEN** each ETF SHALL be placed into a `.etf-group` sub-panel based on its `category` field
-- **AND** each `.etf-group` SHALL display an uppercase heading with a 3px-wide colored accent bar (US Equities → `var(--color-iris-violet)`, HK Equities → `var(--color-signal-teal)`, China Equities → `var(--color-coral-red)`, Bonds → `var(--color-coral-red)`)
-- **AND** ETF rows within each group SHALL be arranged in a 2-column CSS grid (`grid-template-columns: repeat(2, minmax(0, 1fr))`)
-- **AND** each ETF row SHALL show the symbol in monospace followed by `·` and the full name
+- **THEN** each ETF SHALL render as an `.etf-row` directly inside `.etf-row-list` with no category grouping
+- **AND** `.etf-row-list` SHALL use a 2-column CSS grid (`grid-template-columns: repeat(2, minmax(0, 1fr))`)
+- **AND** each ETF row SHALL show a colored accent bar, the symbol in monospace, `·`, and the full name
+- **AND** rows SHALL NOT have border-top separators; hover SHALL show `background: var(--surface-slate)`
 
 #### Scenario: Empty ETF list renders nothing
 
 - **WHEN** `etf_list` is empty
-- **THEN** no `.etf-groups` container SHALL be rendered
+- **THEN** no `.etf-row-list` container SHALL be rendered
 - **AND** the card content SHALL stop after the coverage timeline (or metric row if timeline is also absent)
 

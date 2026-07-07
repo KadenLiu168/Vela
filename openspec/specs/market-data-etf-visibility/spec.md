@@ -22,31 +22,20 @@ When no `MarketPrice` rows exist, `etf_list` SHALL be an empty array.
 - **THEN** `etf_list` SHALL be `[]`
 - **AND** `covered_etfs` SHALL be 0
 
-### Requirement: Dashboard UI displays ETF groups
+### Requirement: Dashboard UI displays ETF rows
 
-The Market Data card on the dashboard SHALL render each entry in `etf_list` within category-grouped sub-panels, each showing `symbol` and `name` per row.
+The Market Data card on the dashboard SHALL render each entry in `etf_list` as a flat list of `.etf-row` elements inside a 2-column grid container (`.etf-row-list`).
 
-Groups SHALL appear between the coverage timeline and the card bottom. Each group SHALL be a bordered sub-panel (`.etf-group`) with:
-- A colored accent bar (3px wide, 12px tall) matching the ETF's category color
-- An uppercase category heading (e.g. "US Equities", "HK Equities", "China Equities", "Bonds")
-- ETF rows arranged in a 2-column CSS grid, each row showing symbol in monospace followed by a dot separator and the full name
+Each row SHALL show a colored accent bar, the symbol in monospace, a dot separator, and the full name. The grid SHALL use `grid-template-columns: repeat(2, minmax(0, 1fr))` for strict 50/50 column distribution. Per-row border-top separators SHALL NOT be used.
 
-ETF rows SHALL NOT have per-row border-top separators; the group border provides the visual enclosure.
-
-#### Scenario: Market data card shows ETF groups
+#### Scenario: Market data card shows ETF rows in 2-column grid
 - **WHEN** the dashboard page renders with non-empty `market_data.etf_list`
-- **THEN** each ETF SHALL be placed into a category-based `.etf-group` sub-panel
-- **AND** each ETF row MUST display its `symbol` and `name` within the group
-- **AND** groups MUST be visually contained within the Market Data card
+- **THEN** each ETF SHALL render as an `.etf-row` directly inside `.etf-row-list` with no category grouping
+- **AND** each ETF row MUST display its `symbol` and `name`
+- **AND** rows MUST be arranged in a 2-column grid
 
 #### Scenario: Empty ETF list renders nothing
 - **WHEN** `market_data.etf_list` is `[]`
-- **THEN** no `.etf-groups` container SHALL be rendered
+- **THEN** no `.etf-row-list` container SHALL be rendered
 - **AND** the card layout SHALL remain intact
-
-#### Scenario: Category color mapping matches barColor helper
-- **WHEN** an ETF belongs to a recognized category
-- **THEN** the group heading accent bar SHALL use the same color as the ETF's `.etf-row-bar`
-- **AND** the mapping SHALL be: `equity_us` → `var(--color-iris-violet)`, `equity_hk` → `var(--color-signal-teal)`, `equity_cn` and `bond` → `var(--color-coral-red)`
-- **AND** unknown categories SHALL fall back to `var(--color-fog)`
 
