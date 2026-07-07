@@ -410,11 +410,11 @@ main {
 }
 
 .market-panel {
-  grid-column: span 1;
+  grid-column: span 2;
 }
 
 .strategy-panel {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .dashboard-page .market-panel,
