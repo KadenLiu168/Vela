@@ -1,8 +1,5 @@
-# detail-page-typography-consistency Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change unify-detail-page-typography. Update Purpose after archive.
-## Requirements
 ### Requirement: 跨页面同层元素 typography 一致
 
 Signal Detail、Backtest Detail 与 Dashboard 三个页面在共享结构（`page-heading`、`panel-primary`、`compact-list`、`holdings-section h3`、`holdings-table`）上的同层级元素 MUST 使用相同的字体族、字号、字重、行高、字距与 `text-transform` 修饰。差异仅允许出现在"各自独有的元素"上（如 Backtest 独有的 `.metric-card`、`.equity-curve-card`、`.parameter-summary`）。
@@ -46,6 +43,28 @@ Signal Detail、Backtest Detail 与 Dashboard 三个页面的 `.compact-list dt`
 - **THEN** 即使大小写转换改变了字形视觉中心，dt 与 dd 的 baseline 仍必须保持对齐
 - **AND** 同行 row 高度由 dt 与 dd 共享的 `--leading-*` 决定
 
+## REMOVED Requirements
+
+### Requirement: detail 页面 typography 不向 Dashboard 页面泄漏
+**Reason**: 旧条款假设 Dashboard 与 Detail 在 compact-list 与
+panel-primary 上有意保留差异。本 change 通过 `card-type-scale`
+统一两者，Dashboard 与 Detail 不再允许保留差异，"防止泄漏"
+条款失去意义并阻碍真正的视觉一致。该 requirement 下的 scenario
+`Dashboard 页面 typography 保持原样` 同样被移除。
+**Migration**:
+1. 删除 `.dashboard-page .compact-list dt`、`.dashboard-page
+   .compact-list dd`、`.dashboard-page .metric span`、
+   `.dashboard-page .panel-primary` 等仅用于阻止 detail 规则
+   影响的覆盖规则。
+2. 由 `.compact-list`、`.panel-primary` 等基础规则在 Dashboard
+   与 Detail 上统一应用 `card-type-scale` 的同一组 token。
+3. Dashboard 接受 detail 规则下发的 typography 视觉样式。
+4. 新合同由`card-type-scale` capability 的"every card visual
+   role maps to exactly one ladder rung" scenario 与"跨页面同层
+   元素 typography 一致" requirement 提供。
+
+## ADDED Requirements
+
 ### Requirement: Dashboard 与 Detail 共用 compact-list / panel-primary 基础规则
 
 Dashboard 页面 (`.dashboard-page`) 与 Detail 页面 (`.detail-page`) 的 `.compact-list`、`.panel-primary`、`.metric span` 等卡片元素 MUST 直接消费 `card-type-scale` 的 ladder token，而不是依赖任何作用域覆盖层（descendant selector override）来维持视觉差异。
@@ -71,4 +90,3 @@ Dashboard 页面 (`.dashboard-page`) 与 Detail 页面 (`.detail-page`) 的 `.co
       的元素（Dashboard 独有 `.etf-row`、`.metric-row`；
       Detail 独有 `.holdings-*`、`.equity-curve-card`、
       `.parameter-summary`）
-

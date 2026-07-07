@@ -60,6 +60,7 @@
 | --- | --- | --- |
 | `--font-inter-variable` | `"Inter Variable", ui-sans-serif, syst...` |  |
 | `--font-berkeley-mono` | `"JetBrains Mono", "Berkeley Mono", ui...` |  |
+| `--font-display` | `"IBM Plex Mono", "Söhne Mono", ui-mon...` |  |
 
 ## 4. Typography scale
 
@@ -101,6 +102,16 @@
 | `--text-display` | `72px` |  |
 | `--leading-display` | `1` |  |
 | `--tracking-display` | `-1.584px` |  |
+| `--card-meta-size` | `11px` |  |
+| `--leading-meta` | `1.4` |  |
+| `--card-body-size` | `14px` |  |
+| `--leading-body-card` | `1.5` |  |
+| `--card-emphasis-size` | `28px` |  |
+| `--leading-emphasis` | `1.3` |  |
+| `--card-display-size` | `40px` |  |
+| `--leading-display-card` | `1.15` |  |
+| `--tracking-meta` | `0.06em` |  |
+| `--tracking-numeral` | `-0.01em` |  |
 
 ## 5. Font weights — Vela semantic aliases onto Inter Variable values
 

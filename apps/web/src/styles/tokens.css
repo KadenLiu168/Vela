@@ -12,6 +12,11 @@
  *   2. Surfaces             --surface-*
  *   3. Typography families  --font-*
  *   4. Typography scale     --text-*, --leading-*, --tracking-*
+ *   4a. Card type ladder    --card-meta-size/leading,
+ *                             --card-body-size/leading,
+ *                             --card-emphasis-size/leading,
+ *                             --card-display-size/leading,
+ *                             --tracking-meta, --tracking-numeral
  *   5. Font weights         --font-weight-*
  *   6. Spacing              --spacing-* (primitives),
  *                             --space-* (8px-grid semantic ladder)
@@ -56,6 +61,12 @@
      served woff2; Berkeley Mono would resolve if/when added. */
   --font-inter-variable: "Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-berkeley-mono: "JetBrains Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  /* --font-display is the editorial mono applied to .panel-heading h3
+     and .page-heading h1. IBM Plex Mono (OFL) is loaded as three woff2
+     files in apps/web/public/fonts/ (Regular / Medium / SemiBold).
+     Söhne Mono is the design intent; IBM Plex Mono is the OFL substitute
+     (see OpenSpec change dashboard-card-typography). */
+  --font-display: "IBM Plex Mono", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* 4. Typography scale */
   --text-caption: 13px;
@@ -95,6 +106,21 @@
   --text-display: 72px;
   --leading-display: 1;
   --tracking-display: -1.584px;
+
+  /* 4a. Card type ladder — owned by `card-type-scale` capability.
+     Four rungs (meta / body / emphasis / display) bound to card visual
+     roles; consumers MUST route through these rather than --text-* for
+     any element that renders inside or on a card surface. */
+  --card-meta-size: 11px;
+  --leading-meta: 1.4;
+  --card-body-size: 14px;
+  --leading-body-card: 1.5;
+  --card-emphasis-size: 28px;
+  --leading-emphasis: 1.3;
+  --card-display-size: 40px;
+  --leading-display-card: 1.15;
+  --tracking-meta: 0.06em;
+  --tracking-numeral: -0.01em;
 
   /* 5. Font weights — Vela semantic aliases onto Inter Variable values */
   --font-weight-light: 300;

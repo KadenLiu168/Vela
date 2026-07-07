@@ -11,6 +11,7 @@
     "test:integration:api": "VITE_API_BASE_URL=http://127.0.0.1:8000/api vitest run src/api/client.integration.test.ts",
     "typecheck": "tsc -b",
     "lint:css": "stylelint \"src/**/*.css\"",
+    "build:tokens-doc": "node ../../scripts/build-tokens-reference.mjs",
     "ladle": "ladle dev",
     "ladle:build": "ladle build"
   },

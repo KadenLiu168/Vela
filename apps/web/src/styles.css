@@ -8,14 +8,25 @@
  * `:root { ... }` block with token declarations.
  *
  * Fonts are self-hosted from apps/web/public/fonts/ with font-display: swap:
- *   - InterVariable.woff2   : Inter Variable (300–700, OFL)
- *   - JetBrainsMono-Regular.woff2 : JetBrains Mono weight 400 (OFL)
- *   - JetBrainsMono-Medium.woff2  : JetBrains Mono weights 500–600 (OFL)
+ *   - InterVariable.woff2           : Inter Variable (300–700, OFL)
+ *   - JetBrainsMono-Regular.woff2   : JetBrains Mono weight 400 (OFL)
+ *   - JetBrainsMono-Medium.woff2    : JetBrains Mono weights 500–600 (OFL)
+ *   - IBMPlexMono-Regular.woff2     : IBM Plex Mono weight 400 (OFL)
+ *   - IBMPlexMono-Medium.woff2      : IBM Plex Mono weight 500 (OFL)
+ *   - IBMPlexMono-SemiBold.woff2    : IBM Plex Mono weight 600 (OFL)
  *
  * JetBrains Mono is the OFL substitute for the design intent
  * `--font-berkeley-mono`. The token value chain in tokens.css puts
  * JetBrains Mono first so the served woff2 actually renders; Berkeley
  * Mono would resolve if/when added to apps/web/public/fonts/.
+ *
+ * IBM Plex Mono is the OFL substitute for the design intent
+ * `--font-display`. The token chain puts IBM Plex Mono first; Söhne Mono
+ * would resolve if/when added. The IBM Plex Mono `@font-face` rule
+ * below also enables `tnum` + `zero` OpenType features so numeric
+ * content rendered through `--font-display` (or `--font-berkeley-mono`
+ * which shares the same fallback chain) gets tabular numerals and
+ * slashed zeros by default.
  */
 @import url("./styles/tokens.css");
 
@@ -26,6 +37,7 @@
   font-weight: 300 700;
   font-style: normal;
   font-display: swap;
+  font-feature-settings: var(--font-feature-settings-default);
 }
 
 @font-face {
@@ -34,6 +46,7 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  font-feature-settings: "tnum", "zero";
 }
 
 @font-face {
@@ -42,6 +55,34 @@
   font-weight: 500 600;
   font-style: normal;
   font-display: swap;
+  font-feature-settings: "tnum", "zero";
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  font-feature-settings: "tnum", "zero";
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  font-feature-settings: "tnum", "zero";
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  font-feature-settings: "tnum", "zero";
 }
 
 /* Inter Variable OT features — applied to default body text.
@@ -175,7 +216,7 @@ main {
 
 .page-heading h1 {
   color: var(--color-paper);
-  font-family: var(--font-inter-variable);
+  font-family: var(--font-display);
   font-size: var(--text-heading);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-heading);
@@ -196,6 +237,7 @@ main {
 }
 
 .dashboard-heading h1 {
+  font-family: var(--font-display);
   font-size: var(--text-heading-sm);
   letter-spacing: var(--tracking-heading-sm);
   line-height: var(--leading-heading-sm);
@@ -207,9 +249,9 @@ main {
   border-left: 3px solid var(--status-accent, var(--feedback-accent));
   color: var(--color-mist);
   font-family: var(--font-inter-variable);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
 }
 
 .dashboard-load-state {
@@ -217,10 +259,12 @@ main {
   border-radius: var(--radius-md);
   color: var(--color-mist);
   font-family: var(--font-inter-variable);
-  font-size: var(--text-caption);
+  font-size: var(--card-meta-size);
   font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   padding: var(--spacing-8) var(--spacing-12);
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -260,9 +304,9 @@ main {
   border-left: 3px solid var(--feedback-accent-error);
   border-radius: var(--radius-md);
   color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
   margin: var(--spacing-20) 0 0;
   padding: var(--spacing-12) var(--spacing-16);
 }
@@ -282,24 +326,28 @@ main {
 .first-run-guidance span {
   color: var(--color-fog);
   display: block;
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .first-run-guidance h3 {
   color: var(--color-paper);
+  font-family: var(--font-display);
   font-size: var(--text-subheading);
   line-height: var(--leading-subheading);
+  letter-spacing: var(--tracking-subheading);
   margin: var(--spacing-unit) 0 0;
 }
 
 .first-run-guidance p {
   color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  margin: 0;
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
+  margin: var(--spacing-8) 0 0;
   max-width: 620px;
 }
 
@@ -389,7 +437,7 @@ main {
   background: var(--surface-obsidian);
   border: 1px solid var(--color-graphite);
   border-radius: var(--radius-md);
-  padding: var(--spacing-16);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .dashboard-panel {
@@ -399,7 +447,7 @@ main {
 
 .dashboard-page .dashboard-panel {
   background: var(--surface-obsidian);
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .market-panel,
@@ -455,19 +503,25 @@ main {
 .etf-row-symbol {
   color: var(--color-paper);
   font-family: var(--font-berkeley-mono);
-  font-size: var(--text-14);
-  line-height: var(--leading-14);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
 }
 
 .etf-row-dot {
   color: var(--color-smoke);
-  font-size: var(--text-14);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
 }
 
 .etf-row-name {
   color: var(--color-fog);
-  font-size: var(--text-14);
-  line-height: var(--leading-14);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -496,16 +550,16 @@ main {
 
 .panel-heading span {
   color: var(--color-fog);
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-tight);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .panel-heading h3 {
   color: var(--color-paper);
-  font-family: var(--font-inter-variable);
+  font-family: var(--font-display);
   font-size: var(--text-subheading);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-subheading);
@@ -514,14 +568,22 @@ main {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-wrap: balance;
   white-space: nowrap;
 }
 
 .panel-primary {
   color: var(--color-paper);
   display: block;
-  font-size: var(--text-subheading);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-emphasis-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-emphasis);
   margin-bottom: var(--spacing-16);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .status-pill {
@@ -532,10 +594,10 @@ main {
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--font-inter-variable);
-  font-size: var(--text-micro);
+  font-size: var(--card-meta-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.04em;
-  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   padding: var(--spacing-4) var(--spacing-8);
   text-transform: uppercase;
   white-space: nowrap;
@@ -561,13 +623,6 @@ main {
   color: var(--color-fog);
 }
 
-.dashboard-page .panel-primary {
-  font-size: var(--text-subheading);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-subheading);
-  margin-bottom: var(--spacing-16);
-}
-
 .metric-row {
   display: grid;
   gap: var(--spacing-12);
@@ -581,27 +636,39 @@ main {
   padding: var(--spacing-16);
 }
 
-.metric span,
+.metric span {
+  color: var(--color-fog);
+  display: block;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  text-transform: uppercase;
+}
+
 .compact-list dt {
   color: var(--color-fog);
   display: block;
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-medium);
-}
-
-.dashboard-page .metric span,
-.dashboard-page .compact-list dt {
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-tight);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-body-card);
+  text-transform: uppercase;
 }
 
 .metric strong {
   color: var(--color-paper);
   display: block;
-  font-size: var(--text-subheading);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-emphasis-size);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-medium);
-  line-height: var(--leading-subheading);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-emphasis);
   margin-top: var(--spacing-8);
+  text-wrap: balance;
 }
 
 .detail-page .metric-card-grid {
@@ -624,19 +691,23 @@ main {
 .detail-page .metric-card dt {
   color: var(--color-fog);
   display: block;
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   margin: 0 0 var(--spacing-12);
+  text-transform: uppercase;
 }
 
 .detail-page .metric-card dd {
   color: var(--color-paper);
-  font-family: var(--font-inter-variable);
-  font-size: var(--text-heading);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-display-size);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-heading);
-  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-display-card);
   margin: 0;
 }
 
@@ -655,21 +726,20 @@ main {
   background: var(--surface-obsidian);
   border-color: var(--color-graphite);
   min-height: auto;
-  padding: var(--card-padding);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .detail-page:not(.signal-detail-page) .dashboard-panel {
   border-radius: var(--radius-md);
 }
 
-.detail-page .panel-primary {
-  color: var(--color-paper);
-  font-family: var(--font-inter-variable);
-  font-size: var(--text-subheading);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-subheading);
-  line-height: var(--leading-subheading);
-  margin-bottom: var(--spacing-16);
+.detail-page .panel-primary,
+.detail-page .equity-curve-summary dt,
+.detail-page .equity-curve-summary dd {
+  /* Panel-primary typography is owned by the base `.panel-primary` rule
+   * (which now consumes the card emphasis ladder); do not redeclare
+   * font-size / line-height / letter-spacing here. Equity-curve-summary
+   * terms inherit from `.compact-list dt / dd` below. */
 }
 
 .compact-list {
@@ -692,34 +762,31 @@ main {
 
 .compact-list dd {
   color: var(--color-paper);
-  font-size: var(--text-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--leading-body-card);
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.dashboard-page .compact-list dd {
-  color: var(--color-mist);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
-}
-
-.detail-page .compact-list dt,
 .detail-page .equity-curve-summary dt {
-  font-size: var(--text-caption);
-  line-height: var(--leading-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   margin-bottom: 0;
+  text-transform: uppercase;
 }
 
-.detail-page .compact-list dd,
 .detail-page .equity-curve-summary dd {
   color: var(--color-mist);
-  font-size: var(--text-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  line-height: var(--leading-body-card);
   margin: 0;
 }
 
@@ -774,9 +841,11 @@ main {
 .fetch-log-entry__time {
   color: var(--color-mist);
   font-family: var(--font-berkeley-mono);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-regular);
-  letter-spacing: -0.013em;
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -785,9 +854,12 @@ main {
 
 .fetch-log-entry__meta {
   color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
   overflow-wrap: anywhere;
 }
 
@@ -799,10 +871,10 @@ main {
   color: var(--color-fog);
   cursor: pointer;
   font-family: var(--font-inter-variable);
-  font-size: var(--text-micro);
+  font-size: var(--card-meta-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.04em;
-  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   list-style: none;
   text-transform: uppercase;
 }
@@ -818,10 +890,9 @@ main {
 .fetch-log-entry__error-body {
   color: var(--color-mist);
   font-family: var(--font-berkeley-mono);
-  font-size: var(--text-caption);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-regular);
-  letter-spacing: -0.013em;
-  line-height: var(--leading-caption);
+  line-height: var(--leading-body-card);
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -833,9 +904,10 @@ main {
   background: var(--surface-carbon);
   border-radius: var(--radius-md);
   color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
   margin: 0;
   padding: var(--spacing-12) var(--spacing-16);
 }
@@ -889,9 +961,12 @@ main {
 
 .backtest-run-form span {
   color: var(--color-fog);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  text-transform: uppercase;
 }
 
 .backtest-run-form input {
@@ -900,9 +975,9 @@ main {
   background: var(--surface-obsidian);
   color: var(--color-paper);
   font-family: var(--font-inter-variable);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
   min-width: 150px;
   padding: var(--spacing-8) var(--spacing-12);
   transition:
@@ -932,9 +1007,11 @@ main {
 .operation-summary strong {
   color: var(--color-paper);
   display: block;
-  font-size: var(--text-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
 }
 
 .operation-summary-success {
@@ -950,18 +1027,21 @@ main {
 
 .operation-guidance {
   color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
   margin: var(--spacing-12) 0 0;
 }
 
 .operation-link {
   color: var(--color-paper);
   display: inline-block;
-  font-size: var(--text-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
   margin-top: var(--spacing-12);
   text-decoration-color: var(--color-acid-lime);
   text-decoration-thickness: 1px;
@@ -988,10 +1068,10 @@ main {
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-inter-variable);
-  font-size: var(--text-body);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: -0.011em;
-  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
   padding: var(--spacing-12) var(--spacing-20);
   transition:
     background-color var(--duration-base) var(--ease-out),
@@ -1053,19 +1133,22 @@ main {
 .detail-page dt {
   color: var(--color-fog);
   display: block;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
   margin-bottom: var(--spacing-8);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .workflow-grid strong,
 .detail-page dd {
   color: var(--color-paper);
-  font-size: var(--text-body);
-  line-height: var(--leading-snug);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--leading-body-card);
 }
 
 .api-status {
@@ -1094,20 +1177,10 @@ main {
 }
 
 .signal-detail-page .compact-list dt {
-  color: var(--color-fog);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .signal-detail-page .compact-list dd {
-  color: var(--color-mist);
-  font-size: var(--text-caption);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
   margin: 0;
 }
 
@@ -1132,7 +1205,7 @@ main {
 }
 
 .detail-page .holdings-section h3 {
-  font-family: var(--font-inter-variable);
+  font-family: var(--font-display);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-subheading);
 }
@@ -1143,12 +1216,14 @@ main {
   border-radius: var(--radius-xl);
   color: var(--color-mist);
   font-family: var(--font-berkeley-mono);
-  font-size: var(--text-caption);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-regular);
-  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-body-card);
   margin: 0;
   overflow-x: auto;
-  padding: var(--card-padding);
+  padding: var(--card-padding-y) var(--card-padding-x);
   white-space: pre-wrap;
 }
 
@@ -1157,7 +1232,7 @@ main {
   background: var(--surface-obsidian);
   border: 1px solid var(--color-graphite);
   border-radius: var(--radius-xl);
-  padding: var(--card-padding);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .equity-curve-chart {
@@ -1222,7 +1297,8 @@ main {
 .holdings-table th,
 .holdings-table td {
   border-bottom: 1px solid var(--color-graphite);
-  font-size: var(--text-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
   padding: var(--spacing-12);
   text-align: left;
   white-space: nowrap;
@@ -1231,37 +1307,45 @@ main {
 .holdings-table th {
   background: var(--surface-carbon);
   color: var(--color-fog);
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-body-card);
+  padding: var(--spacing-8) var(--spacing-12);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .holdings-table td {
   color: var(--color-paper);
-  font-weight: var(--font-weight-medium);
   font-family: var(--font-berkeley-mono);
-}
-
-.signal-detail-page .holdings-table th,
-.signal-detail-page .holdings-table td {
-  line-height: var(--leading-caption);
-  padding: var(--spacing-12) var(--spacing-16);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-body-card);
+  padding: var(--spacing-12);
 }
 
 .signal-detail-page .holdings-table th {
+  background: var(--surface-carbon);
   color: var(--color-fog);
-  font-size: var(--text-micro);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
-  padding-block: var(--spacing-8);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-body-card);
+  padding: var(--spacing-8) var(--spacing-12);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .signal-detail-page .holdings-table td {
   color: var(--color-mist);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-medium);
+  line-height: var(--leading-body-card);
+  padding: var(--spacing-12);
 }
 
 .signal-detail-page .holdings-table th:nth-child(3),
@@ -1311,8 +1395,10 @@ main {
   border-left: 3px solid var(--status-accent, var(--feedback-accent-empty));
   border-radius: var(--radius-md);
   color: var(--color-mist);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--leading-caption);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body-card);
   padding: var(--spacing-16);
 }
 
