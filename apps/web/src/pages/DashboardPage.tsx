@@ -256,7 +256,7 @@ export function DashboardPage() {
 
       <div className="dashboard-grid" aria-label="Dashboard workflow summary">
         <article className="dashboard-panel market-panel">
-          <PanelHeading eyebrow="Market" title="Price data" />
+          <PanelHeading eyebrow="Price" title="Market data" />
           <div className="metric-row">
             <Metric
               label="Price rows"
@@ -296,7 +296,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel strategy-panel">
-          <PanelHeading eyebrow="Strategy" title="Parameters" />
+          <PanelHeading eyebrow="Config" title="Strategy" />
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
             <Detail label="Version" value={data?.strategy.version ?? "Loading"} />
@@ -414,7 +414,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel signal-panel" data-testid="workflow-panel-signal">
-          <PanelHeading eyebrow="Signal" title="Latest result" statusPill={signalStatusPill} />
+          <PanelHeading title="Latest signal" statusPill={signalStatusPill} />
           <SignalSummary
             signal={data?.latest_signal}
             isDisabled={signalGenerationAction.isDisabled}
@@ -425,7 +425,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel backtest-panel" data-testid="workflow-panel-backtest">
-          <PanelHeading eyebrow="Backtest" title="Latest result" statusPill={backtestStatusPill} />
+          <PanelHeading title="Latest backtest" statusPill={backtestStatusPill} />
           <BacktestSummary
             backtest={data?.recent_backtest}
             isLoading={dashboardState.status === "loading"}
@@ -433,7 +433,7 @@ export function DashboardPage() {
         </article>
 
         <article className="dashboard-panel fetch-log-panel" data-testid="workflow-panel-fetches">
-          <PanelHeading eyebrow="History" title="Fetches" statusPill={fetchStatusPill} />
+          <PanelHeading title="Data fetches" statusPill={fetchStatusPill} />
           <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
         </article>
       </div>
@@ -811,14 +811,14 @@ function StatusPillBadge({ label, variant }: StatusPill) {
   );
 }
 
-function PanelHeading({ eyebrow, title, statusPill }: { eyebrow: string; title: string; statusPill?: StatusPill }) {
+function PanelHeading({ eyebrow, title, statusPill }: { eyebrow?: string; title: string; statusPill?: StatusPill }) {
   return (
     <div className="panel-heading">
-      <span>{eyebrow}</span>
-      <div className="panel-heading-end">
+      <div className="panel-heading-start">
         <h3>{title}</h3>
         {statusPill ? <StatusPillBadge {...statusPill} /> : null}
       </div>
+      {eyebrow ? <span>{eyebrow}</span> : null}
     </div>
   );
 }
