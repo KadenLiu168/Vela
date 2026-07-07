@@ -224,7 +224,7 @@ export function DashboardPage() {
             {getLoadLabel(dashboardState)}
           </span>
           <button
-            className="dashboard-refresh-action"
+            className="dashboard-refresh-action button-secondary"
             type="button"
             disabled={hasActiveOperation || dashboardState.status === "loading"}
             onClick={handleDashboardRefresh}
@@ -323,10 +323,16 @@ export function DashboardPage() {
             </FeedbackMessage>
           ) : null}
           <div className="operation-list">
-            <button type="button" disabled={marketFetchAction.isDisabled} onClick={marketFetchAction.onClick}>
+            <button
+              className="button-secondary"
+              type="button"
+              disabled={marketFetchAction.isDisabled}
+              onClick={marketFetchAction.onClick}
+            >
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
             </button>
             <button
+              className="button-secondary"
               type="button"
               disabled={signalGenerationAction.isDisabled}
               onClick={signalGenerationAction.onClick}
@@ -334,7 +340,7 @@ export function DashboardPage() {
               {signalGenerationAction.isLoading ? "Generating signal" : "Generate signal"}
             </button>
             <button
-              className="bootstrap-action"
+              className="bootstrap-action button-primary"
               type="button"
               disabled={hasActiveOperation}
               onClick={() => {
@@ -376,7 +382,11 @@ export function DashboardPage() {
               />
             </label>
             <div className="operation-list">
-              <button type="submit" disabled={hasActiveOperation}>
+              <button
+                className="button-secondary"
+                type="submit"
+                disabled={hasActiveOperation}
+              >
                 {activeOperation === "backtestRun" ? "Running backtest" : "Run backtest"}
               </button>
             </div>
@@ -826,7 +836,12 @@ function EmptyAction({
     <div className={className}>
       <EmptyState>{message}</EmptyState>
       <div className="operation-list empty-action">
-        <button type="button" disabled={isDisabled || isLoading || !onClick} onClick={onClick}>
+        <button
+          className="button-secondary"
+          type="button"
+          disabled={isDisabled || isLoading || !onClick}
+          onClick={onClick}
+        >
           {isLoading ? (loadingLabel ?? actionLabel) : actionLabel}
         </button>
       </div>

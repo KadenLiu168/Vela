@@ -246,34 +246,10 @@ main {
   justify-content: flex-end;
 }
 
-.dashboard-refresh-action {
-  background: transparent;
-  border: 1px solid var(--color-mist);
-  border-radius: var(--radius-md);
-  color: var(--color-mist);
-  cursor: pointer;
-  font-family: var(--font-inter-variable);
-  font-size: var(--text-body);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: -0.011em;
-  line-height: 1;
-  padding: var(--spacing-12) var(--spacing-20);
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease;
-}
-
-.dashboard-refresh-action:not(:disabled):hover {
-  background: var(--surface-obsidian);
-  border-color: var(--color-bone);
-  color: var(--color-paper);
-}
-
-.dashboard-refresh-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
+/* .dashboard-refresh-action standalone styling was removed in
+ * the unify-buttons-into-three-variants OpenSpec change. Visual
+ * treatment now flows from the .button-secondary variant class
+ * that the React element carries alongside the semantic name. */
 
 .dashboard-alert {
   background: var(--surface-carbon);
@@ -919,30 +895,75 @@ main {
   text-decoration-color: var(--color-acid-lime);
 }
 
-.operation-list button {
-  background: var(--color-acid-lime);
-  border: 1px solid var(--color-acid-lime);
+/* Three-variant button contract. The .button-* class declares
+ * visual treatment; the React element must carry exactly one of
+ * the three alongside any semantic className. The empty
+ * `.operation-list button { ... }` selector that previously
+ * styled buttons by ancestry is removed by the same change. */
+
+.button-primary,
+.button-secondary,
+.button-tertiary {
   border-radius: var(--radius-md);
-  color: var(--color-void);
   cursor: pointer;
   font-family: var(--font-inter-variable);
   font-size: var(--text-body);
   font-weight: var(--font-weight-medium);
   letter-spacing: -0.011em;
-  line-height: 1;
+  line-height: var(--leading-heading);
   padding: var(--spacing-12) var(--spacing-20);
   transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease;
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
 }
 
-.operation-list button:not(:disabled):hover {
+.button-primary {
+  background: var(--color-acid-lime);
+  border: 1px solid var(--color-acid-lime);
+  color: var(--color-void);
+}
+
+.button-primary:not(:disabled):hover {
   background: var(--color-bone);
   border-color: var(--color-bone);
 }
 
-.operation-list button:disabled {
+.button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.button-secondary {
+  background: transparent;
+  border: 1px solid var(--color-mist);
+  color: var(--color-mist);
+}
+
+.button-secondary:not(:disabled):hover {
+  background: var(--surface-obsidian);
+  border-color: var(--color-bone);
+  color: var(--color-paper);
+}
+
+.button-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.button-tertiary {
+  background: transparent;
+  border: 0;
+  color: var(--color-mist);
+  padding-left: var(--spacing-8);
+  padding-right: var(--spacing-8);
+}
+
+.button-tertiary:not(:disabled):hover {
+  color: var(--color-paper);
+}
+
+.button-tertiary:disabled {
   cursor: not-allowed;
   opacity: 0.72;
 }
@@ -1216,10 +1237,11 @@ main {
 
 @media (prefers-reduced-motion: reduce) {
   .app-nav-link,
-  .dashboard-refresh-action,
+  .button-primary,
+  .button-secondary,
+  .button-tertiary,
   .backtest-run-form input,
-  .operation-link,
-  .operation-list button {
+  .operation-link {
     transition-duration: 0ms;
   }
 }
@@ -1368,10 +1390,11 @@ main {
 
   .dashboard-heading-actions,
   .dashboard-load-state,
-  .dashboard-refresh-action,
+  .button-primary,
+  .button-secondary,
+  .button-tertiary,
   .backtest-run-form,
-  .backtest-run-form label,
-  .operation-list button {
+  .backtest-run-form label {
     width: 100%;
   }
 
