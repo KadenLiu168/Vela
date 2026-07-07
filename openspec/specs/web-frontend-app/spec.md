@@ -199,7 +199,7 @@ The Market data card (`.market-panel`) SHALL render its content in the following
 - **WHEN** the Dashboard renders the Market panel with a non-empty `etf_list`
 - **THEN** each ETF SHALL be placed into a `.etf-group` sub-panel based on its `category` field
 - **AND** each `.etf-group` SHALL display an uppercase heading with a 3px-wide colored accent bar (US Equities → `var(--color-iris-violet)`, HK Equities → `var(--color-signal-teal)`, China Equities → `var(--color-coral-red)`, Bonds → `var(--color-coral-red)`)
-- **AND** ETF rows within each group SHALL be arranged in a 2-column CSS grid (`grid-template-columns: repeat(2, 1fr)`)
+- **AND** ETF rows within each group SHALL be arranged in a 2-column CSS grid (`grid-template-columns: repeat(2, minmax(0, 1fr))`)
 - **AND** each ETF row SHALL show the symbol in monospace followed by `·` and the full name
 
 #### Scenario: Empty ETF list renders nothing
