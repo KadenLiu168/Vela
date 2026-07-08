@@ -125,34 +125,6 @@ Check formatting without changing files:
 uv run ruff format --check .
 ```
 
-Start the full local stack (backend + frontend together, with stale-process
-cleanup and a single terminal):
-
-```bash
-./scripts/dev.sh
-```
-
-See `scripts/README.md` for what the orchestrator does. Use this for normal
-local development. Reach for the per-service commands below only when you
-need to start a single service in isolation.
-
-Start the web frontend development server:
-
-```bash
-npm --prefix apps/web run dev
-```
-
-Start the local HTTP API service:
-
-```bash
-uv run vela-api
-```
-
-The API uses the shared local SQLite database URL from `vela_core.database` and
-manages request-scoped SQLAlchemy sessions through the core session lifecycle.
-It also exposes `GET /api/config` for the current read-only strategy and ETF
-pool summary.
-
 
 Initialize or upgrade the local SQLite database to the current migration head:
 
@@ -183,6 +155,75 @@ Or fetch only data newer than the latest local market price date:
 ```bash
 uv run vela fetch-market-data --incremental
 ```
+
+## Local Development
+
+### Start the full local stack
+
+The canonical way to run the backend and the web frontend together is
+`scripts/dev.sh`. It starts `uv run vela-api` (FastAPI on port 8000) and
+`npm --prefix apps/web run dev` (Vite on port 5173) in a single terminal
+with `[vela-api]` / `[vela-web]` line-prefixed output, and cleans up any
+stale Vela-owned processes on those ports before launching.
+
+From the repository root:
+
+```bash
+./scripts/dev.sh
+```
+
+What you get:
+
+- Both services run in the background. Their logs interleave in your
+  terminal; every line is prefixed with the service name so you can tell
+  them apart at a glance.
+- The FastAPI backend is reachable at `http://127.0.0.1:8000`.
+- The Vite dev server is reachable at `http://localhost:5173` and
+  proxies `/api/*` to the backend.
+- The script refuses to start if `uv`, `npm`, `lsof`, or `ps` is missing
+  on `PATH` (clear error message, no half-started state).
+- If a previous `uv run vela-api` left an orphan on port 8000, the
+  preflight cleanup kills it before launching the fresh backend. You
+  will not see `Address already in use` again.
+
+To stop both services, press `Ctrl+C` in the terminal where `dev.sh` is
+running. The script sends `SIGTERM` to both children, waits up to 5
+seconds, then `SIGKILL`s any survivors. The pidfiles in
+`/tmp/vela-api.pid` and `/tmp/vela-web.pid` are removed on the way out.
+
+If you started `dev.sh` in the background from another shell, stop it
+with:
+
+```bash
+kill -TERM $(cat /tmp/vela-api.pid) 2>/dev/null; pkill -TERM -f 'scripts/dev.sh'
+```
+
+The full kill-scope and shutdown contract is documented in
+`scripts/README.md` and in the OpenSpec capability
+`openspec/specs/dev-orchestration-script/spec.md`.
+
+### Run a single service in isolation
+
+Use these only when you need to start a single service in isolation —
+e.g., when running the API integration test against a remote backend.
+The `dev.sh` script is the recommended path for normal iteration.
+
+Start the web frontend development server on its own:
+
+```bash
+npm --prefix apps/web run dev
+```
+
+Start the local HTTP API service on its own:
+
+```bash
+uv run vela-api
+```
+
+The API uses the shared local SQLite database URL from `vela_core.database`
+and manages request-scoped SQLAlchemy sessions through the core session
+lifecycle. It also exposes `GET /api/config` for the current read-only
+strategy and ETF pool summary.
 
 ## Database Migrations
 
@@ -271,6 +312,8 @@ Completed:
 - Added SQLAlchemy database session helpers
 - Added SQLAlchemy ORM models for ETF metadata, market prices, data fetch logs, strategy signals, and backtest results
 - Configured Alembic migrations for local SQLite development
+- Added `scripts/dev.sh` to orchestrate the full local stack (backend +
+  frontend together) with stale-process cleanup and two-phase shutdown
 
 Next planned work:
 
