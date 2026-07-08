@@ -11,7 +11,7 @@ from vela_core.models import BacktestEquityCurve, BacktestRun
 
 @dataclass(frozen=True)
 class BacktestResultRunInput:
-    strategy_name: str
+    strategy_id: str
     config_version: str
     start_date: date
     end_date: date
@@ -50,7 +50,7 @@ def persist_backtest_result(
     equity_curve: Sequence[BacktestEquityCurveInput],
 ) -> BacktestResultPersistenceResult:
     backtest_run = BacktestRun(
-        strategy_name=run.strategy_name,
+        strategy_id=run.strategy_id,
         config_version=run.config_version,
         start_date=run.start_date,
         end_date=run.end_date,

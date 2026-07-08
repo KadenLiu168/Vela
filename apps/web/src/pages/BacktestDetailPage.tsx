@@ -3,8 +3,7 @@ import {
   ApiClientError,
   type BacktestDetailResponse,
   type BacktestEquityCurvePoint,
-  getBacktestDetail,
-  listBacktests
+  getBacktestDetail
 } from "../api/client";
 import { EmptyState, FeedbackMessage } from "../components";
 import {
@@ -18,91 +17,46 @@ import {
 } from "../utils/formatters";
 
 type BacktestDetailPageProps = {
-  backtestId?: string;
+  backtestId: string;
 };
 
 type BacktestDetailState =
-  | { status: "loading"; backtestId?: string; data?: never; error?: never }
-  | { status: "ready"; backtestId?: string; data: BacktestDetailResponse; error?: never }
-  | { status: "not-found"; backtestId?: string; data?: never; error?: never }
-  | { status: "no-backtests"; backtestId?: string; data?: never; error?: never }
-  | { status: "error"; backtestId?: string; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never }
+  | { status: "ready"; data: BacktestDetailResponse; error?: never }
+  | { status: "not-found"; data?: never; error?: never }
+  | { status: "error"; data?: never; error: string };
 
 export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
   const [backtestState, setBacktestState] = useState<BacktestDetailState>({
-    status: "loading",
-    backtestId
+    status: "loading"
   });
 
   useEffect(() => {
     let isCurrent = true;
 
-    if (backtestId !== undefined) {
-      getBacktestDetail(backtestId)
-        .then((data) => {
-          if (isCurrent) {
-            setBacktestState({ status: "ready", backtestId, data });
-          }
-        })
-        .catch((error: unknown) => {
-          if (!isCurrent) {
-            return;
-          }
+    setBacktestState({ status: "loading" });
 
-          if (error instanceof ApiClientError && error.status === 404) {
-            setBacktestState({ status: "not-found", backtestId });
-            return;
-          }
+    getBacktestDetail(backtestId)
+      .then((data) => {
+        if (isCurrent) {
+          setBacktestState({ status: "ready", data });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
 
-          setBacktestState({
-            status: "error",
-            backtestId,
-            error: error instanceof ApiClientError ? error.kind : "unavailable"
-          });
+        if (error instanceof ApiClientError && error.status === 404) {
+          setBacktestState({ status: "not-found" });
+          return;
+        }
+
+        setBacktestState({
+          status: "error",
+          error: error instanceof ApiClientError ? error.kind : "unavailable"
         });
-    } else {
-      listBacktests(1)
-        .then((data) => {
-          if (!isCurrent) return;
-
-          if (data.runs.length === 0) {
-            setBacktestState({ status: "no-backtests" });
-            return;
-          }
-
-          const latestId = String(data.runs[0].run_id);
-
-          return getBacktestDetail(latestId)
-            .then((detail) => {
-              if (isCurrent) {
-                setBacktestState({ status: "ready", backtestId: undefined, data: detail });
-              }
-            })
-            .catch((error: unknown) => {
-              if (!isCurrent) return;
-
-              if (error instanceof ApiClientError && error.status === 404) {
-                setBacktestState({ status: "not-found", backtestId: undefined });
-                return;
-              }
-
-              setBacktestState({
-                status: "error",
-                backtestId: undefined,
-                error: error instanceof ApiClientError ? error.kind : "unavailable"
-              });
-            });
-        })
-        .catch((error: unknown) => {
-          if (!isCurrent) return;
-
-          setBacktestState({
-            status: "error",
-            backtestId: undefined,
-            error: error instanceof ApiClientError ? error.kind : "unavailable"
-          });
-        });
-    }
+      });
 
     return () => {
       isCurrent = false;
@@ -115,26 +69,18 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
         <p>Backtest research workspace</p>
         <h1>Backtest Detail</h1>
       </div>
-      {renderBacktestDetail(backtestState)}
+      {renderBacktestDetail(backtestState, backtestId)}
     </section>
   );
 }
 
-function renderBacktestDetail(backtestState: BacktestDetailState) {
+function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: string) {
   if (backtestState.status === "loading") {
     return <FeedbackMessage variant="loading">Loading backtest detail.</FeedbackMessage>;
   }
 
-  if (backtestState.status === "no-backtests") {
-    return (
-      <EmptyState>
-        No local backtest run exists yet. Run a backtest from the Dashboard to see its detail here.
-      </EmptyState>
-    );
-  }
-
   if (backtestState.status === "not-found") {
-    return <EmptyState>Backtest run {backtestState.backtestId ?? "latest"} was not found.</EmptyState>;
+    return <EmptyState>Backtest run {backtestId} was not found.</EmptyState>;
   }
 
   if (backtestState.status === "error") {
@@ -151,7 +97,7 @@ function renderBacktestDetail(backtestState: BacktestDetailState) {
     <article className="dashboard-panel">
       <strong className="panel-primary">Backtest #{run.run_id}</strong>
       <dl className="compact-list">
-        <Detail label="Strategy" value={run.strategy_name} />
+        <Detail label="Strategy" value={run.strategy_id} />
         <Detail label="Config version" value={run.config_version} />
         <Detail label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
         <Detail label="Status" value={run.status} />

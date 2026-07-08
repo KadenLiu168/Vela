@@ -81,7 +81,7 @@ class DashboardSignalSummary:
 @dataclass(frozen=True)
 class DashboardBacktestSummary:
     run_id: int
-    strategy_name: str
+    strategy_id: str
     config_version: str
     start_date: date
     end_date: date
@@ -94,7 +94,7 @@ class DashboardBacktestSummary:
     def to_dict(self) -> dict[str, object]:
         return {
             "run_id": self.run_id,
-            "strategy_name": self.strategy_name,
+            "strategy_id": self.strategy_id,
             "config_version": self.config_version,
             "start_date": _format_date(self.start_date),
             "end_date": _format_date(self.end_date),
@@ -217,7 +217,7 @@ def _get_recent_backtest_summary(session: Session) -> dict[str, object] | None:
 
     return DashboardBacktestSummary(
         run_id=run.id,
-        strategy_name=run.strategy_name,
+        strategy_id=run.strategy_id,
         config_version=run.config_version,
         start_date=run.start_date,
         end_date=run.end_date,

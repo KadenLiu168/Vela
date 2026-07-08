@@ -99,6 +99,7 @@ def generate_strategy_signal(
 
     persistence_result = persist_strategy_signal(
         session,
+        strategy_id=config.strategy_id,
         signal_date=signal_date,
         config_version=config.version,
         generated_at=generated_at,
@@ -199,6 +200,7 @@ def _persist_failed_signal(
 ) -> GenerateStrategySignalResult:
     persistence_result = persist_strategy_signal(
         session,
+        strategy_id=config.strategy_id,
         signal_date=signal_date,
         config_version=config.version,
         generated_at=generated_at,

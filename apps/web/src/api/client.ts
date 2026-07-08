@@ -100,7 +100,7 @@ export type DashboardSignalSummary = {
 
 export type DashboardBacktestSummary = {
   run_id: number;
-  strategy_name: string;
+  strategy_id: string;
   config_version: string;
   start_date: string;
   end_date: string;
@@ -164,7 +164,7 @@ export type BacktestDetailResponse = {
 
 export type BacktestDetailRun = {
   run_id: number;
-  strategy_name: string;
+  strategy_id: string;
   config_version: string;
   start_date: string;
   end_date: string;
@@ -241,6 +241,8 @@ export type LatestStrategySignalPosition = {
 
 export type BacktestListItem = {
   run_id: number;
+  strategy_id: string;
+  config_version: string;
   start_date: string;
   end_date: string;
   status: string;
@@ -255,6 +257,44 @@ export type BacktestListItem = {
 
 export type BacktestListResponse = {
   runs: BacktestListItem[];
+};
+
+export type StrategySignalListItem = {
+  signal_id: number;
+  signal_date: string;
+  config_version: string;
+  result: string | null;
+  generated_at: string;
+  is_fallback: boolean;
+  position_count: number;
+};
+
+export type StrategySignalListResponse = {
+  signals: StrategySignalListItem[];
+};
+
+export type StrategySignalDetailMetadata = {
+  signal_id: number;
+  signal_date: string;
+  strategy_id: string;
+  config_version: string;
+  generated_at: string;
+  result: string | null;
+  is_fallback: boolean;
+};
+
+export type StrategySignalDetailPosition = {
+  exchange: string;
+  symbol: string;
+  target_weight: string;
+  rank: number | null;
+  score: string | null;
+  is_fallback: boolean;
+};
+
+export type StrategySignalDetailResponse = {
+  signal: StrategySignalDetailMetadata;
+  positions: StrategySignalDetailPosition[];
 };
 
 export function getApiBaseUrl(): string {
@@ -337,8 +377,28 @@ export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse>
   return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
 }
 
-export function listBacktests(limit = 10): Promise<BacktestListResponse> {
-  return apiRequest<BacktestListResponse>(`/backtests?limit=${limit}`);
+export function listStrategySignals(limit = 20, offset = 0): Promise<StrategySignalListResponse> {
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+
+  return apiRequest<StrategySignalListResponse>(`/strategy-signals?${searchParams.toString()}`);
+}
+
+export function getStrategySignalDetail(signalId: string): Promise<StrategySignalDetailResponse> {
+  return apiRequest<StrategySignalDetailResponse>(
+    `/strategy-signals/${encodeURIComponent(signalId)}`
+  );
+}
+
+export function listBacktests(limit = 10, offset = 0): Promise<BacktestListResponse> {
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+
+  return apiRequest<BacktestListResponse>(`/backtests?${searchParams.toString()}`);
 }
 
 async function getApiError(response: Response): Promise<{ category: ApiErrorCategory; message: string }> {

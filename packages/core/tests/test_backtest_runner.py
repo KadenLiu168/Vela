@@ -60,7 +60,7 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
         volatility=Decimal("0.180000"),
     )
     assert run is not None
-    assert run.strategy_name == "dual_momentum"
+    assert run.strategy_id == "dual_momentum"
     assert run.parameters_json == (
         '{"config_version": "v1", "end_date": "2026-01-03", '
         '"risk_free_rate": 0.02, "start_date": "2026-01-01", '

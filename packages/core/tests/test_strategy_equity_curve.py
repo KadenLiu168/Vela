@@ -855,6 +855,7 @@ def _add_signal(
 ) -> None:
     persist_strategy_signal(
         session,
+        strategy_id="Dual_momentum",
         signal_date=signal_date,
         config_version="v1",
         generated_at=datetime.combine(signal_date, datetime.min.time(), tzinfo=UTC),

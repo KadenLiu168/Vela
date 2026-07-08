@@ -21,6 +21,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
             [
                 StrategySignal(
                     signal_date=date(2026, 6, 22),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
                     status="success",
@@ -36,6 +37,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 24),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 24, 9, 40, tzinfo=UTC),
                     status="failed",
@@ -44,6 +46,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 22),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 24, 9, 35, tzinfo=UTC),
                     status="success",
@@ -59,6 +62,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 23),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 24, 9, 35, tzinfo=UTC),
                     status="success",
@@ -127,6 +131,7 @@ def test_latest_strategy_signal_endpoint_returns_stable_empty_state(tmp_path) ->
         session.add(
             StrategySignal(
                 signal_date=date(2026, 6, 24),
+                strategy_id="Dual_momentum",
                 config_version="v1",
                 generated_at=datetime(2026, 6, 24, 9, 40, tzinfo=UTC),
                 status="failed",

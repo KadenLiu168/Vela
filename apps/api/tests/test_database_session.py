@@ -86,6 +86,8 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
         ("/api/health", ("GET",)),
         ("/api/market-data/fetch", ("POST",)),
         ("/api/setup/bootstrap", ("POST",)),
+        ("/api/strategy-signals", ("GET",)),
+        ("/api/strategy-signals/{signal_id}", ("GET",)),
         ("/api/strategy-signals/generate", ("POST",)),
         ("/api/strategy-signals/latest", ("GET",)),
     }

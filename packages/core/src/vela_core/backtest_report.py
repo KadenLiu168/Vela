@@ -20,7 +20,7 @@ def _format_report(run: BacktestRun) -> str:
     lines = [
         "Backtest Report",
         f"Run id: {run.id}",
-        f"Strategy: {run.strategy_name}",
+        f"Strategy: {run.strategy_id}",
         f"Config version: {run.config_version}",
         f"Date range: {run.start_date.isoformat()} to {run.end_date.isoformat()}",
         f"Status: {run.status}",

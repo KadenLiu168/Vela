@@ -32,7 +32,7 @@ def test_persist_backtest_result_writes_run_metrics_and_curve_rows() -> None:
 
     assert isinstance(result, BacktestResultPersistenceResult)
     assert run is not None
-    assert run.strategy_name == "dual_momentum"
+    assert run.strategy_id == "dual_momentum"
     assert run.config_version == "v1"
     assert run.start_date == date(2026, 1, 1)
     assert run.end_date == date(2026, 1, 31)
@@ -115,7 +115,7 @@ def _run_input(
     started_at: datetime = datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
-        strategy_name="dual_momentum",
+        strategy_id="dual_momentum",
         config_version="v1",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 1, 31),

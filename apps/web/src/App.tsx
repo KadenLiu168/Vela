@@ -16,13 +16,15 @@ import {
 import { type NavItem, AppShell } from "./components/AppShell";
 import { ErrorBoundary } from "./components";
 import { BacktestDetailPage } from "./pages/BacktestDetailPage";
+import { BacktestListPage } from "./pages/BacktestListPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SignalDetailPage } from "./pages/SignalDetailPage";
+import { SignalListPage } from "./pages/SignalListPage";
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
-  { href: "/signals/demo-signal", label: "Latest Signal" },
-  { href: "/backtests", label: "Backtest Detail" }
+  { href: "/signals", label: "Signals" },
+  { href: "/backtests", label: "Backtests" }
 ];
 
 const pageRows: PageRow[] = navItems.map((item) => ({
@@ -175,20 +177,24 @@ function renderRoute(
   setBacktestStartDate?: (value: string) => void,
   setBacktestEndDate?: (value: string) => void
 ) {
-  const signalMatch = path.match(/^\/signals\/([^/]+)$/);
+  if (path === "/signals") {
+    return <SignalListPage />;
+  }
+
+  const signalMatch = path.match(/^\/signals\/(\d+)$/);
 
   if (signalMatch) {
-    return <SignalDetailPage signalId={decodeURIComponent(signalMatch[1])} />;
+    return <SignalDetailPage signalId={signalMatch[1]} />;
   }
 
   if (path === "/backtests") {
-    return <BacktestDetailPage />;
+    return <BacktestListPage />;
   }
 
-  const backtestMatch = path.match(/^\/backtests\/([^/]+)$/);
+  const backtestMatch = path.match(/^\/backtests\/(\d+)$/);
 
   if (backtestMatch) {
-    return <BacktestDetailPage backtestId={decodeURIComponent(backtestMatch[1])} />;
+    return <BacktestDetailPage backtestId={backtestMatch[1]} />;
   }
 
   return (
@@ -207,8 +213,8 @@ function renderRoute(
 }
 
 function getActivePath(path: string): string {
-  if (path.startsWith("/signals/")) {
-    return "/signals/demo-signal";
+  if (path === "/signals" || path.startsWith("/signals/")) {
+    return "/signals";
   }
 
   if (path === "/backtests" || path.startsWith("/backtests/")) {

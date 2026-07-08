@@ -15,7 +15,7 @@ def test_backtest_run_table_has_required_columns() -> None:
 
     assert {
         "id",
-        "strategy_name",
+        "strategy_id",
         "config_version",
         "start_date",
         "end_date",
@@ -103,7 +103,7 @@ def test_backtest_run_has_lookup_indexes() -> None:
     table = cast(Table, BacktestRun.__table__)
     indexed_columns = {tuple(column.name for column in index.columns) for index in table.indexes}
 
-    assert ("strategy_name", "config_version") in indexed_columns
+    assert ("strategy_id", "config_version") in indexed_columns
     assert ("status", "started_at") in indexed_columns
     assert ("start_date", "end_date") in indexed_columns
 
@@ -260,7 +260,7 @@ def _add_backtest_run(session: Session, config_version: str = "v1") -> BacktestR
 
 def _backtest_run(
     *,
-    strategy_name: str = "dual_momentum",
+    strategy_id: str = "dual_momentum",
     config_version: str = "v1",
     start_date: date = date(2020, 1, 1),
     end_date: date = date(2026, 6, 18),
@@ -276,7 +276,7 @@ def _backtest_run(
     volatility: Decimal | None = Decimal("0.150000"),
 ) -> BacktestRun:
     return BacktestRun(
-        strategy_name=strategy_name,
+        strategy_id=strategy_id,
         config_version=config_version,
         start_date=start_date,
         end_date=end_date,

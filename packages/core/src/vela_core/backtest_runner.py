@@ -92,7 +92,7 @@ def run_backtest(
     persistence_result = persist_backtest_result(
         session,
         run=BacktestResultRunInput(
-            strategy_name=config.strategy_id,
+            strategy_id=config.strategy_id,
             config_version=config.version,
             start_date=start_date,
             end_date=end_date,

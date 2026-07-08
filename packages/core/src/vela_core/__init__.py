@@ -93,10 +93,13 @@ from vela_core.strategy_signal_persistence import (
 )
 from vela_core.strategy_signal_report import (
     LatestStrategySignalReportNotFoundError,
+    StrategySignalListEntry,
     StrategySignalReport,
     StrategySignalReportPosition,
     export_latest_strategy_signal_report,
     get_latest_strategy_signal_report,
+    get_strategy_signal_report,
+    list_strategy_signals,
 )
 from vela_core.tencent_market_data_provider import TencentMarketDataProvider
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
@@ -143,6 +146,7 @@ __all__ = [
     "StrategyVolatility",
     "StrategySignalPersistenceResult",
     "TencentMarketDataProvider",
+    "StrategySignalListEntry",
     "StrategySignalPositionInput",
     "StrategySignalReport",
     "StrategySignalReportPosition",
@@ -168,7 +172,9 @@ __all__ = [
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
     "get_latest_strategy_signal_report",
+    "get_strategy_signal_report",
     "generate_strategy_signal",
+    "list_strategy_signals",
     "export_latest_strategy_signal_report",
     "export_backtest_report",
     "load_app_config",

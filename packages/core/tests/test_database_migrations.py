@@ -51,6 +51,68 @@ def test_sqlite_migration_head_matches_orm_metadata(tmp_path: Path) -> None:
         engine.dispose()
 
 
+def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
+    tmp_path: Path,
+) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    alembic.command.upgrade(config, "20260618_0006")
+
+    engine = _create_engine(config)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO strategy_signal "
+                    "(signal_date, config_version, generated_at, status, result) "
+                    "VALUES ('2026-06-22', 'v1', '2026-06-22 09:30:00', 'success', 'hold')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_name, config_version, start_date, end_date, parameters_json, "
+                    "started_at, finished_at, status, total_return, annualized_return, "
+                    "max_drawdown, sharpe_ratio, volatility) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-31', '{}', "
+                    "'2026-02-01 09:00:00', '2026-02-01 09:05:00', 'success', "
+                    "0.12, 0.18, -0.05, 1.10, 0.20)"
+                )
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        signal_columns = {col["name"] for col in inspector.get_columns("strategy_signal")}
+        assert "strategy_id" in signal_columns
+
+        backtest_columns = {col["name"] for col in inspector.get_columns("backtest_run")}
+        assert "strategy_id" in backtest_columns
+        assert "strategy_name" not in backtest_columns
+
+        backtest_indexes = {idx["name"] for idx in inspector.get_indexes("backtest_run")}
+        assert "ix_backtest_run_strategy_config" in backtest_indexes
+
+        signal_indexes = {idx["name"] for idx in inspector.get_indexes("strategy_signal")}
+        assert "ix_strategy_signal_strategy_config" in signal_indexes
+
+        with engine.connect() as conn:
+            signal_strategy_ids = conn.execute(
+                text("SELECT strategy_id FROM strategy_signal ORDER BY id")
+            ).fetchall()
+            assert signal_strategy_ids == [("Dual_momentum",)]
+
+            backtest_strategy_ids = conn.execute(
+                text("SELECT strategy_id FROM backtest_run ORDER BY id")
+            ).fetchall()
+            assert backtest_strategy_ids == [("Dual_momentum",)]
+    finally:
+        engine.dispose()
+
+
 def _load_alembic_env() -> Any:
     env_path = ROOT / "alembic" / "env.py"
     spec = importlib.util.spec_from_file_location("alembic_env", env_path)

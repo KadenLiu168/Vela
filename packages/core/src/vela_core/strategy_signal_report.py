@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from vela_core.models import ETFInfo, StrategySignal
+from vela_core.models import ETFInfo, StrategySignal, StrategySignalPosition
 
 
 class LatestStrategySignalReportNotFoundError(ValueError):
@@ -26,6 +26,7 @@ class StrategySignalReportPosition:
 class StrategySignalReport:
     signal_id: int
     signal_date: date
+    strategy_id: str
     config_version: str
     generated_at: str
     result: str | None
@@ -65,6 +66,102 @@ def get_latest_strategy_signal_report(
         return None
 
     return _to_report(session, signal)
+
+
+@dataclass(frozen=True)
+class StrategySignalListEntry:
+    signal_id: int
+    signal_date: date
+    config_version: str
+    result: str | None
+    generated_at: str
+    is_fallback: bool
+    position_count: int
+
+
+def list_strategy_signals(
+    session: Session,
+    *,
+    strategy_id: str,
+    config_version: str,
+    limit: int,
+    offset: int = 0,
+) -> list[StrategySignalListEntry]:
+    if limit < 0:
+        raise ValueError("limit must be non-negative")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+
+    rows = session.execute(
+        select(
+            StrategySignal.id,
+            StrategySignal.signal_date,
+            StrategySignal.config_version,
+            StrategySignal.result,
+            StrategySignal.generated_at,
+        )
+        .where(StrategySignal.strategy_id == strategy_id)
+        .where(StrategySignal.config_version == config_version)
+        .where(StrategySignal.status == "success")
+        .order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+    if not rows:
+        return []
+
+    ids = [row.id for row in rows]
+    counts = dict(
+        session.execute(
+            select(StrategySignalPosition.strategy_signal_id, func.count(StrategySignalPosition.id))
+            .where(StrategySignalPosition.strategy_signal_id.in_(ids))
+            .group_by(StrategySignalPosition.strategy_signal_id)
+        ).all()
+    )
+    signals = {
+        signal.id: signal
+        for signal in session.scalars(
+            select(StrategySignal)
+            .options(selectinload(StrategySignal.positions))
+            .where(StrategySignal.id.in_(ids))
+        )
+    }
+
+    return [
+        StrategySignalListEntry(
+            signal_id=row.id,
+            signal_date=row.signal_date,
+            config_version=row.config_version,
+            result=row.result,
+            generated_at=row.generated_at.isoformat(),
+            is_fallback=_is_fallback_signal(signals[row.id]),
+            position_count=counts.get(row.id, 0),
+        )
+        for row in rows
+    ]
+
+
+def get_strategy_signal_report(
+    session: Session,
+    *,
+    signal_id: int,
+) -> StrategySignalReport | None:
+    signal = session.scalar(
+        select(StrategySignal)
+        .options(selectinload(StrategySignal.positions))
+        .where(StrategySignal.id == signal_id)
+    )
+    if signal is None:
+        return None
+
+    return _to_report(session, signal)
+
+
+def _is_fallback_signal(signal: StrategySignal) -> bool:
+    return any(
+        position.rank is None and position.score is None for position in signal.positions
+    )
 
 
 def _get_latest_successful_signal(
@@ -122,6 +219,7 @@ def _to_report(session: Session, signal: StrategySignal) -> StrategySignalReport
     return StrategySignalReport(
         signal_id=signal.id,
         signal_date=signal.signal_date,
+        strategy_id=signal.strategy_id,
         config_version=signal.config_version,
         generated_at=signal.generated_at.isoformat(),
         result=signal.result,

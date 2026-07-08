@@ -66,6 +66,8 @@ const defaultProps: CommandPaletteProps = {
   fetchBacktests: resolved({
     runs: backtestRows.map((r) => ({
       run_id: parseInt(r.id.replace("backtest-", ""), 10),
+      strategy_id: "dual_momentum",
+      config_version: "v1",
       start_date: r.runDate,
       end_date: r.runDate,
       status: "success",

@@ -21,7 +21,7 @@ from vela_core.models.base import Base
 class BacktestRun(Base):
     __tablename__ = "backtest_run"
     __table_args__ = (
-        Index("ix_backtest_run_strategy_config", "strategy_name", "config_version"),
+        Index("ix_backtest_run_strategy_config", "strategy_id", "config_version"),
         Index("ix_backtest_run_status_started_at", "status", "started_at"),
         Index("ix_backtest_run_date_range", "start_date", "end_date"),
     )
@@ -29,7 +29,7 @@ class BacktestRun(Base):
     STATUSES: ClassVar[tuple[str, ...]] = ("running", "success", "failed", "partial")
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    strategy_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    strategy_id: Mapped[str] = mapped_column(String(128), nullable=False)
     config_version: Mapped[str] = mapped_column(String(64), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)

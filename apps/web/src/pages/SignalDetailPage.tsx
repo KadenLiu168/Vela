@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   ApiClientError,
-  type LatestStrategySignalPosition,
-  type LatestStrategySignalResponse,
-  getLatestStrategySignal
+  type StrategySignalDetailPosition,
+  type StrategySignalDetailResponse,
+  getStrategySignalDetail
 } from "../api/client";
 import { EmptyState, FeedbackMessage } from "../components";
 import {
@@ -22,7 +22,8 @@ type SignalDetailPageProps = {
 
 type SignalDetailState =
   | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: LatestStrategySignalResponse; error?: never }
+  | { status: "ready"; data: StrategySignalDetailResponse; error?: never }
+  | { status: "not-found"; data?: never; error?: never }
   | { status: "error"; data?: never; error: string };
 
 export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
@@ -33,19 +34,28 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
   useEffect(() => {
     let isCurrent = true;
 
-    getLatestStrategySignal()
+    setSignalState({ status: "loading" });
+
+    getStrategySignalDetail(signalId)
       .then((data) => {
         if (isCurrent) {
           setSignalState({ status: "ready", data });
         }
       })
       .catch((error: unknown) => {
-        if (isCurrent) {
-          setSignalState({
-            status: "error",
-            error: error instanceof ApiClientError ? error.kind : "unavailable"
-          });
+        if (!isCurrent) {
+          return;
         }
+
+        if (error instanceof ApiClientError && error.status === 404) {
+          setSignalState({ status: "not-found" });
+          return;
+        }
+
+        setSignalState({
+          status: "error",
+          error: error instanceof ApiClientError ? error.kind : "unavailable"
+        });
       });
 
     return () => {
@@ -59,29 +69,25 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
         <p>Signal research workspace</p>
         <h1>Signal Detail</h1>
       </div>
-      {renderSignalDetail(signalState)}
+      {renderSignalDetail(signalState, signalId)}
     </section>
   );
 }
 
-function renderSignalDetail(signalState: SignalDetailState) {
+function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
   if (signalState.status === "loading") {
-    return <FeedbackMessage variant="loading">Loading latest signal.</FeedbackMessage>;
+    return <FeedbackMessage variant="loading">Loading signal detail.</FeedbackMessage>;
+  }
+
+  if (signalState.status === "not-found") {
+    return <EmptyState>Signal {signalId} was not found.</EmptyState>;
   }
 
   if (signalState.status === "error") {
     return (
       <FeedbackMessage className="dashboard-alert" variant="error">
-        Latest signal API unavailable: {signalState.error}
+        Signal detail API unavailable: {signalState.error}
       </FeedbackMessage>
-    );
-  }
-
-  if (!signalState.data.has_signal || signalState.data.signal === null) {
-    return (
-      <EmptyState>
-        No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready.
-      </EmptyState>
     );
   }
 
@@ -92,6 +98,7 @@ function renderSignalDetail(signalState: SignalDetailState) {
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
         <Detail label="Signal date" value={formatDate(signal.signal_date)} />
+        <Detail label="Strategy" value={signal.strategy_id} />
         <Detail label="Config version" value={signal.config_version} />
         <Detail label="Result" value={formatNullableText(signal.result)} />
         <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
@@ -105,7 +112,7 @@ function renderSignalDetail(signalState: SignalDetailState) {
   );
 }
 
-function renderTargetHoldings(positions: LatestStrategySignalPosition[]) {
+function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
   if (positions.length === 0) {
     return <EmptyState>No target holdings were stored for this signal.</EmptyState>;
   }

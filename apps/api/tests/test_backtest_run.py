@@ -235,6 +235,8 @@ def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
         "runs": [
             {
                 "run_id": 3,
+                "strategy_id": "Dual_momentum",
+                "config_version": "v1",
                 "start_date": "2026-03-01",
                 "end_date": "2026-03-31",
                 "status": "success",
@@ -248,6 +250,8 @@ def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
             },
             {
                 "run_id": 2,
+                "strategy_id": "Dual_momentum",
+                "config_version": "v1",
                 "start_date": "2026-02-01",
                 "end_date": "2026-02-28",
                 "status": "running",
@@ -261,6 +265,8 @@ def test_list_backtests_endpoint_reads_recent_persisted_runs(tmp_path) -> None:
             },
             {
                 "run_id": 1,
+                "strategy_id": "Dual_momentum",
+                "config_version": "v1",
                 "start_date": "2026-01-01",
                 "end_date": "2026-01-31",
                 "status": "success",
@@ -305,6 +311,37 @@ def test_list_backtests_endpoint_supports_limit(tmp_path) -> None:
 
     assert response.status_code == 200
     assert [run["run_id"] for run in response.json()["runs"]] == [2]
+
+
+def test_list_backtests_endpoint_supports_offset(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'list-backtests-offset.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        session.add_all(
+            [
+                backtest_run(
+                    start_date=date(2026, 1, 1),
+                    end_date=date(2026, 1, 31),
+                    started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+                ),
+                backtest_run(
+                    start_date=date(2026, 2, 1),
+                    end_date=date(2026, 2, 28),
+                    started_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests?limit=10&offset=1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert [run["run_id"] for run in response.json()["runs"]] == [1]
 
 
 def test_list_backtests_endpoint_returns_empty_list(tmp_path) -> None:
@@ -363,7 +400,7 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
     assert response.json() == {
         "run": {
             "run_id": run_id,
-            "strategy_name": "dual_momentum",
+            "strategy_id": "Dual_momentum",
             "config_version": "v1",
             "start_date": "2026-01-01",
             "end_date": "2026-01-31",
@@ -420,6 +457,40 @@ def test_backtest_detail_endpoint_returns_stable_not_found(tmp_path) -> None:
             "message": "Backtest run not found",
         }
     }
+
+
+def test_backtest_detail_endpoint_returns_404_for_foreign_strategy(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'foreign-backtest-detail.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        session.add(
+            BacktestRun(
+                strategy_id="Other_strategy",
+                config_version="v1",
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 31),
+                parameters_json='{"top_n": 2}',
+                started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+                finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+                status="success",
+                error_message=None,
+                total_return=Decimal("0.120000"),
+                annualized_return=Decimal("0.180000"),
+                max_drawdown=Decimal("-0.050000"),
+                volatility=Decimal("0.200000"),
+                sharpe_ratio=Decimal("1.100000"),
+            )
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests/1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 404
 
 
 def _add_price_history(

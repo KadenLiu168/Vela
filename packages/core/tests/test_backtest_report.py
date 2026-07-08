@@ -89,7 +89,7 @@ def _run_input(
     error_message: str | None = None,
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
-        strategy_name="dual_momentum",
+        strategy_id="dual_momentum",
         config_version="v1",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 1, 31),

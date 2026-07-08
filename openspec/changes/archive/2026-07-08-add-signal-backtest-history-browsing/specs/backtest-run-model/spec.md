@@ -1,8 +1,5 @@
-# backtest-run-model Specification
+## MODIFIED Requirements
 
-## Purpose
-Define the backtest run persistence contract used by historical backtesting and later result analysis.
-## Requirements
 ### Requirement: Backtest run ORM model
 The system SHALL define a `BacktestRun` SQLAlchemy ORM model for one historical backtest execution.
 
@@ -29,51 +26,6 @@ The system SHALL preserve multiple backtest runs for the same strategy id, confi
 - **WHEN** backend code inspects the `BacktestRun` model table indexes
 - **THEN** indexes exist for querying by strategy id and configuration version, by status and start timestamp, and by requested start and end date
 
-### Requirement: Backtest parameter snapshot
-The system SHALL store the backtest parameter snapshot used for a run.
-
-#### Scenario: Store serialized parameters
-- **WHEN** backend code creates a backtest run row with serialized parameter data
-- **THEN** the model can store the parameter data in `parameters_json`
-
-### Requirement: Backtest run migration metadata
-The system SHALL expose ORM metadata that includes the backtest run models to Alembic migration autogeneration.
-
-#### Scenario: Alembic target metadata includes backtest tables
-- **WHEN** Alembic loads the project model metadata
-- **THEN** the metadata includes the `backtest_run` and `backtest_equity_curve` tables
-- **AND** the metadata does not include the `backtest_equity_point` table
-
-### Requirement: Backtest equity curve ORM model
-The system SHALL define a `BacktestEquityCurve` SQLAlchemy ORM model for daily net value and portfolio snapshot rows produced by a backtest run.
-
-#### Scenario: Model exposes equity curve fields
-- **WHEN** backend code inspects the `BacktestEquityCurve` model table
-- **THEN** the table includes columns for `id`, `backtest_run_id`, `trade_date`, `net_value`, `cash`, `market_value`, `total_assets`, `positions_json`, and `created_at`
-
-#### Scenario: Equity curve references backtest run
-- **WHEN** backend code inspects the `BacktestEquityCurve` model table
-- **THEN** `backtest_run_id` references the `BacktestRun` table primary key
-
-#### Scenario: Equity curve relationship exposes run data
-- **WHEN** backend code loads a backtest run with related equity curve rows
-- **THEN** the ORM exposes the curve through `BacktestRun.equity_curve` and the parent run through `BacktestEquityCurve.backtest_run`
-
-### Requirement: Backtest equity curve identity
-The system SHALL prevent duplicate equity curve rows within the same backtest run and trading date.
-
-#### Scenario: Same run and same trading date
-- **WHEN** two equity curve rows use the same `backtest_run_id` and `trade_date` values
-- **THEN** the database rejects the duplicate row
-
-#### Scenario: Same trading date in different backtest runs
-- **WHEN** two equity curve rows use different `backtest_run_id` values with the same `trade_date`
-- **THEN** the database allows both rows
-
-#### Scenario: Inspect equity curve indexes
-- **WHEN** backend code inspects the `BacktestEquityCurve` model table indexes
-- **THEN** an index exists for querying equity curve rows by backtest run and trading date
-
 ### Requirement: Persist backtest results
 The system SHALL persist a completed backtest result by creating a new `BacktestRun` row and related `BacktestEquityCurve` rows from caller-provided result data.
 
@@ -89,19 +41,6 @@ The system SHALL persist a completed backtest result by creating a new `Backtest
 #### Scenario: Preserve rerun history
 - **WHEN** backend code persists two backtest results for the same strategy id, configuration version, and date range
 - **THEN** the database stores two separate `BacktestRun` rows
-
-### Requirement: Query persisted backtest results
-The system SHALL provide a query helper for retrieving a persisted backtest run with its equity curve rows.
-
-#### Scenario: Load run with equity curve
-- **WHEN** backend code queries a persisted backtest result by run id
-- **THEN** the system returns the matching `BacktestRun`
-- **AND** the run includes its related equity curve rows
-- **AND** the equity curve rows are ordered by trade date and row id
-
-#### Scenario: Missing run
-- **WHEN** backend code queries a backtest run id that does not exist
-- **THEN** the system returns no result
 
 ### Requirement: Export backtest report
 The system SHALL export a human-readable report for a persisted backtest run selected by run id.
@@ -124,4 +63,3 @@ The system SHALL export a human-readable report for a persisted backtest run sel
 #### Scenario: Missing backtest run
 - **WHEN** backend code exports a report for a run id that does not exist
 - **THEN** the system raises a not-found error
-

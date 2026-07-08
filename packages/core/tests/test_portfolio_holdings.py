@@ -19,6 +19,7 @@ def test_calculate_daily_holdings_from_signal_positions() -> None:
         qqq = _add_etf(session, symbol="QQQ")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -52,6 +53,7 @@ def test_calculate_interval_holdings_carries_positions_forward() -> None:
         spy = _add_etf(session, symbol="SPY")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -92,6 +94,7 @@ def test_calculate_interval_holdings_empty_before_first_signal() -> None:
         spy = _add_etf(session, symbol="SPY")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 24),
             config_version="v1",
             generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
@@ -124,6 +127,7 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
         qqq = _add_etf(session, symbol="QQQ")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -135,6 +139,7 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
         )
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 25),
             config_version="v1",
             generated_at=datetime(2026, 6, 25, 9, 30, tzinfo=UTC),
@@ -176,6 +181,7 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
         qqq = _add_etf(session, symbol="QQQ")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -187,6 +193,7 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
         )
         latest = persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
@@ -216,6 +223,7 @@ def test_calculate_holdings_ignores_failed_signals() -> None:
         qqq = _add_etf(session, symbol="QQQ")
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -227,6 +235,7 @@ def test_calculate_holdings_ignores_failed_signals() -> None:
         )
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 24),
             config_version="v1",
             generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),

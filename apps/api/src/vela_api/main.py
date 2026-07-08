@@ -16,6 +16,7 @@ from vela_core import (
     GenerateStrategySignalResult,
     MarketDataFetchResult,
     MarketDataProvider,
+    StrategySignalListEntry,
     StrategySignalReport,
     StrategySignalReportPosition,
     TencentMarketDataProvider,
@@ -25,6 +26,8 @@ from vela_core import (
     get_backtest_result,
     get_dashboard_summary,
     get_latest_strategy_signal_report,
+    get_strategy_signal_report,
+    list_strategy_signals,
     load_app_config,
     run_backtest,
     run_local_setup_bootstrap,
@@ -180,14 +183,62 @@ def latest_strategy_signal(session: DatabaseSession) -> dict[str, object]:
     }
 
 
+@app.get("/api/strategy-signals")
+def list_strategy_signals_endpoint(
+    session: DatabaseSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    entries = list_strategy_signals(
+        session,
+        strategy_id=config.strategy_id,
+        config_version=config.version,
+        limit=limit,
+        offset=offset,
+    )
+    return {"signals": [_strategy_signal_list_item_response(entry) for entry in entries]}
+
+
+@app.get("/api/strategy-signals/{signal_id}")
+def strategy_signal_detail(
+    signal_id: int,
+    session: DatabaseSession,
+) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    report = get_strategy_signal_report(session, signal_id=signal_id)
+    if (
+        report is None
+        or report.strategy_id != config.strategy_id
+        or report.config_version != config.version
+    ):
+        raise HTTPException(status_code=404, detail="Strategy signal not found")
+
+    return {
+        "signal": _strategy_signal_detail_metadata_response(report),
+        "positions": [
+            _strategy_signal_detail_position_response(position) for position in report.positions
+        ],
+    }
+
+
 @app.get("/api/backtests")
 def list_backtests(
     session: DatabaseSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    strategy_id: Annotated[str | None, Query(alias="strategyId")] = None,
+    config_version: Annotated[str | None, Query(alias="configVersion")] = None,
 ) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    resolved_strategy_id = strategy_id or config.strategy_id
+    resolved_config_version = config_version or config.version
     runs = session.scalars(
         select(BacktestRun)
+        .where(BacktestRun.strategy_id == resolved_strategy_id)
+        .where(BacktestRun.config_version == resolved_config_version)
         .order_by(BacktestRun.started_at.desc(), BacktestRun.id.desc())
+        .offset(offset)
         .limit(limit)
     ).all()
     return {"runs": [_backtest_list_item_response(run) for run in runs]}
@@ -215,8 +266,13 @@ def run_backtest_endpoint(
 
 @app.get("/api/backtests/{run_id}")
 def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
     run = get_backtest_result(session, run_id=run_id)
-    if run is None:
+    if (
+        run is None
+        or run.strategy_id != config.strategy_id
+        or run.config_version != config.version
+    ):
         raise HTTPException(status_code=404, detail="Backtest run not found")
 
     return {
@@ -288,6 +344,8 @@ def _backtest_run_response(result: BacktestRunResult) -> dict[str, object]:
 def _backtest_list_item_response(run: BacktestRun) -> dict[str, object]:
     return {
         "run_id": run.id,
+        "strategy_id": run.strategy_id,
+        "config_version": run.config_version,
         "start_date": run.start_date.isoformat(),
         "end_date": run.end_date.isoformat(),
         "status": run.status,
@@ -304,7 +362,7 @@ def _backtest_list_item_response(run: BacktestRun) -> dict[str, object]:
 def _backtest_detail_run_response(run: BacktestRun) -> dict[str, object]:
     return {
         "run_id": run.id,
-        "strategy_name": run.strategy_name,
+        "strategy_id": run.strategy_id,
         "config_version": run.config_version,
         "start_date": run.start_date.isoformat(),
         "end_date": run.end_date.isoformat(),
@@ -360,6 +418,45 @@ def _latest_strategy_signal_metadata_response(report: StrategySignalReport) -> d
 
 
 def _latest_strategy_signal_position_response(
+    position: StrategySignalReportPosition,
+) -> dict[str, object]:
+    return {
+        "exchange": position.exchange,
+        "symbol": position.symbol,
+        "target_weight": _format_decimal(position.target_weight),
+        "rank": position.rank,
+        "score": _format_decimal(position.score),
+        "is_fallback": position.is_fallback,
+    }
+
+
+def _strategy_signal_list_item_response(entry: StrategySignalListEntry) -> dict[str, object]:
+    return {
+        "signal_id": entry.signal_id,
+        "signal_date": entry.signal_date.isoformat(),
+        "config_version": entry.config_version,
+        "result": entry.result,
+        "generated_at": entry.generated_at,
+        "is_fallback": entry.is_fallback,
+        "position_count": entry.position_count,
+    }
+
+
+def _strategy_signal_detail_metadata_response(
+    report: StrategySignalReport,
+) -> dict[str, object]:
+    return {
+        "signal_id": report.signal_id,
+        "signal_date": report.signal_date.isoformat(),
+        "strategy_id": report.strategy_id,
+        "config_version": report.config_version,
+        "generated_at": report.generated_at,
+        "result": report.result,
+        "is_fallback": report.is_fallback,
+    }
+
+
+def _strategy_signal_detail_position_response(
     position: StrategySignalReportPosition,
 ) -> dict[str, object]:
     return {

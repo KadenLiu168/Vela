@@ -860,6 +860,24 @@ it("triggers signal generation and refreshes latest signal data", async () => {
       return Promise.resolve(jsonResponse(createGeneratedLatestSignalResponse()));
     }
 
+    if (url === "/api/strategy-signals?limit=20&offset=0") {
+      return Promise.resolve(
+        jsonResponse({
+          signals: [
+            {
+              signal_id: 43,
+              signal_date: "2026-06-24",
+              config_version: "v1",
+              result: "rebalance",
+              generated_at: "2026-06-24T09:30:00",
+              is_fallback: false,
+              position_count: 2
+            }
+          ]
+        })
+      );
+    }
+
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -924,17 +942,15 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   expect(operations.getByText("2")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeEnabled();
 
-  fireEvent.click(screen.getByRole("link", { name: "Latest Signal" }));
+  fireEvent.click(screen.getByRole("link", { name: "Signals" }));
 
-  expect(await screen.findByRole("heading", { name: "Signal Detail" })).toBeInTheDocument();
-  expect(await screen.findByText("Signal #43")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Signals" })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: "#43" })).toHaveAttribute("href", "/signals/43");
   expect(screen.getByText("2026-06-24")).toBeInTheDocument();
   expect(screen.getByText("rebalance")).toBeInTheDocument();
-  const holdingsTable = screen.getByRole("table");
-  expect(within(holdingsTable).getByText("SSE")).toBeInTheDocument();
-  expect(within(holdingsTable).getByText("510300")).toBeInTheDocument();
-  expect(within(holdingsTable).getAllByText("50%")).toHaveLength(2);
-  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals/latest")).toHaveLength(2);
+  expect(
+    fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals?limit=20&offset=0")
+  ).toHaveLength(1);
 });
 
 it("restores Dashboard latest signal status from backend data after browser refresh", async () => {
@@ -1084,7 +1100,7 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
               ? null
               : {
                   run_id: 8,
-                  strategy_name: "dual_momentum",
+                  strategy_id: "dual_momentum",
                   config_version: "v1",
                   start_date: "2026-01-01",
                   end_date: "2026-01-31",
@@ -1319,13 +1335,13 @@ it("restores Dashboard recent backtest status from backend data after browser re
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
 });
 
-it("renders latest signal data on the signal detail route", async () => {
-  window.history.pushState({}, "", "/signals/demo-signal");
+it("renders signal detail data fetched by id", async () => {
+  window.history.pushState({}, "", "/signals/42");
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
-    if (url === "/api/strategy-signals/latest") {
-      return Promise.resolve(jsonResponse(createLatestSignalResponse()));
+    if (url === "/api/strategy-signals/42") {
+      return Promise.resolve(jsonResponse(createSignalDetailResponse()));
     }
 
     return Promise.reject(new Error(`Unexpected request: ${url}`));
@@ -1337,6 +1353,7 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(screen.getByRole("heading", { name: "Signal Detail" })).toBeInTheDocument();
   expect(await screen.findByText("Signal #42")).toBeInTheDocument();
   expect(screen.getByText("2026-06-23")).toBeInTheDocument();
+  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
   expect(screen.getByText("v1")).toBeInTheDocument();
   expect(screen.getByText("rebalance")).toBeInTheDocument();
   expect(screen.getAllByText("No")).toHaveLength(2);
@@ -1362,27 +1379,27 @@ it("renders latest signal data on the signal detail route", async () => {
   expect(holdings.getAllByText("n/a")).toHaveLength(2);
   expect(holdings.getByText("Yes")).toBeInTheDocument();
   expect(screen.queryByText(/candidate/i)).not.toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/latest", undefined);
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/42", undefined);
 });
 
 it("renders shared page loading feedback on the signal detail route", () => {
-  window.history.pushState({}, "", "/signals/demo-signal");
-  const latestSignalResult = createDeferred<Response>();
-  vi.stubGlobal("fetch", vi.fn().mockReturnValue(latestSignalResult.promise));
+  window.history.pushState({}, "", "/signals/42");
+  const signalDetailResult = createDeferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(signalDetailResult.promise));
 
   render(<App />);
 
-  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading latest signal.");
+  expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading signal detail.");
   expect(screen.queryByText("Signal #42")).not.toBeInTheDocument();
 });
 
 it("renders an empty target holdings state on the signal detail route", async () => {
-  window.history.pushState({}, "", "/signals/demo-signal");
+  window.history.pushState({}, "", "/signals/42");
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(
       jsonResponse({
-        ...createLatestSignalResponse(),
+        ...createSignalDetailResponse(),
         positions: []
       })
     )
@@ -1393,43 +1410,33 @@ it("renders an empty target holdings state on the signal detail route", async ()
   expect(await screen.findByText("Signal #42")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
   expect(screen.getByText("No target holdings were stored for this signal.")).toBeInTheDocument();
-  expect(screen.queryByText(/Latest signal API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Signal detail API unavailable/i)).not.toBeInTheDocument();
 });
 
-it("renders an empty state on the signal detail route when no latest signal exists", async () => {
-  window.history.pushState({}, "", "/signals/demo-signal");
+it("renders a not-found state on the signal detail route when the id is unknown", async () => {
+  window.history.pushState({}, "", "/signals/999");
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue(
-      jsonResponse({
-        has_signal: false,
-        signal: null,
-        positions: []
-      })
-    )
+    vi.fn().mockResolvedValue(jsonResponse({ detail: "Strategy signal not found" }, 404))
   );
 
   render(<App />);
 
-  expect(
-    await screen.findByText(
-      "No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready."
-    )
-  ).toBeInTheDocument();
-  expect(screen.queryByText(/Latest signal API unavailable/i)).not.toBeInTheDocument();
+  expect(await screen.findByText("Signal 999 was not found.")).toBeInTheDocument();
+  expect(screen.queryByText(/Signal detail API unavailable/i)).not.toBeInTheDocument();
 });
 
 it("renders an API failure state on the signal detail route", async () => {
-  window.history.pushState({}, "", "/signals/demo-signal");
+  window.history.pushState({}, "", "/signals/42");
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
 
   render(<App />);
 
-  expect(await screen.findByText("Latest signal API unavailable: network")).toBeInTheDocument();
+  expect(await screen.findByText("Signal detail API unavailable: network")).toBeInTheDocument();
 });
 
 it("loads backtest detail data through the shared client", async () => {
-  window.history.pushState({}, "", "/backtests/demo-backtest");
+  window.history.pushState({}, "", "/backtests/8");
   const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createBacktestDetailResponse()));
   vi.stubGlobal("fetch", fetchMock);
 
@@ -1482,7 +1489,7 @@ it("loads backtest detail data through the shared client", async () => {
   expect(equityCurve.getByText("1.0300")).toBeInTheDocument();
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
   expect(screen.queryByText(/drawdown curve|monthly returns|return distribution/i)).not.toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/demo-backtest", undefined);
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
 });
 
 it("renders an empty equity curve state on the backtest detail route", async () => {
@@ -1603,17 +1610,19 @@ it("renders an API failure state on the backtest detail route", async () => {
   expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
 });
 
-it("loads the latest backtest detail when navigating to /backtests without an ID", async () => {
+it("renders backtest list rows on the /backtests route", async () => {
   window.history.pushState({}, "", "/backtests");
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
-    if (url === "/api/backtests?limit=1") {
+    if (url === "/api/backtests?limit=10&offset=0") {
       return Promise.resolve(
         jsonResponse({
           runs: [
             {
               run_id: 8,
+              strategy_id: "dual_momentum",
+              config_version: "v1",
               start_date: "2026-01-01",
               end_date: "2026-01-31",
               status: "success",
@@ -1630,20 +1639,18 @@ it("loads the latest backtest detail when navigating to /backtests without an ID
       );
     }
 
-    if (url === "/api/backtests/8") {
-      return Promise.resolve(jsonResponse(createBacktestDetailResponse()));
-    }
-
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
   vi.stubGlobal("fetch", fetchMock);
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest #8")).toBeInTheDocument();
-  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=1", undefined);
-  expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
+  expect(screen.getByRole("heading", { name: "Backtests" })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: "#8" })).toHaveAttribute("href", "/backtests/8");
+  expect(screen.getByText("2026-01-01 to 2026-01-31")).toBeInTheDocument();
+  expect(screen.getByText("success")).toBeInTheDocument();
+  expect(screen.getByText("2026-02-01T09:00:00")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=10&offset=0", undefined);
 });
 
 it("shows an empty state on /backtests when no backtest runs exist", async () => {
@@ -1651,7 +1658,7 @@ it("shows an empty state on /backtests when no backtest runs exist", async () =>
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
-    if (url === "/api/backtests?limit=1") {
+    if (url === "/api/backtests?limit=10&offset=0") {
       return Promise.resolve(jsonResponse({ runs: [] }));
     }
 
@@ -1666,7 +1673,7 @@ it("shows an empty state on /backtests when no backtest runs exist", async () =>
       "No local backtest run exists yet. Run a backtest from the Dashboard to see its detail here."
     )
   ).toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=1", undefined);
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=10&offset=0", undefined);
 });
 
 it("shows an error state on /backtests when the backtests list API fails", async () => {
@@ -1675,7 +1682,7 @@ it("shows an error state on /backtests when the backtests list API fails", async
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest history API unavailable: network")).toBeInTheDocument();
 });
 
 it("shows an error state on /backtests when the backtests list API returns a server error", async () => {
@@ -1683,7 +1690,7 @@ it("shows an error state on /backtests when the backtests list API returns a ser
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
 
-    if (url === "/api/backtests?limit=1") {
+    if (url === "/api/backtests?limit=10&offset=0") {
       return Promise.resolve(
         new Response(JSON.stringify({ detail: "Internal error" }), {
           headers: { "Content-Type": "application/json" },
@@ -1698,23 +1705,19 @@ it("shows an error state on /backtests when the backtests list API returns a ser
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest detail API unavailable: http")).toBeInTheDocument();
+  expect(await screen.findByText("Backtest history API unavailable: http")).toBeInTheDocument();
 });
 
 it("exposes local research navigation without production account entry points", () => {
   render(<App />);
 
   expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/");
-  expect(screen.getByRole("link", { name: "Latest Signal" })).toHaveAttribute(
-    "href",
-    "/signals/demo-signal"
-  );
-  expect(screen.getByRole("link", { name: "Backtest Detail" })).toHaveAttribute(
-    "href",
-    "/backtests"
-  );
+  expect(screen.getByRole("link", { name: "Signals" })).toHaveAttribute("href", "/signals");
+  expect(screen.getByRole("link", { name: "Backtests" })).toHaveAttribute("href", "/backtests");
 
   expect(screen.queryByText(/login|sign up|account|team|deploy|production/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /latest signal/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /backtest detail/i })).not.toBeInTheDocument();
 });
 
 function createDashboardResponse() {
@@ -1765,7 +1768,7 @@ function createDashboardResponse() {
     },
     recent_backtest: {
       run_id: 7,
-      strategy_name: "dual_momentum",
+      strategy_id: "dual_momentum",
       config_version: "v1",
       start_date: "2026-01-01",
       end_date: "2026-06-01",
@@ -1800,15 +1803,15 @@ function createDashboardResponse() {
   };
 }
 
-function createLatestSignalResponse() {
+function createSignalDetailResponse() {
   return {
-    has_signal: true,
     signal: {
       signal_id: 42,
       signal_date: "2026-06-23",
+      strategy_id: "dual_momentum",
       config_version: "v1",
-      result: "rebalance",
       generated_at: "2026-06-23T09:30:00",
+      result: "rebalance",
       is_fallback: false
     },
     positions: [
@@ -1884,7 +1887,7 @@ function createBacktestDetailResponse() {
   return {
     run: {
       run_id: 8,
-      strategy_name: "dual_momentum",
+      strategy_id: "dual_momentum",
       config_version: "v1",
       start_date: "2026-01-01",
       end_date: "2026-01-31",

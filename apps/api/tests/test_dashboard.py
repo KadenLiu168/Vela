@@ -27,6 +27,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                 market_price(etf_id=qqq.id, trade_date=date(2026, 6, 23)),
                 StrategySignal(
                     signal_date=date(2026, 6, 24),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
                     status="failed",
@@ -35,6 +36,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 23),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                     status="success",
@@ -49,7 +51,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
                     ],
                 ),
                 BacktestRun(
-                    strategy_name="dual_momentum",
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     start_date=date(2026, 1, 1),
                     end_date=date(2026, 1, 31),

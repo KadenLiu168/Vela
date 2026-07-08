@@ -88,6 +88,7 @@ def seed_minimal_workflow_data(session: Session) -> WorkflowDataset:
 
     signal = StrategySignal(
         signal_date=latest_trade_date,
+        strategy_id="Dual_momentum",
         config_version="v1",
         generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
         status="success",
@@ -228,7 +229,7 @@ def backtest_run(
     total_return: Decimal | None = Decimal("0.120000"),
 ) -> BacktestRun:
     return BacktestRun(
-        strategy_name="dual_momentum",
+        strategy_id="Dual_momentum",
         config_version="v1",
         start_date=start_date,
         end_date=end_date,

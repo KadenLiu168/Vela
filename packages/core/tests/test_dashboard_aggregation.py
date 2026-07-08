@@ -49,6 +49,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                 _market_price(qqq.id, trade_date=date(2026, 6, 23)),
                 StrategySignal(
                     signal_date=date(2026, 6, 22),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
                     status="success",
@@ -56,6 +57,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 23),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                     status="success",
@@ -77,6 +79,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                 ),
                 StrategySignal(
                     signal_date=date(2026, 6, 24),
+                    strategy_id="Dual_momentum",
                     config_version="v1",
                     generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
                     status="failed",
@@ -84,7 +87,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                     error_message="No active ETFs found",
                 ),
                 BacktestRun(
-                    strategy_name="dual_momentum",
+                    strategy_id="dual_momentum",
                     config_version="v1",
                     start_date=date(2026, 1, 1),
                     end_date=date(2026, 1, 31),
@@ -169,7 +172,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
         },
         "recent_backtest": {
             "run_id": 1,
-            "strategy_name": "dual_momentum",
+            "strategy_id": "dual_momentum",
             "config_version": "v1",
             "start_date": "2026-01-01",
             "end_date": "2026-01-31",
@@ -221,6 +224,7 @@ def test_dashboard_summary_reports_empty_latest_signal_without_successful_signal
         session.add(
             StrategySignal(
                 signal_date=date(2026, 6, 23),
+                    strategy_id="Dual_momentum",
                 config_version="v1",
                 generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                 status="failed",
@@ -243,6 +247,7 @@ def test_dashboard_summary_marks_latest_signal_fallback() -> None:
         session.add(
             StrategySignal(
                 signal_date=date(2026, 6, 23),
+                    strategy_id="Dual_momentum",
                 config_version="v1",
                 generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                 status="success",

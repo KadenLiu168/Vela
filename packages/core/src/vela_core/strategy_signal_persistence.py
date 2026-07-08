@@ -26,6 +26,7 @@ class StrategySignalPersistenceResult:
 def persist_strategy_signal(
     session: Session,
     *,
+    strategy_id: str,
     signal_date: date,
     config_version: str,
     generated_at: datetime,
@@ -36,6 +37,7 @@ def persist_strategy_signal(
 ) -> StrategySignalPersistenceResult:
     strategy_signal = StrategySignal(
         signal_date=signal_date,
+        strategy_id=strategy_id,
         config_version=config_version,
         generated_at=generated_at,
         status=status,

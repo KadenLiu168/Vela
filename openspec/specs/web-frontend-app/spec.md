@@ -140,71 +140,68 @@ The web frontend Dashboard SHALL use semantically consistent PanelHeading label 
 - **THEN** the PanelHeading SHALL display `Backtest` as eyebrow and `Latest result` as title
 - **AND** the statusPill SHALL be preserved in its current position
 
-### Requirement: Card heading 左右反转
+### Requirement: Signal history list page
+The web frontend SHALL expose a `/signals` route rendering a paginated table of historical successful strategy signals for the current strategy and version, with each row linking to that signal's detail page.
 
-The Dashboard card heading SHALL place the title (white, larger type) on the left as the primary reading anchor and the eyebrow (gray, smaller type) on the right as a secondary classification label.
+#### Scenario: List renders signal rows
+- **WHEN** the user navigates to `/signals` and successful signals exist
+- **THEN** the page renders one row per signal showing at least signal id, signal date, config version, result, and generated timestamp
+- **AND** each row links to `/signals/{signal_id}`
 
-The `PanelHeading` component SHALL make `eyebrow` optional; cards without an eyebrow SHALL render only the title and optional statusPill on the left.
+#### Scenario: List paginates history
+- **WHEN** the signal history exceeds one page
+- **THEN** the page provides pagination controls that request successive pages via limit and offset
 
-#### Scenario: Market card heading is reversed
+#### Scenario: Empty signal history
+- **WHEN** the user navigates to `/signals` and no successful signal exists
+- **THEN** the page renders an empty state directing the user to generate a signal from the Dashboard
 
-- **WHEN** the Dashboard renders the Market panel
-- **THEN** the PanelHeading SHALL display `Market data` as the left-aligned title and `Price` as the right-aligned eyebrow
+### Requirement: Backtest history list page
+The web frontend SHALL expose a `/backtests` route rendering a paginated table of historical backtest runs for the current strategy and version, with each row linking to that run's detail page.
 
-#### Scenario: Strategy card heading is reversed
+#### Scenario: List renders backtest rows
+- **WHEN** the user navigates to `/backtests` and backtest runs exist
+- **THEN** the page renders one row per run showing at least run id, date range, status, and started timestamp
+- **AND** each row links to `/backtests/{run_id}`
 
-- **WHEN** the Dashboard renders the Strategy panel
-- **THEN** the PanelHeading SHALL display `Strategy` as the left-aligned title and `Config` as the right-aligned eyebrow
+#### Scenario: List paginates history
+- **WHEN** the backtest history exceeds one page
+- **THEN** the page provides pagination controls that request successive pages via limit and offset
 
-#### Scenario: Signal card omits eyebrow
+#### Scenario: Empty backtest history
+- **WHEN** the user navigates to `/backtests` and no backtest run exists
+- **THEN** the page renders an empty state directing the user to run a backtest from the Dashboard
 
-- **WHEN** the Dashboard renders the Signal panel
-- **THEN** the PanelHeading SHALL display `Latest signal` as the title with no eyebrow
-- **AND** the statusPill SHALL remain adjacent to the title
+### Requirement: Signal detail page fetches by id
+The web frontend SHALL fetch the signal detail for `/signals/:id` by the route's signal id, not by a latest-only API.
 
-#### Scenario: Backtest card omits eyebrow
+#### Scenario: Detail fetches the requested id
+- **WHEN** the user navigates to `/signals/{signal_id}`
+- **THEN** the frontend calls the by-id signal detail endpoint with that `signal_id`
+- **AND** the rendered detail corresponds to that signal id
 
-- **WHEN** the Dashboard renders the Backtest panel
-- **THEN** the PanelHeading SHALL display `Latest backtest` as the title with no eyebrow
-- **AND** the statusPill SHALL remain adjacent to the title
+#### Scenario: Unknown or foreign signal id shows not-found state
+- **WHEN** the user navigates to `/signals/{signal_id}` and the API returns 404
+- **THEN** the page renders a not-found empty state
 
-#### Scenario: Fetches card omits eyebrow
+### Requirement: Backtest detail page fetches by id
+The web frontend SHALL fetch the backtest detail for `/backtests/:id` by the route's run id, and render a not-found state on 404.
 
-- **WHEN** the Dashboard renders the Fetches panel
-- **THEN** the PanelHeading SHALL display `Data fetches` as the title with no eyebrow
-- **AND** the statusPill SHALL remain adjacent to the title
+#### Scenario: Detail fetches the requested id
+- **WHEN** the user navigates to `/backtests/{run_id}`
+- **THEN** the frontend calls the by-id backtest detail endpoint with that `run_id`
+- **AND** the rendered detail corresponds to that run id
 
-### Requirement: Market data card internal layout
+#### Scenario: Unknown or foreign run id shows not-found state
+- **WHEN** the user navigates to `/backtests/{run_id}` and the API returns 404
+- **THEN** the page renders a not-found empty state
 
-The Market data card (`.market-panel`) SHALL render its content in the following order from top to bottom:
+### Requirement: Signal and backtest browse navigation entries
+The web frontend SHALL expose nav entries "Signals" pointing to `/signals` and "Backtests" pointing to `/backtests` as the canonical browse entry points.
 
-1. **Metric row** — two `.metric` tiles in a 2-column grid: "Price rows" (total row count) and "Covered ETFs" (number of ETFs with data).
-2. **Coverage timeline** — a horizontal layout with earliest trade date on the left, a graphite connector bar in the middle, and latest trade date on the right. Each date endpoint shows a label (uppercase "Earliest" / "Latest") above the date in monospace.
-3. **ETF list** — ETFs rendered as a flat single-column list with no category grouping.
-
-#### Scenario: Coverage timeline shows date range
-
-- **WHEN** the Dashboard renders the Market panel with non-null `earliest_trade_date` and `latest_trade_date`
-- **THEN** a `.coverage-timeline` element SHALL appear between the metric row and the ETF list
-- **AND** it SHALL display `Earliest` label above the earliest date on the left and `Latest` label above the latest date on the right
-- **AND** a `.coverage-timeline-bar` SHALL connect the two endpoints
-
-#### Scenario: Coverage timeline omitted when dates are null
-
-- **WHEN** `earliest_trade_date` or `latest_trade_date` is null
-- **THEN** NO `.coverage-timeline` SHALL be rendered
-
-#### Scenario: ETF list renders as flat single-column grid
-
-- **WHEN** the Dashboard renders the Market panel with a non-empty `etf_list`
-- **THEN** each ETF SHALL render as an `.etf-row` directly inside `.etf-row-list` with no category grouping
-- **AND** `.etf-row-list` SHALL use a single-column CSS grid (`grid-template-columns: 1fr`)
-- **AND** each ETF row SHALL show a colored accent bar, the symbol in monospace, `·`, the full name, and the `earliest_trade_date` at the right end
-- **AND** rows SHALL NOT have border-top separators; hover SHALL show `background: var(--surface-slate)`
-
-#### Scenario: Empty ETF list renders nothing
-
-- **WHEN** `etf_list` is empty
-- **THEN** no `.etf-row-list` container SHALL be rendered
-- **AND** the card content SHALL stop after the coverage timeline (or metric row if timeline is also absent)
+#### Scenario: Nav offers signal and backtest list entries
+- **WHEN** the user inspects the primary navigation
+- **THEN** the nav includes a "Signals" entry with href `/signals`
+- **AND** the nav includes a "Backtests" entry with href `/backtests`
+- **AND** no nav entry points to `/signals/demo-signal`
 

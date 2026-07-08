@@ -21,6 +21,7 @@ def test_persist_strategy_signal_writes_signal_and_positions() -> None:
         qqq_id = qqq.id
         result = persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -64,6 +65,7 @@ def test_persist_strategy_signal_writes_signal_without_positions() -> None:
     with session_factory() as session:
         result = persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -87,6 +89,7 @@ def test_persist_strategy_signal_preserves_same_date_and_config_reruns() -> None
     with session_factory() as session:
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -96,6 +99,7 @@ def test_persist_strategy_signal_preserves_same_date_and_config_reruns() -> None
         )
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
@@ -121,6 +125,7 @@ def test_get_latest_successful_strategy_signal_returns_newest_success_with_posit
         qqq_id = qqq.id
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -137,6 +142,7 @@ def test_get_latest_successful_strategy_signal_returns_newest_success_with_posit
         )
         latest = persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
@@ -171,6 +177,7 @@ def test_get_latest_successful_strategy_signal_ignores_newer_non_success() -> No
     with session_factory() as session:
         success = persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
@@ -180,6 +187,7 @@ def test_get_latest_successful_strategy_signal_ignores_newer_non_success() -> No
         )
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
@@ -206,6 +214,7 @@ def test_get_latest_successful_strategy_signal_returns_none_without_success() ->
     with session_factory() as session:
         persist_strategy_signal(
             session,
+            strategy_id="Dual_momentum",
             signal_date=date(2026, 6, 23),
             config_version="v1",
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),

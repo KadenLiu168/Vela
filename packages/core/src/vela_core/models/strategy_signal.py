@@ -24,6 +24,7 @@ class StrategySignal(Base):
     __table_args__ = (
         Index("ix_strategy_signal_date_config", "signal_date", "config_version"),
         Index("ix_strategy_signal_status_generated_at", "status", "generated_at"),
+        Index("ix_strategy_signal_strategy_config", "strategy_id", "config_version"),
     )
 
     STATUSES: ClassVar[tuple[str, ...]] = ("running", "success", "failed", "partial")
@@ -31,6 +32,7 @@ class StrategySignal(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     signal_date: Mapped[date] = mapped_column(Date, nullable=False)
+    strategy_id: Mapped[str] = mapped_column(String(128), nullable=False)
     config_version: Mapped[str] = mapped_column(String(64), nullable=False)
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

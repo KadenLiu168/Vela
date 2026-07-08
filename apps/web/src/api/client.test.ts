@@ -10,6 +10,9 @@ import {
   getDashboard,
   getHealth,
   getLatestStrategySignal,
+  getStrategySignalDetail,
+  listBacktests,
+  listStrategySignals,
   runBacktest
 } from "./client";
 
@@ -234,7 +237,7 @@ it("calls dashboard through the shared client", async () => {
     },
     recent_backtest: {
       run_id: 7,
-      strategy_name: "dual_momentum",
+      strategy_id: "dual_momentum",
       config_version: "v1",
       start_date: "2026-01-01",
       end_date: "2026-06-01",
@@ -444,7 +447,7 @@ it("calls backtest detail through the shared client", async () => {
   const detail = {
     run: {
       run_id: 8,
-      strategy_name: "dual_momentum",
+      strategy_id: "dual_momentum",
       config_version: "v1",
       start_date: "2026-01-01",
       end_date: "2026-01-31",
@@ -482,6 +485,98 @@ it("calls backtest detail through the shared client", async () => {
 
   await expect(getBacktestDetail("8")).resolves.toEqual(detail);
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
+});
+
+it("calls strategy signal list through the shared client", async () => {
+  const list = {
+    signals: [
+      {
+        signal_id: 42,
+        signal_date: "2026-06-23",
+        config_version: "v1",
+        result: "rebalance",
+        generated_at: "2026-06-23T09:30:00",
+        is_fallback: false,
+        position_count: 2
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(list), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(listStrategySignals(20, 0)).resolves.toEqual(list);
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals?limit=20&offset=0", undefined);
+});
+
+it("calls strategy signal detail through the shared client", async () => {
+  const detail = {
+    signal: {
+      signal_id: 42,
+      signal_date: "2026-06-23",
+      strategy_id: "dual_momentum",
+      config_version: "v1",
+      generated_at: "2026-06-23T09:30:00",
+      result: "rebalance",
+      is_fallback: false
+    },
+    positions: [
+      {
+        exchange: "SSE",
+        symbol: "510300",
+        target_weight: "0.333333",
+        rank: 1,
+        score: "0.812345",
+        is_fallback: false
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(detail), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(getStrategySignalDetail("42")).resolves.toEqual(detail);
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/42", undefined);
+});
+
+it("calls backtest list with limit and offset through the shared client", async () => {
+  const list = {
+    runs: [
+      {
+        run_id: 8,
+        strategy_id: "dual_momentum",
+        config_version: "v1",
+        start_date: "2026-01-01",
+        end_date: "2026-01-31",
+        status: "success",
+        started_at: "2026-02-01T09:00:00",
+        finished_at: "2026-02-01T09:05:00",
+        total_return: "0.120000",
+        annualized_return: "1.440000",
+        max_drawdown: "-0.050000",
+        volatility: "0.200000",
+        sharpe_ratio: "1.100000"
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(list), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(listBacktests(10, 10)).resolves.toEqual(list);
+  expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=10&offset=10", undefined);
 });
 
 it("exposes a typed API client error", () => {

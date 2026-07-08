@@ -308,6 +308,7 @@ def _add_etf(session: Session, symbol: str) -> ETFInfo:
 def _strategy_signal(
     *,
     signal_date: date = date(2026, 6, 18),
+    strategy_id: str = "Dual_momentum",
     config_version: str = "v1",
     generated_at: datetime = datetime(2026, 6, 18, 9, 30, tzinfo=UTC),
     status: str = "success",
@@ -316,6 +317,7 @@ def _strategy_signal(
 ) -> StrategySignal:
     return StrategySignal(
         signal_date=signal_date,
+        strategy_id=strategy_id,
         config_version=config_version,
         generated_at=generated_at,
         status=status,
