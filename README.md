@@ -125,6 +125,17 @@ Check formatting without changing files:
 uv run ruff format --check .
 ```
 
+Start the full local stack (backend + frontend together, with stale-process
+cleanup and a single terminal):
+
+```bash
+./scripts/dev.sh
+```
+
+See `scripts/README.md` for what the orchestrator does. Use this for normal
+local development. Reach for the per-service commands below only when you
+need to start a single service in isolation.
+
 Start the web frontend development server:
 
 ```bash

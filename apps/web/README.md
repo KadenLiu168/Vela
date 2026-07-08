@@ -13,7 +13,18 @@ npm install
 
 ## Development
 
-Start the development server from the repository root:
+For the full local stack (backend + frontend together, with stale-process
+cleanup and a single terminal), use the dev orchestrator from the repo root:
+
+```bash
+./scripts/dev.sh
+```
+
+See `../../scripts/README.md` for what the orchestrator does and how its
+kill-scope is bounded.
+
+To run only the frontend (e.g. when the API is already up elsewhere),
+start the development server from the repository root:
 
 ```bash
 npm --prefix apps/web run dev
