@@ -34,26 +34,29 @@ def apply_trend_filter(
     current_price = (
         current_market_price.strategy_price if current_market_price is not None else None
     )
+    window = config.trend_filter.moving_average_days
+    relation = config.trend_filter.price_relation
     moving_average = calculate_market_price_moving_average(
         session,
         etf_id=etf_id,
         as_of_date=as_of_date,
+        window=window,
     )
+    ma_value = moving_average.ma
 
-    moving_average_days = config.trend_filter.moving_average_days
-    price_relation = config.trend_filter.price_relation
     passes_filter = (
-        moving_average_days == 120
-        and price_relation == "above"
-        and current_price is not None
-        and moving_average.ma_120d is not None
-        and current_price > moving_average.ma_120d
+        current_price is not None
+        and ma_value is not None
+        and (
+            (relation == "above" and current_price > ma_value)
+            or (relation == "below" and current_price < ma_value)
+        )
     )
 
     return TrendFilterResult(
         etf_id=etf_id,
         as_of_date=as_of_date,
         current_price=current_price,
-        moving_average=moving_average.ma_120d,
+        moving_average=ma_value,
         passes_filter=passes_filter,
     )

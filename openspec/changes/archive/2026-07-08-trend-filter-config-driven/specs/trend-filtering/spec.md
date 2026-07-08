@@ -1,8 +1,5 @@
-# trend-filtering Specification
+## MODIFIED Requirements
 
-## Purpose
-Define ETF trend filtering behavior for strategy calculations using current strategy price and moving averages.
-## Requirements
 ### Requirement: ETF trend filter calculation
 The system SHALL apply a configured trend filter for one ETF using the current strategy price, a moving average over the configured `moving_average_days` window (one of 60, 120, or 250 trading days), and the configured `price_relation` (`above` or `below`). The filter passes only when the current strategy price satisfies the configured relation against the moving average using strict comparison (`>` for `above`, `<` for `below`); equality does not pass.
 
@@ -49,4 +46,3 @@ The system SHALL apply a configured trend filter for one ETF using the current s
 #### Scenario: Isolate ETF histories
 - **WHEN** backend code applies the trend filter and market prices exist for multiple ETFs
 - **THEN** the current strategy price and moving average use only `MarketPrice` rows for the requested ETF
-

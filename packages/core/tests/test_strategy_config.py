@@ -269,7 +269,7 @@ def test_strategy_config_rejects_zero_score_weights(field: str) -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("moving_average_days", 60),
+        ("moving_average_days", 30),
         ("price_relation", "at_or_above"),
     ],
 )
@@ -286,6 +286,31 @@ def test_strategy_config_rejects_unsupported_trend_filter(
     message = str(exc_info.value)
     assert f"trend_filter.{field}" in message
     assert "Input should be" in message
+
+
+@pytest.mark.parametrize(
+    ("moving_average_days", "price_relation"),
+    [
+        (60, "above"),
+        (60, "below"),
+        (120, "above"),
+        (120, "below"),
+        (250, "above"),
+        (250, "below"),
+    ],
+)
+def test_strategy_config_accepts_supported_trend_filter_values(
+    moving_average_days: int,
+    price_relation: str,
+) -> None:
+    config = _valid_strategy_config()
+    config["trend_filter"]["moving_average_days"] = moving_average_days
+    config["trend_filter"]["price_relation"] = price_relation
+
+    validated = StrategyConfig.model_validate(config)
+
+    assert validated.trend_filter.moving_average_days == moving_average_days
+    assert validated.trend_filter.price_relation == price_relation
 
 
 def test_strategy_config_rejects_invalid_top_n() -> None:

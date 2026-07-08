@@ -7,14 +7,13 @@ from sqlalchemy.orm import Session
 
 from vela_core.models import MarketPrice
 
-MOVING_AVERAGE_WINDOW = 120
-
 
 @dataclass(frozen=True)
 class MarketPriceMovingAverage:
     etf_id: int
     as_of_date: date
-    ma_120d: Decimal | None
+    window: int
+    ma: Decimal | None
 
 
 def calculate_market_price_moving_average(
@@ -22,6 +21,7 @@ def calculate_market_price_moving_average(
     *,
     etf_id: int,
     as_of_date: date,
+    window: int,
 ) -> MarketPriceMovingAverage:
     prices = list(
         session.scalars(
@@ -29,20 +29,22 @@ def calculate_market_price_moving_average(
             .where(MarketPrice.etf_id == etf_id)
             .where(MarketPrice.trade_date <= as_of_date)
             .order_by(MarketPrice.trade_date.desc())
-            .limit(MOVING_AVERAGE_WINDOW)
+            .limit(window)
         )
     )
 
-    if len(prices) < MOVING_AVERAGE_WINDOW or prices[0].trade_date != as_of_date:
+    if len(prices) < window or prices[0].trade_date != as_of_date:
         return MarketPriceMovingAverage(
             etf_id=etf_id,
             as_of_date=as_of_date,
-            ma_120d=None,
+            window=window,
+            ma=None,
         )
 
     return MarketPriceMovingAverage(
         etf_id=etf_id,
         as_of_date=as_of_date,
-        ma_120d=sum((price.strategy_price for price in prices), Decimal("0"))
-        / Decimal(MOVING_AVERAGE_WINDOW),
+        window=window,
+        ma=sum((price.strategy_price for price in prices), Decimal("0"))
+        / Decimal(window),
     )

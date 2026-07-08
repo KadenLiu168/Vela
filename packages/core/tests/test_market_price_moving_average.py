@@ -28,16 +28,51 @@ def test_calculates_complete_120_day_moving_average() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(119),
+            window=120,
         )
 
     assert moving_average == MarketPriceMovingAverage(
         etf_id=etf.id,
         as_of_date=_trade_date(119),
-        ma_120d=Decimal("101"),
+        window=120,
+        ma=Decimal("101"),
     )
 
 
-def test_returns_none_when_history_has_fewer_than_120_rows() -> None:
+def test_calculates_complete_60_day_moving_average() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_price_history(
+            session,
+            etf_id=etf.id,
+            prices_by_offset={
+                0: Decimal("80"),
+                1: Decimal("120"),
+                2: Decimal("120"),
+                59: Decimal("200"),
+            },
+            row_count=60,
+        )
+
+        moving_average = calculate_market_price_moving_average(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(59),
+            window=60,
+        )
+
+    # mean of (80 + 120 + 120 + 200 + 56 * 100) / 60 = 6120 / 60 = 102
+    assert moving_average == MarketPriceMovingAverage(
+        etf_id=etf.id,
+        as_of_date=_trade_date(59),
+        window=60,
+        ma=Decimal("102"),
+    )
+
+
+def test_returns_none_when_history_has_fewer_than_window_rows() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -48,16 +83,18 @@ def test_returns_none_when_history_has_fewer_than_120_rows() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(118),
+            window=120,
         )
 
     assert moving_average == MarketPriceMovingAverage(
         etf_id=etf.id,
         as_of_date=_trade_date(118),
-        ma_120d=None,
+        window=120,
+        ma=None,
     )
 
 
-def test_ignores_prices_older_than_120_day_window() -> None:
+def test_ignores_prices_older_than_window() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -79,9 +116,40 @@ def test_ignores_prices_older_than_120_day_window() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(120),
+            window=120,
         )
 
-    assert moving_average.ma_120d == Decimal("101")
+    assert moving_average.ma == Decimal("101")
+
+
+def test_60_day_window_excludes_61st_most_recent_row() -> None:
+    """Regression guard: a 60-day window must use exactly the 60 most recent rows.
+
+    Prevents the "window mis-wired" latent variant where a different MA module
+    (e.g., still returning 120d) silently answers a 60d config request.
+    """
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        # 62 rows total; rows 0..59 = 100 each (60 rows in window),
+        # rows 60..61 carry a sentinel price that MUST be excluded.
+        _add_price_history(
+            session,
+            etf_id=etf.id,
+            prices_by_offset={60: Decimal("9999"), 61: Decimal("9999")},
+            row_count=62,
+        )
+
+        moving_average = calculate_market_price_moving_average(
+            session,
+            etf_id=etf.id,
+            as_of_date=_trade_date(59),
+            window=60,
+        )
+
+    assert moving_average.window == 60
+    assert moving_average.ma == Decimal("100")
 
 
 def test_returns_none_when_current_price_is_missing() -> None:
@@ -95,16 +163,18 @@ def test_returns_none_when_current_price_is_missing() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(130),
+            window=120,
         )
 
     assert moving_average == MarketPriceMovingAverage(
         etf_id=etf.id,
         as_of_date=_trade_date(130),
-        ma_120d=None,
+        window=120,
+        ma=None,
     )
 
 
-def test_uses_adjusted_close_and_ignores_other_etf_histories() -> None:
+def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -136,9 +206,10 @@ def test_uses_adjusted_close_and_ignores_other_etf_histories() -> None:
             session,
             etf_id=target_etf.id,
             as_of_date=_trade_date(119),
+            window=120,
         )
 
-    assert moving_average.ma_120d == Decimal("101")
+    assert moving_average.ma == Decimal("101")
 
 
 def _create_session_factory() -> sessionmaker[Session]:

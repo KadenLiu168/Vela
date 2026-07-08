@@ -55,8 +55,8 @@ class ScoreWeightsConfig(BaseModel):
 class TrendFilterConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    moving_average_days: Literal[120]
-    price_relation: Literal["above"]
+    moving_average_days: Literal[60, 120, 250]
+    price_relation: Literal["above", "below"]
 
 
 class SelectionConfig(BaseModel):
