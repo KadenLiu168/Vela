@@ -3,14 +3,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from alembic.config import Config
 from sqlalchemy.orm import Session
 
-from alembic import command
 from vela_core.app_config import AppConfig
 from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
 from vela_core.market_data_fetcher import MarketDataFetchResult, fetch_full_market_prices
 from vela_core.market_data_provider import MarketDataProvider
+from vela_core.migration import run_alembic_upgrade
 
 StepName = Literal["migrate", "sync_etf_pool", "fetch_full_market_data"]
 StepStatus = Literal["success", "failed"]
@@ -34,27 +33,13 @@ class BootstrapResult:
     total_duration_seconds: float = 0.0
 
 
-ROOT = Path(__file__).resolve().parents[4]
-DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
-
-
-def _build_alembic_config(
-    database_url: str,
-    script_location: Path = DEFAULT_ALEMBIC_SCRIPT_LOCATION,
-) -> Config:
-    config = Config()
-    config.set_main_option("script_location", str(script_location))
-    config.set_main_option("sqlalchemy.url", database_url)
-    return config
-
-
 def run_local_setup_bootstrap(
     session: Session,
     *,
     provider: MarketDataProvider,
     app_config: AppConfig,
     database_url: str,
-    script_location: Path = DEFAULT_ALEMBIC_SCRIPT_LOCATION,
+    script_location: Path,
 ) -> BootstrapResult:
     steps: list[BootstrapStepResult] = []
     total_start = time.monotonic()
@@ -62,8 +47,7 @@ def run_local_setup_bootstrap(
     # Step 1: migrate
     step_start = time.monotonic()
     try:
-        alembic_config = _build_alembic_config(database_url, script_location)
-        command.upgrade(alembic_config, "head")
+        run_alembic_upgrade(database_url, script_location)
         steps.append(
             BootstrapStepResult(
                 name="migrate",

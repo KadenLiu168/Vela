@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from alembic.config import Config
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
@@ -24,8 +24,6 @@ from vela_core.strategy_config import (
     TransactionCostsConfig,
     TrendFilterConfig,
 )
-
-from alembic import command
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ALEMBIC_SCRIPT_LOCATION = REPO_ROOT / "alembic"
@@ -74,13 +72,6 @@ def _make_etf_pool_config() -> ETFPoolConfig:
 def _create_session_factory(database_url: str) -> sessionmaker[Session]:
     engine = create_engine(database_url)
     return sessionmaker(bind=engine)
-
-
-def _run_alembic_upgrade(database_url: str) -> None:
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option("script_location", str(ALEMBIC_SCRIPT_LOCATION))
-    alembic_cfg.set_main_option("sqlalchemy.url", database_url)
-    command.upgrade(alembic_cfg, "head")
 
 
 class RecordingProvider:
@@ -276,3 +267,20 @@ def test_bootstrap_result_durations_are_floats(tmp_path):
     for step in result.steps:
         assert isinstance(step.duration_seconds, float)
         assert step.duration_seconds > 0
+
+
+# 1.6 run_local_setup_bootstrap requires script_location (no default)
+def test_bootstrap_requires_script_location(tmp_path):
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap_no_script.db'}"
+    session_factory = _create_session_factory(database_url)
+    app_config = _make_app_config()
+    provider = RecordingProvider([_daily_price()])
+
+    with session_factory() as session:
+        with pytest.raises(TypeError, match="script_location"):
+            run_local_setup_bootstrap(
+                session,
+                provider=provider,
+                app_config=app_config,
+                database_url=database_url,
+            )

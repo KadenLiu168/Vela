@@ -6,7 +6,6 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from pathlib import Path
 
-from alembic.config import Config
 from sqlalchemy import func, select
 from vela_core import (
     BacktestReportNotFoundError,
@@ -22,6 +21,7 @@ from vela_core import (
     generate_strategy_signal,
     load_app_config,
     load_price_panel,
+    run_alembic_upgrade,
     sync_etf_pool_to_db,
 )
 from vela_core import (
@@ -44,28 +44,16 @@ from vela_core.strategy_signal_persistence import (
     persist_strategy_signal,
 )
 
-from alembic import command
-
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
 DEFAULT_STRATEGY_CONFIG_PATH = ROOT / "config" / "strategy_v1.yaml"
-
-
-def _build_alembic_config(
-    database_url: str,
-    script_location: Path = DEFAULT_ALEMBIC_SCRIPT_LOCATION,
-) -> Config:
-    config = Config()
-    config.set_main_option("script_location", str(script_location))
-    config.set_main_option("sqlalchemy.url", database_url)
-    return config
 
 
 def init_db(
     database_url: str,
     script_location: Path = DEFAULT_ALEMBIC_SCRIPT_LOCATION,
 ) -> None:
-    command.upgrade(_build_alembic_config(database_url, script_location), "head")
+    run_alembic_upgrade(database_url, script_location)
 
 
 def _build_parser() -> argparse.ArgumentParser:

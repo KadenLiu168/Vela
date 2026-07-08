@@ -41,7 +41,11 @@ from vela_core.strategy_signal_persistence import (
     persist_strategy_signal,
 )
 
-from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH, get_config_summary
+from vela_api.config import (
+    DEFAULT_ALEMBIC_SCRIPT_LOCATION,
+    DEFAULT_STRATEGY_CONFIG_PATH,
+    get_config_summary,
+)
 from vela_api.database import get_database_session, initialize_database
 
 app = FastAPI(title="Vela API")
@@ -144,6 +148,7 @@ def setup_bootstrap(
         provider=provider,
         app_config=request.app.state.strategy_config,
         database_url=request.app.state.database_url,
+        script_location=DEFAULT_ALEMBIC_SCRIPT_LOCATION,
     )
     return _bootstrap_response(result)
 

@@ -47,6 +47,7 @@ from vela_core.market_price_returns import (
     calculate_market_price_returns,
 )
 from vela_core.market_price_upsert import MarketPriceUpsertResult, upsert_market_prices
+from vela_core.migration import build_alembic_config, run_alembic_upgrade
 from vela_core.momentum_scoring import (
     DefensiveFallbackSelection,
     MomentumRanking,
@@ -154,6 +155,7 @@ __all__ = [
     "TopNSelection",
     "TrendFilterResult",
     "apply_trend_filter",
+    "build_alembic_config",
     "calculate_market_price_moving_average",
     "calculate_market_price_returns",
     "calculate_momentum_score",
@@ -185,6 +187,7 @@ __all__ = [
     "persist_backtest_result",
     "rank_momentum_scores",
     "run_backtest",
+    "run_alembic_upgrade",
     "run_local_setup_bootstrap",
     "select_with_defensive_fallback",
     "select_top_n_etfs",

@@ -5,6 +5,7 @@ from vela_core import AppConfig, load_app_config
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_STRATEGY_CONFIG_PATH = ROOT / "config" / "strategy_v1.yaml"
+DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
 
 
 def get_config_summary(config_path: Path = DEFAULT_STRATEGY_CONFIG_PATH) -> dict[str, Any]:
