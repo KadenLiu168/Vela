@@ -5,6 +5,10 @@ from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
 
+class MarketDataProviderError(Exception):
+    """Raised when a market data provider cannot fetch or normalize data."""
+
+
 @dataclass(frozen=True)
 class DailyPrice:
     symbol: str

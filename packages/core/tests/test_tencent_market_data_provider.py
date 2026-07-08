@@ -122,6 +122,52 @@ def test_tencent_provider_normalizes_etf_daily_ohlc_fields() -> None:
     ]
 
 
+def test_tencent_provider_returns_prices_sorted_ascending_by_trade_date() -> None:
+    akshare = _FakeAkShareModule(
+        pd.DataFrame(
+            [
+                {
+                    "date": date(2026, 6, 19),
+                    "open": "1.240",
+                    "close": "1.260",
+                    "high": "1.270",
+                    "low": "1.230",
+                    "amount": 14000.0,
+                },
+                {
+                    "date": date(2026, 6, 17),
+                    "open": "1.200",
+                    "close": "1.210",
+                    "high": "1.220",
+                    "low": "1.190",
+                    "amount": 11000.0,
+                },
+                {
+                    "date": date(2026, 6, 18),
+                    "open": "1.230",
+                    "close": "1.250",
+                    "high": "1.260",
+                    "low": "1.220",
+                    "amount": 12345.0,
+                },
+            ]
+        )
+    )
+    provider = TencentMarketDataProvider(akshare)
+
+    prices = provider.get_etf_daily_prices(
+        "513500",
+        start_date=date(2026, 6, 17),
+        end_date=date(2026, 6, 19),
+    )
+
+    assert [price.trade_date for price in prices] == [
+        date(2026, 6, 17),
+        date(2026, 6, 18),
+        date(2026, 6, 19),
+    ]
+
+
 def test_tencent_provider_prefixes_symbol_for_sh_market() -> None:
     akshare = _FakeAkShareModule(_empty_prices())
     provider = TencentMarketDataProvider(akshare)

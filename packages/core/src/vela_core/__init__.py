@@ -1,7 +1,4 @@
-from vela_core.akshare_market_data_provider import (
-    AkShareMarketDataProvider,
-    MarketDataProviderError,
-)
+from vela_core.akshare_market_data_provider import AkShareMarketDataProvider
 from vela_core.app_config import AppConfig, load_app_config
 from vela_core.backtest_report import BacktestReportNotFoundError, export_backtest_report
 from vela_core.backtest_result_persistence import (
@@ -35,7 +32,11 @@ from vela_core.market_data_fetcher import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
 )
-from vela_core.market_data_provider import DailyPrice, MarketDataProvider
+from vela_core.market_data_provider import (
+    DailyPrice,
+    MarketDataProvider,
+    MarketDataProviderError,
+)
 from vela_core.market_price_mapping import to_market_price
 from vela_core.market_price_moving_average import (
     MarketPriceMovingAverage,
