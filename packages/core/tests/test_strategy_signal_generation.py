@@ -2,16 +2,56 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import generate_historical_strategy_signals, generate_strategy_signal
+from vela_core import (
+    generate_historical_strategy_signals,
+    generate_strategy_signal,
+    load_price_panel,
+)
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
 from vela_core.strategy_config import RebalanceConfig, StrategyConfig
+from vela_core.strategy_signal_persistence import (
+    StrategySignalPositionInput,
+    persist_strategy_signal,
+)
 
 
 def test_generate_strategy_signal_persists_ranked_positions() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=2)
+
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
 
     with session_factory() as session:
         first = _add_etf(session, exchange="SSE", symbol="510300")
@@ -20,16 +60,31 @@ def test_generate_strategy_signal_persists_ranked_positions() -> None:
         _add_price_history(session, etf_id=first.id, current_price=Decimal("180"))
         _add_price_history(session, etf_id=second.id, current_price=Decimal("160"))
 
-        result = generate_strategy_signal(
+        active_etfs = list(
+            session.scalars(
+                _select_etfs().order_by(ETFInfo.id)
+            )
+        )
+        price_panel = load_price_panel(
             session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(120),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
         signal = session.get(StrategySignal, result.strategy_signal_id)
-        positions = session.scalars(select(StrategySignalPosition)).all()
+        positions = session.scalars(_select_positions()).all()
 
     assert signal is not None
     assert signal.status == "success"
@@ -43,21 +98,64 @@ def test_generate_strategy_signal_persists_defensive_fallback() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=2)
 
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
+
     with session_factory() as session:
         _add_etf(session, exchange="SSE", symbol="510300")
         defense = _add_etf(session, exchange="SSE", symbol="511010")
         defense_id = defense.id
 
-        result = generate_strategy_signal(
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
             session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(120),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
         signal = session.get(StrategySignal, result.strategy_signal_id)
-        position = session.scalar(select(StrategySignalPosition))
+        position = session.scalar(_select_positions())
 
     assert signal is not None
     assert signal.status == "success"
@@ -74,14 +172,48 @@ def test_generate_strategy_signal_persists_failure_when_no_active_etfs_exist() -
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=2)
 
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
+
     with session_factory() as session:
         result = generate_strategy_signal(
-            session,
             signal_date=_trade_date(120),
             config=config,
+            price_panel={},
+            active_etfs=[],
+            defense_lookup={},
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
         signal = session.get(StrategySignal, result.strategy_signal_id)
 
@@ -96,16 +228,59 @@ def test_generate_strategy_signal_persists_failure_when_defensive_asset_is_missi
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=2)
 
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
+
     with session_factory() as session:
-        _add_etf(session, exchange="SSE", symbol="510300")
+        only = _add_etf(session, exchange="SSE", symbol="510300")
+
+        active_etfs = [only]
+        price_panel = load_price_panel(
+            session,
+            etf_ids=[only.id],
+            start_date=None,
+            end_date=_trade_date(120),
+        )
+        defense_lookup = {(only.exchange, only.symbol): only}
 
         result = generate_strategy_signal(
-            session,
             signal_date=_trade_date(120),
             config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
         signal = session.get(StrategySignal, result.strategy_signal_id)
 
@@ -120,6 +295,41 @@ def test_generate_historical_strategy_signals_persists_rebalance_date_positions(
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=1)
 
+    captured_signal_ids: list[int] = []
+
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            captured_signal_ids.append(persistence.strategy_signal.id)
+            return persistence.strategy_signal.id
+
     with session_factory() as session:
         first = _add_etf(session, exchange="SSE", symbol="510300")
         second = _add_etf(session, exchange="SSE", symbol="159915")
@@ -128,28 +338,72 @@ def test_generate_historical_strategy_signals_persists_rebalance_date_positions(
         _add_price_history(session, etf_id=first.id, current_price=Decimal("180"), end_offset=127)
         _add_price_history(session, etf_id=second.id, current_price=Decimal("160"), end_offset=127)
 
-        results = generate_historical_strategy_signals(
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
             session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(127),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        results = generate_historical_strategy_signals(
             historical_trading_dates=[_trade_date(120), _trade_date(127)],
             config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
-        signals = session.scalars(select(StrategySignal).order_by(StrategySignal.signal_date)).all()
+        signals = session.scalars(_select_signals().order_by(StrategySignal.signal_date)).all()
         positions = session.scalars(
-            select(StrategySignalPosition).order_by(StrategySignalPosition.strategy_signal_id)
+            _select_positions().order_by(StrategySignalPosition.strategy_signal_id)
         ).all()
 
     assert [result.signal_date for result in results] == [_trade_date(120), _trade_date(127)]
     assert [signal.signal_date for signal in signals] == [_trade_date(120), _trade_date(127)]
     assert [position.etf_id for position in positions] == [first_id, first_id]
     assert {position.target_weight for position in positions} == {Decimal("1.000000")}
+    assert len(captured_signal_ids) == 2
 
 
 def test_generate_historical_strategy_signals_do_not_use_future_prices() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=1)
+
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
 
     with session_factory() as session:
         first = _add_etf(session, exchange="SSE", symbol="510300")
@@ -165,13 +419,24 @@ def test_generate_historical_strategy_signals_do_not_use_future_prices() -> None
             prices_by_offset={127: Decimal("1000")},
         )
 
-        results = generate_historical_strategy_signals(
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
             session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(127),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        results = generate_historical_strategy_signals(
             historical_trading_dates=[_trade_date(120)],
             config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
         )
-        session.commit()
 
     assert [result.signal_date for result in results] == [_trade_date(120)]
     assert [position.etf_id for position in results[0].positions] == [first_id]
@@ -183,21 +448,22 @@ def test_generate_historical_strategy_signals_returns_empty_without_persisting_r
 
     with session_factory() as session:
         results = generate_historical_strategy_signals(
-            session,
             historical_trading_dates=[],
             config=config,
+            price_panel={},
+            active_etfs=[],
+            defense_lookup={},
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=None,
         )
-        session.commit()
 
-        signal_count = len(session.scalars(select(StrategySignal)).all())
+        signal_count = len(session.scalars(_select_signals()).all())
 
     assert results == []
     assert signal_count == 0
 
 
 def test_generate_historical_strategy_signals_uses_configured_rebalance_frequency() -> None:
-    session_factory = _create_session_factory()
     weekly_config = _strategy_config(top_n=1).model_copy(
         update={"rebalance": RebalanceConfig(frequency="weekly")}
     )
@@ -207,6 +473,8 @@ def test_generate_historical_strategy_signals_uses_configured_rebalance_frequenc
 
     trading_dates = [_trade_date(offset) for offset in range(0, 130)]
 
+    session_factory = _create_session_factory()
+
     with session_factory() as session:
         first = _add_etf(session, exchange="SSE", symbol="510300")
         second = _add_etf(session, exchange="SSE", symbol="159915")
@@ -214,19 +482,34 @@ def test_generate_historical_strategy_signals_uses_configured_rebalance_frequenc
         _add_price_history(session, etf_id=first.id, current_price=Decimal("180"), end_offset=130)
         _add_price_history(session, etf_id=second.id, current_price=Decimal("160"), end_offset=130)
 
-        weekly_results = generate_historical_strategy_signals(
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
             session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(130),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        weekly_results = generate_historical_strategy_signals(
             historical_trading_dates=trading_dates,
             config=weekly_config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=None,
         )
         weekly_count = len(weekly_results)
 
         monthly_results = generate_historical_strategy_signals(
-            session,
             historical_trading_dates=trading_dates,
             config=monthly_config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=None,
         )
         monthly_signal_dates = [result.signal_date for result in monthly_results]
 
@@ -244,10 +527,79 @@ def test_generate_historical_strategy_signals_uses_configured_rebalance_frequenc
         assert signal_date == last_per_month_by_key[(signal_date.year, signal_date.month)]
 
 
+def test_generate_strategy_signal_performs_zero_market_price_queries() -> None:
+    """Performance guard: signal generation must not touch MarketPrice."""
+    session_factory = _create_session_factory()
+    config = _strategy_config(top_n=1)
+
+    with session_factory() as session:
+        first = _add_etf(session, exchange="SSE", symbol="510300")
+        _add_price_history(session, etf_id=first.id, current_price=Decimal("180"))
+
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
+            session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(120),
+        )
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        original_scalars = session.scalars
+
+        def counting_scalars(stmt: object, *args: object, **kwargs: object) -> object:
+            from sqlalchemy.sql.elements import ClauseElement
+
+            compiled_sql = (
+                str(stmt.compile(compile_kwargs={"literal_binds": True}))
+                if isinstance(stmt, ClauseElement)
+                else ""
+            )
+            if "market_price" in compiled_sql.lower():
+                raise AssertionError(
+                    "generate_strategy_signal must not query market_price directly; "
+                    f"got statement: {compiled_sql}"
+                )
+            return original_scalars(stmt, *args, **kwargs)
+
+        session.scalars = counting_scalars  # type: ignore[method-assign]
+
+        try:
+            generate_strategy_signal(
+                signal_date=_trade_date(120),
+                config=config,
+                price_panel=price_panel,
+                active_etfs=active_etfs,
+                defense_lookup=defense_lookup,
+                generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+                persist=None,
+            )
+        finally:
+            session.scalars = original_scalars  # type: ignore[method-assign]
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)
+
+
+def _select_etfs() -> object:
+    from sqlalchemy import select as _select
+
+    return _select(ETFInfo).where(ETFInfo.is_active.is_(True))
+
+
+def _select_signals() -> object:
+    from sqlalchemy import select as _select
+
+    return _select(StrategySignal)
+
+
+def _select_positions() -> object:
+    from sqlalchemy import select as _select
+
+    return _select(StrategySignalPosition)
 
 
 def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:

@@ -29,11 +29,17 @@ from vela_core import (
     get_strategy_signal_report,
     list_strategy_signals,
     load_app_config,
+    load_price_panel,
     run_backtest,
     run_local_setup_bootstrap,
 )
-from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice
+from vela_core.models import BacktestEquityCurve, BacktestRun, ETFInfo, MarketPrice
 from vela_core.strategy_config import load_strategy_config
+from vela_core.strategy_signal_generation import PersistStrategySignalPosition
+from vela_core.strategy_signal_persistence import (
+    StrategySignalPositionInput,
+    persist_strategy_signal,
+)
 
 from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH, get_config_summary
 from vela_api.database import get_database_session, initialize_database
@@ -152,10 +158,58 @@ def generate_strategy_signal_endpoint(
         raise HTTPException(status_code=400, detail="No local market prices found")
 
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
-    result = generate_strategy_signal(
+
+    active_etfs = list(
+        session.scalars(
+            select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id)
+        )
+    )
+    price_panel = load_price_panel(
         session,
+        etf_ids=[etf.id for etf in active_etfs],
+        start_date=None,
+        end_date=resolved_signal_date,
+    )
+    defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[PersistStrategySignalPosition],
+        error_message: str | None,
+    ) -> int:
+        persistence_result = persist_strategy_signal(
+            session,
+            strategy_id=config.strategy_id,
+            signal_date=signal_date,
+            config_version=config.version,
+            generated_at=generated_at,
+            status=status,
+            result=result,
+            positions=[
+                StrategySignalPositionInput(
+                    etf_id=position["etf_id"],
+                    rank=position["rank"],
+                    score=position["score"],
+                    target_weight=position["target_weight"],
+                )
+                for position in positions
+            ],
+            error_message=error_message,
+        )
+        session.commit()
+        return persistence_result.strategy_signal.id
+
+    result = generate_strategy_signal(
         signal_date=resolved_signal_date,
         config=config,
+        price_panel=price_panel,
+        active_etfs=active_etfs,
+        defense_lookup=defense_lookup,
+        persist=_persist,
     )
     return _strategy_signal_response(result)
 

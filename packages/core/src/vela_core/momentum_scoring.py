@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import StrategyConfig
 
@@ -43,24 +43,20 @@ class DefensiveFallbackSelection:
     target_weight: Decimal
 
 
-def calculate_momentum_score(
-    session: Session,
+def _momentum_score_from_prices(
+    prices: list[MarketPrice],
     *,
     etf_id: int,
     as_of_date: date,
     config: StrategyConfig,
 ) -> MomentumScore:
-    prices = list(
-        session.scalars(
-            select(MarketPrice)
-            .where(MarketPrice.etf_id == etf_id)
-            .where(MarketPrice.trade_date <= as_of_date)
-            .order_by(MarketPrice.trade_date.desc())
-            .limit(config.momentum.long_window_days + 1)
-        )
-    )
+    """Pure-function momentum score over an in-memory ascending price series.
 
-    if not prices or prices[0].trade_date != as_of_date:
+    ``prices`` MUST be sorted by ``trade_date`` ascending. ``current_price``
+    is ``prices[-1].strategy_price`` and short/long returns are computed
+    against ``prices[-1 - window]``.
+    """
+    if not prices or prices[-1].trade_date != as_of_date:
         return MomentumScore(
             etf_id=etf_id,
             as_of_date=as_of_date,
@@ -79,6 +75,37 @@ def calculate_momentum_score(
         short_return=short_return,
         long_return=long_return,
         score=score,
+    )
+
+
+def calculate_momentum_score(
+    session: Session,
+    *,
+    etf_id: int,
+    as_of_date: date,
+    config: StrategyConfig,
+) -> MomentumScore:
+    """Compatibility wrapper that loads a single-ETF panel then delegates.
+
+    Prefer the panel-driven flow in ``generate_strategy_signal`` for new
+    code; this entry point remains for callers that already hold a
+    session and want a single momentum score.
+    """
+    panel = load_price_panel(
+        session,
+        etf_ids=[etf_id],
+        start_date=None,
+        end_date=as_of_date,
+    )
+    # Trim to the most-recent ``long_window + 1`` rows so the score uses
+    # the same rows the historical ``LIMIT long_window+1`` query did.
+    prices = panel.get(etf_id, [])[-(config.momentum.long_window_days + 1):]
+
+    return _momentum_score_from_prices(
+        prices,
+        etf_id=etf_id,
+        as_of_date=as_of_date,
+        config=config,
     )
 
 
@@ -145,11 +172,15 @@ def _calculate_window_return(
     prices: list[MarketPrice],
     window: int,
 ) -> Decimal | None:
+    """Return ``prices[-1] / prices[-1-window] - 1``.
+
+    ``prices`` MUST be sorted by ``trade_date`` ascending.
+    """
     if len(prices) <= window:
         return None
 
-    current_price = prices[0].strategy_price
-    prior_price = prices[window].strategy_price
+    current_price = prices[-1].strategy_price
+    prior_price = prices[-1 - window].strategy_price
     return current_price / prior_price - Decimal("1")
 
 

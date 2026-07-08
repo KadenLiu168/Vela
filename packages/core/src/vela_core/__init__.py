@@ -41,6 +41,7 @@ from vela_core.market_price_moving_average import (
     MarketPriceMovingAverage,
     calculate_market_price_moving_average,
 )
+from vela_core.market_price_query import load_price_panel
 from vela_core.market_price_returns import (
     MarketPriceReturns,
     calculate_market_price_returns,
@@ -171,6 +172,7 @@ __all__ = [
     "generate_rebalance_dates",
     "generate_weekly_rebalance_dates",
     "get_latest_successful_strategy_signal",
+    "load_price_panel",
     "get_latest_strategy_signal_report",
     "get_strategy_signal_report",
     "generate_strategy_signal",

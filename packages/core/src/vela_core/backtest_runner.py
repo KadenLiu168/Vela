@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -11,8 +11,10 @@ from vela_core.backtest_result_persistence import (
     BacktestResultRunInput,
     persist_backtest_result,
 )
-from vela_core.models import MarketPrice
+from vela_core.market_price_query import load_price_panel
+from vela_core.models import ETFInfo, MarketPrice
 from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
+from vela_core.rebalance_dates import generate_rebalance_dates
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
@@ -25,7 +27,14 @@ from vela_core.strategy_equity_curve import (
     calculate_strategy_sharpe_ratio,
     calculate_strategy_volatility,
 )
-from vela_core.strategy_signal_generation import generate_historical_strategy_signals
+from vela_core.strategy_signal_generation import (
+    PersistStrategySignalPosition,
+    generate_historical_strategy_signals,
+)
+from vela_core.strategy_signal_persistence import (
+    StrategySignalPositionInput,
+    persist_strategy_signal,
+)
 
 _SIX_PLACES = Decimal("0.000001")
 
@@ -61,12 +70,70 @@ def run_backtest(
         raise ValueError("No local market prices found in requested backtest date range")
 
     started_at = started_at or datetime.now(UTC)
-    signal_results = generate_historical_strategy_signals(
+    rebalance_dates = generate_rebalance_dates(
+        trading_dates,
+        frequency=config.rebalance.frequency,
+    )
+    active_etfs = _list_active_etfs(session)
+    defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+    # Convert the longest trading-day window to a safe calendar-day buffer:
+    # ~252 trading days per ~365 calendar days gives a ratio of ~0.69, so
+    # ``max_window / 0.69`` calendar days is the minimum; ``* 2 + 10`` adds a
+    # comfortable margin for weekends, holidays, and suspended-trading gaps so
+    # the first rebalance date always sees enough history for trend + momentum.
+    max_window = max(
+        config.momentum.long_window_days,
+        config.trend_filter.moving_average_days,
+    )
+    panel_window_start = rebalance_dates[0] - timedelta(days=max_window * 2 + 10)
+    price_panel = load_price_panel(
         session,
+        etf_ids=[etf.id for etf in active_etfs],
+        start_date=panel_window_start,
+        end_date=rebalance_dates[-1] if rebalance_dates else end_date,
+    )
+
+    def _persist_signal(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[PersistStrategySignalPosition],
+        error_message: str | None,
+    ) -> int:
+        persistence_result = persist_strategy_signal(
+            session,
+            strategy_id=config.strategy_id,
+            signal_date=signal_date,
+            config_version=config.version,
+            generated_at=generated_at,
+            status=status,
+            result=result,
+            positions=[
+                StrategySignalPositionInput(
+                    etf_id=position["etf_id"],
+                    rank=position["rank"],
+                    score=position["score"],
+                    target_weight=position["target_weight"],
+                )
+                for position in positions
+            ],
+            error_message=error_message,
+        )
+        return persistence_result.strategy_signal.id
+
+    signal_results = generate_historical_strategy_signals(
         historical_trading_dates=trading_dates,
         config=config,
+        price_panel=price_panel,
+        active_etfs=active_etfs,
+        defense_lookup=defense_lookup,
         generated_at=started_at,
+        persist=_persist_signal,
     )
+
     points = calculate_strategy_equity_curve(
         session,
         trading_dates=trading_dates,
@@ -131,6 +198,14 @@ def _load_trading_dates(session: Session, *, start_date: date, end_date: date) -
             .where(MarketPrice.trade_date <= end_date)
             .distinct()
             .order_by(MarketPrice.trade_date)
+        )
+    )
+
+
+def _list_active_etfs(session: Session) -> list[ETFInfo]:
+    return list(
+        session.scalars(
+            select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id)
         )
     )
 

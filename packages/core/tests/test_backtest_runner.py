@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 import vela_core.backtest_runner as runner
@@ -152,11 +153,14 @@ def _patch_runner_helpers(
     captured_dates: list[date] | None = None,
 ) -> None:
     def fake_generate_historical_strategy_signals(
-        session: Session,
         *,
         historical_trading_dates: Iterable[date],
         config: StrategyConfig,
+        price_panel: dict[int, list[Any]] | None = None,
+        active_etfs: list[Any] | None = None,
+        defense_lookup: dict[tuple[str, str], Any] | None = None,
         generated_at: datetime | None = None,
+        persist: Any = None,
     ) -> list[GenerateStrategySignalResult]:
         dates = list(historical_trading_dates)
         if captured_dates is not None:
