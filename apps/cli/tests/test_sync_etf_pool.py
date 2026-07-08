@@ -3,8 +3,10 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, func, select
 from vela_cli import main as cli
-from vela_core import ETFPoolSyncResult
+from vela_core import ETFPoolSyncResult, load_etf_pool_config
 from vela_core.models import ETFInfo
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _sqlite_url(path: Path) -> str:
@@ -122,7 +124,12 @@ def test_sync_etf_pool_populates_active_etfs_after_init_db(
 
     assert exit_code == 0
     assert "ETF pool sync status: success" in captured.out
-    assert active_count == 6
+    expected_active = sum(
+        1
+        for etf in load_etf_pool_config(REPO_ROOT / "config" / "etf_pool.yaml").etfs
+        if etf.is_active
+    )
+    assert active_count == expected_active
 
 
 def _result() -> ETFPoolSyncResult:

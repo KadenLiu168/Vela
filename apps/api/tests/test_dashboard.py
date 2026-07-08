@@ -1,9 +1,11 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from vela_api.database import initialize_database
 from vela_api.main import app
+from vela_core import load_app_config
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.models import BacktestRun, StrategySignal, StrategySignalPosition
 
@@ -13,6 +15,8 @@ from tests.integration_data import (
     market_price,
     prepare_sqlite_database,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
@@ -96,7 +100,10 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["strategy"]["strategy_id"] == "dual_momentum"
+    assert (
+        body["strategy"]["strategy_id"]
+        == load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml").strategy.strategy_id
+    )
     assert body["strategy"]["version"] == "v1"
     assert body["market_data"] == {
         "price_rows": 2,
@@ -104,8 +111,20 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "earliest_trade_date": "2026-06-22",
         "latest_trade_date": "2026-06-23",
         "etf_list": [
-            {"exchange": "NYSEARCA", "symbol": "QQQ", "name": "QQQ ETF", "category": None},
-            {"exchange": "NYSEARCA", "symbol": "SPY", "name": "SPY ETF", "category": None},
+            {
+                "exchange": "NYSEARCA",
+                "symbol": "QQQ",
+                "name": "QQQ ETF",
+                "category": None,
+                "earliest_trade_date": "2026-06-23",
+            },
+            {
+                "exchange": "NYSEARCA",
+                "symbol": "SPY",
+                "name": "SPY ETF",
+                "category": None,
+                "earliest_trade_date": "2026-06-22",
+            },
         ],
     }
     assert body["latest_signal"] == {

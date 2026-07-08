@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from vela_core import (
     AppConfig,
     ConfigError,
@@ -11,16 +12,18 @@ from vela_core import (
 from vela_core.strategy_config import StrategyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+ETF_POOL_PATH = REPO_ROOT / "config" / "etf_pool.yaml"
 
 
 def test_load_existing_etf_pool_yaml_returns_typed_config() -> None:
-    config = load_etf_pool_config(REPO_ROOT / "config" / "etf_pool.yaml")
+    config = load_etf_pool_config(ETF_POOL_PATH)
 
     assert isinstance(config, ETFPoolConfig)
     assert config.pool_id == "phase1_core"
     assert config.provider == "akshare"
     assert config.currency == "CNY"
-    assert len(config.etfs) == 6
+    raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
+    assert len(config.etfs) == len(raw_etfs)
     assert config.etfs[0].exchange == "SSE"
     assert isinstance(config.etfs[0].exchange, str)
 
@@ -142,7 +145,8 @@ def test_load_existing_app_config_contains_checked_in_values() -> None:
     assert config.strategy.universe_config == "config/etf_pool.yaml"
     assert config.etf_pool.pool_id == "phase1_core"
     assert config.etf_pool.provider == "akshare"
-    assert len(config.etf_pool.etfs) == 6
+    raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
+    assert len(config.etf_pool.etfs) == len(raw_etfs)
 
 
 def test_app_config_resolves_universe_config_from_working_directory() -> None:

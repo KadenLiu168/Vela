@@ -112,13 +112,17 @@ def list_strategy_signals(
         return []
 
     ids = [row.id for row in rows]
-    counts = dict(
-        session.execute(
-            select(StrategySignalPosition.strategy_signal_id, func.count(StrategySignalPosition.id))
+    counts: dict[int, int] = {
+        row[0]: row[1]
+        for row in session.execute(
+            select(
+                StrategySignalPosition.strategy_signal_id,
+                func.count(StrategySignalPosition.id),
+            )
             .where(StrategySignalPosition.strategy_signal_id.in_(ids))
             .group_by(StrategySignalPosition.strategy_signal_id)
         ).all()
-    )
+    }
     signals = {
         signal.id: signal
         for signal in session.scalars(
