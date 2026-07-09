@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
@@ -367,6 +368,72 @@ def test_fetch_incremental_market_prices_logs_partial_fetch() -> None:
     assert log.status == "partial"
     assert log.error_message == "QQQ: provider failed for QQQ"
     assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+
+
+def test_fetch_full_market_prices_records_duplicate_trade_date_warnings() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 18),
+                open_price=Decimal("100.00"),
+                high_price=Decimal("101.00"),
+                low_price=Decimal("99.00"),
+                close_price=Decimal("100.50"),
+                volume=1000,
+            ),
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 18),
+                open_price=Decimal("200.00"),
+                high_price=Decimal("201.00"),
+                low_price=Decimal("199.00"),
+                close_price=Decimal("200.50"),
+                volume=2000,
+            ),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        etf_id = etf.id
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+        prices = session.query(MarketPrice).all()
+
+    assert result.quality_warnings is not None
+    assert json.loads(result.quality_warnings) == {
+        "duplicate_trade_dates": [{"etf_id": etf_id, "trade_date": "2026-06-18", "count": 2}]
+    }
+    assert log.quality_warnings == result.quality_warnings
+    # Dedup semantics unchanged: one row persisted, last-write-wins keeps the second price.
+    assert len(prices) == 1
+    assert prices[0].close_price == Decimal("200.500000")
+
+
+def test_fetch_full_market_prices_leaves_quality_warnings_null_without_duplicates() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 17)),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 18)),
+        ]
+    )
+
+    with session_factory() as session:
+        _add_etf(session, symbol="SPY")
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+
+    assert result.quality_warnings is None
+    assert log.quality_warnings is None
 
 
 def _create_session_factory() -> sessionmaker[Session]:

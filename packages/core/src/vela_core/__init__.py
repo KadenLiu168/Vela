@@ -26,6 +26,11 @@ from vela_core.dashboard_aggregation import (
     DashboardSignalSummary,
     get_dashboard_summary,
 )
+from vela_core.data_quality import (
+    DuplicateTradeDateWarning,
+    build_quality_warnings_json,
+    detect_duplicate_trade_dates,
+)
 from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
 from vela_core.joinquant_market_data_provider import JoinQuantMarketDataProvider
 from vela_core.market_data_fetcher import (
@@ -126,6 +131,7 @@ __all__ = [
     "DashboardMarketDataStatus",
     "DashboardSignalSummary",
     "DefensiveFallbackSelection",
+    "DuplicateTradeDateWarning",
     "ETFConfig",
     "ETFPoolConfig",
     "ETFPoolSyncResult",
@@ -159,6 +165,7 @@ __all__ = [
     "TrendFilterResult",
     "apply_trend_filter",
     "build_alembic_config",
+    "build_quality_warnings_json",
     "calculate_market_price_moving_average",
     "calculate_market_price_returns",
     "calculate_momentum_score",
@@ -168,6 +175,7 @@ __all__ = [
     "calculate_strategy_maximum_drawdown",
     "calculate_strategy_sharpe_ratio",
     "calculate_strategy_volatility",
+    "detect_duplicate_trade_dates",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "get_backtest_result",

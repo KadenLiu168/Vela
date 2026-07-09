@@ -113,6 +113,35 @@ def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
         engine.dispose()
 
 
+def test_migration_adds_quality_warnings_column_to_data_fetch_log(
+    tmp_path: Path,
+) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    alembic.command.upgrade(config, "20260708_0007")
+
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        columns = {col["name"] for col in inspector.get_columns("data_fetch_log")}
+        assert "quality_warnings" not in columns
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        column = next(
+            col
+            for col in inspector.get_columns("data_fetch_log")
+            if col["name"] == "quality_warnings"
+        )
+        assert column["nullable"] is True
+    finally:
+        engine.dispose()
+
+
 def _load_alembic_env() -> Any:
     env_path = ROOT / "alembic" / "env.py"
     spec = importlib.util.spec_from_file_location("alembic_env", env_path)

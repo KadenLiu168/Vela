@@ -5,6 +5,10 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from vela_core.data_quality import (
+    build_quality_warnings_json,
+    detect_duplicate_trade_dates,
+)
 from vela_core.market_data_provider import MarketDataProvider
 from vela_core.market_price_mapping import to_market_price
 from vela_core.market_price_upsert import upsert_market_prices
@@ -21,6 +25,7 @@ class MarketDataFetchResult:
     rows_updated: int
     failed_symbols: tuple[str, ...] = ()
     error_message: str | None = None
+    quality_warnings: str | None = None
 
 
 def fetch_full_market_prices(
@@ -85,6 +90,7 @@ def _fetch_market_prices(
             rows_inserted=0,
             rows_updated=0,
             error_message=no_baseline_error,
+            quality_warnings=None,
         )
         session.flush()
         return MarketDataFetchResult(
@@ -95,6 +101,7 @@ def _fetch_market_prices(
             rows_inserted=0,
             rows_updated=0,
             error_message=no_baseline_error,
+            quality_warnings=None,
         )
 
     if not active_etfs:
@@ -106,6 +113,7 @@ def _fetch_market_prices(
             rows_inserted=0,
             rows_updated=0,
             error_message=no_active_error,
+            quality_warnings=None,
         )
         session.flush()
         return MarketDataFetchResult(
@@ -116,6 +124,7 @@ def _fetch_market_prices(
             rows_inserted=0,
             rows_updated=0,
             error_message=no_active_error,
+            quality_warnings=None,
         )
 
     market_prices: list[MarketPrice] = []
@@ -137,6 +146,8 @@ def _fetch_market_prices(
         market_prices.extend(to_market_price(price, etf_id=etf.id) for price in daily_prices)
 
     rows_fetched = len(market_prices)
+    duplicate_warnings = detect_duplicate_trade_dates(market_prices)
+    quality_warnings = build_quality_warnings_json(duplicate_warnings)
     rows_inserted = 0
     rows_updated = 0
     if market_prices:
@@ -153,6 +164,7 @@ def _fetch_market_prices(
         rows_inserted=rows_inserted,
         rows_updated=rows_updated,
         error_message=error_message,
+        quality_warnings=quality_warnings,
     )
     session.flush()
 
@@ -165,6 +177,7 @@ def _fetch_market_prices(
         rows_updated=rows_updated,
         failed_symbols=tuple(failed_symbols),
         error_message=error_message,
+        quality_warnings=quality_warnings,
     )
 
 
@@ -206,6 +219,7 @@ def _finish_log(
     rows_inserted: int,
     rows_updated: int,
     error_message: str | None,
+    quality_warnings: str | None,
 ) -> None:
     fetch_log.status = status
     fetch_log.finished_at = _now()
@@ -213,3 +227,4 @@ def _finish_log(
     fetch_log.rows_inserted = rows_inserted
     fetch_log.rows_updated = rows_updated
     fetch_log.error_message = error_message
+    fetch_log.quality_warnings = quality_warnings

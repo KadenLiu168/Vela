@@ -41,6 +41,7 @@ class DataFetchLog(Base):
     rows_inserted: Mapped[int | None] = mapped_column(Integer)
     rows_updated: Mapped[int | None] = mapped_column(Integer)
     error_message: Mapped[str | None] = mapped_column(Text)
+    quality_warnings: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
