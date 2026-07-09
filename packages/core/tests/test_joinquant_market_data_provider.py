@@ -256,6 +256,19 @@ def test_joinquant_provider_authenticates_at_most_once_per_process() -> None:
     assert jq.auth_calls[0] == ("dummy-user", "dummy-pass")
 
 
+def test_joinquant_provider_wraps_auth_failure_as_provider_error() -> None:
+    jq = AuthFailingJoinQuantModule(RuntimeError("未开通权限"))
+
+    with pytest.raises(MarketDataProviderError) as exc_info:
+        JoinQuantMarketDataProvider(jq)
+
+    message = str(exc_info.value)
+    assert "joinquant" in message
+    assert "authentication failed" in message
+    assert "未开通权限" in message
+    assert jq.auth_calls == [("dummy-user", "dummy-pass")]
+
+
 def test_joinquant_provider_raises_clear_error_when_jqdatasdk_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -344,6 +357,16 @@ class FailingJoinQuantModule(FakeJoinQuantModule):
     def get_price(self, **kwargs: Any) -> pd.DataFrame:  # type: ignore[override]
         self.calls.append({"security": kwargs.get("security")})
         raise RuntimeError("timeout")
+
+
+class AuthFailingJoinQuantModule(FakeJoinQuantModule):
+    def __init__(self, error: Exception) -> None:
+        super().__init__(_empty_prices())
+        self._error = error
+
+    def auth(self, username: str, password: str) -> None:
+        self.auth_calls.append((username, password))
+        raise self._error
 
 
 class FlakyJoinQuantModule(FakeJoinQuantModule):

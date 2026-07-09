@@ -14,6 +14,11 @@ import os
 from datetime import date, timedelta
 
 import pytest
+from dotenv import load_dotenv
+
+# Load .env before evaluating the skipif, so credentials placed in a gitignored
+# .env (rather than exported into the shell) are visible at collection time.
+load_dotenv()
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("JQ_USERNAME") or not os.environ.get("JQ_PASSWORD"),

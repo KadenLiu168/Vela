@@ -58,7 +58,12 @@ class JoinQuantMarketDataProvider(BaseMarketDataProvider):
                     "(e.g. uv pip install -e '.[joinquant]')"
                 ) from exc
         if not _JQ_AUTHENTICATED:
-            source.auth(username, password)
+            try:
+                source.auth(username, password)
+            except Exception as exc:
+                raise MarketDataProviderError(
+                    f"joinquant market data provider error: jqdatasdk authentication failed: {exc}"
+                ) from exc
             _JQ_AUTHENTICATED = True
         super().__init__(source)
 
