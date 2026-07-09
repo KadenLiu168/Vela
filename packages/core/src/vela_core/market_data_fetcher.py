@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
@@ -6,13 +7,17 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from vela_core.data_quality import (
-    build_quality_warnings_json,
+    EtfTradingDayGap,
+    SystematicTradingDayGap,
+    build_quality_warnings_json_from_sections,
     detect_duplicate_trade_dates,
+    detect_etf_trading_day_gaps,
+    detect_systematic_trading_day_gaps,
 )
 from vela_core.market_data_provider import MarketDataProvider
 from vela_core.market_price_mapping import to_market_price
 from vela_core.market_price_upsert import upsert_market_prices
-from vela_core.models import DataFetchLog, ETFInfo, MarketPrice
+from vela_core.models import DataFetchLog, ETFInfo, MarketPrice, TradingCalendar
 
 
 @dataclass(frozen=True)
@@ -147,13 +152,18 @@ def _fetch_market_prices(
 
     rows_fetched = len(market_prices)
     duplicate_warnings = detect_duplicate_trade_dates(market_prices)
-    quality_warnings = build_quality_warnings_json(duplicate_warnings)
     rows_inserted = 0
     rows_updated = 0
     if market_prices:
         upsert_result = upsert_market_prices(session, market_prices)
         rows_inserted = upsert_result.rows_inserted
         rows_updated = upsert_result.rows_updated
+
+    gap_result = _detect_fetch_gap_warnings(session, active_etfs, range_start, range_end)
+    systematic_gaps, etf_gaps = gap_result if gap_result is not None else ([], [])
+    quality_warnings = build_quality_warnings_json_from_sections(
+        duplicate_warnings, systematic_gaps, etf_gaps
+    )
 
     status = _final_status(rows_fetched=rows_fetched, has_errors=bool(errors))
     error_message = _error_message(errors=errors, rows_fetched=rows_fetched)
@@ -185,6 +195,70 @@ def _active_etfs(session: Session) -> list[ETFInfo]:
     return list(
         session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.symbol))
     )
+
+
+def _detect_fetch_gap_warnings(
+    session: Session,
+    active_etfs: list[ETFInfo],
+    range_start: date | None,
+    range_end: date | None,
+) -> tuple[list[SystematicTradingDayGap], list[EtfTradingDayGap]] | None:
+    """Detect trading-day gaps against the calendar after a fetch upsert.
+
+    Returns ``None`` when the trading calendar has no rows covering the
+    effective range (calendar not synced) or when the local price table is
+    empty, so callers fall back to duplicate-only warnings. Gap detection is
+    warn-only; it never changes the fetch status.
+    """
+    start = range_start or session.scalar(select(func.min(MarketPrice.trade_date)))
+    end = range_end or session.scalar(select(func.max(MarketPrice.trade_date)))
+    if start is None or end is None or start > end:
+        return None
+
+    expected_dates = list(
+        session.scalars(
+            select(TradingCalendar.trade_date)
+            .where(TradingCalendar.trade_date >= start)
+            .where(TradingCalendar.trade_date <= end)
+            .order_by(TradingCalendar.trade_date)
+        )
+    )
+    if not expected_dates:
+        return None
+
+    union_dates = list(
+        session.scalars(
+            select(MarketPrice.trade_date)
+            .where(MarketPrice.trade_date >= start)
+            .where(MarketPrice.trade_date <= end)
+            .distinct()
+            .order_by(MarketPrice.trade_date)
+        )
+    )
+
+    etf_rows = session.execute(
+        select(MarketPrice.etf_id, MarketPrice.trade_date)
+        .where(MarketPrice.trade_date >= start)
+        .where(MarketPrice.trade_date <= end)
+    ).all()
+    per_etf: dict[int, list[date]] = defaultdict(list)
+    for etf_id, trade_date in etf_rows:
+        per_etf[etf_id].append(trade_date)
+
+    inception_boundaries: dict[int, date] = {}
+    for etf in active_etfs:
+        stored = per_etf.get(etf.id)
+        if not stored:
+            continue
+        first_stored = min(stored)
+        boundary = first_stored
+        if etf.inception_date is not None and etf.inception_date > boundary:
+            boundary = etf.inception_date
+        inception_boundaries[etf.id] = boundary
+
+    systematic_gaps = detect_systematic_trading_day_gaps(union_dates, expected_dates)
+    etf_gaps = detect_etf_trading_day_gaps(per_etf, expected_dates, inception_boundaries)
+    return systematic_gaps, etf_gaps
 
 
 def _final_status(*, rows_fetched: int, has_errors: bool) -> str:

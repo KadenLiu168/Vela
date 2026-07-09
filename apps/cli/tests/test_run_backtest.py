@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from vela_cli import main as cli
-from vela_core import BacktestRunResult
+from vela_core import BacktestGapDetectionConfig, BacktestRunResult
 
 
 def _sqlite_url(path: Path) -> str:
@@ -26,6 +26,7 @@ def test_run_backtest_accepts_database_config_and_date_range(
         strategy_config_path: Path,
         start_date: date,
         end_date: date,
+        gap_detection: BacktestGapDetectionConfig | None = None,
     ) -> BacktestRunResult:
         calls.append((database_url, strategy_config_path, start_date, end_date))
         return _result()
@@ -62,6 +63,7 @@ def test_run_backtest_uses_default_inputs(monkeypatch: pytest.MonkeyPatch) -> No
         strategy_config_path: Path,
         start_date: date,
         end_date: date,
+        gap_detection: BacktestGapDetectionConfig | None = None,
     ) -> BacktestRunResult:
         calls.append((database_url, strategy_config_path, start_date, end_date))
         return _result()
@@ -88,7 +90,9 @@ def test_run_backtest_prints_core_metric_summary(
     monkeypatch.setattr(
         cli,
         "run_backtest",
-        lambda database_url, *, strategy_config_path, start_date, end_date: _result(),
+        lambda database_url, *, strategy_config_path, start_date, end_date, gap_detection=None: (
+            _result()
+        ),
     )
 
     exit_code = cli.main(["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"])
@@ -118,6 +122,7 @@ def test_run_backtest_reports_failure(
         strategy_config_path: Path,
         start_date: date,
         end_date: date,
+        gap_detection: BacktestGapDetectionConfig | None = None,
     ) -> BacktestRunResult:
         raise RuntimeError("database unavailable")
 
@@ -141,6 +146,63 @@ def test_run_backtest_reports_failure(
     assert "Failed to run backtest in sqlite+pysqlite:///bad.db: database unavailable" in (
         captured.err
     )
+
+
+def test_run_backtest_passes_default_gap_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[BacktestGapDetectionConfig | None] = []
+
+    def fake_run_backtest(
+        database_url: str,
+        *,
+        strategy_config_path: Path,
+        start_date: date,
+        end_date: date,
+        gap_detection: BacktestGapDetectionConfig | None = None,
+    ) -> BacktestRunResult:
+        captured.append(gap_detection)
+        return _result()
+
+    monkeypatch.setattr(cli, "run_backtest", fake_run_backtest)
+
+    exit_code = cli.main(["run-backtest", "--start-date", "2026-01-01", "--end-date", "2026-01-31"])
+
+    assert exit_code == 0
+    assert captured == [BacktestGapDetectionConfig(strict=False, max_systematic_gaps=5)]
+
+
+def test_run_backtest_passes_strict_flag_and_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[BacktestGapDetectionConfig | None] = []
+
+    def fake_run_backtest(
+        database_url: str,
+        *,
+        strategy_config_path: Path,
+        start_date: date,
+        end_date: date,
+        gap_detection: BacktestGapDetectionConfig | None = None,
+    ) -> BacktestRunResult:
+        captured.append(gap_detection)
+        return _result()
+
+    monkeypatch.setattr(cli, "run_backtest", fake_run_backtest)
+
+    exit_code = cli.main(
+        [
+            "run-backtest",
+            "--start-date",
+            "2026-01-01",
+            "--end-date",
+            "2026-01-31",
+            "--strict-data-quality",
+            "--max-gap-days",
+            "10",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured == [BacktestGapDetectionConfig(strict=True, max_systematic_gaps=10)]
 
 
 def _result() -> BacktestRunResult:

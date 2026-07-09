@@ -11,7 +11,7 @@ from vela_core import (
     fetch_full_market_prices,
     fetch_incremental_market_prices,
 )
-from vela_core.models import Base, DataFetchLog, ETFInfo, MarketPrice
+from vela_core.models import Base, DataFetchLog, ETFInfo, MarketPrice, TradingCalendar
 
 
 def test_fetch_full_market_prices_uses_only_active_etfs() -> None:
@@ -484,6 +484,104 @@ def _add_market_price(session: Session, *, etf_id: int, trade_date: date) -> Mar
     session.add(market_price)
     session.flush()
     return market_price
+
+
+def _add_calendar(session: Session, trade_date: date) -> None:
+    session.add(TradingCalendar(trade_date=trade_date, source="akshare"))
+
+
+def test_fetch_full_market_prices_records_trading_day_gaps() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 17)),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 19)),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        etf_id = etf.id
+        _add_calendar(session, date(2026, 6, 17))
+        _add_calendar(session, date(2026, 6, 18))
+        _add_calendar(session, date(2026, 6, 19))
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+
+    assert result.quality_warnings is not None
+    envelope = json.loads(result.quality_warnings)
+    assert envelope["systematic_trading_day_gaps"] == [{"trade_date": "2026-06-18"}]
+    assert envelope["etf_trading_day_gaps"] == [{"etf_id": etf_id, "trade_date": "2026-06-18"}]
+    assert log.quality_warnings == result.quality_warnings
+
+
+def test_fetch_full_market_prices_skips_gap_detection_without_calendar() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 17)),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 18)),
+        ]
+    )
+
+    with session_factory() as session:
+        _add_etf(session, symbol="SPY")
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+
+    assert result.quality_warnings is None
+    assert log.quality_warnings is None
+
+
+def test_fetch_full_market_prices_merges_duplicate_and_gap_warnings() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 17),
+                open_price=Decimal("100.00"),
+                high_price=Decimal("101.00"),
+                low_price=Decimal("99.00"),
+                close_price=Decimal("100.50"),
+                volume=1000,
+            ),
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 17),
+                open_price=Decimal("200.00"),
+                high_price=Decimal("201.00"),
+                low_price=Decimal("199.00"),
+                close_price=Decimal("200.50"),
+                volume=2000,
+            ),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 19)),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        etf_id = etf.id
+        _add_calendar(session, date(2026, 6, 17))
+        _add_calendar(session, date(2026, 6, 18))
+        _add_calendar(session, date(2026, 6, 19))
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+    assert result.quality_warnings is not None
+    envelope = json.loads(result.quality_warnings)
+    assert envelope["duplicate_trade_dates"] == [
+        {"etf_id": etf_id, "trade_date": "2026-06-17", "count": 2}
+    ]
+    assert envelope["systematic_trading_day_gaps"] == [{"trade_date": "2026-06-18"}]
+    assert envelope["etf_trading_day_gaps"] == [{"etf_id": etf_id, "trade_date": "2026-06-18"}]
 
 
 class RecordingMarketDataProvider:

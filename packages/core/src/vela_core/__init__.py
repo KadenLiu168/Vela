@@ -8,7 +8,7 @@ from vela_core.backtest_result_persistence import (
     get_backtest_result,
     persist_backtest_result,
 )
-from vela_core.backtest_runner import BacktestRunResult, run_backtest
+from vela_core.backtest_runner import BacktestGapDetectionConfig, BacktestRunResult, run_backtest
 from vela_core.bootstrap import (
     BootstrapResult,
     BootstrapStepResult,
@@ -28,8 +28,13 @@ from vela_core.dashboard_aggregation import (
 )
 from vela_core.data_quality import (
     DuplicateTradeDateWarning,
+    EtfTradingDayGap,
+    SystematicTradingDayGap,
     build_quality_warnings_json,
+    build_quality_warnings_json_from_sections,
     detect_duplicate_trade_dates,
+    detect_etf_trading_day_gaps,
+    detect_systematic_trading_day_gaps,
 )
 from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
 from vela_core.joinquant_market_data_provider import JoinQuantMarketDataProvider
@@ -127,6 +132,7 @@ __all__ = [
     "BacktestResultRunInput",
     "BacktestReportNotFoundError",
     "BacktestRunResult",
+    "BacktestGapDetectionConfig",
     "BootstrapResult",
     "BootstrapStepResult",
     "ConfigError",
@@ -139,6 +145,7 @@ __all__ = [
     "ETFConfig",
     "ETFPoolConfig",
     "ETFPoolSyncResult",
+    "EtfTradingDayGap",
     "GeneratedSignalPosition",
     "GenerateStrategySignalResult",
     "JoinQuantMarketDataProvider",
@@ -166,11 +173,13 @@ __all__ = [
     "StrategySignalPositionInput",
     "StrategySignalReport",
     "StrategySignalReportPosition",
+    "SystematicTradingDayGap",
     "TopNSelection",
     "TrendFilterResult",
     "apply_trend_filter",
     "build_alembic_config",
     "build_quality_warnings_json",
+    "build_quality_warnings_json_from_sections",
     "calculate_market_price_moving_average",
     "calculate_market_price_returns",
     "calculate_momentum_score",
@@ -181,6 +190,8 @@ __all__ = [
     "calculate_strategy_sharpe_ratio",
     "calculate_strategy_volatility",
     "detect_duplicate_trade_dates",
+    "detect_etf_trading_day_gaps",
+    "detect_systematic_trading_day_gaps",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "get_backtest_result",
