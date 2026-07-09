@@ -54,7 +54,7 @@ The dashboard aggregation service SHALL summarize the most recent persisted back
 #### Scenario: Recent backtest exists
 - **WHEN** multiple persisted backtest runs exist
 - **THEN** the recent backtest summary uses the run with the newest start timestamp and id tie-breaker
-- **AND** it includes run id, strategy name, config version, date range, status, total return, max drawdown, Sharpe ratio, and start timestamp
+- **AND** it includes run id, strategy id, config version, date range, status, total return, max drawdown, Sharpe ratio, and start timestamp
 
 ### Requirement: Dashboard recent market data fetch logs
 The dashboard aggregation service SHALL include recent market data fetch log summaries from persisted `DataFetchLog` rows.

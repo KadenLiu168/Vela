@@ -1,8 +1,5 @@
-# market-price-panel-loading Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change reduce-signal-generation-sql-amplification. Update Purpose after archive.
-## Requirements
 ### Requirement: Multi-ETF market price panel loading
 
 The system SHALL provide a public function that loads daily market prices for a list of ETF ids over a closed date range in a single database query, returning the prices grouped by ETF id in ascending trade-date order.
@@ -35,4 +32,3 @@ The system SHALL provide a public function that loads daily market prices for a 
 #### Scenario: Caller owns panel lifecycle
 - **WHEN** backend code receives a panel mapping from the loader
 - **THEN** the loader does not cache the panel internally
-

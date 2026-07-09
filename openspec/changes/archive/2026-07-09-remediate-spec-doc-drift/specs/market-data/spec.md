@@ -1,13 +1,10 @@
-# market-price-panel-loading Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change reduce-signal-generation-sql-amplification. Update Purpose after archive.
-## Requirements
 ### Requirement: Multi-ETF market price panel loading
 
-The system SHALL provide a public function that loads daily market prices for a list of ETF ids over a closed date range in a single database query, returning the prices grouped by ETF id in ascending trade-date order.
+The system SHALL provide a public function that loads daily market prices for a list of ETF ids over a closed date range in a single database query, returning the prices grouped by ETF id in ascending trade-date order. The function is the recommended one-shot primitive for any caller that needs historical prices across multiple ETFs.
 
-> Cross-reference: this capability owns the canonical one-shot loader (`load_price_panel`) contract. The `market-data` capability also describes this loader from the caller-guidance angle. Both MUST stay in sync — edit them together.
+> Cross-reference: the canonical one-shot loader (`load_price_panel`) is specified jointly with the `market-price-panel-loading` capability. That capability owns the full contract (caller-owned lifecycle, trading-date row inclusion, composite-index reuse); this capability focuses on the recommended-caller guidance. Both MUST stay in sync — edit them together.
 
 #### Scenario: Load panel for a list of ETFs over a date range
 - **WHEN** backend code calls the panel loader with a non-empty ETF id list and a start date and end date
@@ -18,11 +15,6 @@ The system SHALL provide a public function that loads daily market prices for a 
 - **WHEN** backend code calls the panel loader with an ETF id list and the database contains zero `MarketPrice` rows for some requested ETF id in the date range
 - **THEN** the returned mapping contains no entry for that ETF id
 
-#### Scenario: Panel includes every requested trading-date row
-- **WHEN** backend code calls the panel loader for an ETF id and the database contains N `MarketPrice` rows in the requested date range
-- **THEN** the returned list for that ETF id contains exactly N rows
-- **AND** the first row's `trade_date` is the earliest requested-date row and the last row's `trade_date` equals the requested end date when a row exists for that date
-
 #### Scenario: Panel reuses the etf-and-trade-date composite index
 - **WHEN** backend code calls the panel loader
 - **THEN** the generated SQL does not introduce additional indexes or tables beyond the existing `ix_market_price_etf_trade_date` index on `(etf_id, trade_date)`
@@ -31,8 +23,3 @@ The system SHALL provide a public function that loads daily market prices for a 
 - **WHEN** backend code calls the panel loader with an empty ETF id list
 - **THEN** the returned mapping is empty
 - **AND** the function does not raise
-
-#### Scenario: Caller owns panel lifecycle
-- **WHEN** backend code receives a panel mapping from the loader
-- **THEN** the loader does not cache the panel internally
-

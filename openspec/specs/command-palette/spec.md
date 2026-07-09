@@ -40,7 +40,7 @@ The web frontend SHALL open a single global command palette when the user presse
 
 ### Requirement: Palette row model and data sources
 The command palette SHALL surface exactly four row kinds, built from these data sources:
-- **page** rows: hard-coded list of the three AppShell `navItems` (`/`, `/signals/demo-signal`, `/backtests`).
+- **page** rows: hard-coded list of the three AppShell `navItems` (`/`, `/signals`, `/backtests`).
 - **backtest** rows: the result of `listBacktests(10)` (already exposed in `apps/web/src/api/client.ts`).
 - **etf** rows: the `etf_list` field on the response of `getDashboard()` (already exposed in `apps/web/src/api/client.ts`).
 - **action** rows: the three dashboard actions (Bootstrap local database, Generate strategy signal, Run backtest) bound to the same code paths the Dashboard buttons call today (`bootstrapLocalDatabase`, `generateStrategySignal`, `runBacktest`).

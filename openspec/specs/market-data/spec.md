@@ -328,6 +328,8 @@ The system SHALL successfully persist daily market prices for every active ETF i
 
 The system SHALL provide a public function that loads daily market prices for a list of ETF ids over a closed date range in a single database query, returning the prices grouped by ETF id in ascending trade-date order. The function is the recommended one-shot primitive for any caller that needs historical prices across multiple ETFs.
 
+> Cross-reference: the canonical one-shot loader (`load_price_panel`) is specified jointly with the `market-price-panel-loading` capability. That capability owns the full contract (caller-owned lifecycle, trading-date row inclusion, composite-index reuse); this capability focuses on the recommended-caller guidance. Both MUST stay in sync — edit them together.
+
 #### Scenario: Load panel for a list of ETFs over a date range
 - **WHEN** backend code calls the panel loader with a non-empty ETF id list and a start date and end date
 - **THEN** the function performs exactly one `SELECT` against the `market_price` table whose `WHERE` clause filters on `etf_id IN (...)` AND `trade_date BETWEEN start_date AND end_date`
@@ -345,9 +347,4 @@ The system SHALL provide a public function that loads daily market prices for a 
 - **WHEN** backend code calls the panel loader with an empty ETF id list
 - **THEN** the returned mapping is empty
 - **AND** the function does not raise
-
-#### Scenario: Caller owns panel lifecycle
-- **WHEN** backend code receives a panel mapping from the loader
-- **THEN** the loader does not cache the panel internally
-- **AND** the caller is responsible for reusing, mutating, or discarding the mapping
 

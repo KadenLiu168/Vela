@@ -130,7 +130,7 @@ Dashboard area: backtest form on `/`
 
 ## Signal Detail
 
-Route: `/signals/demo-signal`
+Route: `/signals`
 
 ### Empty State
 

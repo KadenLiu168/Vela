@@ -340,7 +340,7 @@ export function DashboardPage({
             <Detail label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
             <Detail
               label="Rebalance frequency"
-              value={data ? data.strategy.rebalance.frequency : "Loading"}
+              value={data ? data.strategy.rebalance.frequency.replace(/^./, (c) => c.toUpperCase()) : "Loading"}
             />
           </dl>
         </article>

@@ -93,5 +93,7 @@ src/
 ├── api/          API client modules
 ├── components/   Shared React components
 ├── pages/        Page-level React components
-└── test/         Test setup and utilities
+├── styles/       CSS (tokens.css is the design-token source of truth)
+├── test/         Test setup and utilities
+└── utils/        Shared helper utilities
 ```
