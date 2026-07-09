@@ -1,7 +1,7 @@
 # detail-page-typography-consistency Specification
 
 ## Purpose
-TBD - created by archiving change unify-detail-page-typography. Update Purpose after archive.
+Ensures typographic consistency for shared structural elements (`page-heading`, `panel-primary`, `compact-list`, `holdings-section`, `holdings-table`) across the Signal Detail, Backtest Detail, and Dashboard pages.
 ## Requirements
 ### Requirement: 跨页面同层元素 typography 一致
 

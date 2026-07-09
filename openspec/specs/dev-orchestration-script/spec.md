@@ -1,7 +1,7 @@
 # dev-orchestration-script Specification
 
 ## Purpose
-TBD - created by archiving change 2026-07-08-add-dev-orchestration-script. Update Purpose after archive.
+Defines the `scripts/dev.sh` developer orchestration script that cleans stale Vela-owned processes and launches the FastAPI backend (8000) and Vite frontend (5173) together with prefixed, interleaved logs.
 ## Requirements
 ### Requirement: Dev orchestration script starts backend and frontend together
 The system SHALL provide a `scripts/dev.sh` script that, when run from the repo root, cleans stale Vela-owned processes on ports 8000 (FastAPI / uvicorn) and 5173 (Vite) and then launches `uv run vela-api` and `npm --prefix apps/web run dev` together in the same terminal with prefixed, interleaved output.

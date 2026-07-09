@@ -1,7 +1,7 @@
 # web-rebalance-frequency-display Specification
 
 ## Purpose
-TBD - created by archiving change display-rebalance-frequency. Update Purpose after archive.
+Defines how the Dashboard displays the strategy rebalance frequency (e.g. "Weekly"/"Monthly") and that `GET /api/dashboard` includes the `rebalance` configuration.
 ## Requirements
 ### Requirement: Dashboard displays rebalance frequency
 The web frontend SHALL display the strategy rebalance frequency on the Dashboard Strategy panel using the same compact-list format as other strategy parameters.

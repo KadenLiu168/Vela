@@ -1,7 +1,7 @@
 # web-frontend-app Specification
 
 ## Purpose
-TBD - created by archiving change 2026-07-05-add-setup-bootstrap-endpoint. Update Purpose after archive.
+Defines the web frontend's Dashboard setup-bootstrap action and its three-step status display, wired to `POST /api/setup/bootstrap`.
 ## Requirements
 ### Requirement: Dashboard setup bootstrap action
 The web frontend SHALL expose a Dashboard action that triggers the local setup bootstrap endpoint through the shared frontend API client and renders a three-step status display.

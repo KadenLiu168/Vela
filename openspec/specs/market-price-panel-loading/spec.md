@@ -1,7 +1,7 @@
 # market-price-panel-loading Specification
 
 ## Purpose
-TBD - created by archiving change reduce-signal-generation-sql-amplification. Update Purpose after archive.
+Defines the canonical one-shot multi-ETF market price panel loader (`load_price_panel`) that fetches a date-range panel in a single query, grouped by ETF id.
 ## Requirements
 ### Requirement: Multi-ETF market price panel loading
 

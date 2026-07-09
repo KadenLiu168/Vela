@@ -1,7 +1,7 @@
 # integration-test-data Specification
 
 ## Purpose
-TBD - created by archiving change add-integration-test-data-fixtures. Update Purpose after archive.
+Defines the reusable integration-test data layer: a prepared SQLite database with the current ORM schema plus a deterministic minimal workflow dataset for API and frontend acceptance.
 ## Requirements
 ### Requirement: SQLite integration database preparation
 The test support layer SHALL provide a reusable way to initialize a temporary or local SQLite database with the current ORM schema for integration validation.

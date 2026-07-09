@@ -1,7 +1,7 @@
 # strategy-equity-curve Specification
 
 ## Purpose
-TBD - created by archiving change calculate-strategy-equity-curve. Update Purpose after archive.
+Defines how the daily strategy net-value equity curve is calculated from holding snapshots and market prices across trading dates.
 ## Requirements
 ### Requirement: Calculate strategy equity curve
 The system SHALL calculate a daily strategy net value curve for requested trading dates using portfolio holding snapshots and market prices.

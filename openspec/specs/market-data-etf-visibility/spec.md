@@ -1,7 +1,7 @@
 # market-data-etf-visibility Specification
 
 ## Purpose
-TBD - created by archiving change dashboard-market-etf-list. Update Purpose after archive.
+Defines how the dashboard exposes the set of ETFs that have market data: the `etf_list` field in `GET /api/dashboard` and the flat `.etf-row` list rendered in the Market Data card.
 ## Requirements
 ### Requirement: Dashboard API returns ETF list with market data
 

@@ -1,7 +1,7 @@
 # http-api-service Specification
 
 ## Purpose
-TBD - created by archiving change 2026-07-05-add-setup-bootstrap-endpoint. Update Purpose after archive.
+Defines the FastAPI service surface, including the local-development `POST /api/setup/bootstrap` endpoint and startup strategy-config caching.
 ## Requirements
 ### Requirement: API setup bootstrap endpoint
 The API service SHALL expose `POST /api/setup/bootstrap` as a local-development endpoint that runs the compound local setup bootstrap operation.

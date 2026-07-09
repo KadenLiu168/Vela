@@ -1,7 +1,7 @@
 # design-system Specification
 
 ## Purpose
-TBD - created by archiving change add-design-system-spec. Update Purpose after archive.
+Defines the canonical web design-token system: every CSS custom property lives in `apps/web/src/styles/tokens.css` as a single `:root` block, wired via `@import` and referenced through `var(--*)`.
 ## Requirements
 ### Requirement: Design tokens live in a single canonical file
 

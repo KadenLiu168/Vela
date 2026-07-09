@@ -1,7 +1,7 @@
 # local-setup-bootstrap Specification
 
 ## Purpose
-TBD - created by archiving change 2026-07-05-add-setup-bootstrap-endpoint. Update Purpose after archive.
+Defines the compound local setup bootstrap (`run_local_setup_bootstrap`) that runs database migration, ETF pool sync, and full market-data fetch in sequence, reporting per-step status.
 ## Requirements
 ### Requirement: Run compound local setup bootstrap
 The system SHALL provide a `run_local_setup_bootstrap` orchestration function that runs the existing `init-db`, `sync-etf-pool`, and full market data fetch workflows in order.

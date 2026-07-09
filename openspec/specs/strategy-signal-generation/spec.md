@@ -1,7 +1,7 @@
 # strategy-signal-generation Specification
 
 ## Purpose
-TBD - created by archiving change add-generate-signal-cli-command. Update Purpose after archive.
+Defines pure-function strategy signal generation from injected inputs (no DB session, no `MarketPrice` queries): trend filtering, momentum scoring, ranking, and defensive fallback.
 ## Requirements
 ### Requirement: Generate strategy signal from local market data
 

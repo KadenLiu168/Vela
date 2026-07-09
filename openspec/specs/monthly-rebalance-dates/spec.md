@@ -1,7 +1,7 @@
 # monthly-rebalance-dates Specification
 
 ## Purpose
-TBD - created by archiving change add-monthly-rebalance. Update Purpose after archive.
+Defines how monthly rebalance dates are derived from a trading-date sequence: the last available trading date for each calendar month, sorted ascending.
 ## Requirements
 ### Requirement: Monthly rebalance date generation
 The system SHALL generate monthly rebalance dates from a provided trading-date sequence.

@@ -1,7 +1,7 @@
 # card-type-scale Specification
 
 ## Purpose
-TBD - created by archiving change dashboard-card-typography. Update Purpose after archive.
+Defines the four-rung `card-type-scale` typography ladder (`meta`, `body`, `emphasis`, `display`) exposed as CSS custom properties in `tokens.css`.
 ## Requirements
 ### Requirement: Card typography ladder is exposed as four semantic rungs
 

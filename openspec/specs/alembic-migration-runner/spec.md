@@ -1,7 +1,7 @@
 # alembic-migration-runner Specification
 
 ## Purpose
-TBD - created by archiving change decouple-core-from-alembic. Update Purpose after archive.
+Defines the reusable Alembic migration layer in `vela_core.migration` (`build_alembic_config`, `run_alembic_upgrade`) and confines all alembic imports to that module.
 ## Requirements
 ### Requirement: Reusable Alembic config builder
 The system SHALL provide a `build_alembic_config(database_url, script_location)` function in `vela_core.migration` that constructs an `alembic.config.Config` with the given script location and database URL, as the single source of truth for Alembic configuration construction across the project.

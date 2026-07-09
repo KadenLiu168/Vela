@@ -1,7 +1,7 @@
 # test-suite-validation Specification
 
 ## Purpose
-TBD - created by archiving change validate-pytest-suite-passes. Update Purpose after archive.
+Defines the required passing quality gates for the repository: full pytest suite, Ruff lint, Ruff format check, and a CLI smoke validation.
 ## Requirements
 ### Requirement: Full pytest suite passes
 The repository SHALL provide a passing full pytest suite through the configured `uv run pytest` command.

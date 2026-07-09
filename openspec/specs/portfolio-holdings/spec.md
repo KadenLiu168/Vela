@@ -1,7 +1,7 @@
 # portfolio-holdings Specification
 
 ## Purpose
-TBD - created by archiving change calculate-portfolio-holdings. Update Purpose after archive.
+Defines how portfolio target holdings are calculated from persisted strategy signal positions across trading dates, carrying positions forward between signals.
 ## Requirements
 ### Requirement: Calculate portfolio holdings from strategy signals
 The system SHALL calculate portfolio target holdings for requested trading dates using successful persisted strategy signal positions for the requested configuration version.

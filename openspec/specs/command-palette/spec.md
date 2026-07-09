@@ -1,7 +1,7 @@
 # command-palette Specification
 
 ## Purpose
-TBD - created by archiving change feat-command-palette. Update Purpose after archive.
+Defines the web frontend's global command palette, opened via `Cmd/Ctrl+K` or `/`, for fast navigation and actions across the app.
 ## Requirements
 ### Requirement: Global keyboard shortcut opens the command palette
 The web frontend SHALL open a single global command palette when the user presses `Cmd+K` (macOS) or `Ctrl+K` (Windows/Linux). The same palette SHALL also open when the user presses the `/` key while no `input`, `textarea`, `select`, or `contenteditable` element has focus. Pressing the same shortcut again while the palette is open SHALL close it.

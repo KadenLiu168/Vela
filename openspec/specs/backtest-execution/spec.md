@@ -1,7 +1,7 @@
 # backtest-execution Specification
 
 ## Purpose
-TBD - created by archiving change add-run-backtest-cli-command. Update Purpose after archive.
+Defines how a backtest is executed from local market data: trading-date resolution, historical signal generation, equity-curve and metric calculation, and normalized result persistence.
 ## Requirements
 ### Requirement: Run backtest from local market data
 The system SHALL run a backtest for a strategy configuration and requested date range using local market price dates as trading dates.
