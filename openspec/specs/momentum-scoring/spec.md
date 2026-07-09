@@ -106,3 +106,39 @@ The system SHALL apply the configured defensive asset when ranked ETF candidates
 - **WHEN** backend code applies defensive fallback selection and the number of ranked ETF candidates is greater than or equal to `selection.top_n`
 - **THEN** the selected results contain the configured Top N ranked ETF candidates
 - **AND** the configured defensive asset is not selected
+
+## Future Considerations
+
+### Window re-anchoring to trading-day offsets (Alt C follow-up)
+
+Momentum windows currently count by **stored `MarketPrice` rows** (position
+indexing: `prices[-1-window]`), which equals "N trading days back" only when
+the stored series is gap-free. With `trading_calendar` (see the
+`trading-calendar` spec) and trading-day gap detection (see the
+`trading-day-gap-detection` spec) now landed, gaps are visible and large
+systematic gaps can hard-fail a backtest, but small tolerated gaps still shift
+the window across the wrong time span.
+
+Re-anchoring windows to true trading-day offsets would close the residual
+accuracy gap. It is deliberately deferred because:
+
+- The most dangerous failure mode — silent miscalculation with no
+  traceability — is already closed by gap detection (gaps are now visible and
+  large systematic gaps are strict-blocked before backtest execution).
+- Alt C is an accuracy refinement for the "few gaps, chose to continue in
+  `warn` mode" scenario, not a safety fix.
+- It has the largest blast radius of any data-quality change: it changes
+  window semantics across this spec, `market-data`, and `trend-filtering`;
+  rewrites all window-related tests; and breaks comparability of historical
+  `BacktestRun` results (identical inputs would yield different numbers after
+  the semantic switch).
+
+**Trigger for re-evaluation**: after running Phase 2 gap detection for a few
+research cycles, if (a) `warn`-mode backtests are frequently continued and
+their numbers are trusted, and (b) observed gaps are mostly small/systematic
+rather than single-ETF halts, escalate Alt C into a change proposal. If in
+practice gaps always lead to either data repair or `strict` refusal, Alt C is
+likely not worth the blast radius and may remain deferred indefinitely.
+
+Related specs: `market-data` (window return and moving-average row counting),
+`trend-filtering` (moving-average window).
