@@ -111,6 +111,10 @@ from vela_core.strategy_signal_report import (
     list_strategy_signals,
 )
 from vela_core.tencent_market_data_provider import TencentMarketDataProvider
+from vela_core.trading_calendar_sync import (
+    TradingCalendarSyncResult,
+    sync_trading_calendar_to_db,
+)
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
 
 __version__ = "0.1.0"
@@ -157,6 +161,7 @@ __all__ = [
     "StrategyVolatility",
     "StrategySignalPersistenceResult",
     "TencentMarketDataProvider",
+    "TradingCalendarSyncResult",
     "StrategySignalListEntry",
     "StrategySignalPositionInput",
     "StrategySignalReport",
@@ -203,6 +208,7 @@ __all__ = [
     "select_with_defensive_fallback",
     "select_top_n_etfs",
     "sync_etf_pool_to_db",
+    "sync_trading_calendar_to_db",
     "to_market_price",
     "upsert_market_prices",
     "__version__",

@@ -15,6 +15,7 @@ from vela_core import (
     LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
     TencentMarketDataProvider,
+    TradingCalendarSyncResult,
     export_latest_strategy_signal_report,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
@@ -23,6 +24,7 @@ from vela_core import (
     load_price_panel,
     run_alembic_upgrade,
     sync_etf_pool_to_db,
+    sync_trading_calendar_to_db,
 )
 from vela_core import (
     export_backtest_report as export_core_backtest_report,
@@ -95,6 +97,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--strategy-config",
         default=str(DEFAULT_STRATEGY_CONFIG_PATH),
         help="Strategy configuration YAML path",
+    )
+
+    sync_trading_calendar_parser = subparsers.add_parser(
+        "sync-trading-calendar",
+        help="Sync the A-share trading-day calendar from akshare into the local database",
+    )
+    sync_trading_calendar_parser.add_argument(
+        "--database-url",
+        default=DEFAULT_DATABASE_URL,
+        help="Database URL to write the trading calendar into",
     )
 
     generate_signal_parser = subparsers.add_parser(
@@ -238,6 +250,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_etf_pool_sync_summary(sync_result)
         return 0
 
+    if args.command == "sync-trading-calendar":
+        try:
+            calendar_result = sync_trading_calendar(args.database_url)
+        except Exception as exc:
+            print(
+                f"Failed to sync trading calendar into {args.database_url}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+
+        _print_trading_calendar_sync_summary(calendar_result)
+        return 1 if calendar_result.status == "failed" else 0
+
     if args.command == "generate-signal":
         try:
             signal_result = generate_signal(
@@ -341,6 +366,13 @@ def sync_etf_pool(
         return sync_etf_pool_to_db(session, config.etf_pool)
 
 
+def sync_trading_calendar(database_url: str) -> TradingCalendarSyncResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    with managed_session(session_factory) as session:
+        return sync_trading_calendar_to_db(session)
+
+
 def generate_signal(
     database_url: str,
     *,
@@ -358,9 +390,7 @@ def generate_signal(
             raise ValueError("No local market prices found")
 
         active_etfs = list(
-            session.scalars(
-                select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id)
-            )
+            session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
         )
         price_panel = load_price_panel(
             session,
@@ -473,6 +503,15 @@ def _print_etf_pool_sync_summary(result: ETFPoolSyncResult) -> None:
     print(f"Inserted: {result.inserted_count}")
     print(f"Updated: {result.updated_count}")
     print(f"Unchanged: {result.unchanged_count}")
+
+
+def _print_trading_calendar_sync_summary(result: TradingCalendarSyncResult) -> None:
+    print(f"Trading calendar sync status: {result.status}")
+    print(f"Total synced: {result.synced_count}")
+    print(f"Inserted: {result.inserted_count}")
+    print(f"Updated: {result.updated_count}")
+    if result.error_message:
+        print(f"Error: {result.error_message}")
 
 
 def _print_signal_summary(result: GenerateStrategySignalResult) -> None:
