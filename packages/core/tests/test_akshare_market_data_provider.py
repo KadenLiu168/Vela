@@ -402,6 +402,16 @@ def test_provider_contract_module_remains_source_library_independent() -> None:
 
     assert "akshare" not in source
     assert "pandas" not in source
+    assert "jqdatasdk" not in source
+    assert "joinquant" not in source
+
+
+def test_import_vela_core_does_not_require_jqdatasdk() -> None:
+    import sys
+
+    import vela_core  # noqa: F401
+
+    assert "jqdatasdk" not in sys.modules
 
 
 class FakeAkShareModule:

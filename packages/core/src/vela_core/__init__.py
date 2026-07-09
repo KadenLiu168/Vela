@@ -27,6 +27,7 @@ from vela_core.dashboard_aggregation import (
     get_dashboard_summary,
 )
 from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
+from vela_core.joinquant_market_data_provider import JoinQuantMarketDataProvider
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
     fetch_full_market_prices,
@@ -130,6 +131,7 @@ __all__ = [
     "ETFPoolSyncResult",
     "GeneratedSignalPosition",
     "GenerateStrategySignalResult",
+    "JoinQuantMarketDataProvider",
     "MarketDataProvider",
     "MarketDataProviderError",
     "MarketDataFetchResult",

@@ -19,6 +19,9 @@ dependencies = [
     "uvicorn>=0.49.0",
 ]
 
+[project.optional-dependencies]
+joinquant = ["jqdatasdk"]
+
 [dependency-groups]
 dev = [
     "httpx2>=2.4.0",

@@ -18,6 +18,7 @@ __pycache__/
 .env
 
 .env.*
+!.env.example
 
 # Test / lint / type-check cache
 
