@@ -42,6 +42,7 @@ class JoinQuantMarketDataProvider(BaseMarketDataProvider):
         "high": "high",
         "low": "low",
         "close": "close",
+        "factor": "factor",
         "volume": "volume",
     }
 
@@ -90,7 +91,7 @@ class JoinQuantMarketDataProvider(BaseMarketDataProvider):
             frequency="daily",
             skip_paused=True,
             fq=None,
-            fields=["open", "close", "high", "low", "volume"],
+            fields=["open", "close", "high", "low", "volume", "factor"],
         )
         rows.index.name = "trade_date"
         return rows.reset_index()

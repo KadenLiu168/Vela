@@ -37,6 +37,12 @@ def upsert_market_prices(
     # is required so SQLAlchemy 2.0 routes the INSERT through SQLite's
     # `insertmanyvalues` optimization, which auto-chunks the bind parameters
     # and avoids `too many SQL variables` on large batches.
+    #
+    # ``factor_hfq`` is intentionally absent from the conflict update set: the
+    # backward-adjustment factor is an append-only snapshot, so an existing
+    # row's factor is never overwritten by a refetch (immune to upstream
+    # retroactive factor revisions). New rows still receive their factor via
+    # the INSERT values below.
     statement = insert(MarketPrice).on_conflict_do_update(
         index_elements=[MarketPrice.etf_id, MarketPrice.trade_date],
         set_={
@@ -44,7 +50,6 @@ def upsert_market_prices(
             "high_price": insert(MarketPrice).excluded.high_price,
             "low_price": insert(MarketPrice).excluded.low_price,
             "close_price": insert(MarketPrice).excluded.close_price,
-            "adjusted_close": insert(MarketPrice).excluded.adjusted_close,
             "volume": insert(MarketPrice).excluded.volume,
             "updated_at": func.now(),
         },
@@ -89,7 +94,7 @@ def _market_price_values(market_price: MarketPrice) -> dict[str, object]:
         "high_price": market_price.high_price,
         "low_price": market_price.low_price,
         "close_price": market_price.close_price,
-        "adjusted_close": market_price.adjusted_close,
+        "factor_hfq": market_price.factor_hfq,
         "volume": market_price.volume,
     }
 

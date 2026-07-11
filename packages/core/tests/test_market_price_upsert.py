@@ -44,7 +44,7 @@ def test_upsert_market_prices_updates_existing_row_without_duplicate() -> None:
                 _market_price(
                     etf_id=etf.id,
                     close_price=Decimal("501.00"),
-                    adjusted_close=Decimal("500.50"),
+                    factor_hfq=Decimal("2"),
                     volume=2000,
                 )
             ],
@@ -57,7 +57,7 @@ def test_upsert_market_prices_updates_existing_row_without_duplicate() -> None:
         assert result.rows_updated == 1
         assert len(prices) == 1
         assert prices[0].close_price == Decimal("501.000000")
-        assert prices[0].adjusted_close == Decimal("500.500000")
+        assert prices[0].factor_hfq == Decimal("1")  # immutable: refetch does not overwrite
         assert prices[0].volume == 2000
 
 
@@ -234,7 +234,7 @@ def _market_price(
     *,
     etf_id: int,
     close_price: Decimal,
-    adjusted_close: Decimal | None = None,
+    factor_hfq: Decimal = Decimal("1"),
     volume: int | None = 1000,
     trade_date: date = date(2026, 6, 18),
 ) -> MarketPrice:
@@ -245,7 +245,7 @@ def _market_price(
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=close_price,
-        adjusted_close=adjusted_close,
+        factor_hfq=factor_hfq,
         volume=volume,
     )
 

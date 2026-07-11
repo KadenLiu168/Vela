@@ -191,7 +191,7 @@ def _add_price(
             high_price=Decimal(close_price),
             low_price=Decimal(close_price),
             close_price=Decimal(close_price),
-            adjusted_close=None,
+            factor_hfq=Decimal("1"),
             volume=1000,
         )
     )

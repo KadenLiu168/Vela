@@ -101,6 +101,7 @@ def _daily_price(symbol="510300", trade_date=date(2026, 6, 18)):
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor=Decimal("1.0"),
         volume=1000,
     )
 

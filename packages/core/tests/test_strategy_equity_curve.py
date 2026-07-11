@@ -872,12 +872,57 @@ def _add_signal(
     )
 
 
+def test_equity_curve_no_artificial_jump_on_ex_dividend_date() -> None:
+    """Backward-adjusted strategy_price eliminates dividend-induced price jumps.
+
+    On the ex-dividend date the unadjusted close drops by the dividend amount,
+    but the backward-adjustment factor increases so that
+    ``strategy_price = close_price * factor_hfq`` stays continuous.
+    The equity curve's daily return reflects only real market movement,
+    not the dividend artifact.
+    """
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 23),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
+            ],
+        )
+        # Pre-ex-dividend: close=100, factor=1.0 -> strategy_price=100
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        # Ex-dividend: close drops to 90 (dividend payout), factor rises to 1.1
+        # strategy_price = 90 * 1.1 = 99 (continuous, no artificial -10% jump)
+        _add_price(
+            session,
+            etf_id=spy.id,
+            trade_date=date(2026, 6, 24),
+            close_price=90,
+            factor_hfq=Decimal("1.1"),
+        )
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(),
+        )
+
+    # Daily return should be -1% (99/100 - 1), NOT -10% (90/100 - 1)
+    assert points[1].daily_return == Decimal("-0.010000")
+    assert points[1].net_value == Decimal("0.990000")
+
+
 def _add_price(
     session: Session,
     *,
     etf_id: int,
     trade_date: date,
     close_price: int,
+    factor_hfq: Decimal = Decimal("1"),
 ) -> None:
     session.add(
         MarketPrice(
@@ -887,7 +932,7 @@ def _add_price(
             high_price=Decimal(close_price),
             low_price=Decimal(close_price),
             close_price=Decimal(close_price),
-            adjusted_close=None,
+            factor_hfq=factor_hfq,
             volume=1000,
         )
     )

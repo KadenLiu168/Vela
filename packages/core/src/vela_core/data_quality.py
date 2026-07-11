@@ -16,6 +16,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from vela_core.models import MarketPrice
 
@@ -143,19 +144,78 @@ def detect_etf_trading_day_gaps(
     return warnings
 
 
+# Relative tolerance for comparing stored vs upstream backward-adjustment
+# factors. akshare/tencent derive the factor as backward_close /
+# unadjusted_close from two independently-rounded series, so exact equality
+# is too strict; 1e-6 absorbs rounding while still flagging real corporate
+# actions (which move the factor by orders of magnitude more).
+DEFAULT_FACTOR_RELATIVE_TOLERANCE = Decimal("0.000001")
+
+
+@dataclass(frozen=True)
+class CorporateActionFactorMismatchWarning:
+    """A stored vs upstream factor mismatch on the last stored row of an ETF.
+
+    Signals a corporate action: the incremental fetch only pulled unadjusted
+    prices and could not otherwise observe the factor change. Under the
+    append-only storage model the stored snapshot is immune to upstream
+    retroactive factor revisions, so a mismatch's sole purpose is detecting a
+    corporate action so newly fetched rows receive the correct factor.
+    """
+
+    etf_id: int
+    trade_date: date
+    stored_factor: Decimal
+    upstream_factor: Decimal
+
+
+def detect_corporate_action_factor_mismatch(
+    *,
+    etf_id: int,
+    trade_date: date,
+    stored_factor: Decimal,
+    upstream_factor: Decimal,
+    relative_tolerance: Decimal = DEFAULT_FACTOR_RELATIVE_TOLERANCE,
+) -> CorporateActionFactorMismatchWarning | None:
+    """Return a warning when the stored factor diverges from the upstream factor.
+
+    Pure function: compares the append-only stored factor snapshot against the
+    upstream same-date factor using a relative tolerance. A non-positive
+    stored factor is treated as a mismatch (it should never happen for stored
+    rows, but guards against corrupt state). Returns ``None`` when the factors
+    agree within tolerance.
+    """
+    mismatch = stored_factor <= 0 or (
+        abs(upstream_factor - stored_factor) / stored_factor >= relative_tolerance
+    )
+    if not mismatch:
+        return None
+    return CorporateActionFactorMismatchWarning(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        stored_factor=stored_factor,
+        upstream_factor=upstream_factor,
+    )
+
+
 def build_quality_warnings_json_from_sections(
     duplicate_warnings: Sequence[DuplicateTradeDateWarning],
     systematic_gaps: Sequence[SystematicTradingDayGap],
     etf_gaps: Sequence[EtfTradingDayGap],
+    *,
+    corporate_action_warnings: Sequence[CorporateActionFactorMismatchWarning] = (),
 ) -> str | None:
-    """Serialize duplicate and gap warnings into a single ``quality_warnings`` JSON envelope.
+    """Serialize duplicate, gap, and corporate-action warnings into the JSON envelope.
 
     Returns ``None`` when all sections are empty so the persisted
     ``DataFetchLog.quality_warnings`` column stays null for clean batches. The
     envelope uses top-level keys ``duplicate_trade_dates``,
-    ``systematic_trading_day_gaps``, and ``etf_trading_day_gaps``; empty sections
-    are omitted. The ``duplicate_trade_dates`` section serializes identically to
+    ``systematic_trading_day_gaps``, ``etf_trading_day_gaps``, and
+    ``corporate_action_factor_mismatches``; empty sections are omitted. The
+    ``duplicate_trade_dates`` section serializes identically to
     :func:`build_quality_warnings_json` so existing consumers are not broken.
+    ``Decimal`` factor values are serialized as strings because JSON has no
+    arbitrary-precision decimal type.
     """
     envelope: dict[str, list[dict[str, object]]] = {}
     if duplicate_warnings:
@@ -174,6 +234,16 @@ def build_quality_warnings_json_from_sections(
     if etf_gaps:
         envelope["etf_trading_day_gaps"] = [
             {"etf_id": gap.etf_id, "trade_date": gap.trade_date.isoformat()} for gap in etf_gaps
+        ]
+    if corporate_action_warnings:
+        envelope["corporate_action_factor_mismatches"] = [
+            {
+                "etf_id": warning.etf_id,
+                "trade_date": warning.trade_date.isoformat(),
+                "stored_factor": str(warning.stored_factor),
+                "upstream_factor": str(warning.upstream_factor),
+            }
+            for warning in corporate_action_warnings
         ]
     if not envelope:
         return None

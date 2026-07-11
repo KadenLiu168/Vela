@@ -3,9 +3,11 @@ from datetime import date
 from decimal import Decimal
 
 from vela_core import (
+    CorporateActionFactorMismatchWarning,
     DuplicateTradeDateWarning,
     build_quality_warnings_json,
     build_quality_warnings_json_from_sections,
+    detect_corporate_action_factor_mismatch,
     detect_duplicate_trade_dates,
     detect_etf_trading_day_gaps,
     detect_systematic_trading_day_gaps,
@@ -22,6 +24,7 @@ def _price(*, etf_id: int, trade_date: date) -> MarketPrice:
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor_hfq=Decimal("1.0"),
         volume=1000,
     )
 
@@ -214,3 +217,88 @@ def test_build_sections_json_gap_only_omits_empty_duplicate_section() -> None:
 
     assert result is not None
     assert json.loads(result) == {"systematic_trading_day_gaps": [{"trade_date": "2026-07-02"}]}
+
+
+def test_detect_factor_mismatch_returns_none_when_factors_equal() -> None:
+    assert (
+        detect_corporate_action_factor_mismatch(
+            etf_id=1,
+            trade_date=date(2026, 7, 1),
+            stored_factor=Decimal("1.000000"),
+            upstream_factor=Decimal("1.000000"),
+        )
+        is None
+    )
+
+
+def test_detect_factor_mismatch_returns_none_within_tolerance() -> None:
+    assert (
+        detect_corporate_action_factor_mismatch(
+            etf_id=1,
+            trade_date=date(2026, 7, 1),
+            stored_factor=Decimal("1.000000"),
+            upstream_factor=Decimal("1.0000005"),
+        )
+        is None
+    )
+
+
+def test_detect_factor_mismatch_returns_warning_on_corporate_action() -> None:
+    warning = detect_corporate_action_factor_mismatch(
+        etf_id=1,
+        trade_date=date(2026, 7, 1),
+        stored_factor=Decimal("1.000000"),
+        upstream_factor=Decimal("1.100000"),
+    )
+
+    assert warning == CorporateActionFactorMismatchWarning(
+        etf_id=1,
+        trade_date=date(2026, 7, 1),
+        stored_factor=Decimal("1.000000"),
+        upstream_factor=Decimal("1.100000"),
+    )
+
+
+def test_detect_factor_mismatch_treats_nonpositive_stored_as_mismatch() -> None:
+    warning = detect_corporate_action_factor_mismatch(
+        etf_id=1,
+        trade_date=date(2026, 7, 1),
+        stored_factor=Decimal("0"),
+        upstream_factor=Decimal("1.000000"),
+    )
+
+    assert warning is not None
+    assert warning.stored_factor == Decimal("0")
+
+
+def test_build_sections_json_includes_corporate_action_warnings() -> None:
+    corporate = [
+        CorporateActionFactorMismatchWarning(
+            etf_id=1,
+            trade_date=date(2026, 7, 1),
+            stored_factor=Decimal("1.000000"),
+            upstream_factor=Decimal("1.100000"),
+        )
+    ]
+
+    result = build_quality_warnings_json_from_sections(
+        [], [], [], corporate_action_warnings=corporate
+    )
+
+    assert result is not None
+    assert json.loads(result) == {
+        "corporate_action_factor_mismatches": [
+            {
+                "etf_id": 1,
+                "trade_date": "2026-07-01",
+                "stored_factor": "1.000000",
+                "upstream_factor": "1.100000",
+            }
+        ]
+    }
+
+
+def test_build_sections_json_omits_corporate_action_section_when_empty() -> None:
+    result = build_quality_warnings_json_from_sections([], [], [])
+
+    assert result is None

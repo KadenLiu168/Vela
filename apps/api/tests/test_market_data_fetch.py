@@ -45,7 +45,7 @@ def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(tmp_pa
         "failed_symbols": [],
         "error_message": None,
     }
-    assert provider.requests == [("SPY", date(2026, 6, 18))]
+    assert provider.requests == [("SPY", date(2026, 6, 17))]
 
     with session_factory() as session:
         prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
@@ -91,7 +91,7 @@ def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
         "failed_symbols": [],
         "error_message": None,
     }
-    assert provider.requests == [("SPY", date(2026, 6, 18))]
+    assert provider.requests == [("SPY", date(2026, 6, 17))]
 
     with session_factory() as session:
         prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()

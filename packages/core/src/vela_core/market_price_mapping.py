@@ -10,6 +10,6 @@ def to_market_price(daily_price: DailyPrice, *, etf_id: int) -> MarketPrice:
         high_price=daily_price.high_price,
         low_price=daily_price.low_price,
         close_price=daily_price.close_price,
-        adjusted_close=daily_price.adjusted_close,
+        factor_hfq=daily_price.factor,
         volume=daily_price.volume,
     )

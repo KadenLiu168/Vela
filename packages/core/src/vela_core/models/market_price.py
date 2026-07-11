@@ -31,7 +31,7 @@ class MarketPrice(Base):
     high_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
     low_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
     close_price: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
-    adjusted_close: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    factor_hfq: Mapped[Decimal] = mapped_column(Numeric(18, 12), nullable=False)
     volume: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -47,4 +47,4 @@ class MarketPrice(Base):
 
     @property
     def strategy_price(self) -> Decimal:
-        return self.adjusted_close if self.adjusted_close is not None else self.close_price
+        return self.close_price * self.factor_hfq

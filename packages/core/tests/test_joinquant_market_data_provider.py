@@ -51,7 +51,7 @@ def test_joinquant_provider_normalizes_etf_daily_ohlcv_fields() -> None:
             high_price=Decimal("1.220"),
             low_price=Decimal("1.190"),
             close_price=Decimal("1.210"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=900,
         ),
         DailyPrice(
@@ -61,7 +61,7 @@ def test_joinquant_provider_normalizes_etf_daily_ohlcv_fields() -> None:
             high_price=Decimal("1.260"),
             low_price=Decimal("1.220"),
             close_price=Decimal("1.250"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=1000,
         ),
     ]
@@ -298,6 +298,7 @@ def _prices_frame(
     low: list[str] | None = None,
     close: list[str] | None = None,
     volume: list[int] | None = None,
+    factor: list[float] | None = None,
 ) -> pd.DataFrame:
     n = len(dates)
     return pd.DataFrame(
@@ -307,6 +308,7 @@ def _prices_frame(
             "low": low or ["1.220"] * n,
             "close": close or ["1.250"] * n,
             "volume": volume or [1000] * n,
+            "factor": factor or [1.0] * n,
         },
         index=pd.to_datetime(dates),
     )
@@ -314,7 +316,7 @@ def _prices_frame(
 
 def _empty_prices() -> pd.DataFrame:
     return pd.DataFrame(
-        {"open": [], "high": [], "low": [], "close": [], "volume": []},
+        {"open": [], "high": [], "low": [], "close": [], "volume": [], "factor": []},
         index=pd.to_datetime([]),
     )
 

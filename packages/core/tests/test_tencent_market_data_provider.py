@@ -106,7 +106,7 @@ def test_tencent_provider_normalizes_etf_daily_ohlc_fields() -> None:
             high_price=Decimal("1.220"),
             low_price=Decimal("1.190"),
             close_price=Decimal("1.210"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=None,
         ),
         DailyPrice(
@@ -116,7 +116,7 @@ def test_tencent_provider_normalizes_etf_daily_ohlc_fields() -> None:
             high_price=Decimal("1.260"),
             low_price=Decimal("1.220"),
             close_price=Decimal("1.250"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=None,
         ),
     ]
@@ -184,7 +184,13 @@ def test_tencent_provider_prefixes_symbol_for_sh_market() -> None:
             "start_date": "20260102",
             "end_date": "20260618",
             "adjust": "",
-        }
+        },
+        {
+            "symbol": "sh510300",
+            "start_date": "20260102",
+            "end_date": "20260618",
+            "adjust": "hfq",
+        },
     ]
 
 
@@ -204,7 +210,13 @@ def test_tencent_provider_prefixes_symbol_for_sz_market() -> None:
             "start_date": "20260102",
             "end_date": "20260618",
             "adjust": "",
-        }
+        },
+        {
+            "symbol": "sz159915",
+            "start_date": "20260102",
+            "end_date": "20260618",
+            "adjust": "hfq",
+        },
     ]
 
 
@@ -243,7 +255,7 @@ def test_tencent_provider_drops_amount_column() -> None:
     price = provider.get_etf_daily_prices("513500", end_date=date(2026, 6, 18))[0]
 
     assert price.volume is None
-    assert price.adjusted_close is None
+    assert price.factor == Decimal("1.0")
 
 
 def test_tencent_provider_wraps_source_errors_with_context() -> None:
@@ -285,7 +297,7 @@ def test_tencent_provider_retries_temporary_source_failure() -> None:
     prices = provider.get_etf_daily_prices("513500", end_date=date(2026, 6, 18))
 
     assert len(prices) == 1
-    assert len(akshare.calls) == 3
+    assert len(akshare.calls) == 4
 
 
 def test_tencent_provider_raises_after_retry_exhausted() -> None:

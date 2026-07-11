@@ -14,7 +14,7 @@ def test_daily_price_maps_to_market_price_fields() -> None:
         high_price=Decimal("1.260"),
         low_price=Decimal("1.220"),
         close_price=Decimal("1.250"),
-        adjusted_close=Decimal("1.240"),
+        factor=Decimal("1.240"),
         volume=1000,
     )
 
@@ -26,9 +26,9 @@ def test_daily_price_maps_to_market_price_fields() -> None:
     assert market_price.high_price == Decimal("1.260")
     assert market_price.low_price == Decimal("1.220")
     assert market_price.close_price == Decimal("1.250")
-    assert market_price.adjusted_close == Decimal("1.240")
+    assert market_price.factor_hfq == Decimal("1.240")
     assert market_price.volume == 1000
-    assert type(market_price.adjusted_close) is Decimal
+    assert type(market_price.factor_hfq) is Decimal
     assert type(market_price.volume) is int
 
 
@@ -40,7 +40,7 @@ def test_daily_price_mapping_preserves_explicit_field_types() -> None:
         high_price=Decimal("1.260"),
         low_price=Decimal("1.220"),
         close_price=Decimal("1.250"),
-        adjusted_close=None,
+        factor=Decimal("1.0"),
         volume=None,
     )
 
@@ -51,7 +51,7 @@ def test_daily_price_mapping_preserves_explicit_field_types() -> None:
     assert type(market_price.high_price) is Decimal
     assert type(market_price.low_price) is Decimal
     assert type(market_price.close_price) is Decimal
-    assert market_price.adjusted_close is None
+    assert type(market_price.factor_hfq) is Decimal
     assert market_price.volume is None
 
 
@@ -86,7 +86,7 @@ def test_akshare_daily_rows_normalize_then_map_to_market_price() -> None:
     assert market_price.high_price == Decimal("1.260")
     assert market_price.low_price == Decimal("1.220")
     assert market_price.close_price == Decimal("1.250")
-    assert market_price.adjusted_close is None
+    assert market_price.factor_hfq == Decimal("1.0")
     assert market_price.volume == 1000
 
 

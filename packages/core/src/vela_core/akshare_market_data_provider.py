@@ -6,6 +6,7 @@ from vela_core.base_market_data_provider import (
     _FETCH_ATTEMPTS,
     _FETCH_WAIT_SECONDS,
     BaseMarketDataProvider,
+    _derive_factor_frame,
 )
 
 
@@ -19,6 +20,7 @@ class AkShareMarketDataProvider(BaseMarketDataProvider):
         "high": "最高",
         "low": "最低",
         "close": "收盘",
+        "factor": "factor",
         "volume": "成交量",
     }
 
@@ -33,10 +35,26 @@ class AkShareMarketDataProvider(BaseMarketDataProvider):
         request_start: str,
         request_end: str,
     ) -> Any:
-        return self._source.fund_etf_hist_em(
+        # Stored close_price must stay unadjusted (the execution price), so
+        # the unadjusted frame is authoritative; the backward-adjusted (hfq)
+        # frame is fetched only to derive the per-row factor.
+        unadjusted = self._source.fund_etf_hist_em(
             symbol=request_symbol,
             period="daily",
             start_date=request_start,
             end_date=request_end,
             adjust="",
+        )
+        backward = self._source.fund_etf_hist_em(
+            symbol=request_symbol,
+            period="daily",
+            start_date=request_start,
+            end_date=request_end,
+            adjust="hfq",
+        )
+        return _derive_factor_frame(
+            unadjusted,
+            backward,
+            date_column="日期",
+            close_column="收盘",
         )

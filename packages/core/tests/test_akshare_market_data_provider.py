@@ -53,7 +53,7 @@ def test_akshare_provider_normalizes_etf_daily_ohlcv_fields() -> None:
             high_price=Decimal("1.220"),
             low_price=Decimal("1.190"),
             close_price=Decimal("1.210"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=900,
         ),
         DailyPrice(
@@ -63,13 +63,13 @@ def test_akshare_provider_normalizes_etf_daily_ohlcv_fields() -> None:
             high_price=Decimal("1.260"),
             low_price=Decimal("1.220"),
             close_price=Decimal("1.250"),
-            adjusted_close=None,
+            factor=Decimal("1.0"),
             volume=1000,
         ),
     ]
 
 
-def test_akshare_provider_uses_daily_unadjusted_request_with_date_bounds() -> None:
+def test_akshare_provider_uses_unadjusted_and_backward_adjusted_requests_with_date_bounds() -> None:
     akshare = FakeAkShareModule(_empty_prices())
     provider = AkShareMarketDataProvider(akshare)
 
@@ -86,7 +86,14 @@ def test_akshare_provider_uses_daily_unadjusted_request_with_date_bounds() -> No
             "start_date": "20260102",
             "end_date": "20260618",
             "adjust": "",
-        }
+        },
+        {
+            "symbol": "513500",
+            "period": "daily",
+            "start_date": "20260102",
+            "end_date": "20260618",
+            "adjust": "hfq",
+        },
     ]
 
 
@@ -162,7 +169,7 @@ def test_akshare_provider_retries_temporary_source_failure() -> None:
 
     assert len(prices) == 1
     assert prices[0].symbol == "513500"
-    assert len(akshare.calls) == 3
+    assert len(akshare.calls) == 4
 
 
 def test_akshare_provider_raises_provider_error_after_retries_are_exhausted() -> None:
@@ -208,7 +215,7 @@ def test_akshare_provider_does_not_retry_invalid_returned_rows() -> None:
             end_date=date(2026, 6, 18),
         )
 
-    assert len(akshare.calls) == 1
+    assert len(akshare.calls) == 2
 
 
 def test_akshare_provider_wraps_row_parsing_errors_with_context() -> None:

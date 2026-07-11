@@ -46,7 +46,7 @@ def test_joinquant_fetches_real_etf_daily_prices() -> None:
         assert price.low_price <= price.open_price
         assert price.low_price <= price.close_price
         assert price.close_price > 0
-        assert price.adjusted_close is None
+        assert price.factor > 0
         if price.volume is not None:
             assert price.volume >= 0
 

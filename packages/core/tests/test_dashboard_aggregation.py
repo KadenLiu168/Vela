@@ -291,7 +291,7 @@ def _market_price(etf_id: int, *, trade_date: date) -> MarketPrice:
         high_price=Decimal("101.000000"),
         low_price=Decimal("99.000000"),
         close_price=Decimal("100.000000"),
-        adjusted_close=None,
+        factor_hfq=Decimal("1"),
         volume=1000,
     )
 

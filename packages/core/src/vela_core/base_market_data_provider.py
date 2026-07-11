@@ -4,6 +4,8 @@ from decimal import Decimal, InvalidOperation
 from importlib import import_module
 from typing import Any
 
+import pandas as pd
+
 from vela_core.market_data_provider import DailyPrice, MarketDataProviderError
 
 _FETCH_ATTEMPTS = 3
@@ -167,6 +169,15 @@ class BaseMarketDataProvider:
             request_end=request_end,
             row_index=row_index,
         )
+        factor = _parse_factor(
+            row[columns["factor"]],
+            source_label=source_label,
+            symbol=symbol,
+            request_start=request_start,
+            request_end=request_end,
+            row_index=row_index,
+            column=columns["factor"],
+        )
         volume: int | None = None
         if "volume" in columns:
             volume = _parse_volume(
@@ -186,7 +197,7 @@ class BaseMarketDataProvider:
             high_price=high_price,
             low_price=low_price,
             close_price=close_price,
-            adjusted_close=None,
+            factor=factor,
             volume=volume,
         )
 
@@ -209,6 +220,37 @@ class BaseMarketDataProvider:
 
 def _format_date(value: date) -> str:
     return value.strftime("%Y%m%d")
+
+
+def _derive_factor_frame(
+    unadjusted: Any,
+    backward: Any,
+    *,
+    date_column: str,
+    close_column: str,
+) -> Any:
+    """Merge unadjusted OHLC with backward-adjusted close to derive the factor column.
+
+    Returns ``unadjusted`` with an added ``factor`` column computed as
+    ``backward_adjusted_close / unadjusted_close`` per trade date. The
+    unadjusted frame is the left/authoritative side so the stored
+    ``close_price`` stays the true unadjusted execution price and ``factor``
+    is the backward-adjustment (hfq) factor. Dates present in ``unadjusted``
+    but missing from ``backward`` yield a null factor and are rejected
+    downstream by ``_parse_factor``.
+    """
+    if close_column not in backward.columns or close_column not in unadjusted.columns:
+        # Let _normalize_rows report the missing column uniformly rather than
+        # raising a KeyError inside the merge/division below.
+        return unadjusted
+    backward_close = backward[[date_column, close_column]].rename(
+        columns={close_column: "_backward_close"}
+    )
+    merged = unadjusted.merge(backward_close, on=date_column, how="left")
+    backward_numeric = pd.to_numeric(merged["_backward_close"], errors="coerce")
+    close_numeric = pd.to_numeric(merged[close_column], errors="coerce")
+    merged["factor"] = backward_numeric / close_numeric
+    return merged.drop(columns=["_backward_close"])
 
 
 def _parse_trade_date(
@@ -335,6 +377,39 @@ def _parse_decimal(
             column=column,
             value=value,
             reason="decimal must be finite",
+        )
+    return decimal_value
+
+
+def _parse_factor(
+    value: Any,
+    *,
+    source_label: str,
+    symbol: str,
+    request_start: str,
+    request_end: str,
+    row_index: Any,
+    column: str,
+) -> Decimal:
+    decimal_value = _parse_decimal(
+        value,
+        source_label=source_label,
+        symbol=symbol,
+        request_start=request_start,
+        request_end=request_end,
+        row_index=row_index,
+        column=column,
+    )
+    if decimal_value <= 0:
+        raise _validation_error(
+            source_label,
+            symbol,
+            request_start,
+            request_end,
+            row_index=row_index,
+            column=column,
+            value=value,
+            reason="factor must be greater than zero",
         )
     return decimal_value
 

@@ -1,15 +1,18 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from vela_core.data_quality import (
+    CorporateActionFactorMismatchWarning,
     EtfTradingDayGap,
     SystematicTradingDayGap,
     build_quality_warnings_json_from_sections,
+    detect_corporate_action_factor_mismatch,
     detect_duplicate_trade_dates,
     detect_etf_trading_day_gaps,
     detect_systematic_trading_day_gaps,
@@ -53,7 +56,11 @@ def fetch_incremental_market_prices(
     provider: MarketDataProvider,
 ) -> MarketDataFetchResult:
     latest_trade_date = session.scalar(select(func.max(MarketPrice.trade_date)))
-    range_start = latest_trade_date + timedelta(days=1) if latest_trade_date is not None else None
+    # ``range_start`` is the latest stored trade date (inclusive), used for the
+    # fetch-log record and the no-baseline guard. Per-ETF fetches start at each
+    # ETF's own last stored date so the stored last-row factor can be compared
+    # against the upstream same-date factor to detect corporate actions.
+    range_start = latest_trade_date
     return _fetch_market_prices(
         session,
         provider=provider,
@@ -132,23 +139,15 @@ def _fetch_market_prices(
             quality_warnings=None,
         )
 
-    market_prices: list[MarketPrice] = []
-    errors: list[str] = []
-    failed_symbols: list[str] = []
-
-    for etf in active_etfs:
-        try:
-            daily_prices = provider.get_etf_daily_prices(
-                etf.symbol,
-                start_date=range_start,
-                end_date=range_end,
-            )
-        except Exception as exc:
-            failed_symbols.append(etf.symbol)
-            errors.append(f"{etf.symbol}: {exc}")
-            continue
-
-        market_prices.extend(to_market_price(price, etf_id=etf.id) for price in daily_prices)
+    corporate_action_warnings: list[CorporateActionFactorMismatchWarning] = []
+    if fetch_mode == "incremental":
+        market_prices, errors, failed_symbols, corporate_action_warnings = (
+            _collect_incremental_prices(session, active_etfs, provider, range_end)
+        )
+    else:
+        market_prices, errors, failed_symbols = _collect_full_prices(
+            active_etfs, provider, range_start, range_end
+        )
 
     rows_fetched = len(market_prices)
     duplicate_warnings = detect_duplicate_trade_dates(market_prices)
@@ -162,7 +161,10 @@ def _fetch_market_prices(
     gap_result = _detect_fetch_gap_warnings(session, active_etfs, range_start, range_end)
     systematic_gaps, etf_gaps = gap_result if gap_result is not None else ([], [])
     quality_warnings = build_quality_warnings_json_from_sections(
-        duplicate_warnings, systematic_gaps, etf_gaps
+        duplicate_warnings,
+        systematic_gaps,
+        etf_gaps,
+        corporate_action_warnings=corporate_action_warnings,
     )
 
     status = _final_status(rows_fetched=rows_fetched, has_errors=bool(errors))
@@ -189,6 +191,129 @@ def _fetch_market_prices(
         error_message=error_message,
         quality_warnings=quality_warnings,
     )
+
+
+def _collect_full_prices(
+    active_etfs: list[ETFInfo],
+    provider: MarketDataProvider,
+    range_start: date | None,
+    range_end: date | None,
+) -> tuple[list[MarketPrice], list[str], list[str]]:
+    """Fetch full history for every active ETF (full fetch mode)."""
+    market_prices: list[MarketPrice] = []
+    errors: list[str] = []
+    failed_symbols: list[str] = []
+
+    for etf in active_etfs:
+        try:
+            daily_prices = provider.get_etf_daily_prices(
+                etf.symbol,
+                start_date=range_start,
+                end_date=range_end,
+            )
+        except Exception as exc:
+            failed_symbols.append(etf.symbol)
+            errors.append(f"{etf.symbol}: {exc}")
+            continue
+
+        market_prices.extend(to_market_price(price, etf_id=etf.id) for price in daily_prices)
+
+    return market_prices, errors, failed_symbols
+
+
+def _collect_incremental_prices(
+    session: Session,
+    active_etfs: list[ETFInfo],
+    provider: MarketDataProvider,
+    range_end: date | None,
+) -> tuple[list[MarketPrice], list[str], list[str], list[CorporateActionFactorMismatchWarning]]:
+    """Fetch incremental prices with per-ETF corporate-action factor checks.
+
+    For each ETF, fetch starting at its own last stored trade date so the
+    stored last-row factor can be compared against the upstream same-date
+    factor. On a factor mismatch (corporate action detected) the ETF is
+    fully refetched to rewrite its factor series; otherwise only rows newer
+    than the last stored date are appended.
+    """
+    market_prices: list[MarketPrice] = []
+    errors: list[str] = []
+    failed_symbols: list[str] = []
+    corporate_action_warnings: list[CorporateActionFactorMismatchWarning] = []
+
+    for etf in active_etfs:
+        last_stored = _stored_last_row(session, etf.id)
+        fetch_start = last_stored[0] if last_stored is not None else None
+        try:
+            daily_prices = provider.get_etf_daily_prices(
+                etf.symbol,
+                start_date=fetch_start,
+                end_date=range_end,
+            )
+        except Exception as exc:
+            failed_symbols.append(etf.symbol)
+            errors.append(f"{etf.symbol}: {exc}")
+            continue
+
+        if last_stored is None:
+            market_prices.extend(to_market_price(price, etf_id=etf.id) for price in daily_prices)
+            continue
+
+        last_date, last_factor = last_stored
+        upstream_last = next(
+            (price for price in daily_prices if price.trade_date == last_date),
+            None,
+        )
+        if upstream_last is not None:
+            warning = detect_corporate_action_factor_mismatch(
+                etf_id=etf.id,
+                trade_date=last_date,
+                stored_factor=last_factor,
+                upstream_factor=upstream_last.factor,
+            )
+            if warning is not None:
+                corporate_action_warnings.append(warning)
+                market_prices.extend(
+                    _refetch_full_history(etf, provider, range_end, errors, failed_symbols)
+                )
+                continue
+
+        for price in daily_prices:
+            if price.trade_date > last_date:
+                market_prices.append(to_market_price(price, etf_id=etf.id))
+
+    return market_prices, errors, failed_symbols, corporate_action_warnings
+
+
+def _refetch_full_history(
+    etf: ETFInfo,
+    provider: MarketDataProvider,
+    range_end: date | None,
+    errors: list[str],
+    failed_symbols: list[str],
+) -> list[MarketPrice]:
+    """Full refetch for one ETF after a corporate-action factor mismatch."""
+    try:
+        daily_prices = provider.get_etf_daily_prices(
+            etf.symbol,
+            start_date=None,
+            end_date=range_end,
+        )
+    except Exception as exc:
+        failed_symbols.append(etf.symbol)
+        errors.append(f"{etf.symbol}: corporate-action refetch failed: {exc}")
+        return []
+    return [to_market_price(price, etf_id=etf.id) for price in daily_prices]
+
+
+def _stored_last_row(session: Session, etf_id: int) -> tuple[date, Decimal] | None:
+    """Return ``(trade_date, factor_hfq)`` of the latest stored row for an ETF."""
+    row = session.execute(
+        select(MarketPrice.trade_date, MarketPrice.factor_hfq)
+        .where(MarketPrice.etf_id == etf_id)
+        .order_by(MarketPrice.trade_date.desc())
+        .limit(1)
+    ).first()
+    return (row.trade_date, row.factor_hfq) if row is not None else None
 
 
 def _active_etfs(session: Session) -> list[ETFInfo]:

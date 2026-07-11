@@ -654,7 +654,7 @@ def _market_price(
         high_price=close_price,
         low_price=close_price,
         close_price=close_price,
-        adjusted_close=None,
+        factor_hfq=Decimal("1"),
         volume=1000,
     )
 

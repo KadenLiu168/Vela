@@ -21,12 +21,13 @@ def test_market_price_table_has_required_columns() -> None:
         "high_price",
         "low_price",
         "close_price",
-        "adjusted_close",
+        "factor_hfq",
         "volume",
         "created_at",
         "updated_at",
     } <= columns
-    assert table.columns["adjusted_close"].nullable is True
+    assert "adjusted_close" not in columns
+    assert table.columns["factor_hfq"].nullable is False
 
 
 def test_market_price_references_etf_info() -> None:
@@ -86,21 +87,20 @@ def test_market_price_has_lookup_indexes() -> None:
     assert ("trade_date",) in indexed_columns
 
 
-def test_market_price_strategy_price_uses_adjusted_close_when_present() -> None:
+def test_market_price_strategy_price_is_backward_adjusted() -> None:
     market_price = _market_price(
         etf_id=1,
         close_price=Decimal("100.00"),
-        adjusted_close=Decimal("99.50"),
+        factor_hfq=Decimal("1.25"),
     )
 
-    assert market_price.strategy_price == Decimal("99.50")
+    assert market_price.strategy_price == Decimal("125.0000")
 
 
-def test_market_price_strategy_price_falls_back_to_close_price() -> None:
+def test_market_price_strategy_price_uses_unit_factor_by_default() -> None:
     market_price = _market_price(
         etf_id=1,
         close_price=Decimal("100.00"),
-        adjusted_close=None,
     )
 
     assert market_price.strategy_price == Decimal("100.00")
@@ -128,7 +128,7 @@ def _market_price(
     *,
     etf_id: int,
     close_price: Decimal,
-    adjusted_close: Decimal | None = None,
+    factor_hfq: Decimal = Decimal("1"),
 ) -> MarketPrice:
     return MarketPrice(
         etf_id=etf_id,
@@ -137,6 +137,6 @@ def _market_price(
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=close_price,
-        adjusted_close=adjusted_close,
+        factor_hfq=factor_hfq,
         volume=1000,
     )

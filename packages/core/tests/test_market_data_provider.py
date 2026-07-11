@@ -15,7 +15,7 @@ def test_daily_price_exposes_etf_daily_ohlcv_fields() -> None:
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
-        adjusted_close=Decimal("100.25"),
+        factor=Decimal("1.0025"),
         volume=1000,
     )
 
@@ -25,7 +25,7 @@ def test_daily_price_exposes_etf_daily_ohlcv_fields() -> None:
     assert price.high_price == Decimal("101.00")
     assert price.low_price == Decimal("99.00")
     assert price.close_price == Decimal("100.50")
-    assert price.adjusted_close == Decimal("100.25")
+    assert price.factor == Decimal("1.0025")
     assert price.volume == 1000
 
 
@@ -37,6 +37,7 @@ def test_fake_provider_satisfies_market_data_provider_contract() -> None:
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor=Decimal("1.0"),
     )
     provider = FakeMarketDataProvider([expected_price])
 
@@ -52,6 +53,7 @@ def test_fake_provider_accepts_optional_date_bounds() -> None:
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor=Decimal("1.0"),
     )
     outside_range = DailyPrice(
         symbol="SPY",
@@ -60,6 +62,7 @@ def test_fake_provider_accepts_optional_date_bounds() -> None:
         high_price=Decimal("99.00"),
         low_price=Decimal("97.00"),
         close_price=Decimal("98.50"),
+        factor=Decimal("1.0"),
     )
     provider = FakeMarketDataProvider([inside_range, outside_range])
 

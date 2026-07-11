@@ -237,7 +237,7 @@ def test_fetch_incremental_market_prices_uses_latest_local_trade_date() -> None:
         log = session.query(DataFetchLog).one()
         prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
 
-    assert provider.requested_ranges == [("SPY", date(2026, 6, 18), date.today())]
+    assert provider.requested_ranges == [("SPY", date(2026, 6, 17), date.today())]
     assert result.status == "success"
     assert result.rows_fetched == 2
     assert result.rows_inserted == 2
@@ -248,7 +248,7 @@ def test_fetch_incremental_market_prices_uses_latest_local_trade_date() -> None:
         date(2026, 6, 19),
     ]
     assert log.fetch_mode == "incremental"
-    assert log.range_start == date(2026, 6, 18)
+    assert log.range_start == date(2026, 6, 17)
     assert log.range_end == date.today()
     assert log.requested_symbols == '["SPY"]'
 
@@ -363,11 +363,97 @@ def test_fetch_incremental_market_prices_logs_partial_fetch() -> None:
     assert result.failed_symbols == ("QQQ",)
     assert result.error_message == "QQQ: provider failed for QQQ"
     assert log.fetch_mode == "incremental"
-    assert log.range_start == date(2026, 6, 18)
+    assert log.range_start == date(2026, 6, 17)
     assert log.range_end == date.today()
     assert log.status == "partial"
     assert log.error_message == "QQQ: provider failed for QQQ"
     assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+
+
+def test_incremental_factor_match_appends_new_rows_without_warning() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 17)),
+            _daily_price(symbol="SPY", trade_date=date(2026, 6, 18)),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    assert result.status == "success"
+    assert result.rows_fetched == 1
+    assert result.rows_inserted == 1
+    assert result.quality_warnings is None
+    assert [price.trade_date for price in prices] == [date(2026, 6, 17), date(2026, 6, 18)]
+
+
+def test_incremental_factor_mismatch_triggers_refetch_and_records_warning() -> None:
+    session_factory = _create_session_factory()
+    # Stored factor is 1.0; upstream returns factor 1.1 (corporate action).
+    provider = RecordingMarketDataProvider(
+        [
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 17),
+                open_price=Decimal("100.00"),
+                high_price=Decimal("101.00"),
+                low_price=Decimal("99.00"),
+                close_price=Decimal("100.50"),
+                factor=Decimal("1.1"),
+                volume=1000,
+            ),
+            DailyPrice(
+                symbol="SPY",
+                trade_date=date(2026, 6, 18),
+                open_price=Decimal("100.00"),
+                high_price=Decimal("101.00"),
+                low_price=Decimal("99.00"),
+                close_price=Decimal("100.50"),
+                factor=Decimal("1.1"),
+                volume=1000,
+            ),
+        ]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        etf_id = etf.id
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_incremental_market_prices(session, provider=provider)
+        session.commit()
+
+        log = session.query(DataFetchLog).one()
+        prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
+
+    # Corporate-action warning recorded
+    assert result.quality_warnings is not None
+    envelope = json.loads(result.quality_warnings)
+    assert "corporate_action_factor_mismatches" in envelope
+    mismatch = envelope["corporate_action_factor_mismatches"][0]
+    assert mismatch["etf_id"] == etf_id
+    assert mismatch["trade_date"] == "2026-06-17"
+    assert log.quality_warnings == result.quality_warnings
+
+    # Refetch fetched both dates (full history)
+    assert result.rows_fetched == 2
+    assert result.rows_inserted == 1
+    assert result.rows_updated == 1
+
+    # Historical factor row immutable: 2026-06-17 keeps stored factor 1.0
+    assert prices[0].trade_date == date(2026, 6, 17)
+    assert prices[0].factor_hfq == Decimal("1.0")
+    # New row gets the upstream factor 1.1
+    assert prices[1].trade_date == date(2026, 6, 18)
+    assert prices[1].factor_hfq == Decimal("1.1")
 
 
 def test_fetch_full_market_prices_records_duplicate_trade_date_warnings() -> None:
@@ -381,6 +467,7 @@ def test_fetch_full_market_prices_records_duplicate_trade_date_warnings() -> Non
                 high_price=Decimal("101.00"),
                 low_price=Decimal("99.00"),
                 close_price=Decimal("100.50"),
+                factor=Decimal("1.0"),
                 volume=1000,
             ),
             DailyPrice(
@@ -390,6 +477,7 @@ def test_fetch_full_market_prices_records_duplicate_trade_date_warnings() -> Non
                 high_price=Decimal("201.00"),
                 low_price=Decimal("199.00"),
                 close_price=Decimal("200.50"),
+                factor=Decimal("1.0"),
                 volume=2000,
             ),
         ]
@@ -467,6 +555,7 @@ def _daily_price(
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor=Decimal("1.0"),
         volume=1000,
     )
 
@@ -479,6 +568,7 @@ def _add_market_price(session: Session, *, etf_id: int, trade_date: date) -> Mar
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
+        factor_hfq=Decimal("1.0"),
         volume=1000,
     )
     session.add(market_price)
@@ -550,6 +640,7 @@ def test_fetch_full_market_prices_merges_duplicate_and_gap_warnings() -> None:
                 high_price=Decimal("101.00"),
                 low_price=Decimal("99.00"),
                 close_price=Decimal("100.50"),
+                factor=Decimal("1.0"),
                 volume=1000,
             ),
             DailyPrice(
@@ -559,6 +650,7 @@ def test_fetch_full_market_prices_merges_duplicate_and_gap_warnings() -> None:
                 high_price=Decimal("201.00"),
                 low_price=Decimal("199.00"),
                 close_price=Decimal("200.50"),
+                factor=Decimal("1.0"),
                 volume=2000,
             ),
             _daily_price(symbol="SPY", trade_date=date(2026, 6, 19)),

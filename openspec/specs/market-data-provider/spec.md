@@ -54,9 +54,13 @@ The system SHALL keep an AkShare-backed market data provider available as a fall
 - **WHEN** backend code supplies optional start and end dates to the AkShare market data provider
 - **THEN** the provider sends those bounds to AkShare using `YYYYMMDD` date strings
 
-#### Scenario: Use unadjusted daily prices by default
+#### Scenario: Use backward-adjusted daily prices by default
 - **WHEN** the AkShare market data provider requests ETF daily prices
-- **THEN** it requests unadjusted AkShare data and leaves `adjusted_close` unset in returned daily price values
+- **THEN** it requests backward-adjusted AkShare data (`adjust="hfq"`) and derives the backward-adjustment factor by fetching unadjusted data (`adjust=""`) and computing `factor = backward_adjusted_close / unadjusted_close` per row
+
+#### Scenario: Expose backward-adjustment factor in daily price
+- **WHEN** the AkShare market data provider returns ETF daily prices
+- **THEN** each `DailyPrice` value carries a non-null `factor` reflecting the backward-adjustment factor for that trade date
 
 ### Requirement: AkShare daily price normalization
 The system SHALL normalize AkShare ETF daily rows into the internal provider daily price contract.
@@ -172,9 +176,13 @@ The system SHALL provide a Tencent-backed market data provider for fetching ETF 
 - **WHEN** backend code supplies optional start and end dates to the Tencent market data provider
 - **THEN** the provider sends those bounds to AkShare using `YYYYMMDD` date strings
 
-#### Scenario: Use unadjusted daily prices by default
+#### Scenario: Use backward-adjusted daily prices by default
 - **WHEN** the Tencent market data provider requests ETF daily prices
-- **THEN** it requests unadjusted AkShare data and leaves `adjusted_close` unset in returned daily price values
+- **THEN** it requests backward-adjusted data (`adjust="hfq"`) and derives the backward-adjustment factor by fetching unadjusted data (`adjust=""`) and computing `factor = backward_adjusted_close / unadjusted_close` per row
+
+#### Scenario: Expose backward-adjustment factor in daily price
+- **WHEN** the Tencent market data provider returns ETF daily prices
+- **THEN** each `DailyPrice` value carries a non-null `factor` reflecting the backward-adjustment factor for that trade date
 
 ### Requirement: Tencent daily price normalization
 The system SHALL normalize Tencent ETF daily rows into the internal provider daily price contract.
@@ -278,9 +286,13 @@ The system SHALL provide a JoinQuant-backed market data provider for fetching ET
 - **WHEN** backend code supplies optional start and end dates to the JoinQuant market data provider
 - **THEN** the provider sends those bounds to `jqdatasdk` using date strings
 
-#### Scenario: Use unadjusted daily prices by default
+#### Scenario: Expose backward-adjustment factor by default
 - **WHEN** the JoinQuant market data provider requests ETF daily prices
-- **THEN** it requests unadjusted data and leaves `adjusted_close` unset in returned daily price values
+- **THEN** it requests unadjusted data (`fq=None`) together with the `factor` field, and reads the `factor` field directly from `jqdatasdk` as the backward-adjustment factor per row
+
+#### Scenario: Expose backward-adjustment factor in daily price
+- **WHEN** the JoinQuant market data provider returns ETF daily prices
+- **THEN** each `DailyPrice` value carries a non-null `factor` reflecting the backward-adjustment factor for that trade date
 
 ### Requirement: JoinQuant trade date index handling
 The system SHALL convert the JoinQuant DataFrame trade date index into a named column before normalization, so the shared base normalization logic can read it.
@@ -348,4 +360,15 @@ The system SHALL keep `jqdatasdk` an optional dependency so that contributors wh
 #### Scenario: JoinQuant provider usable only with extra installed
 - **WHEN** backend code constructs a `JoinQuantMarketDataProvider` without the `joinquant` extra installed and without an injected source
 - **THEN** the provider raises a clear error indicating the optional dependency is missing
+
+### Requirement: Provider daily price factor field
+The system SHALL include a non-null backward-adjustment factor in every provider daily price value, so that adjusted prices can be reconstructed from stored unadjusted prices.
+
+#### Scenario: Daily price exposes factor field
+- **WHEN** backend code inspects a provider daily price value
+- **THEN** it includes a non-null `factor` field representing the backward-adjustment factor for that trade date
+
+#### Scenario: Factor is independent from adjusted close column
+- **WHEN** provider code returns daily price values
+- **THEN** the values carry the adjustment factor directly rather than a pre-multiplied adjusted close, so callers can derive both forward- and backward-adjusted prices from the same stored unadjusted close and factor
 

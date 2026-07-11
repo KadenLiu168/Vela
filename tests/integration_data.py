@@ -214,7 +214,7 @@ def market_price(
         high_price=close_price,
         low_price=close_price,
         close_price=close_price,
-        adjusted_close=None,
+        factor_hfq=Decimal("1"),
         volume=1000,
     )
 
@@ -299,7 +299,7 @@ def daily_price(symbol: str, *, trade_date: date) -> DailyPrice:
         high_price=Decimal("102.000000"),
         low_price=Decimal("100.000000"),
         close_price=Decimal("101.500000"),
-        adjusted_close=None,
+        factor=Decimal("1"),
         volume=2000,
     )
 

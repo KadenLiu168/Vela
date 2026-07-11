@@ -17,7 +17,7 @@ class DailyPrice:
     high_price: Decimal
     low_price: Decimal
     close_price: Decimal
-    adjusted_close: Decimal | None = None
+    factor: Decimal
     volume: int | None = None
 
 

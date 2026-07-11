@@ -68,9 +68,9 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
         "error_message": None,
     }
     assert provider.requests == [
-        ("159915", fetched_trade_date),
-        ("510300", fetched_trade_date),
-        ("511010", fetched_trade_date),
+        ("159915", latest_seed_date),
+        ("510300", latest_seed_date),
+        ("511010", latest_seed_date),
     ]
 
     assert generated_signal.status_code == 200

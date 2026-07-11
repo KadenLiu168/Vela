@@ -276,7 +276,7 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
                 20: Decimal("1"),
                 30: Decimal("1"),
             },
-            adjusted_close_by_offset={
+            factor_by_offset={
                 0: Decimal("80"),
                 20: Decimal("100"),
                 30: Decimal("112"),
@@ -536,15 +536,15 @@ def _add_price_history(
     etf_id: int,
     prices_by_offset: dict[int, Decimal],
     row_count: int,
-    adjusted_close_by_offset: dict[int, Decimal] | None = None,
+    factor_by_offset: dict[int, Decimal] | None = None,
 ) -> None:
-    adjusted_close_by_offset = adjusted_close_by_offset or {}
+    factor_by_offset = factor_by_offset or {}
     session.add_all(
         _market_price(
             etf_id=etf_id,
             trade_date=_trade_date(offset),
             close_price=prices_by_offset.get(offset, Decimal("100")),
-            adjusted_close=adjusted_close_by_offset.get(offset),
+            factor_hfq=factor_by_offset.get(offset, Decimal("1")),
         )
         for offset in range(row_count)
     )
@@ -579,7 +579,7 @@ def _market_price(
     etf_id: int,
     trade_date: date,
     close_price: Decimal,
-    adjusted_close: Decimal | None = None,
+    factor_hfq: Decimal = Decimal("1"),
 ) -> MarketPrice:
     return MarketPrice(
         etf_id=etf_id,
@@ -588,7 +588,7 @@ def _market_price(
         high_price=close_price,
         low_price=close_price,
         close_price=close_price,
-        adjusted_close=adjusted_close,
+        factor_hfq=factor_hfq,
         volume=1000,
     )
 
