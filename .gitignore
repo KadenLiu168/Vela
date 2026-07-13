@@ -85,9 +85,10 @@ fetch.log
 # 若希望把共享技能纳入版本控制，可加例外：!.workbuddy/skills/
 .workbuddy/
 
-# Generated code-quality / analysis reports（自动生成的日期化分析报告，非源码）
-# 如希望保留该报告入库，请删除此条
-docs/code-quality-review-*.md
+# Whole docs/ directory — kept local, NOT version-controlled.
+# This covers both auto-generated (tokens.md, code-quality-review-*.md)
+# AND manually-authored docs (architecture.md, etc.).
+docs/
 
 # Generic logs
 *.log
