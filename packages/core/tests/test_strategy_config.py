@@ -452,7 +452,7 @@ def _write_etf_pool_config(tmp_path: Path, etfs: list[dict[str, Any]]) -> Path:
             {
                 "pool_id": "test_pool",
                 "version": 1,
-                "provider": "akshare",
+                "provider": "tencent",
                 "currency": "CNY",
                 "etfs": etfs,
             },

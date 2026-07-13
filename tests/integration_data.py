@@ -275,7 +275,7 @@ def data_fetch_log(
     error_message: str | None,
 ) -> DataFetchLog:
     return DataFetchLog(
-        source="akshare",
+        source="tencent",
         target_type="market_price",
         fetch_mode=fetch_mode,
         range_start=None,

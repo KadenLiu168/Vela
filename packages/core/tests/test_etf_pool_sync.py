@@ -101,7 +101,7 @@ def _pool() -> ETFPoolConfig:
     return ETFPoolConfig(
         pool_id="test_pool",
         version=1,
-        provider="akshare",
+        provider="tencent",
         currency="CNY",
         etfs=[
             ETFConfig(

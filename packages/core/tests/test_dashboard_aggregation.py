@@ -309,7 +309,7 @@ def _data_fetch_log(
     error_message: str | None,
 ) -> DataFetchLog:
     return DataFetchLog(
-        source="akshare",
+        source="tencent",
         target_type=target_type,
         fetch_mode=fetch_mode,
         range_start=None,

@@ -43,109 +43,6 @@ The system SHALL allow tests to use fake market data providers that satisfy the 
 - **WHEN** a test supplies a fake provider implementing the market data provider interface
 - **THEN** backend code can fetch deterministic ETF daily prices without network access or external data source dependencies
 
-### Requirement: AkShare ETF daily price provider
-The system SHALL keep an AkShare-backed market data provider available as a fallback implementation for fetching ETF daily market prices, but it SHALL NOT be the default provider used by application entrypoints.
-
-#### Scenario: Fetch ETF daily prices through AkShare
-- **WHEN** backend code requests ETF daily prices from the AkShare market data provider
-- **THEN** the provider fetches daily ETF行情 through AkShare `fund_etf_hist_em`
-
-#### Scenario: Fetch ETF daily prices with date bounds
-- **WHEN** backend code supplies optional start and end dates to the AkShare market data provider
-- **THEN** the provider sends those bounds to AkShare using `YYYYMMDD` date strings
-
-#### Scenario: Use backward-adjusted daily prices by default
-- **WHEN** the AkShare market data provider requests ETF daily prices
-- **THEN** it requests backward-adjusted AkShare data (`adjust="hfq"`) and derives the backward-adjustment factor by fetching unadjusted data (`adjust=""`) and computing `factor = backward_adjusted_close / unadjusted_close` per row
-
-#### Scenario: Expose backward-adjustment factor in daily price
-- **WHEN** the AkShare market data provider returns ETF daily prices
-- **THEN** each `DailyPrice` value carries a non-null `factor` reflecting the backward-adjustment factor for that trade date
-
-### Requirement: AkShare daily price normalization
-The system SHALL normalize AkShare ETF daily rows into the internal provider daily price contract.
-
-#### Scenario: Normalize AkShare ETF OHLCV fields
-- **WHEN** AkShare returns ETF daily rows with date, open, high, low, close, and volume columns
-- **THEN** the provider returns `DailyPrice` values with symbol, trade date, open price, high price, low price, close price, optional adjusted close, and optional volume fields
-
-#### Scenario: Hide AkShare table shape from callers
-- **WHEN** backend code receives values from the AkShare market data provider
-- **THEN** it does not need to inspect pandas DataFrames or AkShare-specific column names
-
-#### Scenario: Empty AkShare result
-- **WHEN** AkShare returns no ETF daily rows for the requested symbol and date range
-- **THEN** the provider returns an empty sequence
-
-### Requirement: AkShare provider error propagation
-The system SHALL expose AkShare provider failures as catchable provider-level errors.
-
-#### Scenario: AkShare source call fails
-- **WHEN** AkShare raises an error while fetching ETF daily prices
-- **THEN** the provider raises a provider-level error that includes source, symbol, and date-range context
-
-#### Scenario: AkShare row normalization fails
-- **WHEN** AkShare returns rows that cannot be normalized into the internal daily price contract
-- **THEN** the provider raises a provider-level error that includes source, symbol, and date-range context
-
-#### Scenario: Upper layer can record provider failure
-- **WHEN** an upper-layer market data fetch workflow catches an AkShare provider-level error
-- **THEN** it can record the error message in the existing fetch log failure fields
-
-### Requirement: AkShare fetched daily price validation
-The system SHALL validate AkShare ETF daily rows before returning internal `DailyPrice` values.
-
-#### Scenario: Reject missing required row values
-- **WHEN** AkShare returns an ETF daily row with a missing, null, or empty required date, OHLC price, or volume value
-- **THEN** the provider raises a provider-level error instead of returning `DailyPrice` values
-
-#### Scenario: Reject invalid trade date
-- **WHEN** AkShare returns an ETF daily row with a trade date that cannot be parsed as a calendar date
-- **THEN** the provider raises a provider-level error instead of returning `DailyPrice` values
-
-#### Scenario: Reject invalid OHLC price
-- **WHEN** AkShare returns an ETF daily row with an OHLC price that is non-numeric, non-finite, or less than or equal to zero
-- **THEN** the provider raises a provider-level error instead of returning `DailyPrice` values
-
-#### Scenario: Reject inconsistent OHLC relationship
-- **WHEN** AkShare returns an ETF daily row whose high price is lower than open, low, or close, or whose low price is higher than open, high, or close
-- **THEN** the provider raises a provider-level error instead of returning `DailyPrice` values
-
-#### Scenario: Reject invalid volume
-- **WHEN** AkShare returns an ETF daily row with a volume that is non-numeric, non-integral, or negative
-- **THEN** the provider raises a provider-level error instead of returning `DailyPrice` values
-
-#### Scenario: Include source row context in validation failure
-- **WHEN** AkShare row validation fails
-- **THEN** the provider-level error includes source, symbol, requested date range, row index, failing column or field, invalid value, and validation reason where applicable
-
-#### Scenario: Reject whole result when one row is invalid
-- **WHEN** AkShare returns multiple ETF daily rows and any one row fails validation
-- **THEN** the provider raises a provider-level error and returns no partial `DailyPrice` results
-
-### Requirement: AkShare transient source retry
-The system SHALL retry transient AkShare source-call failures with a simple finite retry policy before surfacing a provider-level failure.
-
-#### Scenario: Retry temporary AkShare source failure
-- **WHEN** the AkShare source call fails temporarily before returning ETF daily rows
-- **THEN** the provider retries the source call using a finite retry count and simple wait policy
-
-#### Scenario: Return rows after retry succeeds
-- **WHEN** an AkShare source call fails initially but succeeds before retry attempts are exhausted
-- **THEN** the provider returns normalized `DailyPrice` values for the successful source response
-
-#### Scenario: Raise provider error after retries are exhausted
-- **WHEN** all AkShare source-call retry attempts fail for a requested symbol and date range
-- **THEN** the provider raises a provider-level error that includes source, symbol, and date-range context
-
-#### Scenario: Do not retry invalid returned rows
-- **WHEN** AkShare returns rows that fail normalization or validation
-- **THEN** the provider raises a provider-level error without retrying row normalization or validation
-
-#### Scenario: Preserve fetch log recording for final failure
-- **WHEN** an upper-layer market data fetch workflow receives a provider-level error after retry exhaustion
-- **THEN** the workflow can record the final failed or partial result in the existing fetch log failure fields
-
 ### Requirement: Default market data provider is Tencent
 The system SHALL use the Tencent-backed market data provider as the default provider instantiated by application entrypoints (CLI and HTTP API).
 
@@ -157,9 +54,9 @@ The system SHALL use the Tencent-backed market data provider as the default prov
 - **WHEN** the HTTP API constructs a market data provider without an explicit provider override
 - **THEN** the API instantiates `TencentMarketDataProvider` and returns it to request handlers
 
-#### Scenario: AkShare provider remains injectable
-- **WHEN** application code passes an explicit `AkShareMarketDataProvider` instance into the fetch workflow
-- **THEN** the workflow uses that AkShare instance instead of the default Tencent provider, demonstrating the AkShare implementation is still usable as a fallback
+#### Scenario: JoinQuant provider remains injectable
+- **WHEN** application code passes an explicit `JoinQuantMarketDataProvider` instance into the fetch workflow
+- **THEN** the workflow uses that JoinQuant instance instead of the default Tencent provider, demonstrating JoinQuant is usable as an independent backup provider
 
 ### Requirement: Tencent ETF daily price provider
 The system SHALL provide a Tencent-backed market data provider for fetching ETF daily market prices by delegating to AkShare `stock_zh_a_hist_tx`.
@@ -268,11 +165,11 @@ The system SHALL define the catchable provider-level error type (`MarketDataProv
 - **THEN** it imports `MarketDataProviderError` from the contract module that also defines `DailyPrice` and the `MarketDataProvider` Protocol
 
 #### Scenario: Concrete providers do not own the error type
-- **WHEN** a concrete provider implementation (AkShare or Tencent) raises a provider-level error
+- **WHEN** a concrete provider implementation (Tencent or JoinQuant) raises a provider-level error
 - **THEN** the error type is the shared contract-level type, not a type defined in that concrete provider's module
 
 ### Requirement: JoinQuant ETF daily price provider
-The system SHALL provide a JoinQuant-backed market data provider for fetching ETF daily market prices by delegating to the `jqdatasdk` library, independent of the `akshare` package used by the AkShare and Tencent providers.
+The system SHALL provide a JoinQuant-backed market data provider for fetching ETF daily market prices by delegating to the `jqdatasdk` library, independent of the `akshare` package used by the Tencent provider.
 
 #### Scenario: Fetch ETF daily prices through JoinQuant
 - **WHEN** backend code requests ETF daily prices from the JoinQuant market data provider

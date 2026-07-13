@@ -1,7 +1,7 @@
 pool_id: phase1_core
 version: 1
 description: Phase 1 minimal ETF universe for market data fetching and strategy calculation.
-provider: akshare
+provider: tencent
 currency: CNY
 
 etfs:

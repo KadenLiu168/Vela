@@ -32,7 +32,7 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
     }
     assert body["etf_pool"]["pool_id"] == "phase1_core"
     assert body["etf_pool"]["version"] == 1
-    assert body["etf_pool"]["provider"] == "akshare"
+    assert body["etf_pool"]["provider"] == "tencent"
     assert body["etf_pool"]["currency"] == "CNY"
     assert body["etf_pool"]["total_etfs"] == len(etf_pool_config.etfs)
     assert body["etf_pool"]["active_etfs"] == expected_active

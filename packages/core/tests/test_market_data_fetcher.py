@@ -156,9 +156,9 @@ def test_fetch_full_market_prices_logs_provider_error_after_retry_exhaustion() -
 
     assert result.status == "failed"
     assert result.failed_symbols == ("SPY",)
-    assert result.error_message == "SPY: akshare market data provider error symbol=SPY"
+    assert result.error_message == "SPY: tencent market data provider error symbol=SPY"
     assert log.status == "failed"
-    assert log.error_message == "SPY: akshare market data provider error symbol=SPY"
+    assert log.error_message == "SPY: tencent market data provider error symbol=SPY"
 
 
 def test_fetch_full_market_prices_fails_when_no_rows_are_fetched() -> None:
@@ -721,7 +721,7 @@ class FailingMarketDataProvider:
 
 
 class ExhaustedRetryMarketDataProvider:
-    name = "akshare"
+    name = "tencent"
 
     def get_etf_daily_prices(
         self,
@@ -730,7 +730,7 @@ class ExhaustedRetryMarketDataProvider:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
-        raise MarketDataProviderError(f"akshare market data provider error symbol={symbol}")
+        raise MarketDataProviderError(f"tencent market data provider error symbol={symbol}")
 
 
 class PartiallyFailingMarketDataProvider(RecordingMarketDataProvider):

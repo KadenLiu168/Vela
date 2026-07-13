@@ -796,7 +796,7 @@ it("shows a market data fetch error summary with reason and next step", async ()
 
     if (url === "/api/market-data/fetch?mode=incremental") {
       return Promise.resolve(
-        new Response(JSON.stringify({ detail: "AkShare provider timed out while fetching 510300" }), {
+        new Response(JSON.stringify({ detail: "Tencent provider timed out while fetching 510300" }), {
           headers: { "Content-Type": "application/json" },
           status: 500
         })
@@ -818,7 +818,7 @@ it("shows a market data fetch error summary with reason and next step", async ()
   expect(operations.getByText("Type")).toBeInTheDocument();
   expect(operations.getByText("Unexpected")).toBeInTheDocument();
   expect(operations.getByText("Reason")).toBeInTheDocument();
-  expect(operations.getByText("AkShare provider timed out while fetching 510300")).toBeInTheDocument();
+  expect(operations.getByText("Tencent provider timed out while fetching 510300")).toBeInTheDocument();
   expect(operations.getByText("Next step")).toBeInTheDocument();
   expect(
     operations.getByText("Retry after checking data source availability and local ETF/data state.")

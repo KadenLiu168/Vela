@@ -20,7 +20,7 @@ def test_load_existing_etf_pool_yaml_returns_typed_config() -> None:
 
     assert isinstance(config, ETFPoolConfig)
     assert config.pool_id == "phase1_core"
-    assert config.provider == "akshare"
+    assert config.provider == "tencent"
     assert config.currency == "CNY"
     raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
     assert len(config.etfs) == len(raw_etfs)
@@ -34,7 +34,7 @@ def test_etf_pool_rejects_duplicate_exchange_symbol(tmp_path: Path) -> None:
         """
 pool_id: test_pool
 version: 1
-provider: akshare
+provider: tencent
 currency: CNY
 etfs:
   - exchange: SSE
@@ -62,7 +62,7 @@ def test_etf_pool_allows_same_symbol_on_different_exchanges(tmp_path: Path) -> N
         """
 pool_id: test_pool
 version: 1
-provider: akshare
+provider: tencent
 currency: CNY
 etfs:
   - exchange: SSE
@@ -88,7 +88,7 @@ def test_etf_pool_config_error_includes_validation_path(tmp_path: Path) -> None:
     config_path.write_text(
         """
 version: 1
-provider: akshare
+provider: tencent
 currency: CNY
 etfs:
   - exchange: SSE
@@ -144,7 +144,7 @@ def test_load_existing_app_config_contains_checked_in_values() -> None:
     assert config.strategy.version == "v1"
     assert config.strategy.universe_config == "config/etf_pool.yaml"
     assert config.etf_pool.pool_id == "phase1_core"
-    assert config.etf_pool.provider == "akshare"
+    assert config.etf_pool.provider == "tencent"
     raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
     assert len(config.etf_pool.etfs) == len(raw_etfs)
 
@@ -194,7 +194,7 @@ performance:
         """
 pool_id: local_pool
 version: 1
-provider: akshare
+provider: tencent
 currency: CNY
 etfs:
   - exchange: SSE
@@ -284,7 +284,7 @@ performance:
     pool_path.write_text(
         """
 version: 1
-provider: akshare
+provider: tencent
 currency: CNY
 etfs:
   - exchange: SSE
