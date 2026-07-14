@@ -512,6 +512,58 @@ def test_selects_top_n_without_defensive_asset_when_ranked_etfs_are_sufficient()
     ]
 
 
+def test_selects_defensive_fallback_spans_all_configured_assets_with_equal_weight() -> None:
+    config = StrategyConfig.model_validate(
+        {
+            "strategy_id": "dual_momentum",
+            "version": "v1",
+            "universe_config": "config/etf_pool.yaml",
+            "momentum": {"short_window_days": 10, "long_window_days": 30},
+            "score_weights": {"short": 0.4, "long": 0.6},
+            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+            "selection": {"top_n": 2},
+            "defense": {
+                "assets": [
+                    {"exchange": "SSE", "symbol": "511010"},
+                    {"exchange": "SSE", "symbol": "511880"},
+                    {"exchange": "SSE", "symbol": "518880"},
+                ],
+            },
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
+
+    selections = select_with_defensive_fallback([], config)
+
+    expected_weight = Decimal("1") / Decimal(3)
+    assert selections == [
+        DefensiveFallbackSelection(
+            exchange="SSE",
+            symbol="511010",
+            rank=None,
+            score=None,
+            target_weight=expected_weight,
+        ),
+        DefensiveFallbackSelection(
+            exchange="SSE",
+            symbol="511880",
+            rank=None,
+            score=None,
+            target_weight=expected_weight,
+        ),
+        DefensiveFallbackSelection(
+            exchange="SSE",
+            symbol="518880",
+            rank=None,
+            score=None,
+            target_weight=expected_weight,
+        ),
+    ]
+    total = sum((selection.target_weight for selection in selections), Decimal("0"))
+    assert abs(total - Decimal("1")) < Decimal("1e-9")
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -620,10 +672,12 @@ def _strategy_config(
             "top_n": 2,
         },
         "defense": {
-            "asset": {
-                "exchange": "SSE",
-                "symbol": "511010",
-            },
+            "assets": [
+                {
+                    "exchange": "SSE",
+                    "symbol": "511010",
+                },
+            ],
         },
         "costs": {
             "transaction_cost_bps": 5,

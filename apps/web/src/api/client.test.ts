@@ -206,10 +206,12 @@ it("calls dashboard through the shared client", async () => {
       trend_filter: { enabled: true },
       selection: { top_n: 2 },
       defense: {
-        asset: {
-          exchange: "NASDAQ",
-          symbol: "BIL"
-        }
+        assets: [
+          {
+            exchange: "NASDAQ",
+            symbol: "BIL"
+          }
+        ]
       },
       costs: { transaction_cost_bps: 5 },
       performance: { risk_free_rate: 0.02 },

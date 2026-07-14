@@ -21,7 +21,7 @@ function dashboardWithEtfs(etf_list: DashboardMarketDataStatus["etf_list"]): Das
       score_weights: { short: 0, long: 0 },
       trend_filter: {},
       selection: { top_n: 0 },
-      defense: { asset: { exchange: "", symbol: "" } },
+      defense: { assets: [{ exchange: "", symbol: "" }] },
       costs: { transaction_cost_bps: 0 },
       performance: {},
       rebalance: { frequency: "" }

@@ -180,9 +180,9 @@ trend_filter:
 selection:
   top_n: 2
 defense:
-  asset:
-    exchange: SSE
-    symbol: "511010"
+  assets:
+    - exchange: SSE
+      symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:
@@ -230,9 +230,9 @@ trend_filter:
 selection:
   top_n: 2
 defense:
-  asset:
-    exchange: SSE
-    symbol: "511010"
+  assets:
+    - exchange: SSE
+      symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:
@@ -271,9 +271,9 @@ trend_filter:
 selection:
   top_n: 2
 defense:
-  asset:
-    exchange: SSE
-    symbol: "511010"
+  assets:
+    - exchange: SSE
+      symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:

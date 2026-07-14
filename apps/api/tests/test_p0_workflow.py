@@ -23,9 +23,13 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
         first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
         second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
         defense = add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
+        defense_second = add_etf(session, exchange="SSE", symbol="511880", currency="CNY")
+        defense_third = add_etf(session, exchange="SSE", symbol="518880", currency="CNY")
         add_price_history(session, etf_id=first.id, end_date=latest_seed_date)
         add_price_history(session, etf_id=second.id, end_date=latest_seed_date)
         add_price_history(session, etf_id=defense.id, end_date=latest_seed_date)
+        add_price_history(session, etf_id=defense_second.id, end_date=latest_seed_date)
+        add_price_history(session, etf_id=defense_third.id, end_date=latest_seed_date)
         session.commit()
 
     provider = ControlledMarketDataProvider(
@@ -33,6 +37,8 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
             "510300": [daily_price("510300", trade_date=fetched_trade_date)],
             "159915": [daily_price("159915", trade_date=fetched_trade_date)],
             "511010": [daily_price("511010", trade_date=fetched_trade_date)],
+            "511880": [daily_price("511880", trade_date=fetched_trade_date)],
+            "518880": [daily_price("518880", trade_date=fetched_trade_date)],
         }
     )
 
@@ -60,9 +66,9 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
     assert fetch.status_code == 200
     assert fetch.json() == {
         "status": "success",
-        "requested_etf_count": 3,
-        "rows_fetched": 3,
-        "rows_inserted": 3,
+        "requested_etf_count": 5,
+        "rows_fetched": 5,
+        "rows_inserted": 5,
         "rows_updated": 0,
         "failed_symbols": [],
         "error_message": None,
@@ -71,6 +77,8 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
         ("159915", latest_seed_date),
         ("510300", latest_seed_date),
         ("511010", latest_seed_date),
+        ("511880", latest_seed_date),
+        ("518880", latest_seed_date),
     ]
 
     assert generated_signal.status_code == 200
@@ -108,7 +116,7 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
     assert dashboard["latest_signal"]["position_count"] > 0
     assert dashboard["recent_backtest"]["run_id"] == run["run_id"]
     assert dashboard["recent_fetch_logs"][0]["mode"] == "incremental"
-    assert dashboard["recent_fetch_logs"][0]["rows_inserted"] == 3
+    assert dashboard["recent_fetch_logs"][0]["rows_inserted"] == 5
 
     backend_gaps_or_field_mismatches: list[str] = []
     assert backend_gaps_or_field_mismatches == []

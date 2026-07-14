@@ -21,9 +21,13 @@ selection:
   top_n: 2
 
 defense:
-  asset:
-    exchange: SSE
-    symbol: "511010"
+  assets:
+    - exchange: SSE
+      symbol: "511010"
+    - exchange: SSE
+      symbol: "511880"
+    - exchange: SSE
+      symbol: "518880"
 
 costs:
   transaction_cost_bps: 5

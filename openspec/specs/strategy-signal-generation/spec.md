@@ -25,9 +25,10 @@ The system SHALL generate a strategy signal for a requested signal date using th
 
 #### Scenario: Apply defensive fallback during generation
 - **WHEN** backend code generates a strategy signal and fewer eligible ranked ETFs exist than the configured Top N
-- **THEN** the system returns the configured defensive asset as the only target position
-- **AND** the defensive position has full target weight
-- **AND** the defensive asset id is resolved from the caller-supplied defense lookup without issuing any database query
+- **THEN** the system returns one target position per configured defensive asset
+- **AND** each defensive position has an equal target weight of `1 / N` where `N` is the number of configured defensive assets
+- **AND** the sum of the defensive target weights equals `1.0` within Decimal rounding tolerance (each weight is `Decimal("1") / Decimal(N)`; the total is approximately, not exactly, `1.0` for N > 1)
+- **AND** each defensive asset id is resolved from the caller-supplied defense lookup without issuing any database query
 
 #### Scenario: Fail when no active ETFs exist
 - **WHEN** backend code generates a strategy signal and the caller-supplied active ETF list is empty
@@ -35,7 +36,7 @@ The system SHALL generate a strategy signal for a requested signal date using th
 - **AND** the function does not raise
 
 #### Scenario: Fail when defensive asset is missing locally
-- **WHEN** backend code generates a fallback signal and the configured defensive asset exchange and symbol are not present in the caller-supplied defense lookup
+- **WHEN** backend code generates a fallback signal and any configured defensive asset exchange and symbol are not present in the caller-supplied defense lookup
 - **THEN** the function returns a failed result with a clear error message
 
 ### Requirement: Export latest strategy signal report

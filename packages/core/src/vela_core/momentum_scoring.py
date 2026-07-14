@@ -152,14 +152,17 @@ def select_with_defensive_fallback(
     config: StrategyConfig,
 ) -> list[TopNSelection | DefensiveFallbackSelection]:
     if len(rankings) < config.selection.top_n:
+        defensive_assets = config.defense.assets
+        target_weight = Decimal("1") / Decimal(len(defensive_assets))
         return [
             DefensiveFallbackSelection(
-                exchange=config.defense.asset.exchange,
-                symbol=config.defense.asset.symbol,
+                exchange=asset.exchange,
+                symbol=asset.symbol,
                 rank=None,
                 score=None,
-                target_weight=Decimal("1"),
+                target_weight=target_weight,
             )
+            for asset in defensive_assets
         ]
 
     selections: list[TopNSelection | DefensiveFallbackSelection] = list(

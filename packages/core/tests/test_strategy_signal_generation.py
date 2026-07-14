@@ -291,6 +291,93 @@ def test_generate_strategy_signal_persists_failure_when_defensive_asset_is_missi
     assert result.positions == []
 
 
+def test_generate_strategy_signal_names_second_missing_defensive_asset() -> None:
+    session_factory = _create_session_factory()
+    config = StrategyConfig.model_validate(
+        {
+            "strategy_id": "dual_momentum",
+            "version": "v1",
+            "universe_config": "config/etf_pool.yaml",
+            "momentum": {"short_window_days": 63, "long_window_days": 120},
+            "score_weights": {"short": 0.4, "long": 0.6},
+            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+            "selection": {"top_n": 2},
+            "defense": {
+                "assets": [
+                    {"exchange": "SSE", "symbol": "511010"},
+                    {"exchange": "SSE", "symbol": "511880"},
+                ],
+            },
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
+
+    def _persist(
+        *,
+        signal_date: date,
+        generated_at: datetime,
+        status: str,
+        result: str | None,
+        positions: list[dict[str, object]],
+        error_message: str | None,
+    ) -> int:
+        with session_factory() as session:
+            persistence = persist_strategy_signal(
+                session,
+                strategy_id="dual_momentum",
+                signal_date=signal_date,
+                config_version="v1",
+                generated_at=generated_at,
+                status=status,
+                result=result,
+                positions=[
+                    StrategySignalPositionInput(
+                        etf_id=position["etf_id"],
+                        rank=position["rank"],
+                        score=position["score"],
+                        target_weight=position["target_weight"],
+                    )
+                    for position in positions
+                ],
+                error_message=error_message,
+            )
+            session.commit()
+            return persistence.strategy_signal.id
+
+    with session_factory() as session:
+        first_defense = _add_etf(session, exchange="SSE", symbol="511010")
+        _add_price_history(session, etf_id=first_defense.id, current_price=Decimal("180"))
+
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
+        price_panel = load_price_panel(
+            session,
+            etf_ids=[etf.id for etf in active_etfs],
+            start_date=None,
+            end_date=_trade_date(120),
+        )
+        # defense_lookup resolves 511010 (active) but NOT 511880 (not seeded)
+        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+
+        result = generate_strategy_signal(
+            signal_date=_trade_date(120),
+            config=config,
+            price_panel=price_panel,
+            active_etfs=active_etfs,
+            defense_lookup=defense_lookup,
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            persist=_persist,
+        )
+
+        signal = session.get(StrategySignal, result.strategy_signal_id)
+
+    assert signal is not None
+    assert signal.status == "failed"
+    assert signal.error_message == "Defensive asset not found as active ETF: SSE 511880"
+    assert result.error_message == "Defensive asset not found as active ETF: SSE 511880"
+    assert result.positions == []
+
+
 def test_generate_historical_strategy_signals_persists_rebalance_date_positions() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config(top_n=1)
@@ -680,10 +767,12 @@ def _strategy_config(*, top_n: int) -> StrategyConfig:
             "top_n": top_n,
         },
         "defense": {
-            "asset": {
-                "exchange": "SSE",
-                "symbol": "511010",
-            },
+            "assets": [
+                {
+                    "exchange": "SSE",
+                    "symbol": "511010",
+                },
+            ],
         },
         "costs": {
             "transaction_cost_bps": 5,

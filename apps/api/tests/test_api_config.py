@@ -25,7 +25,13 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
         "score_weights": {"short": 0.4, "long": 0.6},
         "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
         "selection": {"top_n": 2},
-        "defense": {"asset": {"exchange": "SSE", "symbol": "511010"}},
+        "defense": {
+            "assets": [
+                {"exchange": "SSE", "symbol": "511010"},
+                {"exchange": "SSE", "symbol": "511880"},
+                {"exchange": "SSE", "symbol": "518880"},
+            ],
+        },
         "costs": {"transaction_cost_bps": 5.0},
         "performance": {"risk_free_rate": 0.02},
         "rebalance": {"frequency": "weekly"},

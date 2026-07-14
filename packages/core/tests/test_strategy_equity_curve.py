@@ -819,10 +819,12 @@ def _strategy_config(transaction_cost_bps: float = 0) -> StrategyConfig:
                 "top_n": 2,
             },
             "defense": {
-                "asset": {
-                    "exchange": "SSE",
-                    "symbol": "511010",
-                },
+                "assets": [
+                    {
+                        "exchange": "SSE",
+                        "symbol": "511010",
+                    },
+                ],
             },
             "costs": {
                 "transaction_cost_bps": transaction_cost_bps,

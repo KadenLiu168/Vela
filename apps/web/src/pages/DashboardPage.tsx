@@ -330,8 +330,8 @@ export function DashboardPage({
             />
             <Detail label="Top N" value={data ? formatInteger(data.strategy.selection.top_n) : "Loading"} />
             <Detail
-              label="Defensive asset"
-              value={data ? formatDefensiveAsset(data.strategy.defense.asset) : "Loading"}
+              label="Defensive assets"
+              value={data ? formatDefensiveAsset(data.strategy.defense.assets) : "Loading"}
             />
             <Detail
               label="Trading cost"
@@ -1040,8 +1040,10 @@ function formatScoreWeights(scoreWeights: DashboardResponse["strategy"]["score_w
   return `Short ${formatCompactNumber(scoreWeights.short)} / Long ${formatCompactNumber(scoreWeights.long)}`;
 }
 
-function formatDefensiveAsset(asset: DashboardResponse["strategy"]["defense"]["asset"]): string {
-  return `${asset.exchange}:${asset.symbol}`;
+function formatDefensiveAsset(
+  assets: DashboardResponse["strategy"]["defense"]["assets"]
+): string {
+  return assets.map((asset) => `${asset.exchange}:${asset.symbol}`).join(", ");
 }
 
 function formatFailedSymbols(symbols: string[]): string {

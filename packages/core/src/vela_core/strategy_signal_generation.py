@@ -117,12 +117,17 @@ def generate_strategy_signal(
     for selection in selections:
         position = _to_generated_position(selection, etfs_by_id, defense_lookup)
         if position is None:
+            # ``_to_generated_position`` returns ``None`` only when a defensive
+            # fallback selection cannot be resolved via ``defense_lookup``;
+            # narrow the union so the error message names the missing asset.
+            if not isinstance(selection, DefensiveFallbackSelection):
+                raise TypeError("None position is only expected for defensive fallback selections")
             return _failed_result(
                 signal_date=signal_date,
                 config=config,
                 error_message=(
                     "Defensive asset not found as active ETF: "
-                    f"{config.defense.asset.exchange} {config.defense.asset.symbol}"
+                    f"{selection.exchange} {selection.symbol}"
                 ),
                 generated_at=generated_at,
                 persist=persist,

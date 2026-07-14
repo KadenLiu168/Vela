@@ -68,7 +68,20 @@ class SelectionConfig(BaseModel):
 class DefenseConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    asset: ETFIdentity
+    assets: list[ETFIdentity] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def reject_duplicate_defensive_assets(self) -> "DefenseConfig":
+        seen: set[tuple[str, str]] = set()
+        for asset in self.assets:
+            key = (asset.exchange, asset.symbol)
+            if key in seen:
+                raise ValueError(
+                    "defense.assets must not contain duplicate "
+                    f"(exchange, symbol) entries: {asset.exchange} {asset.symbol}"
+                )
+            seen.add(key)
+        return self
 
 
 class TransactionCostsConfig(BaseModel):
@@ -121,15 +134,15 @@ def _validate_defensive_asset(
     universe_path: Path,
     strategy_path: Path,
 ) -> None:
-    asset = config.defense.asset
-    is_active_universe_asset = any(
-        etf.exchange == asset.exchange and etf.symbol == asset.symbol and etf.is_active
-        for etf in universe.etfs
-    )
-    if not is_active_universe_asset:
-        raise ConfigError(
-            "Failed to validate configuration file "
-            f"{strategy_path}: defense.asset {asset.exchange} {asset.symbol} "
-            f"must exist as an active ETF in universe_config {universe_path}",
-            path=strategy_path,
+    for index, asset in enumerate(config.defense.assets):
+        is_active_universe_asset = any(
+            etf.exchange == asset.exchange and etf.symbol == asset.symbol and etf.is_active
+            for etf in universe.etfs
         )
+        if not is_active_universe_asset:
+            raise ConfigError(
+                "Failed to validate configuration file "
+                f"{strategy_path}: defense.assets[{index}] {asset.exchange} {asset.symbol} "
+                f"must exist as an active ETF in universe_config {universe_path}",
+                path=strategy_path,
+            )

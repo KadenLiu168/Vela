@@ -25,6 +25,8 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
         first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
         second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
         defense = add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
+        defense_second = add_etf(session, exchange="SSE", symbol="511880", currency="CNY")
+        defense_third = add_etf(session, exchange="SSE", symbol="518880", currency="CNY")
         _add_price_history(session, etf_id=first.id, start_date=start_date, end_date=end_date)
         _add_price_history(
             session,
@@ -36,6 +38,20 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
         _add_price_history(
             session,
             etf_id=defense.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.01"),
+        )
+        _add_price_history(
+            session,
+            etf_id=defense_second.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.01"),
+        )
+        _add_price_history(
+            session,
+            etf_id=defense_third.id,
             start_date=start_date,
             end_date=end_date,
             daily_step=Decimal("0.01"),
@@ -88,6 +104,8 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
         first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
         second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
         defense = add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
+        defense_second = add_etf(session, exchange="SSE", symbol="511880", currency="CNY")
+        defense_third = add_etf(session, exchange="SSE", symbol="518880", currency="CNY")
         _add_price_history(session, etf_id=first.id, start_date=start_date, end_date=end_date)
         _add_price_history(
             session,
@@ -99,6 +117,20 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
         _add_price_history(
             session,
             etf_id=defense.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.01"),
+        )
+        _add_price_history(
+            session,
+            etf_id=defense_second.id,
+            start_date=start_date,
+            end_date=end_date,
+            daily_step=Decimal("0.01"),
+        )
+        _add_price_history(
+            session,
+            etf_id=defense_third.id,
             start_date=start_date,
             end_date=end_date,
             daily_step=Decimal("0.01"),

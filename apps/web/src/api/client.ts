@@ -57,10 +57,10 @@ export type DashboardStrategySummary = {
     top_n: number;
   };
   defense: {
-    asset: {
+    assets: {
       exchange: string;
       symbol: string;
-    };
+    }[];
   };
   costs: {
     transaction_cost_bps: number;

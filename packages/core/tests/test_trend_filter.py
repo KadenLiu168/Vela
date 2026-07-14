@@ -308,7 +308,11 @@ def _strategy_config(*, moving_average_days: int, price_relation: str) -> Strate
             "price_relation": price_relation,
         },
         "selection": {"top_n": 2},
-        "defense": {"asset": {"exchange": "SSE", "symbol": "511010"}},
+        "defense": {
+            "assets": [
+                {"exchange": "SSE", "symbol": "511010"},
+            ],
+        },
         "costs": {"transaction_cost_bps": 5},
         "performance": {"risk_free_rate": 0.02},
     }

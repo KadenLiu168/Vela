@@ -38,7 +38,7 @@ def _make_strategy_config() -> StrategyConfig:
         score_weights=ScoreWeightsConfig(short=0.4, long=0.6),
         trend_filter=TrendFilterConfig(moving_average_days=120, price_relation="above"),
         selection=SelectionConfig(top_n=2),
-        defense=DefenseConfig(asset=ETFIdentity(exchange="SSE", symbol="511010")),
+        defense=DefenseConfig(assets=[ETFIdentity(exchange="SSE", symbol="511010")]),
         costs=TransactionCostsConfig(transaction_cost_bps=5),
         performance=PerformanceConfig(risk_free_rate=0.03),
     )

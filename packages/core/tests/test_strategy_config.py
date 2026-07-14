@@ -22,8 +22,11 @@ def test_strategy_v1_config_loads_and_validates() -> None:
     assert config.trend_filter.moving_average_days == 120
     assert config.trend_filter.price_relation == "above"
     assert config.selection.top_n == 2
-    assert config.defense.asset.exchange == "SSE"
-    assert config.defense.asset.symbol == "511010"
+    assert [(a.exchange, a.symbol) for a in config.defense.assets] == [
+        ("SSE", "511010"),
+        ("SSE", "511880"),
+        ("SSE", "518880"),
+    ]
     assert config.costs.transaction_cost_bps == 5
     assert config.performance.risk_free_rate == 0.02
     assert config.rebalance.frequency == "weekly"
@@ -117,7 +120,7 @@ def test_strategy_config_loader_rejects_defensive_asset_missing_from_universe(
 
     message = str(exc_info.value)
     assert str(config_path) in message
-    assert "defense.asset" in message
+    assert "defense.assets[0]" in message
     assert "SSE 511010" in message
     assert str(pool_path) in message
 
@@ -145,7 +148,7 @@ def test_strategy_config_loader_rejects_inactive_defensive_asset(
 
     message = str(exc_info.value)
     assert str(config_path) in message
-    assert "defense.asset" in message
+    assert "defense.assets[0]" in message
     assert "SSE 511010" in message
     assert str(pool_path) in message
 
@@ -170,8 +173,8 @@ def test_strategy_config_loader_accepts_active_defensive_asset(
 
     loaded_config = load_strategy_config(config_path)
 
-    assert loaded_config.defense.asset.exchange == "SSE"
-    assert loaded_config.defense.asset.symbol == "511010"
+    assert loaded_config.defense.assets[0].exchange == "SSE"
+    assert loaded_config.defense.assets[0].symbol == "511010"
 
 
 @pytest.mark.parametrize(
@@ -389,14 +392,80 @@ def test_rebalance_config_rejects_unsupported_frequency() -> None:
 @pytest.mark.parametrize("field", ["exchange", "symbol"])
 def test_strategy_config_requires_defensive_asset_identity_fields(field: str) -> None:
     config = _valid_strategy_config()
-    del config["defense"]["asset"][field]
+    del config["defense"]["assets"][0][field]
 
     with pytest.raises(ValidationError) as exc_info:
         StrategyConfig.model_validate(config)
 
     message = str(exc_info.value)
-    assert f"defense.asset.{field}" in message
+    assert "defense.assets" in message
+    assert field in message
     assert "Field required" in message
+
+
+def test_strategy_config_rejects_empty_defensive_assets_list() -> None:
+    config = _valid_strategy_config()
+    config["defense"]["assets"] = []
+
+    with pytest.raises(ValidationError) as exc_info:
+        StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "defense.assets" in message
+    assert "at least 1" in message
+
+
+def test_strategy_config_rejects_duplicate_defensive_assets() -> None:
+    config = _valid_strategy_config()
+    config["defense"]["assets"] = [
+        {"exchange": "SSE", "symbol": "511010"},
+        {"exchange": "SSE", "symbol": "511010"},
+    ]
+
+    with pytest.raises(ValidationError) as exc_info:
+        StrategyConfig.model_validate(config)
+
+    message = str(exc_info.value)
+    assert "defense.assets" in message
+    assert "duplicate" in message.lower()
+
+
+def test_strategy_config_loader_names_specific_inactive_defensive_asset_by_index(
+    tmp_path: Path,
+) -> None:
+    pool_path = _write_etf_pool_config(
+        tmp_path,
+        [
+            {
+                "exchange": "SSE",
+                "symbol": "511010",
+                "name": "国债ETF",
+                "is_active": True,
+            },
+            {
+                "exchange": "SSE",
+                "symbol": "511880",
+                "name": "银华日利ETF",
+                "is_active": False,
+            },
+        ],
+    )
+    config = _valid_strategy_config()
+    config["universe_config"] = str(pool_path)
+    config["defense"]["assets"] = [
+        {"exchange": "SSE", "symbol": "511010"},
+        {"exchange": "SSE", "symbol": "511880"},
+    ]
+    config_path = _write_strategy_config(tmp_path, config)
+
+    with pytest.raises(ConfigError) as exc_info:
+        load_strategy_config(config_path)
+
+    message = str(exc_info.value)
+    assert str(config_path) in message
+    assert "defense.assets[1]" in message
+    assert "SSE 511880" in message
+    assert str(pool_path) in message
 
 
 def _valid_strategy_config() -> dict[str, Any]:
@@ -421,10 +490,12 @@ def _valid_strategy_config() -> dict[str, Any]:
                 "top_n": 2,
             },
             "defense": {
-                "asset": {
-                    "exchange": "SSE",
-                    "symbol": "511010",
-                },
+                "assets": [
+                    {
+                        "exchange": "SSE",
+                        "symbol": "511010",
+                    },
+                ],
             },
             "costs": {
                 "transaction_cost_bps": 5,
