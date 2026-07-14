@@ -44,8 +44,12 @@ def calculate_portfolio_holdings(
 
     snapshots: list[PortfolioHoldingSnapshot] = []
     for trade_date in requested_dates:
+        # T+1 effectiveness: a signal dated T uses data through T's close, so it
+        # cannot apply on trade_date T itself (look-ahead bias). `signal_date < T`
+        # applies it from T+1. The query bound `signal_date <= through_date`
+        # (= max(trade_dates)) still fetches every T+1-effective signal.
         while (
-            next_signal_index < len(signal_dates) and signal_dates[next_signal_index] <= trade_date
+            next_signal_index < len(signal_dates) and signal_dates[next_signal_index] < trade_date
         ):
             current_signal = signals_by_date[signal_dates[next_signal_index]]
             next_signal_index += 1

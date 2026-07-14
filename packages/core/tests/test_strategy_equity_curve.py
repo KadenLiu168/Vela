@@ -66,7 +66,7 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
         qqq = _add_etf(session, symbol="QQQ")
         _add_signal(
             session,
-            signal_date=date(2026, 6, 23),
+            signal_date=date(2026, 6, 22),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.600000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.400000")),
@@ -99,7 +99,7 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
         qqq = _add_etf(session, symbol="QQQ")
         _add_signal(
             session,
-            signal_date=date(2026, 6, 23),
+            signal_date=date(2026, 6, 22),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.600000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.400000")),
@@ -107,7 +107,7 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
         )
         _add_signal(
             session,
-            signal_date=date(2026, 6, 25),
+            signal_date=date(2026, 6, 24),
             positions=[
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000")),
             ],
@@ -155,8 +155,8 @@ def test_calculate_strategy_equity_curve_carries_and_rebalances_holdings() -> No
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
         qqq = _add_etf(session, symbol="QQQ")
-        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
-        _add_signal(session, signal_date=date(2026, 6, 25), etf_id=qqq.id)
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 25), close_price=55)
@@ -203,7 +203,7 @@ def test_calculate_strategy_equity_curve_treats_missing_price_input_as_neutral()
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
-        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
         session.commit()
 
@@ -222,7 +222,7 @@ def test_calculate_strategy_equity_curve_deducts_initial_entry_transaction_cost(
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
-        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=100)
         session.commit()
@@ -243,8 +243,8 @@ def test_calculate_strategy_equity_curve_deducts_rebalance_transaction_cost() ->
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
         qqq = _add_etf(session, symbol="QQQ")
-        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
-        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
@@ -265,7 +265,7 @@ def test_calculate_strategy_equity_curve_skips_transaction_cost_when_configured_
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
-        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=100)
         session.commit()
@@ -288,7 +288,7 @@ def test_calculate_strategy_equity_curve_applies_different_turnover_costs() -> N
         qqq = _add_etf(session, symbol="QQQ")
         _add_signal(
             session,
-            signal_date=date(2026, 6, 23),
+            signal_date=date(2026, 6, 22),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.600000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.400000")),
@@ -296,7 +296,7 @@ def test_calculate_strategy_equity_curve_applies_different_turnover_costs() -> N
         )
         _add_signal(
             session,
-            signal_date=date(2026, 6, 24),
+            signal_date=date(2026, 6, 23),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.800000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.200000")),
@@ -304,7 +304,7 @@ def test_calculate_strategy_equity_curve_applies_different_turnover_costs() -> N
         )
         _add_signal(
             session,
-            signal_date=date(2026, 6, 25),
+            signal_date=date(2026, 6, 24),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.500000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.500000")),
@@ -337,8 +337,8 @@ def test_calculate_strategy_equity_curve_applies_different_cost_rates() -> None:
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
         qqq = _add_etf(session, symbol="QQQ")
-        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
-        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=100)
@@ -368,8 +368,8 @@ def test_calculate_strategy_equity_curve_transaction_cost_reduces_net_value() ->
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
         qqq = _add_etf(session, symbol="QQQ")
-        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
-        _add_signal(session, signal_date=date(2026, 6, 24), etf_id=qqq.id)
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
@@ -889,7 +889,7 @@ def test_equity_curve_no_artificial_jump_on_ex_dividend_date() -> None:
         spy = _add_etf(session, symbol="SPY")
         _add_signal(
             session,
-            signal_date=date(2026, 6, 23),
+            signal_date=date(2026, 6, 22),
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],

@@ -39,11 +39,10 @@ def test_calculate_daily_holdings_from_signal_positions() -> None:
         )
 
     assert [snapshot.trade_date for snapshot in snapshots] == [date(2026, 6, 23)]
-    assert snapshots[0].signal_date == date(2026, 6, 23)
-    assert {holding.etf_id for holding in snapshots[0].holdings} == {spy.id, qqq.id}
-    assert {holding.target_weight for holding in snapshots[0].holdings} == {
-        Decimal("0.500000"),
-    }
+    # T+1: a signal dated 06-23 does not apply on its own as-of date 06-23.
+    assert snapshots[0].signal_date is None
+    assert snapshots[0].strategy_signal_id is None
+    assert snapshots[0].holdings == []
 
 
 def test_calculate_interval_holdings_carries_positions_forward() -> None:
@@ -75,13 +74,14 @@ def test_calculate_interval_holdings_carries_positions_forward() -> None:
             config_version="v1",
         )
 
+    # T+1: 06-23 (the signal's own as-of day) is empty; 06-24/06-25 carry the 06-23 signal.
     assert [snapshot.signal_date for snapshot in snapshots] == [
-        date(2026, 6, 23),
+        None,
         date(2026, 6, 23),
         date(2026, 6, 23),
     ]
     assert [[holding.etf_id for holding in snapshot.holdings] for snapshot in snapshots] == [
-        [spy.id],
+        [],
         [spy.id],
         [spy.id],
     ]
@@ -112,11 +112,14 @@ def test_calculate_interval_holdings_empty_before_first_signal() -> None:
             config_version="v1",
         )
 
+    # T+1: 06-23 precedes the first signal; 06-24 is the signal's own as-of day.
+    # Both snapshots are empty.
     assert snapshots[0].signal_date is None
     assert snapshots[0].strategy_signal_id is None
     assert snapshots[0].holdings == []
-    assert snapshots[1].signal_date == date(2026, 6, 24)
-    assert [holding.etf_id for holding in snapshots[1].holdings] == [spy.id]
+    assert snapshots[1].signal_date is None
+    assert snapshots[1].strategy_signal_id is None
+    assert snapshots[1].holdings == []
 
 
 def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
@@ -161,14 +164,16 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
             config_version="v1",
         )
 
+    # T+1: 06-24 uses the 06-23 signal (SPY); 06-25 carries SPY (the 06-25 signal
+    # is same-day and not applied); 06-26 uses the 06-25 signal (QQQ).
     assert [[holding.etf_id for holding in snapshot.holdings] for snapshot in snapshots] == [
         [spy.id],
-        [qqq.id],
+        [spy.id],
         [qqq.id],
     ]
     assert [snapshot.signal_date for snapshot in snapshots] == [
         date(2026, 6, 23),
-        date(2026, 6, 25),
+        date(2026, 6, 23),
         date(2026, 6, 25),
     ]
 
@@ -207,12 +212,19 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
 
         snapshots = calculate_portfolio_holdings(
             session,
-            trading_dates=[date(2026, 6, 23)],
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
             config_version="v1",
         )
 
-    assert snapshots[0].strategy_signal_id == latest.strategy_signal.id
-    assert [holding.etf_id for holding in snapshots[0].holdings] == [qqq.id]
+    # T+1: 06-23 (the signal's own as-of day) does not apply the same-day signal.
+    assert snapshots[0].signal_date is None
+    assert snapshots[0].strategy_signal_id is None
+    assert snapshots[0].holdings == []
+    # 06-24 uses the LATEST successful run for 06-23 (QQQ), preserving the
+    # "latest successful signal run wins" rule at T+1.
+    assert snapshots[1].strategy_signal_id == latest.strategy_signal.id
+    assert snapshots[1].signal_date == date(2026, 6, 23)
+    assert [holding.etf_id for holding in snapshots[1].holdings] == [qqq.id]
 
 
 def test_calculate_holdings_ignores_failed_signals() -> None:
