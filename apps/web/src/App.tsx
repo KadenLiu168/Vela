@@ -18,6 +18,7 @@ import { ErrorBoundary } from "./components";
 import { BacktestDetailPage } from "./pages/BacktestDetailPage";
 import { BacktestListPage } from "./pages/BacktestListPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { EtfDetailPage } from "./pages/EtfDetailPage";
 import { SignalDetailPage } from "./pages/SignalDetailPage";
 import { SignalListPage } from "./pages/SignalListPage";
 
@@ -197,6 +198,12 @@ function renderRoute(
     return <BacktestDetailPage backtestId={backtestMatch[1]} />;
   }
 
+  const etfMatch = path.match(/^\/etfs\/(\d+)$/);
+
+  if (etfMatch) {
+    return <EtfDetailPage etfId={etfMatch[1]} />;
+  }
+
   return (
     <DashboardPage
       backtestForm={{ startDate: backtestStartDate ?? "", endDate: backtestEndDate ?? "" }}
@@ -219,6 +226,10 @@ function getActivePath(path: string): string {
 
   if (path === "/backtests" || path.startsWith("/backtests/")) {
     return "/backtests";
+  }
+
+  if (path === "/etfs" || path.startsWith("/etfs/")) {
+    return "/etfs";
   }
 
   return "/";

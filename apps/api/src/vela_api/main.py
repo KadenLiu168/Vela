@@ -16,6 +16,7 @@ from vela_core import (
     GenerateStrategySignalResult,
     MarketDataFetchResult,
     MarketDataProvider,
+    PriceTrendRange,
     StrategySignalListEntry,
     StrategySignalReport,
     StrategySignalReportPosition,
@@ -25,6 +26,7 @@ from vela_core import (
     generate_strategy_signal,
     get_backtest_result,
     get_dashboard_summary,
+    get_etf_price_trend,
     get_latest_strategy_signal_report,
     get_strategy_signal_report,
     list_strategy_signals,
@@ -123,6 +125,19 @@ def dashboard(session: DatabaseSession) -> dict[str, object]:
     return get_dashboard_summary(session, strategy_summary=config_summary["strategy"])
 
 
+@app.get("/api/etfs/{etf_id}/prices")
+def etf_price_trend_endpoint(
+    etf_id: int,
+    session: DatabaseSession,
+    range_: Annotated[PriceTrendRange, Query(alias="range")] = "1y",
+) -> dict[str, object]:
+    result = get_etf_price_trend(session, etf_id=etf_id, range_=range_)
+    if result is None:
+        raise HTTPException(status_code=404, detail="ETF not found")
+
+    return result.to_dict()
+
+
 @app.post("/api/market-data/fetch")
 def fetch_market_data(
     mode: MarketDataFetchMode,
@@ -165,9 +180,7 @@ def generate_strategy_signal_endpoint(
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
 
     active_etfs = list(
-        session.scalars(
-            select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id)
-        )
+        session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
     )
     price_panel = load_price_panel(
         session,
@@ -327,11 +340,7 @@ def run_backtest_endpoint(
 def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
     run = get_backtest_result(session, run_id=run_id)
-    if (
-        run is None
-        or run.strategy_id != config.strategy_id
-        or run.config_version != config.version
-    ):
+    if run is None or run.strategy_id != config.strategy_id or run.config_version != config.version:
         raise HTTPException(status_code=404, detail="Backtest run not found")
 
     return {

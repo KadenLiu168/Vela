@@ -438,6 +438,7 @@ describe("CommandPalette", () => {
             .mockResolvedValue(
               dashboardWithEtfs([
                 {
+                  etf_id: 1,
                   exchange: "ARCX",
                   symbol: "VTI",
                   name: "VTI ETF",

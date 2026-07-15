@@ -82,7 +82,8 @@ const defaultProps: CommandPaletteProps = {
   } satisfies BacktestListResponse),
   fetchDashboard: resolved(
     dashboardWithEtfs(
-      etfRows.map((r) => ({
+      etfRows.map((r, index) => ({
+        etf_id: index + 1,
         exchange: r.exchange,
         symbol: r.symbol,
         name: r.label,

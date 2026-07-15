@@ -487,6 +487,25 @@ main {
   white-space: nowrap;
 }
 
+.etf-row-link {
+  color: var(--color-paper);
+  flex-shrink: 0;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-meta);
+  text-decoration-line: none;
+  transition: color 140ms ease;
+}
+
+.etf-row-link:hover {
+  color: var(--color-acid-lime);
+  text-decoration-color: var(--color-acid-lime);
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+}
+
 /* ── Coverage timeline ── */
 .coverage-timeline {
   align-items: center;
@@ -1270,6 +1289,96 @@ main {
   display: grid;
   gap: var(--spacing-8) var(--spacing-20);
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: var(--spacing-20) 0 0;
+  padding: var(--spacing-20);
+}
+
+.etf-detail-name {
+  color: var(--color-fog);
+  line-height: var(--leading-body-sm);
+  margin: var(--spacing-4) 0 var(--spacing-20);
+}
+
+.trend-horizon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  margin: 0 0 var(--spacing-20);
+}
+
+.trend-horizon-button {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-buttons);
+  color: var(--color-fog);
+  cursor: pointer;
+  font-family: var(--font-berkeley-mono);
+  line-height: var(--leading-body-sm);
+  padding: var(--spacing-8) var(--spacing-16);
+}
+
+.trend-horizon-button:hover {
+  border-color: var(--color-smoke);
+}
+
+.trend-horizon-button-active {
+  border-color: var(--color-acid-lime);
+  color: var(--color-acid-lime);
+}
+
+.trend-chart-card,
+.trend-single-point {
+  background: var(--surface-obsidian);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-xl);
+  padding: var(--card-padding-y) var(--card-padding-x);
+}
+
+.trend-chart {
+  display: block;
+  height: auto;
+  max-height: 300px;
+  width: 100%;
+}
+
+.trend-grid-line {
+  stroke: var(--color-smoke);
+  stroke-width: 1;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--color-acid-lime);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.trend-highlight {
+  fill: var(--color-acid-lime);
+  stroke: var(--surface-obsidian);
+  stroke-width: 2;
+}
+
+.trend-hover-band {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.trend-axis-label {
+  fill: var(--color-mist);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}
+
+.trend-readout {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--spacing-8) var(--spacing-20);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: var(--spacing-20) 0 0;
   padding: var(--spacing-20);
 }

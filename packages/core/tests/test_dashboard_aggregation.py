@@ -145,6 +145,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
             "latest_trade_date": "2026-06-23",
             "etf_list": [
                 {
+                    "etf_id": qqq.id,
                     "exchange": "NYSEARCA",
                     "symbol": "QQQ",
                     "name": "QQQ ETF",
@@ -152,6 +153,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
                     "earliest_trade_date": "2026-06-23",
                 },
                 {
+                    "etf_id": spy.id,
                     "exchange": "NYSEARCA",
                     "symbol": "SPY",
                     "name": "SPY ETF",

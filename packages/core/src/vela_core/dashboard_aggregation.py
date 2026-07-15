@@ -20,14 +20,16 @@ RECENT_FETCH_LOG_LIMIT = 5
 
 @dataclass(frozen=True)
 class EtfBrief:
+    etf_id: int
     exchange: str
     symbol: str
     name: str
     category: str | None
     earliest_trade_date: date | None = None
 
-    def to_dict(self) -> dict[str, str | None]:
+    def to_dict(self) -> dict[str, str | None | int]:
         return {
+            "etf_id": self.etf_id,
             "exchange": self.exchange,
             "symbol": self.symbol,
             "name": self.name,
@@ -155,6 +157,7 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
     ).one()
     etf_rows = session.execute(
         select(
+            ETFInfo.id.label("etf_id"),
             ETFInfo.exchange,
             ETFInfo.symbol,
             ETFInfo.name,
@@ -172,6 +175,7 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
         latest_trade_date=latest_trade_date,
         etf_list=tuple(
             EtfBrief(
+                etf_id=row.etf_id,
                 exchange=row.exchange,
                 symbol=row.symbol,
                 name=row.name,

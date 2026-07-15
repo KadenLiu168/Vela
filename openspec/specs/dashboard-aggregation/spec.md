@@ -29,6 +29,7 @@ The dashboard aggregation service SHALL calculate market data status from real `
 - **THEN** the market data status reports the total market price row count
 - **AND** it reports the distinct covered ETF count
 - **AND** it reports the earliest and latest persisted trade dates across all ETFs
+- **AND** each ETF in the `etf_list` includes its `etf_id`
 - **AND** each ETF in the `etf_list` includes its own earliest persisted trade date
 
 ### Requirement: Dashboard latest signal summary

@@ -1708,6 +1708,170 @@ it("shows an error state on /backtests when the backtests list API returns a ser
   expect(await screen.findByText("Backtest history API unavailable: http")).toBeInTheDocument();
 });
 
+it("renders an etf-row entry control linking to the ETF price trend page", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createDashboardResponse())));
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  expect(screen.getByRole("link", { name: "View SPY price trend" })).toHaveAttribute(
+    "href",
+    "/etfs/1"
+  );
+  expect(screen.getByRole("link", { name: "View QQQ price trend" })).toHaveAttribute(
+    "href",
+    "/etfs/2"
+  );
+});
+
+it("omits the etf-row entry control when etf_id is absent", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createDashboardResponse(),
+        market_data: {
+          ...createDashboardResponse().market_data,
+          etf_list: [
+            { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" }
+          ]
+        }
+      })
+    )
+  );
+
+  render(<App />);
+
+  await screen.findByText("1,200 rows");
+  expect(screen.queryByRole("link", { name: /price trend/i })).not.toBeInTheDocument();
+});
+
+it("renders the ETF price trend chart with a multi-point series", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createEtfPriceTrendResponse()));
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(screen.getByRole("heading", { name: "ETF Detail" })).toBeInTheDocument();
+  expect(await screen.findByText("NYSEARCA:SPY")).toBeInTheDocument();
+  expect(screen.getByText("SPY ETF")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "1Y" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByTestId("trend-line")).toBeInTheDocument();
+  expect(screen.getByTestId("trend-highlight")).toBeInTheDocument();
+  const readout = screen.getByTestId("trend-readout");
+  expect(readout).toHaveTextContent("2026-03-02");
+  expect(readout).toHaveTextContent("101.25");
+  expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=1y", undefined);
+});
+
+it("updates the trend readout to the hovered price point", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createEtfPriceTrendResponse())));
+
+  render(<App />);
+
+  const readout = await screen.findByTestId("trend-readout");
+  expect(readout).toHaveTextContent("2026-03-02");
+  const hoverBands = screen.getAllByTestId("trend-hover-band");
+  expect(hoverBands).toHaveLength(3);
+  fireEvent.mouseEnter(hoverBands[0]);
+  expect(readout).toHaveTextContent("2026-01-02");
+  expect(readout).toHaveTextContent("100");
+  fireEvent.mouseLeave(screen.getByRole("img", { name: "ETF backward-adjusted price trend" }));
+  expect(readout).toHaveTextContent("2026-03-02");
+});
+
+it("renders a single-point trend state with its readout", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createEtfPriceTrendResponse(),
+        points: [{ trade_date: "2026-01-02", price: "100.0000" }]
+      })
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("Only one price point is available.")).toBeInTheDocument();
+  expect(screen.getByText("2026-01-02")).toBeInTheDocument();
+  expect(screen.getByText("100")).toBeInTheDocument();
+  expect(screen.queryByTestId("trend-line")).not.toBeInTheDocument();
+});
+
+it("renders an empty trend state when no price points exist", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse({ ...createEtfPriceTrendResponse(), points: [] }))
+  );
+
+  render(<App />);
+
+  expect(
+    await screen.findByText("No price data is available for this ETF and horizon.")
+  ).toBeInTheDocument();
+  expect(screen.queryByTestId("trend-line")).not.toBeInTheDocument();
+});
+
+it("refetches the trend when the horizon changes", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.startsWith("/api/etfs/1/prices?range=")) {
+      return Promise.resolve(jsonResponse(createEtfPriceTrendResponse()));
+    }
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  await screen.findByText("NYSEARCA:SPY");
+  expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=1y", undefined);
+  fireEvent.click(screen.getByRole("button", { name: "3M" }));
+  await screen.findByText("NYSEARCA:SPY");
+  expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=3m", undefined);
+  expect(screen.getByRole("button", { name: "3M" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "1Y" })).toHaveAttribute("aria-pressed", "false");
+});
+
+it("renders a loading state on the ETF detail route", () => {
+  window.history.pushState({}, "", "/etfs/1");
+  const deferred = createDeferred<Response>();
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(deferred.promise));
+
+  render(<App />);
+
+  expect(screen.getByText("Loading ETF price trend.")).toBeInTheDocument();
+  expect(screen.queryByTestId("trend-line")).not.toBeInTheDocument();
+});
+
+it("renders a not-found state on the ETF detail route when the id is unknown", async () => {
+  window.history.pushState({}, "", "/etfs/999");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(jsonResponse({ detail: "ETF not found" }, 404))
+  );
+
+  render(<App />);
+
+  expect(await screen.findByText("ETF 999 was not found.")).toBeInTheDocument();
+  expect(screen.queryByText(/ETF trend API unavailable/i)).not.toBeInTheDocument();
+});
+
+it("renders an API failure state on the ETF detail route", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  expect(await screen.findByText("ETF trend API unavailable: network")).toBeInTheDocument();
+});
+
 it("exposes local research navigation without production account entry points", () => {
   render(<App />);
 
@@ -1754,8 +1918,8 @@ function createDashboardResponse() {
       earliest_trade_date: "2025-01-02",
       latest_trade_date: "2026-06-23",
       etf_list: [
-        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
-        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
+        { etf_id: 1, exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
+        { etf_id: 2, exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
       ],
     },
     latest_signal: {
@@ -1923,6 +2087,17 @@ function createBacktestDetailResponse() {
         total_assets: "10200.000000",
         positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
       }
+    ]
+  };
+}
+
+function createEtfPriceTrendResponse() {
+  return {
+    etf: { id: 1, exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF" },
+    points: [
+      { trade_date: "2026-01-02", price: "100.0000" },
+      { trade_date: "2026-02-02", price: "102.5000" },
+      { trade_date: "2026-03-02", price: "101.2500" }
     ]
   };
 }

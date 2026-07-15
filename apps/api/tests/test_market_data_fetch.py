@@ -114,6 +114,7 @@ def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
         "latest_trade_date": "2026-06-18",
         "etf_list": [
             {
+                "etf_id": spy.id,
                 "exchange": "NYSEARCA",
                 "symbol": "SPY",
                 "name": "SPY ETF",

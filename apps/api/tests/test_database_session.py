@@ -83,6 +83,7 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
         ("/api/backtests/run", ("POST",)),
         ("/api/config", ("GET",)),
         ("/api/dashboard", ("GET",)),
+        ("/api/etfs/{etf_id}/prices", ("GET",)),
         ("/api/health", ("GET",)),
         ("/api/market-data/fetch", ("POST",)),
         ("/api/setup/bootstrap", ("POST",)),

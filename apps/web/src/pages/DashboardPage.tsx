@@ -309,6 +309,11 @@ export function DashboardPage({
                   <span className="etf-row-dot">·</span>
                   <span className="etf-row-name">{etf.name}</span>
                   <span className="etf-row-date">{etf.earliest_trade_date ? formatDate(etf.earliest_trade_date) : "—"}</span>
+                  {etf.etf_id != null ? (
+                    <a className="etf-row-link" href={`/etfs/${etf.etf_id}`} aria-label={`View ${etf.symbol} price trend`}>
+                      Trend
+                    </a>
+                  ) : null}
                 </div>
               ))}
             </div>

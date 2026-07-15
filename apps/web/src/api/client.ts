@@ -72,6 +72,7 @@ export type DashboardStrategySummary = {
 };
 
 export type EtfBrief = {
+  etf_id: number;
   exchange: string;
   symbol: string;
   name: string;
@@ -332,6 +333,32 @@ export function getHealth(): Promise<HealthResponse> {
 
 export function getDashboard(): Promise<DashboardResponse> {
   return apiRequest<DashboardResponse>("/dashboard");
+}
+
+export type PriceTrendRange = "1m" | "3m" | "1y" | "3y" | "max";
+
+export type EtfPriceTrendPoint = {
+  trade_date: string;
+  price: string;
+};
+
+export type EtfPriceTrendResponse = {
+  etf: {
+    id: number;
+    exchange: string;
+    symbol: string;
+    name: string;
+  };
+  points: EtfPriceTrendPoint[];
+};
+
+export function getEtfPriceTrend(
+  etfId: string,
+  range: PriceTrendRange
+): Promise<EtfPriceTrendResponse> {
+  return apiRequest<EtfPriceTrendResponse>(
+    `/etfs/${encodeURIComponent(etfId)}/prices?range=${range}`
+  );
 }
 
 export function fetchIncrementalMarketData(): Promise<MarketDataFetchResponse> {

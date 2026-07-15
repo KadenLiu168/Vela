@@ -38,6 +38,12 @@ from vela_core.data_quality import (
     detect_systematic_trading_day_gaps,
 )
 from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
+from vela_core.etf_price_trend import (
+    EtfPriceTrendPoint,
+    EtfPriceTrendResult,
+    PriceTrendRange,
+    get_etf_price_trend,
+)
 from vela_core.joinquant_market_data_provider import JoinQuantMarketDataProvider
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
@@ -146,6 +152,8 @@ __all__ = [
     "ETFConfig",
     "ETFPoolConfig",
     "ETFPoolSyncResult",
+    "EtfPriceTrendPoint",
+    "EtfPriceTrendResult",
     "EtfTradingDayGap",
     "GeneratedSignalPosition",
     "GenerateStrategySignalResult",
@@ -160,6 +168,7 @@ __all__ = [
     "MomentumScore",
     "PortfolioHolding",
     "PortfolioHoldingSnapshot",
+    "PriceTrendRange",
     "RebalanceFrequency",
     "LatestStrategySignalReportNotFoundError",
     "StrategyEquityCurvePoint",
@@ -198,6 +207,7 @@ __all__ = [
     "fetch_incremental_market_prices",
     "get_backtest_result",
     "get_dashboard_summary",
+    "get_etf_price_trend",
     "generate_historical_strategy_signals",
     "generate_monthly_rebalance_dates",
     "generate_rebalance_dates",
