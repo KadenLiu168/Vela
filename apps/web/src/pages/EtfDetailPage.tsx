@@ -1,4 +1,11 @@
-import { useEffect, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent
+} from "react";
 import {
   ApiClientError,
   type EtfPriceTrendPoint,
@@ -8,6 +15,13 @@ import {
 } from "../api/client";
 import { EmptyState, FeedbackMessage } from "../components";
 import { formatDate, formatDecimal } from "../utils/formatters";
+import {
+  computeTrendGeometry,
+  indexFromX,
+  TREND_CHART,
+  trendDateAxisIndexes,
+  type TrendGeometry
+} from "./etfTrendChart";
 
 type EtfDetailPageProps = {
   etfId: string;
@@ -137,18 +151,34 @@ type TrendChartPoint = {
   price: string;
 };
 
-const TREND_CHART = {
-  height: 260,
-  paddingBottom: 44,
-  paddingLeft: 56,
-  paddingRight: 16,
-  paddingTop: 16,
-  width: 640
-};
-
 function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const chartPoints = getValidTrendPoints(points);
+  const chartPoints = useMemo(() => getValidTrendPoints(points), [points]);
+  const isMultiPoint = chartPoints.length >= 2;
+  const geometry = useMemo(
+    () => (isMultiPoint ? computeTrendGeometry(chartPoints) : null),
+    [chartPoints, isMultiPoint]
+  );
+  const dateAxisIndexes = useMemo(
+    () => (geometry ? trendDateAxisIndexes(geometry.pointCount) : []),
+    [geometry]
+  );
+  const dateLabels = useMemo(
+    () => dateAxisIndexes.map((index) => formatDate(chartPoints[index].tradeDate)),
+    [chartPoints, dateAxisIndexes]
+  );
+  const handleHoverMove = useCallback(
+    (event: ReactMouseEvent<SVGRectElement>) => {
+      if (!geometry) {
+        return;
+      }
+      const rect = event.currentTarget.getBoundingClientRect();
+      const viewBoxX = (event.clientX - rect.left) * (TREND_CHART.width / rect.width);
+      const next = indexFromX(viewBoxX, geometry.pointCount);
+      setHoverIndex((prev) => (prev === next ? prev : next));
+    },
+    [geometry]
+  );
 
   if (chartPoints.length === 0) {
     return <EmptyState>No price data is available for this ETF and horizon.</EmptyState>;
@@ -168,34 +198,13 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
     );
   }
 
-  const drawableWidth = TREND_CHART.width - TREND_CHART.paddingLeft - TREND_CHART.paddingRight;
-  const drawableHeight = TREND_CHART.height - TREND_CHART.paddingTop - TREND_CHART.paddingBottom;
-  const numericPrices = chartPoints.map((point) => Number(point.price));
-  const minPrice = Math.min(...numericPrices);
-  const maxPrice = Math.max(...numericPrices);
-  const priceRange = maxPrice - minPrice;
-  const pointCount = chartPoints.length;
+  // chartPoints.length >= 2 here, so geometry is non-null; the guard narrows the type.
+  if (!geometry) {
+    return null;
+  }
 
-  const x = (index: number) => TREND_CHART.paddingLeft + (drawableWidth * index) / (pointCount - 1);
-  const y = (price: number) =>
-    TREND_CHART.paddingTop +
-    (priceRange === 0
-      ? drawableHeight / 2
-      : ((maxPrice - price) / priceRange) * drawableHeight);
-
-  const linePath = chartPoints
-    .map((point, index) => {
-      const command = index === 0 ? "M" : "L";
-      return `${command} ${x(index).toFixed(2)} ${y(Number(point.price)).toFixed(2)}`;
-    })
-    .join(" ");
-
-  const activeIndex = hoverIndex ?? pointCount - 1;
+  const activeIndex = hoverIndex ?? geometry.pointCount - 1;
   const activePoint = chartPoints[activeIndex];
-  const bandWidth = drawableWidth / pointCount;
-  const dateAxisIndexes = Array.from(
-    new Set([0, Math.floor((pointCount - 1) / 2), pointCount - 1])
-  );
 
   return (
     <div className="trend-chart-card">
@@ -207,6 +216,33 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
         viewBox={`0 0 ${TREND_CHART.width} ${TREND_CHART.height}`}
       >
         <title id="trend-chart-title">ETF backward-adjusted price trend</title>
+        <TrendChartFrame
+          dateAxisIndexes={dateAxisIndexes}
+          dateLabels={dateLabels}
+          geometry={geometry}
+          onHoverMove={handleHoverMove}
+        />
+        <TrendHighlight cx={geometry.x(activeIndex)} cy={geometry.y(Number(activePoint.price))} />
+      </svg>
+      <TrendReadout tradeDate={activePoint.tradeDate} price={activePoint.price} />
+    </div>
+  );
+}
+
+const TrendChartFrame = memo(
+  function TrendChartFrame({
+    dateAxisIndexes,
+    dateLabels,
+    geometry,
+    onHoverMove
+  }: {
+    dateAxisIndexes: number[];
+    dateLabels: string[];
+    geometry: TrendGeometry;
+    onHoverMove: (event: ReactMouseEvent<SVGRectElement>) => void;
+  }) {
+    return (
+      <>
         <line
           className="trend-grid-line"
           x1={TREND_CHART.paddingLeft}
@@ -218,8 +254,8 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
           className="trend-grid-line"
           x1={TREND_CHART.paddingLeft}
           x2={TREND_CHART.width - TREND_CHART.paddingRight}
-          y1={TREND_CHART.paddingTop + drawableHeight}
-          y2={TREND_CHART.paddingTop + drawableHeight}
+          y1={TREND_CHART.paddingTop + geometry.drawableHeight}
+          y2={TREND_CHART.paddingTop + geometry.drawableHeight}
         />
         <text
           className="trend-axis-label trend-axis-price"
@@ -228,57 +264,58 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
           x={TREND_CHART.paddingLeft - 8}
           y={TREND_CHART.paddingTop + 4}
         >
-          {formatDecimal(String(maxPrice), 4)}
+          {formatDecimal(String(geometry.maxPrice), 4)}
         </text>
         <text
           className="trend-axis-label trend-axis-price"
           data-testid="trend-axis-price"
           textAnchor="end"
           x={TREND_CHART.paddingLeft - 8}
-          y={TREND_CHART.paddingTop + drawableHeight}
+          y={TREND_CHART.paddingTop + geometry.drawableHeight}
         >
-          {formatDecimal(String(minPrice), 4)}
+          {formatDecimal(String(geometry.minPrice), 4)}
         </text>
-        <path className="trend-line" d={linePath} data-testid="trend-line" />
-        <circle
-          className="trend-highlight"
-          cx={x(activeIndex)}
-          cy={y(Number(activePoint.price))}
-          data-testid="trend-highlight"
-          r="4"
-        />
-        {dateAxisIndexes.map((index) => (
+        <path className="trend-line" d={geometry.linePath} data-testid="trend-line" />
+        {dateAxisIndexes.map((index, labelIndex) => (
           <text
             className="trend-axis-label trend-axis-date"
             data-testid="trend-axis-date"
             key={index}
             textAnchor="middle"
-            x={x(index)}
+            x={geometry.x(index)}
             y={TREND_CHART.height - TREND_CHART.paddingBottom + 18}
           >
-            {formatDate(chartPoints[index].tradeDate)}
+            {dateLabels[labelIndex]}
           </text>
         ))}
-        {chartPoints.map((point, index) => (
-          <rect
-            className="trend-hover-band"
-            data-testid="trend-hover-band"
-            height={drawableHeight}
-            key={point.tradeDate}
-            onMouseEnter={() => setHoverIndex(index)}
-            width={bandWidth}
-            x={TREND_CHART.paddingLeft + index * bandWidth}
-            y={TREND_CHART.paddingTop}
-          />
-        ))}
-      </svg>
+        <rect
+          className="trend-hover-overlay"
+          data-testid="trend-hover-overlay"
+          height={geometry.drawableHeight}
+          onMouseMove={onHoverMove}
+          width={geometry.drawableWidth}
+          x={TREND_CHART.paddingLeft}
+          y={TREND_CHART.paddingTop}
+        />
+      </>
+    );
+  }
+);
+
+const TrendHighlight = memo(function TrendHighlight({ cx, cy }: { cx: number; cy: number }) {
+  return <circle className="trend-highlight" cx={cx} cy={cy} data-testid="trend-highlight" r="4" />;
+});
+
+const TrendReadout = memo(
+  function TrendReadout({ tradeDate, price }: { tradeDate: string; price: string }) {
+    return (
       <dl className="trend-readout" data-testid="trend-readout">
-        <Detail label="Trade date" value={formatDate(activePoint.tradeDate)} />
-        <Detail label="Price" value={formatDecimal(activePoint.price, 4)} />
+        <Detail label="Trade date" value={formatDate(tradeDate)} />
+        <Detail label="Price" value={formatDecimal(price, 4)} />
       </dl>
-    </div>
-  );
-}
+    );
+  }
+);
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (

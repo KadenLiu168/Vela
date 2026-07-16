@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
+import { indexFromX } from "./pages/etfTrendChart";
 
 afterEach(() => {
   window.history.pushState({}, "", "/");
@@ -1765,7 +1766,40 @@ it("renders the ETF price trend chart with a multi-point series", async () => {
   expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=1y", undefined);
 });
 
-it("updates the trend readout to the hovered price point", async () => {
+const trendOverlayRect = {
+  x: 0,
+  y: 0,
+  width: 640,
+  height: 260,
+  top: 0,
+  left: 0,
+  bottom: 260,
+  right: 640,
+  toJSON: () => ({})
+} as DOMRect;
+
+it("resolves the nearest trend point from the pointer x-coordinate", () => {
+  // 3 points on a 568-wide drawable area: x(0)=56, x(1)=340, x(2)=624 (spacing 284).
+  expect(indexFromX(56, 3)).toBe(0);
+  expect(indexFromX(340, 3)).toBe(1);
+  expect(indexFromX(624, 3)).toBe(2);
+});
+
+it("clamps the trend hover index to the series bounds", () => {
+  expect(indexFromX(-100, 3)).toBe(0);
+  expect(indexFromX(9999, 3)).toBe(2);
+});
+
+it("resolves the nearest trend point at band boundaries without half-cell offset", () => {
+  // Cursor at 220 falls inside the old band-0 cell [56, 245.33] but is nearer to point 1
+  // (x=340, dist 120) than point 0 (x=56, dist 164). Point-grid round resolves to 1, not
+  // band cell 0 -- the half-cell misalignment is gone. The switch happens at midpoint 198.
+  expect(indexFromX(197, 3)).toBe(0);
+  expect(indexFromX(199, 3)).toBe(1);
+  expect(indexFromX(220, 3)).toBe(1);
+});
+
+it("updates the trend readout and highlight to the hovered price point", async () => {
   window.history.pushState({}, "", "/etfs/1");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createEtfPriceTrendResponse())));
 
@@ -1773,11 +1807,44 @@ it("updates the trend readout to the hovered price point", async () => {
 
   const readout = await screen.findByTestId("trend-readout");
   expect(readout).toHaveTextContent("2026-03-02");
-  const hoverBands = screen.getAllByTestId("trend-hover-band");
-  expect(hoverBands).toHaveLength(3);
-  fireEvent.mouseEnter(hoverBands[0]);
+
+  const overlay = screen.getByTestId("trend-hover-overlay");
+  vi.spyOn(overlay, "getBoundingClientRect").mockReturnValue(trendOverlayRect);
+
+  fireEvent.mouseMove(overlay, { clientX: 56 });
   expect(readout).toHaveTextContent("2026-01-02");
   expect(readout).toHaveTextContent("100");
+  expect(screen.getByTestId("trend-highlight")).toHaveAttribute("cx", "56");
+
+  fireEvent.mouseMove(overlay, { clientX: 340 });
+  expect(readout).toHaveTextContent("2026-02-02");
+  expect(screen.getByTestId("trend-highlight")).toHaveAttribute("cx", "340");
+});
+
+it("serves trend hover hit detection from a single overlay element", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createEtfPriceTrendResponse())));
+
+  render(<App />);
+
+  await screen.findByTestId("trend-line");
+  expect(screen.getAllByTestId("trend-hover-overlay")).toHaveLength(1);
+  expect(screen.queryByTestId("trend-hover-band")).not.toBeInTheDocument();
+});
+
+it("reverts the trend readout to the latest point when the pointer leaves", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(createEtfPriceTrendResponse())));
+
+  render(<App />);
+
+  const overlay = await screen.findByTestId("trend-hover-overlay");
+  vi.spyOn(overlay, "getBoundingClientRect").mockReturnValue(trendOverlayRect);
+  const readout = screen.getByTestId("trend-readout");
+
+  fireEvent.mouseMove(overlay, { clientX: 56 });
+  expect(readout).toHaveTextContent("2026-01-02");
+
   fireEvent.mouseLeave(screen.getByRole("img", { name: "ETF backward-adjusted price trend" }));
   expect(readout).toHaveTextContent("2026-03-02");
 });
