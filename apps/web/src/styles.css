@@ -77,7 +77,7 @@ body {
   gap: var(--spacing-8);
 }
 
-.app-header h1 {
+.app-brand-title {
   color: var(--color-paper);
   font-family: var(--font-inter-variable);
   font-size: var(--text-heading-sm);

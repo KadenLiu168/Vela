@@ -15,6 +15,19 @@ it("renders the workflow dashboard on the default route", () => {
   expect(screen.getByText("Local research workflow")).toBeInTheDocument();
 });
 
+it("keeps the AppShell brand out of the page heading outline", () => {
+  render(<App />);
+
+  const brand = screen.getByText("Vela Research");
+
+  expect(brand).toBeInTheDocument();
+  expect(brand).toHaveClass("app-brand-title");
+  expect(brand.tagName).toBe("P");
+  expect(screen.queryByRole("heading", { name: "Vela Research" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+});
+
 it("loads dashboard aggregate data through the shared client", async () => {
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(createDashboardResponse()), {
@@ -1334,6 +1347,88 @@ it("restores Dashboard recent backtest status from backend data after browser re
     "/backtests/7"
   );
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(1);
+});
+
+it.each([
+  ["/", "Dashboard", /Dashboard loaded/],
+  ["/signals", "Signals", /#42/],
+  ["/backtests", "Backtests", /#8/],
+  ["/etfs/1", "ETF Detail", /NYSEARCA:SPY/],
+  ["/signals/42", "Signal Detail", /Signal #42/],
+  ["/backtests/8", "Backtest Detail", /Backtest #8/]
+])("renders exactly one page-level h1 on %s", async (route, headingName, successText) => {
+  window.history.pushState({}, "", route);
+  vi.stubGlobal("fetch", vi.fn().mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/dashboard") {
+      return Promise.resolve(jsonResponse(createDashboardResponse()));
+    }
+
+    if (url === "/api/strategy-signals?limit=20&offset=0") {
+      return Promise.resolve(
+        jsonResponse({
+          signals: [
+            {
+              signal_id: 42,
+              signal_date: "2026-06-23",
+              config_version: "v1",
+              status: "success",
+              result: "rebalance",
+              generated_at: "2026-06-23T09:30:00",
+              is_fallback: false,
+              position_count: 2
+            }
+          ]
+        })
+      );
+    }
+
+    if (url === "/api/backtests?limit=10&offset=0") {
+      return Promise.resolve(
+        jsonResponse({
+          runs: [
+            {
+              run_id: 8,
+              strategy_id: "dual_momentum",
+              config_version: "v1",
+              start_date: "2026-01-01",
+              end_date: "2026-01-31",
+              status: "success",
+              started_at: "2026-02-01T09:00:00",
+              finished_at: "2026-02-01T09:05:00",
+              total_return: "0.120000",
+              annualized_return: "1.440000",
+              max_drawdown: "-0.050000",
+              volatility: "0.200000",
+              sharpe_ratio: "1.100000"
+            }
+          ]
+        })
+      );
+    }
+
+    if (url === "/api/etfs/1/prices?range=1y") {
+      return Promise.resolve(jsonResponse(createEtfPriceTrendResponse()));
+    }
+
+    if (url === "/api/strategy-signals/42") {
+      return Promise.resolve(jsonResponse(createSignalDetailResponse()));
+    }
+
+    if (url === "/api/backtests/8") {
+      return Promise.resolve(jsonResponse(createBacktestDetailResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByText(successText)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: headingName })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.queryByRole("heading", { name: "Vela Research" })).not.toBeInTheDocument();
 });
 
 it("renders signal detail data fetched by id", async () => {

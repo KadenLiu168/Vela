@@ -53,28 +53,42 @@ OpenSpec change.
       and `var(--color-bone)` on `:hover`
 
 ### Requirement: Every page in <main> begins with one <h1>
-Every page rendered inside the AppShell's `<main>` landmark MUST
-contain exactly one `<h1>` element representing the page identity.
-The existing `<h1>Vela Research</h1>` in the AppShell `<header>`
-(banner landmark) MAY remain; multiple `<h1>`s across distinct
-landmarks is permitted.
+Every page rendered through AppShell MUST expose exactly one document-level `<h1>` element representing the current page identity. The AppShell banner brand MUST render as non-heading text and MUST NOT contribute an additional `<h1>`.
+
+#### Scenario: AppShell brand is non-heading text
+- **WHEN** any route rendered through AppShell is displayed
+- **THEN** the `Vela Research` brand in the AppShell banner MUST NOT render as an `<h1>`, `<h2>`, `<h3>`, `<h4>`, `<h5>`, or `<h6>` element
+- **AND** the brand MUST remain visible as text in the banner
 
 #### Scenario: Dashboard renders one <h1> in main
 - **WHEN** the user navigates to `/` (Dashboard)
-- **THEN** the page body inside `<main>` MUST contain exactly one
-      `<h1>` element
-- **AND** that element MUST be the page identity
-      (`Workflow Dashboard` or whatever the current title becomes)
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the Dashboard page identity heading
 
 #### Scenario: Signal Detail renders one <h1> in main
 - **WHEN** the user navigates to `/signals/:id`
-- **THEN** the page body inside `<main>` MUST contain exactly one
-      `<h1>` element
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the Signal Detail page identity heading
 
 #### Scenario: Backtest Detail renders one <h1> in main
 - **WHEN** the user navigates to `/backtests/:id`
-- **THEN** the page body inside `<main>` MUST contain exactly one
-      `<h1>` element
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the Backtest Detail page identity heading
+
+#### Scenario: Signal list renders the only document-level <h1>
+- **WHEN** the user navigates to `/signals`
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the Signals page identity heading
+
+#### Scenario: Backtest list renders the only document-level <h1>
+- **WHEN** the user navigates to `/backtests`
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the Backtests page identity heading
+
+#### Scenario: ETF Detail renders the only document-level <h1>
+- **WHEN** the user navigates to `/etfs/:id`
+- **THEN** the rendered document MUST contain exactly one `<h1>` element
+- **AND** that element MUST be the ETF Detail page identity heading
 
 ### Requirement: EmptyAction advertises its variant
 The Dashboard's component-level `EmptyAction` function MUST

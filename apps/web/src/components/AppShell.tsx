@@ -26,7 +26,7 @@ export function AppShell({
     <div className="app-shell">
       <header className="app-header">
         <div className="app-brand">
-          <h1>Vela Research</h1>
+          <p className="app-brand-title">Vela Research</p>
           <span className="app-api-meta">API: {apiBaseUrl}</span>
         </div>
         <nav aria-label="Research navigation" className="app-nav">
