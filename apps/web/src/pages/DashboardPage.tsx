@@ -306,7 +306,7 @@ export function DashboardPage({
                 <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
                   <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
                   <span className="etf-row-symbol">{etf.symbol}</span>
-                  <span className="etf-row-dot">·</span>
+                  <span className="etf-row-dot" aria-hidden="true">·</span>
                   <span className="etf-row-name">{etf.name}</span>
                   <span className="etf-row-date">{etf.earliest_trade_date ? formatDate(etf.earliest_trade_date) : "—"}</span>
                   {etf.etf_id != null ? (

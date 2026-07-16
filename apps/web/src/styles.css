@@ -611,7 +611,7 @@ main {
   align-items: center;
   border: 1px solid currentcolor;
   border-radius: var(--radius-sm);
-  color: var(--color-ash);
+  color: var(--color-fog);
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--font-inter-variable);
@@ -637,7 +637,7 @@ main {
 }
 
 .status-pill-neutral {
-  color: var(--feedback-accent-empty);
+  color: var(--color-fog);
 }
 
 .status-pill-loading {
@@ -1560,7 +1560,7 @@ main {
 }
 
 .command-palette-input::placeholder {
-  color: var(--color-ash);
+  color: var(--color-fog);
 }
 
 .command-palette-groups {
@@ -1607,7 +1607,7 @@ main {
 }
 
 .command-palette-row-kind {
-  color: var(--color-ash);
+  color: var(--color-fog);
   flex-shrink: 0;
   font-family: var(--font-berkeley-mono);
   font-size: var(--card-meta-size);
