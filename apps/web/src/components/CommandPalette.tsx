@@ -54,6 +54,26 @@ export type CommandPaletteProps = {
 
 type DataSource = "backtests" | "signals" | "dashboard";
 
+const COMMAND_PALETTE_LISTBOX_ID = "command-palette-listbox";
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])"
+].join(",");
+
+function getCommandPaletteOptionId(rowId: string): string {
+  return `command-palette-option-${rowId}`;
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => !element.closest("[hidden]") && !element.closest('[aria-hidden="true"]')
+  );
+}
+
 export function CommandPalette({
   actions,
   fetchBacktests,
@@ -65,6 +85,7 @@ export function CommandPalette({
   pages
 }: CommandPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
 
   // State
@@ -241,6 +262,50 @@ export function CommandPalette({
         return;
       }
 
+      if (e.key === "Tab") {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+
+        const focusableElements = getFocusableElements(dialog);
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          dialog.focus();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        const activeElement = document.activeElement;
+
+        if (activeElement === dialog) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            lastElement.focus();
+          } else {
+            firstElement.focus();
+          }
+          return;
+        }
+
+        if (e.shiftKey && activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+          return;
+        }
+
+        if (!e.shiftKey && activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+          return;
+        }
+
+        if (!dialog.contains(activeElement)) {
+          e.preventDefault();
+          firstElement.focus();
+          return;
+        }
+      }
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         const rows = visibleRowsRef.current;
@@ -289,6 +354,9 @@ export function CommandPalette({
 
   const isLoading = loadingSources.size > 0;
   const hasError = errorSources.size > 0;
+  const activeDescendantId = validActiveRowId
+    ? getCommandPaletteOptionId(validActiveRowId)
+    : undefined;
 
   return (
     <>
@@ -306,9 +374,13 @@ export function CommandPalette({
         aria-modal="true"
         className="command-palette-dialog"
         data-testid="command-palette"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <input
+          aria-activedescendant={activeDescendantId}
+          aria-controls={visibleRows.length > 0 ? COMMAND_PALETTE_LISTBOX_ID : undefined}
           aria-label="Search"
           autoComplete="off"
           className="command-palette-input"
@@ -346,19 +418,26 @@ export function CommandPalette({
 
         {/* Result list */}
         {visibleRows.length > 0 ? (
-          <div className="command-palette-groups" data-testid="command-palette-groups" role="listbox">
+          <div
+            className="command-palette-groups"
+            data-testid="command-palette-groups"
+            id={COMMAND_PALETTE_LISTBOX_ID}
+            role="listbox"
+          >
             {groupedRows.map((group) => (
               <div key={group.kind} className="command-palette-group">
                 <div className="command-palette-group-header">{group.label}</div>
                 {group.rows.map((row) => {
                   const isActive = row.id === validActiveRowId;
                   const isEtfExpanded = row.kind === "etf" && expandedEtfId === row.id;
+                  const optionId = getCommandPaletteOptionId(row.id);
                   return (
                     <div key={row.id}>
                       <div
                         aria-selected={isActive}
                         className={`command-palette-row${isActive ? " command-palette-row-active" : ""}`}
                         data-testid={isActive ? "command-palette-row-active" : "command-palette-row"}
+                        id={optionId}
                         onClick={() => commitRow(row)}
                         onKeyDown={() => {}}
                         role="option"

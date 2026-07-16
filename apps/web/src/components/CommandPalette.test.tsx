@@ -273,6 +273,73 @@ describe("CommandPalette", () => {
     expect(screen.getByTestId("command-palette-input")).toHaveFocus();
   });
 
+  it("keeps Tab focus inside the dialog", () => {
+    render(
+      <>
+        <button type="button">Outside action</button>
+        <CommandPalette {...createDefaultProps()} />
+      </>
+    );
+
+    const dialog = screen.getByTestId("command-palette");
+    const input = screen.getByTestId("command-palette-input");
+    const outsideButton = screen.getByRole("button", { name: "Outside action" });
+
+    input.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(outsideButton).not.toHaveFocus();
+    expect(input).toHaveFocus();
+  });
+
+  it("wraps Shift+Tab focus inside the dialog", () => {
+    render(
+      <>
+        <button type="button">Outside action</button>
+        <CommandPalette {...createDefaultProps()} />
+      </>
+    );
+
+    const dialog = screen.getByTestId("command-palette");
+    const input = screen.getByTestId("command-palette-input");
+    const outsideButton = screen.getByRole("button", { name: "Outside action" });
+
+    input.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(outsideButton).not.toHaveFocus();
+    expect(input).toHaveFocus();
+  });
+
+  it("exposes the active row through aria-activedescendant", () => {
+    render(<CommandPalette {...createDefaultProps()} />);
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+
+    const input = screen.getByTestId("command-palette-input");
+    const activeDescendantId = input.getAttribute("aria-activedescendant");
+    expect(activeDescendantId).toBeTruthy();
+
+    const activeOption = document.getElementById(activeDescendantId ?? "");
+    expect(activeOption).not.toBeNull();
+    expect(activeOption).toHaveAttribute("role", "option");
+    expect(activeOption).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("connects the search input to the result listbox", () => {
+    render(<CommandPalette {...createDefaultProps()} />);
+
+    const input = screen.getByTestId("command-palette-input");
+    const listboxId = input.getAttribute("aria-controls");
+    expect(listboxId).toBeTruthy();
+
+    const listbox = document.getElementById(listboxId ?? "");
+    expect(listbox).not.toBeNull();
+    expect(listbox).toHaveAttribute("role", "listbox");
+  });
+
   // Escape closes
   it("closes on Escape", () => {
     const onClose = vi.fn();
