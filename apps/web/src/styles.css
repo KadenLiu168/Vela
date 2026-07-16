@@ -536,7 +536,7 @@ main {
   font-family: var(--font-berkeley-mono);
   font-size: var(--card-body-size);
   font-variant-numeric: tabular-nums;
-  line-height: 1;
+  line-height: var(--leading-heading);
   white-space: nowrap;
 }
 
@@ -544,7 +544,7 @@ main {
   flex: 1;
   height: 2px;
   background: var(--color-graphite);
-  border-radius: 1px;
+  border-radius: var(--radius-sm);
   min-width: 40px;
 }
 

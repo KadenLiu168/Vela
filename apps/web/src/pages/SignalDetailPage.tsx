@@ -21,10 +21,10 @@ type SignalDetailPageProps = {
 };
 
 type SignalDetailState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: StrategySignalDetailResponse; error?: never }
-  | { status: "not-found"; data?: never; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never; signalId?: never }
+  | { status: "ready"; data: StrategySignalDetailResponse; error?: never; signalId: string }
+  | { status: "not-found"; data?: never; error?: never; signalId: string }
+  | { status: "error"; data?: never; error: string; signalId: string };
 
 export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
   const [signalState, setSignalState] = useState<SignalDetailState>({
@@ -34,12 +34,10 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
   useEffect(() => {
     let isCurrent = true;
 
-    setSignalState({ status: "loading" });
-
     getStrategySignalDetail(signalId)
       .then((data) => {
         if (isCurrent) {
-          setSignalState({ status: "ready", data });
+          setSignalState({ status: "ready", data, signalId });
         }
       })
       .catch((error: unknown) => {
@@ -48,13 +46,14 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
         }
 
         if (error instanceof ApiClientError && error.status === 404) {
-          setSignalState({ status: "not-found" });
+          setSignalState({ status: "not-found", signalId });
           return;
         }
 
         setSignalState({
           status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable"
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          signalId
         });
       });
 
@@ -69,9 +68,13 @@ export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
         <p>Signal research workspace</p>
         <h1>Signal Detail</h1>
       </div>
-      {renderSignalDetail(signalState, signalId)}
+      {renderSignalDetail(getSignalDetailState(signalState, signalId), signalId)}
     </section>
   );
+}
+
+function getSignalDetailState(state: SignalDetailState, signalId: string): SignalDetailState {
+  return state.status === "loading" || state.signalId === signalId ? state : { status: "loading" };
 }
 
 function renderSignalDetail(signalState: SignalDetailState, signalId: string) {

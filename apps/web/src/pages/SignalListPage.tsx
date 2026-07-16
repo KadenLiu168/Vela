@@ -10,9 +10,9 @@ import { formatDate, formatNullableText, formatTimestamp } from "../utils/format
 const PAGE_SIZE = 20;
 
 type SignalListState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: StrategySignalListItem[]; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never; offset?: never }
+  | { status: "ready"; data: StrategySignalListItem[]; error?: never; offset: number }
+  | { status: "error"; data?: never; error: string; offset: number };
 
 export function SignalListPage() {
   const [offset, setOffset] = useState(0);
@@ -23,12 +23,10 @@ export function SignalListPage() {
   useEffect(() => {
     let isCurrent = true;
 
-    setSignalState({ status: "loading" });
-
     listStrategySignals(PAGE_SIZE, offset)
       .then((data) => {
         if (isCurrent) {
-          setSignalState({ status: "ready", data: data.signals });
+          setSignalState({ status: "ready", data: data.signals, offset });
         }
       })
       .catch((error: unknown) => {
@@ -38,7 +36,8 @@ export function SignalListPage() {
 
         setSignalState({
           status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable"
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          offset
         });
       });
 
@@ -53,9 +52,13 @@ export function SignalListPage() {
         <p>Signal research workspace</p>
         <h1>Signals</h1>
       </div>
-      {renderSignalList(signalState, offset, setOffset)}
+      {renderSignalList(getSignalListState(signalState, offset), offset, setOffset)}
     </section>
   );
+}
+
+function getSignalListState(state: SignalListState, offset: number): SignalListState {
+  return state.status === "loading" || state.offset === offset ? state : { status: "loading" };
 }
 
 function renderSignalList(

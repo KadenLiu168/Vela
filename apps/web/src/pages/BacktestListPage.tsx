@@ -10,9 +10,9 @@ import { formatDate, formatTimestamp } from "../utils/formatters";
 const PAGE_SIZE = 10;
 
 type BacktestListState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: BacktestListItem[]; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never; offset?: never }
+  | { status: "ready"; data: BacktestListItem[]; error?: never; offset: number }
+  | { status: "error"; data?: never; error: string; offset: number };
 
 export function BacktestListPage() {
   const [offset, setOffset] = useState(0);
@@ -23,12 +23,10 @@ export function BacktestListPage() {
   useEffect(() => {
     let isCurrent = true;
 
-    setBacktestState({ status: "loading" });
-
     listBacktests(PAGE_SIZE, offset)
       .then((data) => {
         if (isCurrent) {
-          setBacktestState({ status: "ready", data: data.runs });
+          setBacktestState({ status: "ready", data: data.runs, offset });
         }
       })
       .catch((error: unknown) => {
@@ -38,7 +36,8 @@ export function BacktestListPage() {
 
         setBacktestState({
           status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable"
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          offset
         });
       });
 
@@ -53,9 +52,13 @@ export function BacktestListPage() {
         <p>Backtest research workspace</p>
         <h1>Backtests</h1>
       </div>
-      {renderBacktestList(backtestState, offset, setOffset)}
+      {renderBacktestList(getBacktestListState(backtestState, offset), offset, setOffset)}
     </section>
   );
+}
+
+function getBacktestListState(state: BacktestListState, offset: number): BacktestListState {
+  return state.status === "loading" || state.offset === offset ? state : { status: "loading" };
 }
 
 function renderBacktestList(

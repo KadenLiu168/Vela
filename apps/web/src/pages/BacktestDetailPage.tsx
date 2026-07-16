@@ -21,10 +21,10 @@ type BacktestDetailPageProps = {
 };
 
 type BacktestDetailState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: BacktestDetailResponse; error?: never }
-  | { status: "not-found"; data?: never; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never; backtestId?: never }
+  | { status: "ready"; data: BacktestDetailResponse; error?: never; backtestId: string }
+  | { status: "not-found"; data?: never; error?: never; backtestId: string }
+  | { status: "error"; data?: never; error: string; backtestId: string };
 
 export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
   const [backtestState, setBacktestState] = useState<BacktestDetailState>({
@@ -34,12 +34,10 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
   useEffect(() => {
     let isCurrent = true;
 
-    setBacktestState({ status: "loading" });
-
     getBacktestDetail(backtestId)
       .then((data) => {
         if (isCurrent) {
-          setBacktestState({ status: "ready", data });
+          setBacktestState({ status: "ready", data, backtestId });
         }
       })
       .catch((error: unknown) => {
@@ -48,13 +46,14 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
         }
 
         if (error instanceof ApiClientError && error.status === 404) {
-          setBacktestState({ status: "not-found" });
+          setBacktestState({ status: "not-found", backtestId });
           return;
         }
 
         setBacktestState({
           status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable"
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          backtestId
         });
       });
 
@@ -69,9 +68,13 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
         <p>Backtest research workspace</p>
         <h1>Backtest Detail</h1>
       </div>
-      {renderBacktestDetail(backtestState, backtestId)}
+      {renderBacktestDetail(getBacktestDetailState(backtestState, backtestId), backtestId)}
     </section>
   );
+}
+
+function getBacktestDetailState(state: BacktestDetailState, backtestId: string): BacktestDetailState {
+  return state.status === "loading" || state.backtestId === backtestId ? state : { status: "loading" };
 }
 
 function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: string) {

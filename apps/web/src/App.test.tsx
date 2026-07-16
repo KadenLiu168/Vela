@@ -1414,6 +1414,48 @@ it("renders an empty target holdings state on the signal detail route", async ()
   expect(screen.queryByText(/Signal detail API unavailable/i)).not.toBeInTheDocument();
 });
 
+it("shows loading instead of stale signal detail when the route id changes", async () => {
+  window.history.pushState({}, "", "/signals/42");
+  const nextSignalResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/strategy-signals/42") {
+      return Promise.resolve(jsonResponse(createSignalDetailResponse()));
+    }
+
+    if (url === "/api/strategy-signals/43") {
+      return nextSignalResult.promise;
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByText("Signal #42")).toBeInTheDocument();
+  window.history.pushState({}, "", "/signals/43");
+  fireEvent.popState(window);
+
+  expect(await screen.findByText("Loading signal detail.")).toBeInTheDocument();
+  expect(screen.queryByText("Signal #42")).not.toBeInTheDocument();
+
+  nextSignalResult.resolve(
+    jsonResponse({
+      ...createSignalDetailResponse(),
+      signal: {
+        ...createSignalDetailResponse().signal,
+        signal_id: 43,
+        signal_date: "2026-06-24"
+      }
+    })
+  );
+
+  expect(await screen.findByText("Signal #43")).toBeInTheDocument();
+  expect(screen.getByText("2026-06-24")).toBeInTheDocument();
+});
+
 it("renders a not-found state on the signal detail route when the id is unknown", async () => {
   window.history.pushState({}, "", "/signals/999");
   vi.stubGlobal(
@@ -1654,6 +1696,76 @@ it("renders backtest list rows on the /backtests route", async () => {
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests?limit=10&offset=0", undefined);
 });
 
+it("shows loading instead of stale backtest rows when pagination changes", async () => {
+  window.history.pushState({}, "", "/backtests");
+  const nextPageResult = createDeferred<Response>();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/backtests?limit=10&offset=0") {
+      return Promise.resolve(
+        jsonResponse({
+          runs: Array.from({ length: 10 }, (_, index) => ({
+            run_id: index + 1,
+            strategy_id: "dual_momentum",
+            config_version: "v1",
+            start_date: "2026-01-01",
+            end_date: "2026-01-31",
+            status: "success",
+            started_at: "2026-02-01T09:00:00",
+            finished_at: "2026-02-01T09:05:00",
+            total_return: "0.120000",
+            annualized_return: "1.440000",
+            max_drawdown: "-0.050000",
+            volatility: "0.200000",
+            sharpe_ratio: "1.100000"
+          }))
+        })
+      );
+    }
+
+    if (url === "/api/backtests?limit=10&offset=10") {
+      return nextPageResult.promise;
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByRole("link", { name: "#1" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  expect(screen.getByText("Loading backtest history.")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "#1" })).not.toBeInTheDocument();
+
+  nextPageResult.resolve(
+    jsonResponse({
+      runs: [
+        {
+          run_id: 11,
+          strategy_id: "dual_momentum",
+          config_version: "v1",
+          start_date: "2026-02-01",
+          end_date: "2026-02-28",
+          status: "success",
+          started_at: "2026-03-01T09:00:00",
+          finished_at: "2026-03-01T09:05:00",
+          total_return: "0.130000",
+          annualized_return: "1.560000",
+          max_drawdown: "-0.040000",
+          volatility: "0.210000",
+          sharpe_ratio: "1.200000"
+        }
+      ]
+    })
+  );
+
+  expect(await screen.findByRole("link", { name: "#11" })).toBeInTheDocument();
+  expect(screen.getByText("2026-02-01 to 2026-02-28")).toBeInTheDocument();
+});
+
 it("shows an empty state on /backtests when no backtest runs exist", async () => {
   window.history.pushState({}, "", "/backtests");
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -1886,10 +1998,14 @@ it("renders an empty trend state when no price points exist", async () => {
 
 it("refetches the trend when the horizon changes", async () => {
   window.history.pushState({}, "", "/etfs/1");
+  const nextRangeResult = createDeferred<Response>();
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.startsWith("/api/etfs/1/prices?range=")) {
+    if (url === "/api/etfs/1/prices?range=1y") {
       return Promise.resolve(jsonResponse(createEtfPriceTrendResponse()));
+    }
+    if (url === "/api/etfs/1/prices?range=3m") {
+      return nextRangeResult.promise;
     }
     return Promise.reject(new Error(`Unexpected request: ${url}`));
   });
@@ -1900,6 +2016,11 @@ it("refetches the trend when the horizon changes", async () => {
   await screen.findByText("NYSEARCA:SPY");
   expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=1y", undefined);
   fireEvent.click(screen.getByRole("button", { name: "3M" }));
+  expect(screen.getByText("Loading ETF price trend.")).toBeInTheDocument();
+  expect(screen.queryByText("NYSEARCA:SPY")).not.toBeInTheDocument();
+
+  nextRangeResult.resolve(jsonResponse(createEtfPriceTrendResponse()));
+
   await screen.findByText("NYSEARCA:SPY");
   expect(fetchMock).toHaveBeenCalledWith("/api/etfs/1/prices?range=3m", undefined);
   expect(screen.getByRole("button", { name: "3M" })).toHaveAttribute("aria-pressed", "true");

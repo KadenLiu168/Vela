@@ -40,11 +40,13 @@ const HORIZONS: Horizon[] = [
   { label: "Max", range: "max" }
 ];
 
+type EtfDetailRequestKey = `${string}:${PriceTrendRange}`;
+
 type EtfDetailState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "ready"; data: EtfPriceTrendResponse; error?: never }
-  | { status: "not-found"; data?: never; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "loading"; data?: never; error?: never; requestKey?: never }
+  | { status: "ready"; data: EtfPriceTrendResponse; error?: never; requestKey: EtfDetailRequestKey }
+  | { status: "not-found"; data?: never; error?: never; requestKey: EtfDetailRequestKey }
+  | { status: "error"; data?: never; error: string; requestKey: EtfDetailRequestKey };
 
 export function EtfDetailPage({ etfId }: EtfDetailPageProps) {
   const [range, setRange] = useState<PriceTrendRange>("1y");
@@ -52,13 +54,12 @@ export function EtfDetailPage({ etfId }: EtfDetailPageProps) {
 
   useEffect(() => {
     let isCurrent = true;
-
-    setState({ status: "loading" });
+    const requestKey = getEtfDetailRequestKey(etfId, range);
 
     getEtfPriceTrend(etfId, range)
       .then((data) => {
         if (isCurrent) {
-          setState({ status: "ready", data });
+          setState({ status: "ready", data, requestKey });
         }
       })
       .catch((error: unknown) => {
@@ -67,13 +68,14 @@ export function EtfDetailPage({ etfId }: EtfDetailPageProps) {
         }
 
         if (error instanceof ApiClientError && error.status === 404) {
-          setState({ status: "not-found" });
+          setState({ status: "not-found", requestKey });
           return;
         }
 
         setState({
           status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable"
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          requestKey
         });
       });
 
@@ -88,9 +90,22 @@ export function EtfDetailPage({ etfId }: EtfDetailPageProps) {
         <p>ETF price trend</p>
         <h1>ETF Detail</h1>
       </div>
-      {renderEtfDetail(state, etfId, range, setRange)}
+      {renderEtfDetail(getEtfDetailState(state, etfId, range), etfId, range, setRange)}
     </section>
   );
+}
+
+function getEtfDetailRequestKey(etfId: string, range: PriceTrendRange): EtfDetailRequestKey {
+  return `${etfId}:${range}`;
+}
+
+function getEtfDetailState(
+  state: EtfDetailState,
+  etfId: string,
+  range: PriceTrendRange
+): EtfDetailState {
+  const requestKey = getEtfDetailRequestKey(etfId, range);
+  return state.status === "loading" || state.requestKey === requestKey ? state : { status: "loading" };
 }
 
 function renderEtfDetail(
