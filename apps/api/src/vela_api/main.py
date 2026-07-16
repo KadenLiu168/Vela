@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from vela_core import (
@@ -23,7 +23,7 @@ from vela_core import (
     TencentMarketDataProvider,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
-    generate_strategy_signal,
+    generate_and_persist_strategy_signal,
     get_backtest_result,
     get_dashboard_summary,
     get_etf_price_trend,
@@ -31,17 +31,11 @@ from vela_core import (
     get_strategy_signal_report,
     list_strategy_signals,
     load_app_config,
-    load_price_panel,
     run_backtest,
     run_local_setup_bootstrap,
 )
-from vela_core.models import BacktestEquityCurve, BacktestRun, ETFInfo, MarketPrice
+from vela_core.models import BacktestEquityCurve, BacktestRun
 from vela_core.strategy_config import load_strategy_config
-from vela_core.strategy_signal_generation import PersistStrategySignalPosition
-from vela_core.strategy_signal_persistence import (
-    StrategySignalPositionInput,
-    persist_strategy_signal,
-)
 
 from vela_api.config import (
     DEFAULT_ALEMBIC_SCRIPT_LOCATION,
@@ -173,62 +167,18 @@ def generate_strategy_signal_endpoint(
     session: DatabaseSession,
     signal_date: Annotated[date | None, Query(alias="signalDate")] = None,
 ) -> dict[str, object]:
-    resolved_signal_date = signal_date or session.scalar(select(func.max(MarketPrice.trade_date)))
-    if resolved_signal_date is None:
-        raise HTTPException(status_code=400, detail="No local market prices found")
-
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
-
-    active_etfs = list(
-        session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
-    )
-    price_panel = load_price_panel(
-        session,
-        etf_ids=[etf.id for etf in active_etfs],
-        start_date=None,
-        end_date=resolved_signal_date,
-    )
-    defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
-
-    def _persist(
-        *,
-        signal_date: date,
-        generated_at: datetime,
-        status: str,
-        result: str | None,
-        positions: list[PersistStrategySignalPosition],
-        error_message: str | None,
-    ) -> int:
-        persistence_result = persist_strategy_signal(
+    try:
+        result = generate_and_persist_strategy_signal(
             session,
-            strategy_id=config.strategy_id,
+            config=config,
             signal_date=signal_date,
-            config_version=config.version,
-            generated_at=generated_at,
-            status=status,
-            result=result,
-            positions=[
-                StrategySignalPositionInput(
-                    etf_id=position["etf_id"],
-                    rank=position["rank"],
-                    score=position["score"],
-                    target_weight=position["target_weight"],
-                )
-                for position in positions
-            ],
-            error_message=error_message,
         )
-        session.commit()
-        return persistence_result.strategy_signal.id
+    except ValueError as exc:
+        if str(exc) != "No local market prices found":
+            raise
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    result = generate_strategy_signal(
-        signal_date=resolved_signal_date,
-        config=config,
-        price_panel=price_panel,
-        active_etfs=active_etfs,
-        defense_lookup=defense_lookup,
-        persist=_persist,
-    )
     return _strategy_signal_response(result)
 
 

@@ -122,6 +122,7 @@ from vela_core.strategy_signal_report import (
     get_strategy_signal_report,
     list_strategy_signals,
 )
+from vela_core.strategy_signal_service import generate_and_persist_strategy_signal
 from vela_core.tencent_market_data_provider import TencentMarketDataProvider
 from vela_core.trading_calendar_sync import (
     TradingCalendarSyncResult,
@@ -208,6 +209,7 @@ __all__ = [
     "get_backtest_result",
     "get_dashboard_summary",
     "get_etf_price_trend",
+    "generate_and_persist_strategy_signal",
     "generate_historical_strategy_signals",
     "generate_monthly_rebalance_dates",
     "generate_rebalance_dates",

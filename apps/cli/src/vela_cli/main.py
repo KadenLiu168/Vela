@@ -3,10 +3,9 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
-from sqlalchemy import func, select
 from vela_core import (
     BacktestGapDetectionConfig,
     BacktestReportNotFoundError,
@@ -20,9 +19,8 @@ from vela_core import (
     export_latest_strategy_signal_report,
     fetch_full_market_prices,
     fetch_incremental_market_prices,
-    generate_strategy_signal,
+    generate_and_persist_strategy_signal,
     load_app_config,
-    load_price_panel,
     run_alembic_upgrade,
     sync_etf_pool_to_db,
     sync_trading_calendar_to_db,
@@ -39,13 +37,7 @@ from vela_core.database import (
     create_session_factory,
     managed_session,
 )
-from vela_core.models import ETFInfo, MarketPrice
 from vela_core.strategy_config import load_strategy_config
-from vela_core.strategy_signal_generation import PersistStrategySignalPosition
-from vela_core.strategy_signal_persistence import (
-    StrategySignalPositionInput,
-    persist_strategy_signal,
-)
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
@@ -400,61 +392,10 @@ def generate_signal(
     session_factory = create_session_factory(engine)
     config = load_strategy_config(strategy_config_path)
     with managed_session(session_factory) as session:
-        resolved_signal_date = signal_date or session.scalar(
-            select(func.max(MarketPrice.trade_date))
-        )
-        if resolved_signal_date is None:
-            raise ValueError("No local market prices found")
-
-        active_etfs = list(
-            session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
-        )
-        price_panel = load_price_panel(
+        return generate_and_persist_strategy_signal(
             session,
-            etf_ids=[etf.id for etf in active_etfs],
-            start_date=None,
-            end_date=resolved_signal_date,
-        )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
-
-        def _persist(
-            *,
-            signal_date: date,
-            generated_at: datetime,
-            status: str,
-            result: str | None,
-            positions: list[PersistStrategySignalPosition],
-            error_message: str | None,
-        ) -> int:
-            persistence_result = persist_strategy_signal(
-                session,
-                strategy_id=config.strategy_id,
-                signal_date=signal_date,
-                config_version=config.version,
-                generated_at=generated_at,
-                status=status,
-                result=result,
-                positions=[
-                    StrategySignalPositionInput(
-                        etf_id=position["etf_id"],
-                        rank=position["rank"],
-                        score=position["score"],
-                        target_weight=position["target_weight"],
-                    )
-                    for position in positions
-                ],
-                error_message=error_message,
-            )
-            session.commit()
-            return persistence_result.strategy_signal.id
-
-        return generate_strategy_signal(
-            signal_date=resolved_signal_date,
             config=config,
-            price_panel=price_panel,
-            active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
-            persist=_persist,
+            signal_date=signal_date,
         )
 
 
