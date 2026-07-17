@@ -7,9 +7,9 @@ context: |
   Build a personal ETF rotation system for strategy research, signal generation, and historical backtesting.
 
   Scope:
-  Phase 1 focuses on the core backend foundation.
+  Scope: Vela is a delivered local MVP; this config describes the currently implemented scope (no future-phase planning here).
 
-  Phase 1 should support:
+  Capabilities (delivered):
 
   * ETF metadata management
   * Market data fetching and normalization
@@ -18,9 +18,8 @@ context: |
   * Historical backtesting
   * Basic logging and configuration
 
-  Phase 1 does not include:
+  Project-wide non-goals:
 
-  * Web UI
   * Real-time trading
   * Broker integration
   * Automated order execution
@@ -31,17 +30,23 @@ context: |
 
   * Python 3.11+
   * uv for Python environment and dependency management
+  * FastAPI + uvicorn for the HTTP API service
   * pytest for testing
   * ruff for linting and formatting
   * mypy for static type checking
   * SQLAlchemy for database access
   * pandas for data processing
+  * React 19 + Vite + TypeScript + npm for the web frontend
+  * vitest, Ladle, eslint, stylelint for frontend testing and linting
 
   Repository structure:
 
-  * apps/: Application entrypoints
+  * apps/: Application entrypoints (api, cli, web)
+  * apps/api/: FastAPI service (13 endpoints)
+  * apps/cli/: CLI entrypoint (8 subcommands)
+  * apps/web/: React 19 research frontend
   * packages/: Reusable backend packages
-  * packages/core/: Core backend package
+  * packages/core/: Core backend package (vela_core)
   * openspec/: Specifications and change proposals
   * scripts/: Development scripts
   * tests/: Integration tests
@@ -53,5 +58,5 @@ context: |
   * Keep business logic inside packages rather than application entrypoints.
   * Use type annotations for public functions and core domain models.
   * Add tests for core behavior before expanding features.
-  * Avoid premature optimization in Phase 1.
+  * Avoid premature optimization in the current stage.
   * Keep specifications and implementation tasks aligned with OpenSpec changes.

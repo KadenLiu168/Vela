@@ -2,80 +2,63 @@
 
 Vela is a personal ETF rotation system focused on strategy research, signal generation, and historical backtesting.
 
-## Phase 1 Goal
+## Current State
 
-The first phase focuses on building the core backend foundation.
+Vela is a working local MVP for personal ETF rotation research. A CLI and a
+FastAPI service drive a dual-momentum strategy and a backtest engine over a real
+market-data pipeline, with a React research frontend on top. All core
+capabilities are implemented and covered by tests. The system runs locally
+against SQLite and is not deployed.
 
-Phase 1 includes:
-
-- Monorepo project structure
-- Python 3.11+ environment with uv
-- Project dependency management with pyproject.toml
-- pytest test framework
-- Ruff linting and formatting
-- Basic logging configuration
-- OpenSpec-based specification workflow
-- Core backend foundations for future ETF metadata, market data, strategy signals, and backtesting
+Current capabilities:
+- ETF universe management (sync from `config/etf_pool.yaml`)
+- Market data fetching & normalization (Tencent + JoinQuant providers; full + incremental; gap detection)
+- Market price storage & querying (SQLAlchemy + Alembic on SQLite)
+- Dual-momentum signal generation (momentum scoring + trend filter + defense fallback; no look-ahead bias)
+- Historical backtesting (total & annualized return, max drawdown, volatility, Sharpe ratio; transaction cost applied)
+- FastAPI HTTP service (13 endpoints) + React web UI (6 pages, command palette, SVG charts)
+- Trading-calendar sync, data-quality checks, CLI report export
 
 ## Tech Stack
 
-- Python 3.11+
-- uv
-- pytest
-- Ruff
-- SQLAlchemy
-- pandas
-- pydantic
-- Vite, React, TypeScript, and npm for the web frontend skeleton
-- OpenSpec
+Backend:
+- Python 3.11+ / uv
+- FastAPI + uvicorn
+- SQLAlchemy + Alembic
+- pandas / pydantic / pydantic-settings
+- akshare / tenacity (Tencent data provider); jqdatasdk optional (JoinQuant)
+
+Frontend (apps/web):
+- React 19 + Vite + TypeScript + npm
+- vitest (unit), Ladle (component previews), eslint, stylelint
+
+Tooling:
+- pytest, Ruff, mypy, pre-commit
+- OpenSpec for specification-driven development
 
 ## Repository Structure
 
 ```text
-apps/       Application entrypoints, such as future API and CLI apps
-packages/   Reusable business packages
-openspec/   Project specifications and change proposals
-scripts/    Development and automation scripts
-tests/      Repository-level integration tests
-docs/       Architecture and design documents
+apps/         Application entrypoints (api, cli, web)
+packages/     Reusable business packages
+openspec/     Project specifications and change proposals
+scripts/      Development and automation scripts
+tests/        Repository-level integration tests
+docs/         Architecture and design documents
 ```
 
-Current core package:
+Core backend package (`packages/core/src/vela_core/`): ORM models, data
+providers, momentum scoring, trend filter, signal generation, backtest engine,
+trading calendar, data quality, CLI/API service helpers.
 
-```text
-packages/core/
-├── src/
-│   └── vela_core/
-│       ├── __init__.py
-│       ├── database.py
-│       ├── logging.py
-│       └── models/
-└── tests/
-    ├── test_database.py
-    ├── test_logging.py
-    └── test_smoke.py
-```
+Web application (`apps/web/`): React 19 SPA - Dashboard, Signal list/detail,
+Backtest list/detail, ETF detail pages, command palette, SVG charts.
 
-Current web app skeleton:
+API service (`apps/api/src/vela_api/`): FastAPI app with 13 endpoints.
 
-```text
-apps/web/
-├── src/
-│   ├── api/
-│   ├── components/
-│   ├── pages/
-│   └── test/
-└── package.json
-```
-
-Current API app skeleton:
-
-```text
-apps/api/
-├── src/
-│   └── vela_api/
-└── tests/
-```
+CLI (`apps/cli/src/vela_cli/`): 8 subcommands (init-db, fetch-market-data,
+sync-etf-pool, sync-trading-calendar, generate-signal, run-backtest, export
+*-report).
 
 ## Development Setup
 
@@ -169,6 +152,32 @@ Or fetch only data newer than the latest local market price date:
 
 ```bash
 uv run vela fetch-market-data --incremental
+```
+
+Sync the trading calendar (exchange sessions / trading days):
+
+```bash
+uv run vela sync-trading-calendar
+```
+
+Generate a strategy signal for a given date (defaults to the latest trading day):
+
+```bash
+uv run vela generate-signal
+```
+
+Run a backtest over the signal history:
+
+```bash
+uv run vela run-backtest
+uv run vela run-backtest --strict-data-quality --max-gap-days 5
+```
+
+Export the latest signal or a backtest run as a readable report:
+
+```bash
+uv run vela export-signal-report
+uv run vela export-backtest-report --run-id <id>
 ```
 
 ## Local Development
@@ -270,7 +279,7 @@ rm -f vela.db
 uv run alembic upgrade head
 ```
 
-SQLite is the supported local development workflow for Phase 1. The migration
+SQLite is the supported local development workflow. The migration
 environment imports the SQLAlchemy ORM models and exposes `Base.metadata` so
 future revisions can be generated from model metadata.
 
@@ -317,36 +326,33 @@ uv run pre-commit run --all-files
 ```
 
 The repository's GitHub branch protection or ruleset for `main` must require the Python and frontend CI jobs before the quality gate is a real merge gate.
-## Phase 1 Scope
+## Out of Scope (Project-wide)
 
-Phase 1 focuses on the backend foundation and does not yet include:
-
-- Production data ingestion
-- Real ETF strategy logic
-- Historical backtest engine
-- API service
-- Complete business Web UI beyond the current frontend skeleton
-- Deployment pipeline
-
-These capabilities will be added in later phases.
+The following are explicitly outside Vela's mandate:
+- Real-time trading / broker integration / automated order execution
+- Production deployment (currently local-only: SQLite + 127.0.0.1)
+- Complex portfolio optimization
 
 ## Current Status
 
-Completed:
+Implemented (code complete + tested):
+- Monorepo, uv environment, pytest, Ruff, mypy, pre-commit
+- SQLAlchemy models + Alembic (10 revisions, 8 business tables)
+- CLI data pipeline: `sync-etf-pool`, `fetch-market-data`, `sync-trading-calendar`,
+  `generate-signal`, `run-backtest`, report export
+- FastAPI service with 13 endpoints + structured error envelope
+- React research frontend (Dashboard / Signals / Backtests / ETF detail + command palette + SVG charts)
+- Dual-momentum strategy v1, backtest engine, Tencent + JoinQuant data providers,
+  trading calendar, data-quality checks
 
-- Initialized monorepo structure
-- Configured uv Python environment
-- Configured project dependencies
-- Configured pytest
-- Configured Ruff
-- Added basic logging configuration
-- Added SQLAlchemy database session helpers
-- Added SQLAlchemy ORM models for ETF metadata, market prices, data fetch logs, strategy signals, and backtest results
-- Configured Alembic migrations for local SQLite development
-- Added `scripts/dev.sh` to orchestrate the full local stack (backend +
-  frontend together) with stale-process cleanup and two-phase shutdown
+Validation status (verified against local `vela.db`):
+- Data layer IS exercised on real data: `market_price` 29,311 rows, `etf_info` 11 rows.
+- NOT yet generated: `strategy_signal`, `backtest_run`, `backtest_equity_curve`,
+  `trading_calendar` are all 0 rows - signal/backtest/calendar end-to-end run pending.
+- Deployment: local-only, not deployed.
 
 Next planned work:
-
-- Continue OpenSpec baseline specifications
-- Add data provider interface
+- Run the signal -> backtest -> calendar closed loop on real data and export a readable report
+- Wire business logging (replace `logging.py` basicConfig stub)
+- Add an ETF list page + `/api/etfs` endpoint
+- Reconcile remaining OpenSpec spec Purpose fields
