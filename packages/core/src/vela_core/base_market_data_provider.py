@@ -25,9 +25,7 @@ class BaseMarketDataProvider:
     _column_map: Mapping[str, str] = {}
 
     def __init__(self, source: Any | None = None) -> None:
-        self._source: Any = (
-            source if source is not None else import_module("akshare")
-        )
+        self._source: Any = source if source is not None else import_module("akshare")
 
     def get_etf_daily_prices(
         self,
@@ -213,9 +211,7 @@ class BaseMarketDataProvider:
         request_start: str,
         request_end: str,
     ) -> Any:
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement _fetch_rows"
-        )
+        raise NotImplementedError(f"{type(self).__name__} must implement _fetch_rows")
 
 
 def _format_date(value: date) -> str:

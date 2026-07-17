@@ -99,7 +99,7 @@ def calculate_momentum_score(
     )
     # Trim to the most-recent ``long_window + 1`` rows so the score uses
     # the same rows the historical ``LIMIT long_window+1`` query did.
-    prices = panel.get(etf_id, [])[-(config.momentum.long_window_days + 1):]
+    prices = panel.get(etf_id, [])[-(config.momentum.long_window_days + 1) :]
 
     return _momentum_score_from_prices(
         prices,

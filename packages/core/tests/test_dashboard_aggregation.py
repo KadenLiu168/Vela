@@ -226,7 +226,7 @@ def test_dashboard_summary_reports_empty_latest_signal_without_successful_signal
         session.add(
             StrategySignal(
                 signal_date=date(2026, 6, 23),
-                    strategy_id="Dual_momentum",
+                strategy_id="Dual_momentum",
                 config_version="v1",
                 generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                 status="failed",
@@ -249,7 +249,7 @@ def test_dashboard_summary_marks_latest_signal_fallback() -> None:
         session.add(
             StrategySignal(
                 signal_date=date(2026, 6, 23),
-                    strategy_id="Dual_momentum",
+                strategy_id="Dual_momentum",
                 config_version="v1",
                 generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                 status="success",

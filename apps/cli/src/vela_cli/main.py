@@ -346,7 +346,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     parser.error(f"unknown command: {args.command}")
-    return 2
 
 
 def fetch_full_market_data(database_url: str) -> MarketDataFetchResult:

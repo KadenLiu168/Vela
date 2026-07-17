@@ -26,6 +26,8 @@ joinquant = ["jqdatasdk"]
 dev = [
     "httpx2>=2.4.0",
     "mypy",
+    "pandas-stubs",
+    "pre-commit",
     "pytest",
     "pytest-cov",
     "ruff",
@@ -68,6 +70,34 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+files = [
+    "apps/api/src",
+    "apps/cli/src",
+    "packages/core/src",
+]
+show_error_codes = true
+pretty = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unreachable = true
+strict_equality = true
+no_implicit_optional = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = [
+    "apps/api/src",
+    "apps/cli/src",
+    "packages/core/src",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "uvicorn.*",
+]
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 100

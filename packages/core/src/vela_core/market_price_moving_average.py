@@ -41,8 +41,7 @@ def _moving_average_from_prices(
         etf_id=etf_id,
         as_of_date=as_of_date,
         window=window,
-        ma=sum((price.strategy_price for price in prices), Decimal("0"))
-        / Decimal(window),
+        ma=sum((price.strategy_price for price in prices), Decimal("0")) / Decimal(window),
     )
 
 

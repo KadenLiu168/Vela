@@ -59,9 +59,8 @@ def _trend_filter_from_prices(
         Decimal("0"),
     ) / Decimal(window)
 
-    passes_filter = (
-        (relation == "above" and current_price > ma_value)
-        or (relation == "below" and current_price < ma_value)
+    passes_filter = (relation == "above" and current_price > ma_value) or (
+        relation == "below" and current_price < ma_value
     )
 
     return TrendFilterResult(

@@ -47,9 +47,7 @@ def forward_adjusted_prices(
 
     anchor = next((price for price in prices if price.trade_date == rebalance_date), None)
     if anchor is None:
-        raise ValueError(
-            f"rebalance date {rebalance_date} not found in price series"
-        )
+        raise ValueError(f"rebalance date {rebalance_date} not found in price series")
 
     anchor_factor = anchor.factor_hfq
     return [

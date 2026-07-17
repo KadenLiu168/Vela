@@ -55,8 +55,7 @@ class PersistStrategySignalCallable(Protocol):
         result: str | None,
         positions: list[PersistStrategySignalPosition],
         error_message: str | None,
-    ) -> int:
-        ...
+    ) -> int: ...
 
 
 def generate_strategy_signal(

@@ -163,9 +163,7 @@ def get_strategy_signal_report(
 
 
 def _is_fallback_signal(signal: StrategySignal) -> bool:
-    return any(
-        position.rank is None and position.score is None for position in signal.positions
-    )
+    return any(position.rank is None and position.score is None for position in signal.positions)
 
 
 def _get_latest_successful_signal(

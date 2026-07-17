@@ -26,14 +26,36 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_joinquant_fetches_real_etf_daily_prices() -> None:
-    from vela_core import JoinQuantMarketDataProvider
+def _is_joinquant_permission_window_error(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        "joinquant market data provider error" in message
+        and "start_date=" in message
+        and "end_date=" in message
+        and "权限" in message
+        and "数据" in message
+    )
 
-    provider = JoinQuantMarketDataProvider()
+
+def test_joinquant_fetches_real_etf_daily_prices() -> None:
+    from vela_core import JoinQuantMarketDataProvider, MarketDataProviderError
+
+    try:
+        provider = JoinQuantMarketDataProvider()
+    except MarketDataProviderError as exc:
+        if "jqdatasdk" in str(exc) and "not installed" in str(exc):
+            pytest.skip(f"JoinQuant SDK not installed: {exc}")
+        raise
+
     end = date.today()
     start = end - timedelta(days=90)
 
-    prices = provider.get_etf_daily_prices("510300", start_date=start, end_date=end)
+    try:
+        prices = provider.get_etf_daily_prices("510300", start_date=start, end_date=end)
+    except MarketDataProviderError as exc:
+        if _is_joinquant_permission_window_error(exc):
+            pytest.skip(f"JoinQuant account cannot access requested date range: {exc}")
+        raise
 
     assert len(prices) >= 1
     for price in prices:

@@ -27,9 +27,7 @@ def test_run_alembic_upgrade_empty_database_to_head(tmp_path) -> None:
 
     engine = create_engine(database_url)
     with engine.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     assert revision is not None
     assert revision != ""
 

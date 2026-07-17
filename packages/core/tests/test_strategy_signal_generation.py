@@ -60,11 +60,7 @@ def test_generate_strategy_signal_persists_ranked_positions() -> None:
         _add_price_history(session, etf_id=first.id, current_price=Decimal("180"))
         _add_price_history(session, etf_id=second.id, current_price=Decimal("160"))
 
-        active_etfs = list(
-            session.scalars(
-                _select_etfs().order_by(ETFInfo.id)
-            )
-        )
+        active_etfs = list(session.scalars(_select_etfs().order_by(ETFInfo.id)))
         price_panel = load_price_panel(
             session,
             etf_ids=[etf.id for etf in active_etfs],

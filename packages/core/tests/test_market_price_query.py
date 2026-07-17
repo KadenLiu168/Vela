@@ -65,9 +65,7 @@ def test_excludes_etfs_with_no_rows_in_range() -> None:
         first = _add_etf(session, symbol="AAA")
         second = _add_etf(session, symbol="BBB")
         _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(
-            session, etf_id=second.id, trade_date=date(2025, 12, 31), close_price=999
-        )
+        _add_price(session, etf_id=second.id, trade_date=date(2025, 12, 31), close_price=999)
 
         panel = load_price_panel(
             session,

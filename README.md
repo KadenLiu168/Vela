@@ -125,6 +125,21 @@ Check formatting without changing files:
 uv run ruff format --check .
 ```
 
+Run the canonical local quality gate that mirrors CI:
+
+```bash
+uv sync --group dev
+uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
+uv run --no-sync mypy --config-file pyproject.toml
+uv run --no-sync pytest
+npm --prefix apps/web ci
+npm --prefix apps/web run lint
+npm --prefix apps/web run lint:css
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run test
+npm --prefix apps/web run build
+```
 
 Initialize or upgrade the local SQLite database to the current migration head:
 
@@ -286,6 +301,22 @@ specs/
 
 The goal is to keep implementation work aligned with written specifications and small incremental changes.
 
+## Local Quality Feedback
+
+Install the local hook runner once per clone:
+
+```bash
+uv sync --group dev
+uv run pre-commit install
+```
+
+Run the configured hooks manually when needed:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+The repository's GitHub branch protection or ruleset for `main` must require the Python and frontend CI jobs before the quality gate is a real merge gate.
 ## Phase 1 Scope
 
 Phase 1 focuses on the backend foundation and does not yet include:
