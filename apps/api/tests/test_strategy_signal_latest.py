@@ -108,6 +108,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
         {
             "exchange": "NYSEARCA",
             "symbol": "SPY",
+            "name": "SPY ETF",
             "target_weight": "0.500000",
             "rank": 1,
             "score": "0.800000",
@@ -116,6 +117,7 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
         {
             "exchange": "NYSEARCA",
             "symbol": "SHY",
+            "name": "SHY ETF",
             "target_weight": "0.500000",
             "rank": None,
             "score": None,

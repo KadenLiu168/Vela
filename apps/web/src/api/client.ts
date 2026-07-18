@@ -234,6 +234,7 @@ export type LatestStrategySignal = {
 export type LatestStrategySignalPosition = {
   exchange: string;
   symbol: string;
+  name: string;
   target_weight: string;
   rank: number | null;
   score: string | null;
@@ -287,6 +288,7 @@ export type StrategySignalDetailMetadata = {
 export type StrategySignalDetailPosition = {
   exchange: string;
   symbol: string;
+  name: string;
   target_weight: string;
   rank: number | null;
   score: string | null;

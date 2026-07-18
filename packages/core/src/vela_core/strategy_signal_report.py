@@ -16,6 +16,7 @@ class LatestStrategySignalReportNotFoundError(ValueError):
 class StrategySignalReportPosition:
     exchange: str
     symbol: str
+    name: str
     target_weight: Decimal
     rank: int | None
     score: Decimal | None
@@ -203,6 +204,7 @@ def _to_report(session: Session, signal: StrategySignal) -> StrategySignalReport
         StrategySignalReportPosition(
             exchange=etfs_by_id[position.etf_id].exchange,
             symbol=etfs_by_id[position.etf_id].symbol,
+            name=etfs_by_id[position.etf_id].name,
             target_weight=position.target_weight,
             rank=position.rank,
             score=position.score,

@@ -127,6 +127,7 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
           <tr>
             <th scope="col">Exchange</th>
             <th scope="col">Symbol</th>
+            <th scope="col">Name</th>
             <th scope="col">Target weight</th>
             <th scope="col">Rank</th>
             <th scope="col">Score</th>
@@ -138,6 +139,7 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
             <tr key={`${position.exchange}:${position.symbol}`}>
               <td>{position.exchange}</td>
               <td>{position.symbol}</td>
+              <td>{position.name}</td>
               <td>{formatTargetWeight(position.target_weight)}</td>
               <td>{formatNullableInteger(position.rank)}</td>
               <td>{formatDecimal(position.score, 6)}</td>

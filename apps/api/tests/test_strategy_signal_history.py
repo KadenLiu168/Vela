@@ -154,6 +154,7 @@ def test_strategy_signal_detail_endpoint_returns_signal_by_id(tmp_path) -> None:
         {
             "exchange": "NYSEARCA",
             "symbol": "SHY",
+            "name": "SHY ETF",
             "target_weight": "1.000000",
             "rank": None,
             "score": None,

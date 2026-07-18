@@ -1460,17 +1460,20 @@ it("renders signal detail data fetched by id", async () => {
   expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Exchange" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Symbol" })).toBeInTheDocument();
+  expect(holdings.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Target weight" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Rank" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
   expect(holdings.getByRole("columnheader", { name: "Fallback" })).toBeInTheDocument();
   expect(holdings.getByText("SSE")).toBeInTheDocument();
   expect(holdings.getByText("510300")).toBeInTheDocument();
+  expect(holdings.getByText("沪深300ETF")).toBeInTheDocument();
   expect(holdings.getByText("33.3333%")).toBeInTheDocument();
   expect(holdings.getByText("1")).toBeInTheDocument();
   expect(holdings.getByText("0.812345")).toBeInTheDocument();
   expect(holdings.getByText("SZSE")).toBeInTheDocument();
   expect(holdings.getByText("159915")).toBeInTheDocument();
+  expect(holdings.getByText("创业板ETF")).toBeInTheDocument();
   expect(holdings.getByText("100%")).toBeInTheDocument();
   expect(holdings.getAllByText("n/a")).toHaveLength(2);
   expect(holdings.getByText("Yes")).toBeInTheDocument();
@@ -2267,6 +2270,7 @@ function createSignalDetailResponse() {
       {
         exchange: "SSE",
         symbol: "510300",
+        name: "沪深300ETF",
         target_weight: "0.333333",
         rank: 1,
         score: "0.812345",
@@ -2275,6 +2279,7 @@ function createSignalDetailResponse() {
       {
         exchange: "SZSE",
         symbol: "159915",
+        name: "创业板ETF",
         target_weight: "1.000000",
         rank: null,
         score: null,
@@ -2299,6 +2304,7 @@ function createGeneratedLatestSignalResponse() {
       {
         exchange: "SSE",
         symbol: "510300",
+        name: "沪深300ETF",
         target_weight: "0.500000",
         rank: 1,
         score: "0.800000",
@@ -2307,6 +2313,7 @@ function createGeneratedLatestSignalResponse() {
       {
         exchange: "SZSE",
         symbol: "159915",
+        name: "创业板ETF",
         target_weight: "0.500000",
         rank: 2,
         score: "0.700000",

@@ -441,6 +441,7 @@ def _latest_strategy_signal_position_response(
     return {
         "exchange": position.exchange,
         "symbol": position.symbol,
+        "name": position.name,
         "target_weight": _format_decimal(position.target_weight),
         "rank": position.rank,
         "score": _format_decimal(position.score),
@@ -480,6 +481,7 @@ def _strategy_signal_detail_position_response(
     return {
         "exchange": position.exchange,
         "symbol": position.symbol,
+        "name": position.name,
         "target_weight": _format_decimal(position.target_weight),
         "rank": position.rank,
         "score": _format_decimal(position.score),

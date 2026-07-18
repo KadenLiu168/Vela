@@ -203,6 +203,7 @@ def test_get_latest_strategy_signal_report_returns_structured_latest_signal() ->
     assert report.result == "rebalance"
     assert report.is_fallback is False
     assert [position.symbol for position in report.positions] == ["SPY", "QQQ"]
+    assert [position.name for position in report.positions] == ["SPY ETF", "QQQ ETF"]
 
 
 def test_get_latest_strategy_signal_report_returns_none_without_success() -> None:
@@ -426,6 +427,7 @@ def test_get_strategy_signal_report_returns_report_by_id() -> None:
     assert report.config_version == "v1"
     assert report.result == "rebalance"
     assert [position.symbol for position in report.positions] == ["SPY"]
+    assert [position.name for position in report.positions] == ["SPY ETF"]
 
 
 def test_get_strategy_signal_report_returns_none_when_missing() -> None:

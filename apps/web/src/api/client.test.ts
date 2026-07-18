@@ -395,6 +395,7 @@ it("calls latest strategy signal through the shared client", async () => {
       {
         exchange: "SSE",
         symbol: "510300",
+        name: "沪深300ETF",
         target_weight: "0.500000",
         rank: 1,
         score: "0.800000",
@@ -530,6 +531,7 @@ it("calls strategy signal detail through the shared client", async () => {
       {
         exchange: "SSE",
         symbol: "510300",
+        name: "沪深300ETF",
         target_weight: "0.333333",
         rank: 1,
         score: "0.812345",
