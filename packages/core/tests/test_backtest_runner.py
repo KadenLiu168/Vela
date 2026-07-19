@@ -8,12 +8,14 @@ import vela_core.backtest_runner as runner
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import BacktestGapDetectionConfig, BacktestRunResult, run_backtest
+from vela_core.database import managed_session
 from vela_core.models import (
     BacktestEquityCurve,
     BacktestRun,
     Base,
     ETFInfo,
     MarketPrice,
+    StrategySignal,
     TradingCalendar,
 )
 from vela_core.portfolio_holdings import PortfolioHolding, PortfolioHoldingSnapshot
@@ -53,6 +55,7 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
         curve_rows = (
             session.query(BacktestEquityCurve).order_by(BacktestEquityCurve.trade_date).all()
         )
+        signals = session.query(StrategySignal).all()
 
     assert result == BacktestRunResult(
         backtest_run_id=result.backtest_run_id,
@@ -80,6 +83,62 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     assert curve_rows[0].total_assets == Decimal("1.000000")
     assert curve_rows[0].positions_json == '[{"etf_id": 1, "target_weight": "1.000000"}]'
     assert curve_rows[1].net_value == Decimal("1.100000")
+    assert len(signals) == 1
+    assert signals[0].source == "backtest"
+    assert signals[0].backtest_run_id == run.id
+
+
+def test_run_backtest_links_failed_generated_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id, signal_status="failed")
+
+        result = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 1),
+        )
+        session.commit()
+        signal = session.query(StrategySignal).one()
+
+    assert result.status == "partial"
+    assert signal.status == "failed"
+    assert signal.source == "backtest"
+    assert signal.backtest_run_id == result.backtest_run_id
+
+
+def test_run_backtest_missing_signal_id_rolls_back_all_persisted_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        etf_id = etf.id
+
+    _patch_runner_helpers(monkeypatch, etf_id=etf_id, return_missing_id=True)
+
+    with pytest.raises(ValueError, match="did not persist every signal"):
+        with managed_session(session_factory) as session:
+            run_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 1),
+            )
+
+    with session_factory() as session:
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+        assert session.query(StrategySignal).count() == 0
 
 
 def test_run_backtest_uses_distinct_ordered_local_market_dates(
@@ -158,6 +217,8 @@ def _patch_runner_helpers(
     etf_id: int,
     holdings: list[PortfolioHolding] | None = None,
     captured_dates: list[date] | None = None,
+    signal_status: str = "success",
+    return_missing_id: bool = False,
 ) -> None:
     def fake_generate_historical_strategy_signals(
         *,
@@ -172,14 +233,26 @@ def _patch_runner_helpers(
         dates = list(historical_trading_dates)
         if captured_dates is not None:
             captured_dates.extend(dates)
+        signal_id = (
+            persist(
+                signal_date=dates[0],
+                generated_at=generated_at or datetime.now(UTC),
+                status=signal_status,
+                result="rebalance" if signal_status == "success" else None,
+                positions=[],
+                error_message=None if signal_status == "success" else "generation failed",
+            )
+            if persist is not None
+            else 1
+        )
         return [
             GenerateStrategySignalResult(
-                strategy_signal_id=1,
+                strategy_signal_id=None if return_missing_id else signal_id,
                 signal_date=dates[0],
                 config_version=config.version,
-                status="success",
-                result="rebalance",
-                error_message=None,
+                status=signal_status,
+                result="rebalance" if signal_status == "success" else None,
+                error_message=None if signal_status == "success" else "generation failed",
                 positions=[],
             )
         ]

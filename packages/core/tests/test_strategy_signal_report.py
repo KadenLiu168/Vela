@@ -31,6 +31,7 @@ def test_export_latest_strategy_signal_report_formats_positions() -> None:
             generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
             status="success",
             result="hold",
+            source="manual",
             positions=[],
         )
         latest = persist_strategy_signal(
@@ -41,6 +42,7 @@ def test_export_latest_strategy_signal_report_formats_positions() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=qqq.id,
@@ -83,6 +85,7 @@ def test_export_latest_strategy_signal_report_can_filter_signal_date() -> None:
             generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
             status="success",
             result="hold",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=spy.id,
@@ -100,6 +103,7 @@ def test_export_latest_strategy_signal_report_can_filter_signal_date() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         session.commit()
@@ -127,6 +131,7 @@ def test_export_latest_strategy_signal_report_marks_fallback() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=defense.id,
@@ -166,6 +171,7 @@ def test_get_latest_strategy_signal_report_returns_structured_latest_signal() ->
             generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
             status="failed",
             result=None,
+            source="manual",
             positions=[],
             error_message="missing market data",
         )
@@ -177,6 +183,7 @@ def test_get_latest_strategy_signal_report_returns_structured_latest_signal() ->
             generated_at=datetime(2026, 6, 24, 9, 35, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=qqq.id,
@@ -218,6 +225,7 @@ def test_get_latest_strategy_signal_report_returns_none_without_success() -> Non
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="failed",
             result=None,
+            source="manual",
             positions=[],
             error_message="missing market data",
         )
@@ -241,6 +249,7 @@ def test_list_strategy_signals_returns_successful_signals_ordered_desc() -> None
             generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
             status="success",
             result="hold",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=spy.id,
@@ -258,6 +267,7 @@ def test_list_strategy_signals_returns_successful_signals_ordered_desc() -> None
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         session.commit()
@@ -285,6 +295,7 @@ def test_list_strategy_signals_filters_by_strategy_id_and_config_version() -> No
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         persist_strategy_signal(
@@ -295,6 +306,7 @@ def test_list_strategy_signals_filters_by_strategy_id_and_config_version() -> No
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         persist_strategy_signal(
@@ -305,6 +317,7 @@ def test_list_strategy_signals_filters_by_strategy_id_and_config_version() -> No
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         session.commit()
@@ -329,6 +342,7 @@ def test_list_strategy_signals_excludes_non_success_status() -> None:
             generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
             status="failed",
             result=None,
+            source="manual",
             positions=[],
             error_message="missing market data",
         )
@@ -340,6 +354,7 @@ def test_list_strategy_signals_excludes_non_success_status() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[],
         )
         session.commit()
@@ -365,6 +380,7 @@ def test_list_strategy_signals_paginates_with_limit_and_offset() -> None:
                 generated_at=datetime(2026, 6, 1 + day, 9, 30, tzinfo=UTC),
                 status="success",
                 result="rebalance",
+                source="manual",
                 positions=[],
             )
         session.commit()
@@ -408,6 +424,7 @@ def test_get_strategy_signal_report_returns_report_by_id() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(
                     etf_id=spy.id,

@@ -34,7 +34,7 @@ from vela_core import (
     run_backtest,
     run_local_setup_bootstrap,
 )
-from vela_core.models import BacktestEquityCurve, BacktestRun
+from vela_core.models import BacktestEquityCurve, BacktestRun, StrategySignal
 from vela_core.strategy_config import load_strategy_config
 
 from vela_api.config import (
@@ -166,20 +166,24 @@ def setup_bootstrap(
 def generate_strategy_signal_endpoint(
     session: DatabaseSession,
     signal_date: Annotated[date | None, Query(alias="signalDate")] = None,
+    source: str = "manual",
 ) -> dict[str, object]:
+    if source not in StrategySignal.LIVE_SOURCES:
+        raise HTTPException(status_code=400, detail="Unsupported strategy signal source")
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
     try:
         result = generate_and_persist_strategy_signal(
             session,
             config=config,
             signal_date=signal_date,
+            source=source,
         )
     except ValueError as exc:
         if str(exc) != "No local market prices found":
             raise
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return _strategy_signal_response(result)
+    return _strategy_signal_response(result, source=source)
 
 
 @app.get("/api/strategy-signals/latest")
@@ -297,6 +301,8 @@ def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
         "run": _backtest_detail_run_response(run),
         "metrics": _backtest_metrics_response(run),
         "equity_curve": [_backtest_curve_point_response(row) for row in run.equity_curve],
+        "signal_ids": [signal.id for signal in run.signals],
+        "signal_count": len(run.signals),
     }
 
 
@@ -329,7 +335,9 @@ def _market_data_fetch_response(result: MarketDataFetchResult) -> dict[str, obje
     }
 
 
-def _strategy_signal_response(result: GenerateStrategySignalResult) -> dict[str, object]:
+def _strategy_signal_response(
+    result: GenerateStrategySignalResult, *, source: str
+) -> dict[str, object]:
     return {
         "signal_id": result.strategy_signal_id,
         "signal_date": result.signal_date.isoformat(),
@@ -337,6 +345,7 @@ def _strategy_signal_response(result: GenerateStrategySignalResult) -> dict[str,
         "status": result.status,
         "result": result.result,
         "error_message": result.error_message,
+        "source": source,
         "positions": [
             _strategy_signal_position_response(position) for position in result.positions
         ],
@@ -458,6 +467,8 @@ def _strategy_signal_list_item_response(entry: StrategySignalListEntry) -> dict[
         "generated_at": entry.generated_at,
         "is_fallback": entry.is_fallback,
         "position_count": entry.position_count,
+        "source": entry.source,
+        "backtest_run_id": entry.backtest_run_id,
     }
 
 
@@ -472,6 +483,8 @@ def _strategy_signal_detail_metadata_response(
         "generated_at": report.generated_at,
         "result": report.result,
         "is_fallback": report.is_fallback,
+        "source": report.source,
+        "backtest_run_id": report.backtest_run_id,
     }
 
 

@@ -110,6 +110,7 @@ from vela_core.strategy_signal_persistence import (
     StrategySignalPersistenceResult,
     StrategySignalPositionInput,
     get_latest_successful_strategy_signal,
+    link_signals_to_backtest_run,
     persist_strategy_signal,
 )
 from vela_core.strategy_signal_report import (
@@ -178,6 +179,7 @@ __all__ = [
     "StrategySharpeRatio",
     "StrategyVolatility",
     "StrategySignalPersistenceResult",
+    "link_signals_to_backtest_run",
     "TencentMarketDataProvider",
     "TradingCalendarSyncResult",
     "StrategySignalListEntry",

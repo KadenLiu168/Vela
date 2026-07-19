@@ -355,6 +355,7 @@ it("calls strategy signal generation through the shared client", async () => {
     status: "success",
     result: "rebalance",
     error_message: null,
+    source: "manual",
     positions: [
       {
         etf_id: 1,
@@ -376,6 +377,22 @@ it("calls strategy signal generation through the shared client", async () => {
 
   await expect(generateStrategySignal()).resolves.toEqual(generateResult);
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate", {
+    method: "POST"
+  });
+});
+
+it("encodes an explicit scheduled strategy signal source", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ source: "scheduled" }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await generateStrategySignal("scheduled");
+
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/generate?source=scheduled", {
     method: "POST"
   });
 });

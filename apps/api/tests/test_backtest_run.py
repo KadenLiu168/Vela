@@ -164,6 +164,8 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
     assert run.id == run_body["run_id"]
     assert run.status == "success"
     assert [signal.status for signal in signals] == ["success", "success"]
+    assert [signal.source for signal in signals] == ["backtest", "backtest"]
+    assert [signal.backtest_run_id for signal in signals] == [run.id, run.id]
     assert len(curve_rows) == run_body["trading_day_count"]
 
     assert detail_response.status_code == 200
@@ -183,6 +185,8 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
     assert detail["equity_curve"][0]["trade_date"] == curve_rows[0].trade_date.isoformat()
     assert detail["equity_curve"][-1]["trade_date"] == curve_rows[-1].trade_date.isoformat()
     assert detail["equity_curve"][-1]["net_value"] == str(curve_rows[-1].net_value)
+    assert detail["signal_ids"] == [signal.id for signal in signals]
+    assert detail["signal_count"] == len(signals)
 
 
 def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:
@@ -467,6 +471,8 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
                 "positions_json": '[{"symbol": "510300", "weight": 1.0}]',
             },
         ],
+        "signal_ids": [],
+        "signal_count": 0,
     }
 
 

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import (
     Date,
@@ -16,6 +16,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from vela_core.models.base import Base
+
+if TYPE_CHECKING:
+    from vela_core.models.strategy_signal import StrategySignal
 
 
 class BacktestRun(Base):
@@ -61,6 +64,10 @@ class BacktestRun(Base):
     equity_curve: Mapped[list["BacktestEquityCurve"]] = relationship(
         back_populates="backtest_run",
         order_by=lambda: (BacktestEquityCurve.trade_date, BacktestEquityCurve.id),
+    )
+    signals: Mapped[list["StrategySignal"]] = relationship(
+        back_populates="backtest_run",
+        order_by="(StrategySignal.signal_date, StrategySignal.id)",
     )
 
 

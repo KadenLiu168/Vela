@@ -644,6 +644,36 @@ main {
   color: var(--color-fog);
 }
 
+.source-badge {
+  align-items: center;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-badges);
+  display: inline-flex;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  padding: var(--spacing-4) var(--spacing-8);
+  white-space: nowrap;
+}
+
+.source-badge-manual {
+  color: var(--color-fog);
+}
+
+.source-badge-scheduled {
+  color: var(--feedback-accent-info);
+}
+
+.source-badge-backtest {
+  color: var(--feedback-accent);
+}
+
+.source-badge-legacy {
+  color: var(--feedback-accent-empty);
+}
+
 .metric-row {
   display: grid;
   gap: var(--spacing-12);

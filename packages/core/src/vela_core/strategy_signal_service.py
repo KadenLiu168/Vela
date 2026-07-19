@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from vela_core.market_price_query import load_price_panel
-from vela_core.models import ETFInfo, MarketPrice
+from vela_core.models import ETFInfo, MarketPrice, StrategySignal
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_signal_generation import (
     GenerateStrategySignalResult,
@@ -22,7 +22,10 @@ def generate_and_persist_strategy_signal(
     *,
     config: StrategyConfig,
     signal_date: date | None = None,
+    source: str = "manual",
 ) -> GenerateStrategySignalResult:
+    if source not in StrategySignal.LIVE_SOURCES:
+        raise ValueError(f"Unsupported live strategy signal source: {source}")
     resolved_signal_date = signal_date or session.scalar(select(func.max(MarketPrice.trade_date)))
     if resolved_signal_date is None:
         raise ValueError("No local market prices found")
@@ -55,6 +58,8 @@ def generate_and_persist_strategy_signal(
             generated_at=generated_at,
             status=status,
             result=result,
+            source=source,
+            backtest_run_id=None,
             positions=[
                 StrategySignalPositionInput(
                     etf_id=position["etf_id"],

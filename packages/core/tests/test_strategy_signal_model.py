@@ -3,10 +3,10 @@ from decimal import Decimal
 from typing import cast
 
 import pytest
-from sqlalchemy import Table, UniqueConstraint, create_engine
+from sqlalchemy import CheckConstraint, Table, UniqueConstraint, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core.models import Base, ETFInfo, StrategySignal, StrategySignalPosition
+from vela_core.models import BacktestRun, Base, ETFInfo, StrategySignal, StrategySignalPosition
 
 
 def test_strategy_signal_table_has_required_columns() -> None:
@@ -17,6 +17,8 @@ def test_strategy_signal_table_has_required_columns() -> None:
         "id",
         "signal_date",
         "config_version",
+        "source",
+        "backtest_run_id",
         "generated_at",
         "status",
         "result",
@@ -31,6 +33,80 @@ def test_strategy_signal_nullable_fields() -> None:
 
     assert table.columns["result"].nullable is True
     assert table.columns["error_message"].nullable is True
+    assert table.columns["backtest_run_id"].nullable is True
+
+
+def test_strategy_signal_has_constrained_provenance_fields() -> None:
+    table = cast(Table, StrategySignal.__table__)
+    check_constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert StrategySignal.SOURCES == ("manual", "scheduled", "backtest", "legacy")
+    assert StrategySignal.RUNTIME_SOURCES == ("manual", "scheduled", "backtest")
+    assert StrategySignal.LIVE_SOURCES == ("manual", "scheduled")
+    assert table.columns["source"].nullable is False
+    assert table.columns["source"].type.length == 16
+    assert "ck_strategy_signal_source" in check_constraints
+    assert "ck_strategy_signal_backtest_link" in check_constraints
+    assert any(
+        foreign_key.column.table.name == "backtest_run"
+        for foreign_key in table.columns["backtest_run_id"].foreign_keys
+    )
+    assert any(
+        tuple(column.name for column in index.columns) == ("backtest_run_id",)
+        for index in table.indexes
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "backtest_run_id"),
+    [("unknown", None), ("manual", 1), ("scheduled", 1), ("legacy", 1)],
+)
+def test_strategy_signal_database_rejects_invalid_provenance(
+    source: str,
+    backtest_run_id: int | None,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        session.add(_strategy_signal(source=source, backtest_run_id=backtest_run_id))
+
+        with pytest.raises(IntegrityError):
+            session.commit()
+
+
+def test_strategy_signal_and_backtest_run_relationships_are_bidirectional_and_ordered() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _backtest_run()
+        session.add(run)
+        session.flush()
+        later = _strategy_signal(
+            signal_date=date(2026, 6, 24),
+            source="backtest",
+            backtest_run_id=run.id,
+        )
+        earlier = _strategy_signal(
+            signal_date=date(2026, 6, 23),
+            source="backtest",
+            backtest_run_id=run.id,
+            config_version="v2",
+        )
+        session.add_all([later, earlier])
+        session.commit()
+        session.expire_all()
+
+        loaded_run = session.get(BacktestRun, run.id)
+        loaded_signal = session.get(StrategySignal, later.id)
+
+        assert loaded_run is not None
+        assert loaded_signal is not None
+        assert [signal.id for signal in loaded_run.signals] == [earlier.id, later.id]
+        assert loaded_signal.backtest_run is loaded_run
 
 
 def test_strategy_signal_supports_expected_status_values() -> None:
@@ -314,15 +390,32 @@ def _strategy_signal(
     status: str = "success",
     result: str | None = "rebalance",
     error_message: str | None = None,
+    source: str = "manual",
+    backtest_run_id: int | None = None,
 ) -> StrategySignal:
     return StrategySignal(
         signal_date=signal_date,
         strategy_id=strategy_id,
         config_version=config_version,
+        source=source,
+        backtest_run_id=backtest_run_id,
         generated_at=generated_at,
         status=status,
         result=result,
         error_message=error_message,
+    )
+
+
+def _backtest_run() -> BacktestRun:
+    return BacktestRun(
+        strategy_id="Dual_momentum",
+        config_version="v1",
+        start_date=date(2026, 6, 1),
+        end_date=date(2026, 6, 30),
+        parameters_json="{}",
+        started_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 7, 1, 9, 5, tzinfo=UTC),
+        status="success",
     )
 
 

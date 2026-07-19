@@ -95,6 +95,8 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
   }
 
   const { metrics, run } = backtestState.data;
+  const signalIds = backtestState.data.signal_ids;
+  const signalCount = backtestState.data.signal_count;
 
   return (
     <article className="dashboard-panel">
@@ -120,6 +122,22 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
           <MetricCard label="Volatility" value={formatRatioAsPercent(metrics.volatility)} />
           <MetricCard label="Sharpe ratio" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
         </dl>
+      </section>
+      <section className="holdings-section" aria-labelledby="backtest-signals-heading">
+        <h3 id="backtest-signals-heading">Signals ({signalCount})</h3>
+        {signalIds.length === 0 ? (
+          <EmptyState>No signals are linked to this backtest.</EmptyState>
+        ) : (
+          <ul>
+            {signalIds.map((signalId) => (
+              <li key={signalId}>
+                <a className="operation-link" href={`/signals/${signalId}`}>
+                  Signal #{signalId}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
         <h3 id="backtest-equity-curve-heading">Equity curve</h3>

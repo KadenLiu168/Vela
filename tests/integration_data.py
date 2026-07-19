@@ -90,6 +90,7 @@ def seed_minimal_workflow_data(session: Session) -> WorkflowDataset:
         signal_date=latest_trade_date,
         strategy_id="Dual_momentum",
         config_version="v1",
+        source="manual",
         generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
         status="success",
         result="rebalance",

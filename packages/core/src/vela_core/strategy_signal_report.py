@@ -31,6 +31,8 @@ class StrategySignalReport:
     config_version: str
     generated_at: str
     result: str | None
+    source: str
+    backtest_run_id: int | None
     is_fallback: bool
     positions: list[StrategySignalReportPosition]
 
@@ -75,6 +77,8 @@ class StrategySignalListEntry:
     signal_date: date
     config_version: str
     result: str | None
+    source: str
+    backtest_run_id: int | None
     generated_at: str
     is_fallback: bool
     position_count: int
@@ -100,6 +104,8 @@ def list_strategy_signals(
             StrategySignal.config_version,
             StrategySignal.result,
             StrategySignal.generated_at,
+            StrategySignal.source,
+            StrategySignal.backtest_run_id,
         )
         .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
@@ -139,6 +145,8 @@ def list_strategy_signals(
             signal_date=row.signal_date,
             config_version=row.config_version,
             result=row.result,
+            source=row.source,
+            backtest_run_id=row.backtest_run_id,
             generated_at=row.generated_at.isoformat(),
             is_fallback=_is_fallback_signal(signals[row.id]),
             position_count=counts.get(row.id, 0),
@@ -227,6 +235,8 @@ def _to_report(session: Session, signal: StrategySignal) -> StrategySignalReport
         config_version=signal.config_version,
         generated_at=signal.generated_at.isoformat(),
         result=signal.result,
+        source=signal.source,
+        backtest_run_id=signal.backtest_run_id,
         is_fallback=any(position.is_fallback for position in positions),
         positions=positions,
     )

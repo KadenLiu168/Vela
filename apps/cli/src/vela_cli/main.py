@@ -37,6 +37,7 @@ from vela_core.database import (
     create_session_factory,
     managed_session,
 )
+from vela_core.models import StrategySignal
 from vela_core.strategy_config import load_strategy_config
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -115,6 +116,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--strategy-config",
         default=str(DEFAULT_STRATEGY_CONFIG_PATH),
         help="Strategy configuration YAML path",
+    )
+    generate_signal_parser.add_argument(
+        "--source",
+        choices=StrategySignal.LIVE_SOURCES,
+        default="manual",
+        help="Signal provenance source (default: manual)",
     )
     generate_signal_parser.add_argument(
         "--signal-date",
@@ -273,6 +280,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.database_url,
                 strategy_config_path=Path(args.strategy_config),
                 signal_date=args.signal_date,
+                source=args.source,
             )
         except Exception as exc:
             print(f"Failed to generate signal in {args.database_url}: {exc}", file=sys.stderr)
@@ -386,6 +394,7 @@ def generate_signal(
     *,
     strategy_config_path: Path,
     signal_date: date | None,
+    source: str = "manual",
 ) -> GenerateStrategySignalResult:
     engine = create_engine_from_url(database_url)
     session_factory = create_session_factory(engine)
@@ -395,6 +404,7 @@ def generate_signal(
             session,
             config=config,
             signal_date=signal_date,
+            source=source,
         )
 
 

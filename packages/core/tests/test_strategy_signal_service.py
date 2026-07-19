@@ -30,6 +30,8 @@ def test_generate_and_persist_strategy_signal_uses_latest_local_market_date() ->
     assert signal.signal_date == latest_trade_date
     assert signal.strategy_id == "dual_momentum"
     assert signal.config_version == "v1"
+    assert signal.source == "manual"
+    assert signal.backtest_run_id is None
 
 
 def test_generate_and_persist_strategy_signal_preserves_explicit_signal_date() -> None:
@@ -93,6 +95,46 @@ def test_generate_and_persist_strategy_signal_persists_signal_and_positions() ->
     assert [position.symbol for position in result.positions] == ["510300", "159915"]
     assert len(positions) == 2
     assert {position.target_weight for position in positions} == {Decimal("0.500000")}
+
+
+def test_generate_and_persist_strategy_signal_records_scheduled_source() -> None:
+    session_factory = _create_session_factory()
+    config = _strategy_config(top_n=2)
+
+    with session_factory() as session:
+        first = _add_etf(session, exchange="SSE", symbol="510300")
+        second = _add_etf(session, exchange="SZSE", symbol="159915")
+        _add_etf(session, exchange="SSE", symbol="511010")
+        _add_price_history(session, etf_id=first.id, current_price=Decimal("180"))
+        _add_price_history(session, etf_id=second.id, current_price=Decimal("170"))
+
+        result = generate_and_persist_strategy_signal(
+            session,
+            config=config,
+            source="scheduled",
+        )
+        signal = session.get(StrategySignal, result.strategy_signal_id)
+
+    assert signal is not None
+    assert signal.source == "scheduled"
+    assert signal.backtest_run_id is None
+
+
+@pytest.mark.parametrize("source", ["backtest", "legacy", "unknown"])
+def test_generate_and_persist_strategy_signal_rejects_non_live_source_before_write(
+    source: str,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        with pytest.raises(ValueError, match="Unsupported live strategy signal source"):
+            generate_and_persist_strategy_signal(
+                session,
+                config=_strategy_config(top_n=2),
+                source=source,
+            )
+
+        assert session.scalars(select(StrategySignal)).all() == []
 
 
 def _create_session_factory() -> sessionmaker[Session]:

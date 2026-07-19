@@ -83,6 +83,7 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
         "status",
         "result",
         "error_message",
+        "source",
         "positions",
     }
 

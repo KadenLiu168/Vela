@@ -1377,7 +1377,9 @@ it.each([
               result: "rebalance",
               generated_at: "2026-06-23T09:30:00",
               is_fallback: false,
-              position_count: 2
+              position_count: 2,
+              source: "manual",
+              backtest_run_id: null
             }
           ]
         })
@@ -1431,6 +1433,45 @@ it.each([
   expect(screen.queryByRole("heading", { name: "Vela Research" })).not.toBeInTheDocument();
 });
 
+it("renders distinct accessible source badges for every signal source", async () => {
+  window.history.pushState({}, "", "/signals");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        signals: ["manual", "scheduled", "backtest", "legacy"].map((source, index) => ({
+          signal_id: index + 1,
+          signal_date: "2026-06-23",
+          config_version: "v1",
+          result: "rebalance",
+          generated_at: "2026-06-23T09:30:00",
+          is_fallback: false,
+          position_count: 1,
+          source,
+          backtest_run_id: source === "backtest" ? 8 : null
+        }))
+      })
+    )
+  );
+
+  render(<App />);
+
+  for (const [label, source] of [
+    ["Manual", "manual"],
+    ["Scheduled", "scheduled"],
+    ["Backtest", "backtest"],
+    ["Legacy", "legacy"]
+  ]) {
+    expect(await screen.findByText(label)).toHaveClass(
+      "source-badge",
+      `source-badge-${source}`
+    );
+  }
+  expect(screen.getByText("Legacy")).toHaveAccessibleDescription(
+    "Predates provenance tracking"
+  );
+});
+
 it("renders signal detail data fetched by id", async () => {
   window.history.pushState({}, "", "/signals/42");
   const fetchMock = vi.fn((input: RequestInfo | URL) => {
@@ -1452,6 +1493,10 @@ it("renders signal detail data fetched by id", async () => {
   expect(screen.getByText("dual_momentum")).toBeInTheDocument();
   expect(screen.getByText("v1")).toBeInTheDocument();
   expect(screen.getByText("rebalance")).toBeInTheDocument();
+  expect(screen.getByText("manual")).toBeInTheDocument();
+  const signalArticle = screen.getByText("Signal #42").closest("article");
+  expect(signalArticle).not.toBeNull();
+  expect(within(signalArticle as HTMLElement).queryByRole("link")).not.toBeInTheDocument();
   expect(screen.getAllByText("No")).toHaveLength(2);
   expect(screen.getByText("2026-06-23T09:30:00")).toBeInTheDocument();
   const holdingsTable = screen.getByRole("table");
@@ -1480,6 +1525,56 @@ it("renders signal detail data fetched by id", async () => {
   expect(screen.queryByText(/candidate/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals/42", undefined);
 });
+
+it("links a backtest signal detail only to its producing run", async () => {
+  window.history.pushState({}, "", "/signals/42");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createSignalDetailResponse(),
+        signal: {
+          ...createSignalDetailResponse().signal,
+          source: "backtest",
+          backtest_run_id: 8
+        }
+      })
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByRole("link", { name: "Backtest #8" })).toHaveAttribute(
+    "href",
+    "/backtests/8"
+  );
+});
+
+it.each(["manual", "scheduled", "legacy"])(
+  "does not link a %s signal detail to a backtest",
+  async (source) => {
+    window.history.pushState({}, "", "/signals/42");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          ...createSignalDetailResponse(),
+          signal: {
+            ...createSignalDetailResponse().signal,
+            source,
+            backtest_run_id: null
+          }
+        })
+      )
+    );
+
+    render(<App />);
+
+    const signalArticle = (await screen.findByText("Signal #42")).closest("article");
+    expect(signalArticle).not.toBeNull();
+    expect(within(signalArticle as HTMLElement).queryByRole("link")).not.toBeInTheDocument();
+  }
+);
 
 it("renders shared page loading feedback on the signal detail route", () => {
   window.history.pushState({}, "", "/signals/42");
@@ -1609,6 +1704,17 @@ it("loads backtest detail data through the shared client", async () => {
   expect(metrics.getByText("20.00%")).toBeInTheDocument();
   expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
   expect(metrics.getByText("1.10")).toBeInTheDocument();
+  const signalsSection = screen.getByRole("heading", { name: "Signals (2)" }).closest("section");
+  expect(signalsSection).not.toBeNull();
+  const signals = within(signalsSection as HTMLElement);
+  expect(signals.getAllByRole("link").map((link) => link.textContent)).toEqual([
+    "Signal #7",
+    "Signal #9"
+  ]);
+  expect(signals.getByRole("link", { name: "Signal #7" })).toHaveAttribute(
+    "href",
+    "/signals/7"
+  );
   const equitySection = screen.getByRole("heading", { name: "Equity curve" }).closest("section");
   expect(equitySection).not.toBeNull();
   const equityCurve = within(equitySection as HTMLElement);
@@ -1631,6 +1737,25 @@ it("loads backtest detail data through the shared client", async () => {
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
   expect(screen.queryByText(/drawdown curve|monthly returns|return distribution/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
+});
+
+it("renders an explicit empty state for a backtest with no linked signals", async () => {
+  window.history.pushState({}, "", "/backtests/8");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...createBacktestDetailResponse(),
+        signal_ids: [],
+        signal_count: 0
+      })
+    )
+  );
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Signals (0)" })).toBeInTheDocument();
+  expect(screen.getByText("No signals are linked to this backtest.")).toBeInTheDocument();
 });
 
 it("renders an empty equity curve state on the backtest detail route", async () => {
@@ -2264,7 +2389,9 @@ function createSignalDetailResponse() {
       config_version: "v1",
       generated_at: "2026-06-23T09:30:00",
       result: "rebalance",
-      is_fallback: false
+      is_fallback: false,
+      source: "manual",
+      backtest_run_id: null
     },
     positions: [
       {
@@ -2377,7 +2504,9 @@ function createBacktestDetailResponse() {
         total_assets: "10200.000000",
         positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
       }
-    ]
+    ],
+    signal_ids: [7, 9],
+    signal_count: 2
   };
 }
 

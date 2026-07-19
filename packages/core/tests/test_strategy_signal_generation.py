@@ -39,6 +39,7 @@ def test_generate_strategy_signal_persists_ranked_positions() -> None:
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -112,6 +113,7 @@ def test_generate_strategy_signal_persists_defensive_fallback() -> None:
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -186,6 +188,7 @@ def test_generate_strategy_signal_persists_failure_when_no_active_etfs_exist() -
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -242,6 +245,7 @@ def test_generate_strategy_signal_persists_failure_when_defensive_asset_is_missi
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -327,6 +331,7 @@ def test_generate_strategy_signal_names_second_missing_defensive_asset() -> None
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -398,6 +403,7 @@ def test_generate_historical_strategy_signals_persists_rebalance_date_positions(
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],
@@ -474,6 +480,7 @@ def test_generate_historical_strategy_signals_do_not_use_future_prices() -> None
                 generated_at=generated_at,
                 status=status,
                 result=result,
+                source="manual",
                 positions=[
                     StrategySignalPositionInput(
                         etf_id=position["etf_id"],

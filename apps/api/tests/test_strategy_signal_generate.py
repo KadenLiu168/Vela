@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from vela_api.database import initialize_database
@@ -43,6 +44,7 @@ def test_strategy_signal_generate_endpoint_uses_latest_local_market_date(tmp_pat
     assert body["status"] == "success"
     assert body["result"] == "rebalance"
     assert body["error_message"] is None
+    assert body["source"] == "manual"
     assert [position["symbol"] for position in body["positions"]] == ["510300", "159915"]
 
     with session_factory() as session:
@@ -52,7 +54,67 @@ def test_strategy_signal_generate_endpoint_uses_latest_local_market_date(tmp_pat
     assert signal is not None
     assert signal.signal_date == latest_trade_date
     assert signal.status == "success"
+    assert signal.source == "manual"
+    assert signal.backtest_run_id is None
     assert len(positions) == 2
+
+
+def test_strategy_signal_generate_endpoint_records_scheduled_source(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'generate-scheduled-signal.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    latest_trade_date = date(2026, 6, 23)
+    with session_factory() as session:
+        first = add_etf(session, exchange="SSE", symbol="510300", currency="CNY")
+        second = add_etf(session, exchange="SZSE", symbol="159915", currency="CNY")
+        add_etf(session, exchange="SSE", symbol="511010", currency="CNY")
+        add_price_history(session, etf_id=first.id, end_date=latest_trade_date)
+        add_price_history(
+            session,
+            etf_id=second.id,
+            end_date=latest_trade_date,
+            current_price=Decimal("170.000000"),
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).post("/api/strategy-signals/generate?source=scheduled")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "scheduled"
+    with session_factory() as session:
+        signal = session.scalar(select(StrategySignal))
+        assert signal is not None
+        assert signal.source == "scheduled"
+        assert signal.backtest_run_id is None
+
+
+@pytest.mark.parametrize("source", ["backtest", "legacy", "unknown"])
+def test_strategy_signal_generate_endpoint_rejects_unsupported_source_without_write(
+    tmp_path,
+    source: str,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / f'generate-invalid-{source}.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).post(f"/api/strategy-signals/generate?source={source}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {
+            "code": "operation_failed",
+            "category": "operation_failed",
+            "message": "Unsupported strategy signal source",
+        }
+    }
+    with session_factory() as session:
+        assert session.scalars(select(StrategySignal)).all() == []
 
 
 def test_strategy_signal_generate_endpoint_updates_latest_signal_and_dashboard(tmp_path) -> None:

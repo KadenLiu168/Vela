@@ -25,6 +25,7 @@ def test_calculate_daily_holdings_from_signal_positions() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.500000")),
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.500000")),
@@ -58,6 +59,7 @@ def test_calculate_interval_holdings_carries_positions_forward() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
@@ -100,6 +102,7 @@ def test_calculate_interval_holdings_empty_before_first_signal() -> None:
             generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
@@ -136,6 +139,7 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
@@ -148,6 +152,7 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
             generated_at=datetime(2026, 6, 25, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000")),
             ],
@@ -192,6 +197,7 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
@@ -204,6 +210,7 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
             generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000")),
             ],
@@ -241,6 +248,7 @@ def test_calculate_holdings_ignores_failed_signals() -> None:
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             status="success",
             result="rebalance",
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
@@ -253,6 +261,7 @@ def test_calculate_holdings_ignores_failed_signals() -> None:
             generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
             status="failed",
             result=None,
+            source="manual",
             positions=[
                 StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000")),
             ],

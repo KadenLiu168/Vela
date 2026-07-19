@@ -863,6 +863,7 @@ def _add_signal(
         generated_at=datetime.combine(signal_date, datetime.min.time(), tzinfo=UTC),
         status="success",
         result="rebalance",
+        source="manual",
         positions=positions
         if positions is not None
         else [

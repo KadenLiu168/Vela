@@ -140,6 +140,7 @@ export type StrategySignalGenerationResponse = {
   status: string;
   result: string | null;
   error_message: string | null;
+  source: StrategySignalSource;
   positions: StrategySignalGenerationPosition[];
 };
 
@@ -161,6 +162,8 @@ export type BacktestDetailResponse = {
   run: BacktestDetailRun;
   metrics: BacktestDetailMetrics;
   equity_curve: BacktestEquityCurvePoint[];
+  signal_ids: number[];
+  signal_count: number;
 };
 
 export type BacktestDetailRun = {
@@ -269,7 +272,12 @@ export type StrategySignalListItem = {
   generated_at: string;
   is_fallback: boolean;
   position_count: number;
+  source: StrategySignalSource;
+  backtest_run_id: number | null;
 };
+
+export type StrategySignalSource = "manual" | "scheduled" | "backtest" | "legacy";
+export type LiveStrategySignalSource = "manual" | "scheduled";
 
 export type StrategySignalListResponse = {
   signals: StrategySignalListItem[];
@@ -283,6 +291,8 @@ export type StrategySignalDetailMetadata = {
   generated_at: string;
   result: string | null;
   is_fallback: boolean;
+  source: StrategySignalSource;
+  backtest_run_id: number | null;
 };
 
 export type StrategySignalDetailPosition = {
@@ -381,8 +391,11 @@ export function bootstrapLocalDatabase(): Promise<BootstrapResponse> {
   });
 }
 
-export function generateStrategySignal(): Promise<StrategySignalGenerationResponse> {
-  return apiRequest<StrategySignalGenerationResponse>("/strategy-signals/generate", {
+export function generateStrategySignal(
+  source?: LiveStrategySignalSource
+): Promise<StrategySignalGenerationResponse> {
+  const suffix = source === undefined ? "" : `?source=${encodeURIComponent(source)}`;
+  return apiRequest<StrategySignalGenerationResponse>(`/strategy-signals/generate${suffix}`, {
     method: "POST"
   });
 }

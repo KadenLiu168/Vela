@@ -92,6 +92,6 @@ def persist_backtest_result(
 def get_backtest_result(session: Session, *, run_id: int) -> BacktestRun | None:
     return session.scalar(
         select(BacktestRun)
-        .options(selectinload(BacktestRun.equity_curve))
+        .options(selectinload(BacktestRun.equity_curve), selectinload(BacktestRun.signals))
         .where(BacktestRun.id == run_id)
     )

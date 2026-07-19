@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -18,10 +19,22 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from vela_core.models.base import Base
 
+if TYPE_CHECKING:
+    from vela_core.models.backtest import BacktestRun
+
 
 class StrategySignal(Base):
     __tablename__ = "strategy_signal"
     __table_args__ = (
+        CheckConstraint(
+            "source IN ('manual', 'scheduled', 'backtest', 'legacy')",
+            name="ck_strategy_signal_source",
+        ),
+        CheckConstraint(
+            "source = 'backtest' OR backtest_run_id IS NULL",
+            name="ck_strategy_signal_backtest_link",
+        ),
+        Index("ix_strategy_signal_backtest_run_id", "backtest_run_id"),
         Index("ix_strategy_signal_date_config", "signal_date", "config_version"),
         Index("ix_strategy_signal_status_generated_at", "status", "generated_at"),
         Index("ix_strategy_signal_strategy_config", "strategy_id", "config_version"),
@@ -29,11 +42,16 @@ class StrategySignal(Base):
 
     STATUSES: ClassVar[tuple[str, ...]] = ("running", "success", "failed", "partial")
     RESULTS: ClassVar[tuple[str, ...]] = ("buy", "hold", "rebalance", "empty")
+    SOURCES: ClassVar[tuple[str, ...]] = ("manual", "scheduled", "backtest", "legacy")
+    RUNTIME_SOURCES: ClassVar[tuple[str, ...]] = ("manual", "scheduled", "backtest")
+    LIVE_SOURCES: ClassVar[tuple[str, ...]] = ("manual", "scheduled")
 
     id: Mapped[int] = mapped_column(primary_key=True)
     signal_date: Mapped[date] = mapped_column(Date, nullable=False)
     strategy_id: Mapped[str] = mapped_column(String(128), nullable=False)
     config_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    backtest_run_id: Mapped[int | None] = mapped_column(ForeignKey("backtest_run.id"))
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -56,6 +74,7 @@ class StrategySignal(Base):
     positions: Mapped[list["StrategySignalPosition"]] = relationship(
         back_populates="strategy_signal",
     )
+    backtest_run: Mapped["BacktestRun | None"] = relationship(back_populates="signals")
 
 
 class StrategySignalPosition(Base):

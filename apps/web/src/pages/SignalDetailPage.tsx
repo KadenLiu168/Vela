@@ -104,6 +104,17 @@ function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
         <Detail label="Strategy" value={signal.strategy_id} />
         <Detail label="Config version" value={signal.config_version} />
         <Detail label="Result" value={formatNullableText(signal.result)} />
+        <Detail label="Source" value={signal.source} />
+        {signal.source === "backtest" && signal.backtest_run_id !== null ? (
+          <>
+            <dt>Backtest</dt>
+            <dd>
+              <a className="operation-link" href={`/backtests/${signal.backtest_run_id}`}>
+                Backtest #{signal.backtest_run_id}
+              </a>
+            </dd>
+          </>
+        ) : null}
         <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
         <Detail label="Generated at" value={formatTimestamp(signal.generated_at)} />
       </dl>

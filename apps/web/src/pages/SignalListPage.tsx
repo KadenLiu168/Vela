@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ApiClientError,
   type StrategySignalListItem,
+  type StrategySignalSource,
   listStrategySignals
 } from "../api/client";
 import { EmptyState, FeedbackMessage, Pagination } from "../components";
@@ -96,6 +97,7 @@ function renderSignalList(
               <th scope="col">Signal date</th>
               <th scope="col">Config version</th>
               <th scope="col">Result</th>
+              <th scope="col">Source</th>
               <th scope="col">Generated at</th>
             </tr>
           </thead>
@@ -110,6 +112,9 @@ function renderSignalList(
                 <td>{formatDate(signal.signal_date)}</td>
                 <td>{signal.config_version}</td>
                 <td>{formatNullableText(signal.result)}</td>
+                <td>
+                  <SourceBadge source={signal.source} />
+                </td>
                 <td>{formatTimestamp(signal.generated_at)}</td>
               </tr>
             ))}
@@ -123,5 +128,23 @@ function renderSignalList(
         onOffsetChange={setOffset}
       />
     </article>
+  );
+}
+
+const SOURCE_LABELS: Record<StrategySignalSource, string> = {
+  manual: "Manual",
+  scheduled: "Scheduled",
+  backtest: "Backtest",
+  legacy: "Legacy"
+};
+
+function SourceBadge({ source }: { source: StrategySignalSource }) {
+  return (
+    <span
+      className={`source-badge source-badge-${source}`}
+      title={source === "legacy" ? "Predates provenance tracking" : undefined}
+    >
+      {SOURCE_LABELS[source]}
+    </span>
   );
 }

@@ -38,6 +38,7 @@ from vela_core.strategy_signal_generation import (
 )
 from vela_core.strategy_signal_persistence import (
     StrategySignalPositionInput,
+    link_signals_to_backtest_run,
     persist_strategy_signal,
 )
 
@@ -141,6 +142,8 @@ def run_backtest(
             generated_at=generated_at,
             status=status,
             result=result,
+            source="backtest",
+            backtest_run_id=None,
             positions=[
                 StrategySignalPositionInput(
                     etf_id=position["etf_id"],
@@ -204,6 +207,16 @@ def run_backtest(
             volatility=volatility.volatility,
         ),
         equity_curve=_to_curve_inputs(points, holdings),
+    )
+    signal_ids: list[int] = []
+    for result in signal_results:
+        if result.strategy_signal_id is None:
+            raise ValueError("Backtest signal generation did not persist every signal")
+        signal_ids.append(result.strategy_signal_id)
+    link_signals_to_backtest_run(
+        session,
+        run_id=persistence_result.backtest_run.id,
+        signal_ids=signal_ids,
     )
 
     return _to_result(

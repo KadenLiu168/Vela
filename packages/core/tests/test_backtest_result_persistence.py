@@ -10,7 +10,7 @@ from vela_core import (
     get_backtest_result,
     persist_backtest_result,
 )
-from vela_core.models import BacktestEquityCurve, BacktestRun, Base
+from vela_core.models import BacktestEquityCurve, BacktestRun, Base, StrategySignal
 
 
 def test_persist_backtest_result_writes_run_metrics_and_curve_rows() -> None:
@@ -82,6 +82,18 @@ def test_get_backtest_result_loads_run_with_ordered_equity_curve() -> None:
                 _curve_input(date(2026, 1, 2), net_value=Decimal("1.000000")),
             ],
         )
+        session.add_all(
+            [
+                _strategy_signal(
+                    signal_date=date(2026, 1, 3),
+                    backtest_run_id=persisted.backtest_run.id,
+                ),
+                _strategy_signal(
+                    signal_date=date(2026, 1, 2),
+                    backtest_run_id=persisted.backtest_run.id,
+                ),
+            ]
+        )
         session.commit()
         session.expire_all()
 
@@ -90,6 +102,10 @@ def test_get_backtest_result_loads_run_with_ordered_equity_curve() -> None:
     assert run is not None
     assert run.parameters_json == '{"top_n": 2}'
     assert [row.trade_date for row in run.equity_curve] == [
+        date(2026, 1, 2),
+        date(2026, 1, 3),
+    ]
+    assert [signal.signal_date for signal in run.signals] == [
         date(2026, 1, 2),
         date(2026, 1, 3),
     ]
@@ -143,4 +159,17 @@ def _curve_input(
         market_value=Decimal("10000.000000"),
         total_assets=Decimal("10000.000000"),
         positions_json='[{"symbol": "SPY", "weight": 1.0}]',
+    )
+
+
+def _strategy_signal(*, signal_date: date, backtest_run_id: int) -> StrategySignal:
+    return StrategySignal(
+        signal_date=signal_date,
+        strategy_id="dual_momentum",
+        config_version="v1",
+        source="backtest",
+        backtest_run_id=backtest_run_id,
+        generated_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+        status="success",
+        result="hold",
     )

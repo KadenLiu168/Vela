@@ -20,6 +20,7 @@ def _seed_signals(session_factory) -> None:
                     signal_date=date(2026, 6, 22),
                     strategy_id="Dual_momentum",
                     config_version="v1",
+                    source="manual",
                     generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
                     status="success",
                     result="hold",
@@ -36,6 +37,7 @@ def _seed_signals(session_factory) -> None:
                     signal_date=date(2026, 6, 23),
                     strategy_id="Dual_momentum",
                     config_version="v1",
+                    source="manual",
                     generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                     status="success",
                     result="rebalance",
@@ -52,6 +54,7 @@ def _seed_signals(session_factory) -> None:
                     signal_date=date(2026, 6, 24),
                     strategy_id="Dual_momentum",
                     config_version="v1",
+                    source="manual",
                     generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
                     status="failed",
                     result=None,
@@ -61,6 +64,7 @@ def _seed_signals(session_factory) -> None:
                     signal_date=date(2026, 6, 23),
                     strategy_id="Other_strategy",
                     config_version="v1",
+                    source="manual",
                     generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                     status="success",
                     result="rebalance",
@@ -91,6 +95,8 @@ def test_list_strategy_signals_endpoint_returns_successful_signals_for_current_s
     assert signals[0]["result"] == "rebalance"
     assert signals[0]["position_count"] == 1
     assert signals[0]["is_fallback"] is True
+    assert signals[0]["source"] == "manual"
+    assert signals[0]["backtest_run_id"] is None
     assert signals[1]["position_count"] == 1
     assert signals[1]["is_fallback"] is False
 
@@ -149,6 +155,8 @@ def test_strategy_signal_detail_endpoint_returns_signal_by_id(tmp_path) -> None:
         "generated_at": "2026-06-23T09:30:00",
         "result": "rebalance",
         "is_fallback": True,
+        "source": "manual",
+        "backtest_run_id": None,
     }
     assert body["positions"] == [
         {
