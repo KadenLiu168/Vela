@@ -14,4 +14,4 @@
 
 - [x] 3.1 Run `uv run --no-sync ruff check .`, `uv run --no-sync ruff format --check .`, and `uv run --no-sync mypy --config-file pyproject.toml` to confirm no new lint/type issues from the change.
 - [x] 3.2 Confirm the implementation diff (excluding this change's OpenSpec artifacts) is limited to `apps/cli/tests/test_sync_etf_pool.py` and `.github/workflows/ci.yml` (no production code touched).
-- [ ] 3.3 After the change is pushed, confirm the GitHub Actions run passes both quality jobs and contains neither the Node.js 20 deprecation warning nor `Cache service responded with 400`.
+- [x] 3.3 After the change is pushed, confirm the GitHub Actions run passes both quality jobs and contains neither the Node.js 20 deprecation warning nor `Cache service responded with 400`.
