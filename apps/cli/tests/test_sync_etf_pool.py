@@ -57,9 +57,7 @@ def test_sync_etf_pool_uses_default_inputs(monkeypatch: pytest.MonkeyPatch) -> N
     exit_code = cli.main(["sync-etf-pool"])
 
     assert exit_code == 0
-    assert called_args == [
-        ("sqlite+pysqlite:///vela.db", Path("/Users/kaden/Vela/config/strategy_v1.yaml"))
-    ]
+    assert called_args == [("sqlite+pysqlite:///vela.db", cli.DEFAULT_STRATEGY_CONFIG_PATH)]
 
 
 def test_sync_etf_pool_prints_success_summary(
