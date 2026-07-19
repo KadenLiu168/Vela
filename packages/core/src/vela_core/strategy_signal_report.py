@@ -40,11 +40,13 @@ class StrategySignalReport:
 def export_latest_strategy_signal_report(
     session: Session,
     *,
+    strategy_id: str,
     config_version: str,
     signal_date: date | None = None,
 ) -> str:
     report = get_latest_strategy_signal_report(
         session,
+        strategy_id=strategy_id,
         config_version=config_version,
         signal_date=signal_date,
     )
@@ -57,11 +59,13 @@ def export_latest_strategy_signal_report(
 def get_latest_strategy_signal_report(
     session: Session,
     *,
+    strategy_id: str,
     config_version: str,
     signal_date: date | None = None,
 ) -> StrategySignalReport | None:
     signal = _get_latest_successful_signal(
         session,
+        strategy_id=strategy_id,
         config_version=config_version,
         signal_date=signal_date,
     )
@@ -178,12 +182,14 @@ def _is_fallback_signal(signal: StrategySignal) -> bool:
 def _get_latest_successful_signal(
     session: Session,
     *,
+    strategy_id: str,
     config_version: str,
     signal_date: date | None,
 ) -> StrategySignal | None:
     statement = (
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
+        .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .order_by(

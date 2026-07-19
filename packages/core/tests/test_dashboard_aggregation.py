@@ -22,7 +22,7 @@ def test_dashboard_summary_reports_empty_persisted_workflow_data() -> None:
         summary = get_dashboard_summary(session, strategy_summary=_strategy_summary())
 
     assert summary == {
-        "strategy": {"strategy_id": "dual_momentum", "version": "v1"},
+        "strategy": {"strategy_id": "Dual_momentum", "version": "v1"},
         "market_data": {
             "price_rows": 0,
             "covered_etfs": 0,
@@ -140,7 +140,7 @@ def test_dashboard_summary_aggregates_persisted_sqlite_rows() -> None:
         summary = get_dashboard_summary(session, strategy_summary=_strategy_summary())
 
     assert summary == {
-        "strategy": {"strategy_id": "dual_momentum", "version": "v1"},
+        "strategy": {"strategy_id": "Dual_momentum", "version": "v1"},
         "market_data": {
             "price_rows": 3,
             "covered_etfs": 2,
@@ -219,7 +219,43 @@ def _create_session_factory() -> sessionmaker[Session]:
 
 
 def _strategy_summary() -> dict[str, str]:
-    return {"strategy_id": "dual_momentum", "version": "v1"}
+    return {"strategy_id": "Dual_momentum", "version": "v1"}
+
+
+def test_dashboard_summary_ignores_newer_foreign_strategy_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        matching = StrategySignal(
+            signal_date=date(2026, 6, 23),
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            source="manual",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+        )
+        session.add_all(
+            [
+                matching,
+                StrategySignal(
+                    signal_date=date(2026, 6, 24),
+                    strategy_id="Other_strategy",
+                    config_version="v1",
+                    source="manual",
+                    generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
+                    status="success",
+                    result="hold",
+                ),
+            ]
+        )
+        session.commit()
+
+        summary = get_dashboard_summary(session, strategy_summary=_strategy_summary())
+
+    latest_signal = summary["latest_signal"]
+    assert isinstance(latest_signal, dict)
+    assert latest_signal["signal_id"] == matching.id
 
 
 def test_dashboard_summary_reports_empty_latest_signal_without_successful_signal() -> None:

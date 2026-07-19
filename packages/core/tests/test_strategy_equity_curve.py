@@ -800,7 +800,7 @@ def _create_session_factory() -> sessionmaker[Session]:
 def _strategy_config(transaction_cost_bps: float = 0) -> StrategyConfig:
     return StrategyConfig.model_validate(
         {
-            "strategy_id": "dual_momentum",
+            "strategy_id": "Dual_momentum",
             "version": "v1",
             "universe_config": "config/etf_pool.yaml",
             "momentum": {

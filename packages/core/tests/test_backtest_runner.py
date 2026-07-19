@@ -280,6 +280,7 @@ def _patch_runner_helpers(
         session: Session,
         *,
         trading_dates: list[date],
+        strategy_id: str,
         config_version: str,
     ) -> list[PortfolioHoldingSnapshot]:
         snapshot_holdings = (

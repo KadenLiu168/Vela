@@ -36,6 +36,7 @@ def test_calculate_daily_holdings_from_signal_positions() -> None:
         snapshots = calculate_portfolio_holdings(
             session,
             trading_dates=[date(2026, 6, 23)],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -73,6 +74,7 @@ def test_calculate_interval_holdings_carries_positions_forward() -> None:
                 date(2026, 6, 24),
                 date(2026, 6, 25),
             ],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -112,6 +114,7 @@ def test_calculate_interval_holdings_empty_before_first_signal() -> None:
         snapshots = calculate_portfolio_holdings(
             session,
             trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -166,6 +169,7 @@ def test_calculate_interval_holdings_changes_on_rebalance_date() -> None:
                 date(2026, 6, 25),
                 date(2026, 6, 26),
             ],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -220,6 +224,7 @@ def test_calculate_holdings_uses_latest_successful_signal_run_for_date() -> None
         snapshots = calculate_portfolio_holdings(
             session,
             trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -272,11 +277,58 @@ def test_calculate_holdings_ignores_failed_signals() -> None:
         snapshots = calculate_portfolio_holdings(
             session,
             trading_dates=[date(2026, 6, 24)],
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
     assert snapshots[0].signal_date == date(2026, 6, 23)
     assert [holding.etf_id for holding in snapshots[0].holdings] == [spy.id]
+
+
+def test_calculate_holdings_ignores_newer_foreign_strategy_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        matching = persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="manual",
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000"))
+            ],
+        )
+        persist_strategy_signal(
+            session,
+            strategy_id="Other_strategy",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="manual",
+            positions=[
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1.000000"))
+            ],
+        )
+        session.commit()
+
+        snapshots = calculate_portfolio_holdings(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_id="Dual_momentum",
+            config_version="v1",
+        )
+
+    assert snapshots[0].holdings == []
+    assert snapshots[1].strategy_signal_id == matching.strategy_signal.id
+    assert [holding.etf_id for holding in snapshots[1].holdings] == [spy.id]
 
 
 def _create_session_factory() -> sessionmaker[Session]:

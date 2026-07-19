@@ -86,6 +86,15 @@ def test_latest_strategy_signal_endpoint_reads_persisted_sqlite_rows(tmp_path) -
                         ),
                     ],
                 ),
+                StrategySignal(
+                    signal_date=date(2026, 6, 25),
+                    strategy_id="Other_strategy",
+                    config_version="v1",
+                    source="manual",
+                    generated_at=datetime(2026, 6, 25, 9, 35, tzinfo=UTC),
+                    status="success",
+                    result="hold",
+                ),
             ]
         )
         session.commit()

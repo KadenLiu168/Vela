@@ -191,6 +191,7 @@ def latest_strategy_signal(session: DatabaseSession) -> dict[str, object]:
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
     report = get_latest_strategy_signal_report(
         session,
+        strategy_id=config.strategy_id,
         config_version=config.version,
     )
     if report is None:

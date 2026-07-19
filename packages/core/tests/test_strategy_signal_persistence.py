@@ -305,6 +305,7 @@ def test_get_latest_successful_strategy_signal_returns_newest_success_with_posit
         signal = get_latest_successful_strategy_signal(
             session,
             signal_date=date(2026, 6, 23),
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -346,6 +347,7 @@ def test_get_latest_successful_strategy_signal_ignores_newer_non_success() -> No
         signal = get_latest_successful_strategy_signal(
             session,
             signal_date=date(2026, 6, 23),
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
@@ -374,10 +376,50 @@ def test_get_latest_successful_strategy_signal_returns_none_without_success() ->
         signal = get_latest_successful_strategy_signal(
             session,
             signal_date=date(2026, 6, 23),
+            strategy_id="Dual_momentum",
             config_version="v1",
         )
 
     assert signal is None
+
+
+def test_get_latest_successful_strategy_signal_scopes_to_exact_strategy_id() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        matching = persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="manual",
+            positions=[],
+        )
+        persist_strategy_signal(
+            session,
+            strategy_id="Other_strategy",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 35, tzinfo=UTC),
+            status="success",
+            result="hold",
+            source="manual",
+            positions=[],
+        )
+        session.commit()
+
+        signal = get_latest_successful_strategy_signal(
+            session,
+            signal_date=date(2026, 6, 23),
+            strategy_id="Dual_momentum",
+            config_version="v1",
+        )
+
+    assert signal is not None
+    assert signal.id == matching.strategy_signal.id
 
 
 def _create_session_factory() -> sessionmaker[Session]:

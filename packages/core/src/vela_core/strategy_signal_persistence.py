@@ -105,12 +105,14 @@ def get_latest_successful_strategy_signal(
     session: Session,
     *,
     signal_date: date,
+    strategy_id: str,
     config_version: str,
 ) -> StrategySignal | None:
     return session.scalar(
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
         .where(StrategySignal.signal_date == signal_date)
+        .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())

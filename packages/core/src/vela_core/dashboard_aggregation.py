@@ -137,10 +137,16 @@ def get_dashboard_summary(
     *,
     strategy_summary: Mapping[str, Any],
 ) -> dict[str, object]:
+    strategy_id = strategy_summary["strategy_id"]
+    config_version = strategy_summary["version"]
     return {
         "strategy": dict(strategy_summary),
         "market_data": _get_market_data_status(session).to_dict(),
-        "latest_signal": _get_latest_signal_summary(session),
+        "latest_signal": _get_latest_signal_summary(
+            session,
+            strategy_id=strategy_id,
+            config_version=config_version,
+        ),
         "recent_backtest": _get_recent_backtest_summary(session),
         "recent_fetch_logs": _get_recent_fetch_logs(session),
     }
@@ -187,10 +193,17 @@ def _get_market_data_status(session: Session) -> DashboardMarketDataStatus:
     )
 
 
-def _get_latest_signal_summary(session: Session) -> dict[str, object] | None:
+def _get_latest_signal_summary(
+    session: Session,
+    *,
+    strategy_id: str,
+    config_version: str,
+) -> dict[str, object] | None:
     signal = session.scalar(
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
+        .where(StrategySignal.strategy_id == strategy_id)
+        .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())
         .limit(1)

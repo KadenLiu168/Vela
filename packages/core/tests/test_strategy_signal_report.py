@@ -60,7 +60,9 @@ def test_export_latest_strategy_signal_report_formats_positions() -> None:
         )
         session.commit()
 
-        report = export_latest_strategy_signal_report(session, config_version="v1")
+        report = export_latest_strategy_signal_report(
+            session, strategy_id="Dual_momentum", config_version="v1"
+        )
 
     assert "Strategy Signal Report" in report
     assert "Signal date: 2026-06-23" in report
@@ -110,6 +112,7 @@ def test_export_latest_strategy_signal_report_can_filter_signal_date() -> None:
 
         report = export_latest_strategy_signal_report(
             session,
+            strategy_id="Dual_momentum",
             config_version="v1",
             signal_date=date(2026, 6, 22),
         )
@@ -143,7 +146,9 @@ def test_export_latest_strategy_signal_report_marks_fallback() -> None:
         )
         session.commit()
 
-        report = export_latest_strategy_signal_report(session, config_version="v1")
+        report = export_latest_strategy_signal_report(
+            session, strategy_id="Dual_momentum", config_version="v1"
+        )
 
     assert "Fallback: yes" in report
     assert "- NYSEARCA SHY weight=1.000000 rank=N/A score=N/A fallback=yes" in report
@@ -154,7 +159,9 @@ def test_export_latest_strategy_signal_report_raises_when_missing() -> None:
 
     with session_factory() as session:
         with pytest.raises(LatestStrategySignalReportNotFoundError):
-            export_latest_strategy_signal_report(session, config_version="v1")
+            export_latest_strategy_signal_report(
+                session, strategy_id="Dual_momentum", config_version="v1"
+            )
 
 
 def test_get_latest_strategy_signal_report_returns_structured_latest_signal() -> None:
@@ -201,7 +208,9 @@ def test_get_latest_strategy_signal_report_returns_structured_latest_signal() ->
         )
         session.commit()
 
-        report = get_latest_strategy_signal_report(session, config_version="v1")
+        report = get_latest_strategy_signal_report(
+            session, strategy_id="Dual_momentum", config_version="v1"
+        )
 
     assert report is not None
     assert report.signal_id == latest.strategy_signal.id
@@ -231,9 +240,55 @@ def test_get_latest_strategy_signal_report_returns_none_without_success() -> Non
         )
         session.commit()
 
-        report = get_latest_strategy_signal_report(session, config_version="v1")
+        report = get_latest_strategy_signal_report(
+            session, strategy_id="Dual_momentum", config_version="v1"
+        )
 
     assert report is None
+
+
+def test_get_latest_strategy_signal_report_scopes_to_exact_strategy_id() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        matching = persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="manual",
+            positions=[],
+        )
+        persist_strategy_signal(
+            session,
+            strategy_id="Other_strategy",
+            signal_date=date(2026, 6, 24),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
+            status="success",
+            result="hold",
+            source="manual",
+            positions=[],
+        )
+        session.commit()
+
+        report = get_latest_strategy_signal_report(
+            session,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+        )
+        missing = get_latest_strategy_signal_report(
+            session,
+            strategy_id="Missing_strategy",
+            config_version="v1",
+        )
+
+    assert report is not None
+    assert report.signal_id == matching.strategy_signal.id
+    assert missing is None
 
 
 def test_list_strategy_signals_returns_successful_signals_ordered_desc() -> None:

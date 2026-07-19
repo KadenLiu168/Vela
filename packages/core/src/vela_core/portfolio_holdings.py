@@ -27,6 +27,7 @@ def calculate_portfolio_holdings(
     session: Session,
     *,
     trading_dates: Iterable[date],
+    strategy_id: str,
     config_version: str,
 ) -> list[PortfolioHoldingSnapshot]:
     requested_dates = list(trading_dates)
@@ -35,6 +36,7 @@ def calculate_portfolio_holdings(
 
     signals_by_date = _latest_successful_signals_by_date(
         session,
+        strategy_id=strategy_id,
         config_version=config_version,
         through_date=max(requested_dates),
     )
@@ -62,12 +64,14 @@ def calculate_portfolio_holdings(
 def _latest_successful_signals_by_date(
     session: Session,
     *,
+    strategy_id: str,
     config_version: str,
     through_date: date,
 ) -> dict[date, StrategySignal]:
     signals = session.scalars(
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
+        .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .where(StrategySignal.signal_date <= through_date)

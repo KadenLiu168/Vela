@@ -57,6 +57,7 @@ def calculate_strategy_equity_curve(
     holding_snapshots = calculate_portfolio_holdings(
         session,
         trading_dates=trading_dates,
+        strategy_id=strategy_config.strategy_id,
         config_version=strategy_config.version,
     )
     prices_by_key = _load_prices_by_key(session, holding_snapshots)

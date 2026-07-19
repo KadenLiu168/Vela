@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from vela_cli import main as cli
@@ -118,3 +119,40 @@ def test_export_signal_report_reports_missing_latest_signal(
     assert "Failed to export signal report: No latest successful strategy signal found" in (
         captured.err
     )
+
+
+def test_export_signal_report_forwards_loaded_strategy_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str, date | None]] = []
+
+    monkeypatch.setattr(
+        cli,
+        "load_strategy_config",
+        lambda path: SimpleNamespace(strategy_id="Distinct_strategy", version="v9"),
+    )
+
+    def fake_export_latest_strategy_signal_report(
+        session: object,
+        *,
+        strategy_id: str,
+        config_version: str,
+        signal_date: date | None,
+    ) -> str:
+        calls.append((strategy_id, config_version, signal_date))
+        return "Strategy Signal Report\n"
+
+    monkeypatch.setattr(
+        cli,
+        "export_latest_strategy_signal_report",
+        fake_export_latest_strategy_signal_report,
+    )
+
+    report = cli.export_signal_report(
+        "sqlite+pysqlite:///:memory:",
+        strategy_config_path=Path("strategy.yaml"),
+        signal_date=date(2026, 6, 23),
+    )
+
+    assert report == "Strategy Signal Report\n"
+    assert calls == [("Distinct_strategy", "v9", date(2026, 6, 23))]

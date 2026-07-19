@@ -175,6 +175,7 @@ def run_backtest(
     holdings = calculate_portfolio_holdings(
         session,
         trading_dates=trading_dates,
+        strategy_id=config.strategy_id,
         config_version=config.version,
     )
     annualized_return = calculate_strategy_annualized_return(points)

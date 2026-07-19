@@ -420,6 +420,7 @@ def export_signal_report(
     with managed_session(session_factory) as session:
         return export_latest_strategy_signal_report(
             session,
+            strategy_id=config.strategy_id,
             config_version=config.version,
             signal_date=signal_date,
         )
