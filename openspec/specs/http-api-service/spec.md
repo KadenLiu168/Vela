@@ -1,7 +1,7 @@
 # http-api-service Specification
 
 ## Purpose
-Defines the FastAPI service surface, including the local-development `POST /api/setup/bootstrap` endpoint and startup strategy-config caching.
+Defines the FastAPI service surface, including the local-development `POST /api/setup/bootstrap` endpoint.
 ## Requirements
 ### Requirement: API setup bootstrap endpoint
 The API service SHALL expose `POST /api/setup/bootstrap` as a local-development endpoint that runs the compound local setup bootstrap operation.
@@ -22,18 +22,6 @@ The API service SHALL expose `POST /api/setup/bootstrap` as a local-development 
 - **WHEN** a developer reads the documentation for `POST /api/setup/bootstrap`
 - **THEN** the documentation states that the endpoint is intended for local development setup only
 - **AND** the documentation states that production database migrations must continue to use the `vela init-db` CLI command
-
-### Requirement: API caches loaded strategy config
-The API service SHALL load the strategy configuration once at startup and store it on the FastAPI application state so multiple request handlers can reuse it without re-reading the YAML from disk.
-
-#### Scenario: Strategy config is loaded at startup
-- **WHEN** the API application starts
-- **THEN** the application state exposes a `strategy_config` attribute containing the loaded strategy configuration
-
-#### Scenario: Multiple request handlers reuse cached config
-- **WHEN** the `GET /api/config` and `POST /api/setup/bootstrap` endpoints run during the same API process lifetime
-- **THEN** both endpoints observe the same `strategy_config` instance loaded at startup
-- **AND** neither endpoint re-reads the strategy config YAML from disk on each request
 
 ### Requirement: API strategy signal list endpoint
 The API service SHALL expose `GET /api/strategy-signals` returning a paginated list of successful strategy signal summaries scoped to the current `strategy_id` and `config_version`.
@@ -205,4 +193,3 @@ The API service SHALL expose `GET /api/strategy-signals/latest` returning the la
 - **WHEN** a client requests an existing legacy or manually created backtest run with no linked signals
 - **THEN** top-level `signal_ids` is an empty array
 - **AND** top-level `signal_count` is `0`
-

@@ -46,7 +46,6 @@ from vela_api.database import get_database_session, initialize_database
 
 app = FastAPI(title="Vela API")
 initialize_database(app)
-app.state.strategy_config = load_app_config(DEFAULT_STRATEGY_CONFIG_PATH)
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
 MarketDataFetchMode = Literal["incremental", "full"]
 ErrorCategory = Literal["validation", "not_found", "operation_failed", "unexpected"]
@@ -152,10 +151,11 @@ def setup_bootstrap(
     session: DatabaseSession,
     provider: MarketDataProviderDependency,
 ) -> dict[str, object]:
+    app_config = load_app_config(DEFAULT_STRATEGY_CONFIG_PATH)
     result = run_local_setup_bootstrap(
         session,
         provider=provider,
-        app_config=request.app.state.strategy_config,
+        app_config=app_config,
         database_url=request.app.state.database_url,
         script_location=DEFAULT_ALEMBIC_SCRIPT_LOCATION,
     )

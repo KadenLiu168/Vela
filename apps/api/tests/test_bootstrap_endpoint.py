@@ -1,9 +1,10 @@
 from datetime import date
 
 from fastapi.testclient import TestClient
+from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH
 from vela_api.database import initialize_database
 from vela_api.main import app, get_market_data_provider
-from vela_core import ETFConfig, ETFPoolConfig
+from vela_core import BootstrapResult, ConfigError, ETFConfig, ETFPoolConfig
 from vela_core.app_config import AppConfig
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.strategy_config import (
@@ -54,7 +55,7 @@ def _make_test_app_config() -> AppConfig:
 
 
 # 3.1 Happy path: endpoint returns success aggregate
-def test_bootstrap_endpoint_success(tmp_path) -> None:
+def test_bootstrap_endpoint_success(tmp_path, monkeypatch) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap-api.db'}"
     provider = ControlledMarketDataProvider(
         {"510300": [daily_price(symbol="510300", trade_date=date(2026, 6, 18))]}
@@ -62,13 +63,12 @@ def test_bootstrap_endpoint_success(tmp_path) -> None:
 
     try:
         initialize_database(app, database_url=database_url)
-        app.state.strategy_config = _make_test_app_config()
+        monkeypatch.setattr("vela_api.main.load_app_config", lambda _path: _make_test_app_config())
         app.dependency_overrides[get_market_data_provider] = lambda: provider
 
         response = TestClient(app).post("/api/setup/bootstrap")
     finally:
         app.dependency_overrides.clear()
-        app.state.strategy_config = None
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 200
@@ -88,19 +88,18 @@ def test_bootstrap_endpoint_success(tmp_path) -> None:
 
 
 # 3.2 Step failure surfaces as status=failed with failed_step and error_message
-def test_bootstrap_endpoint_step_failure(tmp_path) -> None:
+def test_bootstrap_endpoint_step_failure(tmp_path, monkeypatch) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap-api-fail.db'}"
     provider = ControlledMarketDataProvider({})
 
     try:
         initialize_database(app, database_url=database_url)
-        app.state.strategy_config = _make_test_app_config()
+        monkeypatch.setattr("vela_api.main.load_app_config", lambda _path: _make_test_app_config())
         app.dependency_overrides[get_market_data_provider] = lambda: provider
 
         response = TestClient(app).post("/api/setup/bootstrap")
     finally:
         app.dependency_overrides.clear()
-        app.state.strategy_config = None
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 200
@@ -114,27 +113,57 @@ def test_bootstrap_endpoint_step_failure(tmp_path) -> None:
     assert body["steps"][2]["error_message"] is not None
 
 
-# 3.3 Endpoint uses cached strategy config from app.state
-def test_bootstrap_endpoint_uses_cached_config(tmp_path) -> None:
-    database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap-api-cached.db'}"
-    provider = ControlledMarketDataProvider(
-        {"510300": [daily_price(symbol="510300", trade_date=date(2026, 6, 18))]}
+def test_bootstrap_endpoint_loads_config_per_request(tmp_path, monkeypatch) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap-api-reload.db'}"
+    first_config = _make_test_app_config()
+    second_config = _make_test_app_config().model_copy(
+        update={"strategy": _make_test_app_config().strategy.model_copy(update={"version": "v2"})}
     )
+    loaded_paths = []
+    received_configs = []
+    configs = iter([first_config, second_config])
 
-    test_config = _make_test_app_config()
+    def load_config(path):
+        loaded_paths.append(path)
+        return next(configs)
+
+    def record_bootstrap(session, *, provider, app_config, database_url, script_location):
+        received_configs.append(app_config)
+        return BootstrapResult(status="success")
+
+    monkeypatch.setattr("vela_api.main.load_app_config", load_config)
+    monkeypatch.setattr("vela_api.main.run_local_setup_bootstrap", record_bootstrap)
 
     try:
         initialize_database(app, database_url=database_url)
-        app.state.strategy_config = test_config
-        app.dependency_overrides[get_market_data_provider] = lambda: provider
-
-        response = TestClient(app).post("/api/setup/bootstrap")
+        client = TestClient(app)
+        first_response = client.post("/api/setup/bootstrap")
+        second_response = client.post("/api/setup/bootstrap")
     finally:
-        app.dependency_overrides.clear()
-        app.state.strategy_config = None
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["status"] == "success"
-    assert body["steps"][1]["status"] == "success"
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert loaded_paths == [DEFAULT_STRATEGY_CONFIG_PATH, DEFAULT_STRATEGY_CONFIG_PATH]
+    assert received_configs == [first_config, second_config]
+
+
+def test_bootstrap_endpoint_returns_config_error_before_orchestration(monkeypatch) -> None:
+    bootstrap_calls = []
+
+    def raise_config_error(path):
+        raise ConfigError("Failed to read configuration file config/missing.yaml", path=path)
+
+    def record_bootstrap(*args, **kwargs):
+        bootstrap_calls.append((args, kwargs))
+        return BootstrapResult(status="success")
+
+    monkeypatch.setattr("vela_api.main.load_app_config", raise_config_error)
+    monkeypatch.setattr("vela_api.main.run_local_setup_bootstrap", record_bootstrap)
+
+    response = TestClient(app, raise_server_exceptions=False).post("/api/setup/bootstrap")
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "config_error"
+    assert response.json()["error"]["category"] == "operation_failed"
+    assert bootstrap_calls == []

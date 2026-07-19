@@ -48,7 +48,7 @@ The system SHALL report the status, duration, and step-specific result fields fo
 - **AND** `total_duration_seconds` is the sum of the per-step durations
 
 ### Requirement: HTTP endpoint for local setup bootstrap
-The system SHALL expose a `POST /api/setup/bootstrap` endpoint that invokes the core `run_local_setup_bootstrap` orchestration and returns the `BootstrapResult` to the caller.
+The system SHALL expose a `POST /api/setup/bootstrap` endpoint that loads one current `AppConfig` from disk at the start of each request, passes that request-scoped config to the core `run_local_setup_bootstrap` orchestration, and returns the `BootstrapResult` to the caller.
 
 #### Scenario: Endpoint returns success aggregate
 - **WHEN** a client posts to `/api/setup/bootstrap` against an empty local database
@@ -60,10 +60,20 @@ The system SHALL expose a `POST /api/setup/bootstrap` endpoint that invokes the 
 - **THEN** the response status is 200
 - **AND** the response body is a JSON object with `status = "failed"`, `failed_step` set to the failing step name, and the failing step's `error_message` populated
 
-#### Scenario: Endpoint uses cached strategy config
-- **WHEN** a client posts to `/api/setup/bootstrap` after the API has loaded the strategy config
-- **THEN** the endpoint uses the loaded strategy config cached in API application state
-- **AND** the endpoint does not re-read the strategy config YAML from disk
+#### Scenario: Endpoint reads current strategy config
+- **WHEN** two bootstrap requests run in the same API process and the resolved config changes between them
+- **THEN** the endpoint calls `load_app_config` once at the start of each request
+- **AND** each orchestration receives the `AppConfig` loaded for its own request
+- **AND** the second request does not reuse the first request's config from API application state
+
+#### Scenario: Current ETF pool is used by bootstrap
+- **WHEN** a client posts to `/api/setup/bootstrap` after editing the ETF-pool config resolved from `config/strategy_v1.yaml`, without restarting the API
+- **THEN** the synchronized `etf_info` rows reflect the configured entries and field values read for that request
+
+#### Scenario: Invalid current config prevents orchestration
+- **WHEN** the current strategy or ETF-pool config cannot be read, parsed, or validated
+- **THEN** the endpoint returns status 500 using the stable API error envelope with code `config_error` and category `operation_failed`
+- **AND** `run_local_setup_bootstrap` is not invoked
 
 ### Requirement: Local development scope
 The system SHALL document the bootstrap endpoint as local-development only and SHALL NOT use it to mutate schema in shared or production databases.
@@ -92,4 +102,3 @@ The system SHALL require callers of `run_local_setup_bootstrap` to provide `scri
 - **AND** synchronizes the configured ETF pool
 - **AND** runs a full market data fetch
 - **AND** returns a `BootstrapResult` with per-step status
-
