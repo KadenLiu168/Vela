@@ -2,6 +2,20 @@
 
 Development and automation scripts for the Vela repository.
 
+## Generate the Inter Variable subset
+
+The committed public webfont is generated from the vendored Inter 4.0 source,
+its reviewed Unicode manifest, and the locked FontTools WOFF2 toolchain. From
+the repository root, regenerate it with:
+
+```bash
+uv run python scripts/fonts/inter/subset_inter_variable.py
+```
+
+The script verifies the canonical source SHA-256 and fails if the generated
+font exceeds the 98,304-byte budget. Pass an optional output path to generate
+into a temporary location for validation without overwriting the public asset.
+
 ## dev.sh — local dev orchestrator
 
 `scripts/dev.sh` is the canonical way to start the full Vela local stack

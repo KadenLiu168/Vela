@@ -24,6 +24,7 @@ joinquant = ["jqdatasdk"]
 
 [dependency-groups]
 dev = [
+    "fonttools[woff]==4.63.0",
     "httpx2>=2.4.0",
     "mypy",
     "pandas-stubs",
