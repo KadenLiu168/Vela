@@ -116,17 +116,22 @@ The system SHALL print a clear command-line summary after signal generation fini
 - **AND** the command exits with a non-zero status
 
 ### Requirement: Export latest signal report from CLI
-The system SHALL expose an `export-signal-report` CLI command that exports the latest successful persisted strategy signal report.
+The system SHALL expose an `export-signal-report` CLI command that exports the latest successful
+persisted strategy signal report for the `strategy_id` and `config_version` loaded from the
+selected strategy configuration.
 
 #### Scenario: Print latest signal report
 - **WHEN** a user invokes `export-signal-report` with a database URL and strategy config path
 - **THEN** the system connects to that database
 - **AND** the system loads the strategy configuration
-- **AND** the system prints a human-readable report for the latest successful signal for that config version
+- **AND** the system prints a human-readable report for the latest successful signal whose
+  `strategy_id` and `config_version` match that configuration
+- **AND** it ignores signals belonging to other strategies or config versions
 
 #### Scenario: Use default report inputs
 - **WHEN** a user invokes `export-signal-report` without optional arguments
-- **THEN** the system uses the same default local SQLite database target as other local CLI database commands
+- **THEN** the system uses the same default local SQLite database target as other local CLI
+  database commands
 - **AND** the system uses the checked-in strategy v1 config file
 
 #### Scenario: Export report to file
@@ -135,7 +140,8 @@ The system SHALL expose an `export-signal-report` CLI command that exports the l
 - **AND** the command prints a confirmation identifying the output path
 
 #### Scenario: Report missing latest signal
-- **WHEN** a user invokes `export-signal-report` and no matching successful strategy signal exists
+- **WHEN** a user invokes `export-signal-report` and no successful signal matches the configured
+  strategy id and config version
 - **THEN** the command prints a clear failure message
 - **AND** the command exits with a non-zero status
 

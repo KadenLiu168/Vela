@@ -1,8 +1,5 @@
-# portfolio-holdings Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines how portfolio target holdings are calculated from persisted strategy signal positions across trading dates, carrying positions forward between signals.
-## Requirements
 ### Requirement: Calculate portfolio holdings from strategy signals
 The system SHALL calculate target holdings for requested trading dates from persisted successful
 strategy signals whose `strategy_id` and `config_version` match the requested strategy identity.
@@ -60,4 +57,3 @@ strategy signals whose `strategy_id` and `config_version` match the requested st
 #### Scenario: Ignore failed signals
 - **WHEN** a failed matching strategy signal exists on a requested trading date
 - **THEN** holding calculation does not use that failed signal to change holdings
-
