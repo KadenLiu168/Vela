@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import {
   ApiClientError,
   type BacktestDetailResponse,
-  type BacktestEquityCurvePoint,
   getBacktestDetail
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
 import {
   formatDate,
   formatDecimal,
@@ -15,6 +14,12 @@ import {
   formatRatioAsPercent,
   formatTimestamp
 } from "../utils/formatters";
+import { formatEquityCurvePoint, formatParameterSummary } from "./backtestFormatters";
+import {
+  computeEquityCurveGeometry,
+  EQUITY_CURVE_CHART,
+  normalizeEquityCurvePoints
+} from "./equityCurveChart";
 
 type BacktestDetailPageProps = {
   backtestId: string;
@@ -102,13 +107,13 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
     <article className="dashboard-panel">
       <strong className="panel-primary">Backtest #{run.run_id}</strong>
       <dl className="compact-list">
-        <Detail label="Strategy" value={run.strategy_id} />
-        <Detail label="Config version" value={run.config_version} />
-        <Detail label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
-        <Detail label="Status" value={run.status} />
-        <Detail label="Started at" value={formatTimestamp(run.started_at)} />
-        <Detail label="Finished at" value={formatTimestamp(run.finished_at)} />
-        <Detail label="Error message" value={formatNullableText(run.error_message)} />
+        <DescriptionItem label="Strategy" value={run.strategy_id} />
+        <DescriptionItem label="Config version" value={run.config_version} />
+        <DescriptionItem label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
+        <DescriptionItem label="Status" value={run.status} />
+        <DescriptionItem label="Started at" value={formatTimestamp(run.started_at)} />
+        <DescriptionItem label="Finished at" value={formatTimestamp(run.finished_at)} />
+        <DescriptionItem label="Error message" value={formatNullableText(run.error_message)} />
       </dl>
       <section className="holdings-section" aria-labelledby="backtest-metrics-heading">
         <h3 id="backtest-metrics-heading">Metrics</h3>
@@ -151,19 +156,8 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
   );
 }
 
-type EquityCurveChartPoint = {
-  tradeDate: string;
-  netValue: number;
-};
-
-type EquityCurveChartCoordinate = {
-  index: number;
-  x: number;
-  y: number;
-};
-
-function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
-  const chartPoints = getValidEquityCurvePoints(points);
+function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_curve"] }) {
+  const chartPoints = normalizeEquityCurvePoints(points);
 
   if (chartPoints.length === 0) {
     return <EmptyState>No valid equity curve points are available for this run.</EmptyState>;
@@ -176,35 +170,41 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
       <div className="equity-curve-single-point">
         <EmptyState>Only one equity curve point is available.</EmptyState>
         <dl className="equity-curve-summary">
-          <Detail label="Point count" value={formatInteger(1)} />
-          <Detail label="Trade date" value={formatDate(point.tradeDate)} />
-          <Detail label="Net value" value={formatNetValue(point.netValue)} />
+          <DescriptionItem label="Point count" value={formatInteger(1)} />
+          <DescriptionItem label="Trade date" value={formatDate(point.tradeDate)} />
+          <DescriptionItem label="Net value" value={formatNetValue(point.netValue)} />
         </dl>
       </div>
     );
   }
 
-  const chartCoordinates = buildEquityCurveCoordinates(chartPoints);
-  const path = buildEquityCurvePath(chartCoordinates);
-  const highlightCoordinates = getEquityCurveHighlightCoordinates(chartPoints, chartCoordinates);
+  const { highlightCoordinates, linePath, maxNetValue, minNetValue } = computeEquityCurveGeometry(chartPoints);
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
-  const netValues = chartPoints.map((point) => point.netValue);
-  const minNetValue = Math.min(...netValues);
-  const maxNetValue = Math.max(...netValues);
-
   return (
     <div className="equity-curve-card">
       <svg
         aria-labelledby="equity-curve-chart-title"
         className="equity-curve-chart"
         role="img"
-        viewBox="0 0 640 220"
+        viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}
       >
         <title id="equity-curve-chart-title">Equity curve net value chart</title>
-        <line className="equity-curve-grid-line" x1="48" x2="608" y1="24" y2="24" />
-        <line className="equity-curve-grid-line" x1="48" x2="608" y1="176" y2="176" />
-        <path className="equity-curve-line" d={path} data-testid="equity-curve-line" />
+        <line
+          className="equity-curve-grid-line"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
+          y1={EQUITY_CURVE_CHART.paddingTop}
+          y2={EQUITY_CURVE_CHART.paddingTop}
+        />
+        <line
+          className="equity-curve-grid-line"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
+          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+        />
+        <path className="equity-curve-line" d={linePath} data-testid="equity-curve-line" />
         {highlightCoordinates.map((coordinate) => (
           <circle
             className="equity-curve-highlight"
@@ -217,22 +217,13 @@ function EquityCurveChart({ points }: { points: BacktestEquityCurvePoint[] }) {
         ))}
       </svg>
       <dl className="equity-curve-summary">
-        <Detail label="Point count" value={formatInteger(chartPoints.length)} />
-        <Detail label="Start point" value={formatEquityCurvePoint(firstPoint)} />
-        <Detail label="End point" value={formatEquityCurvePoint(lastPoint)} />
-        <Detail label="Min net value" value={formatNetValue(minNetValue)} />
-        <Detail label="Max net value" value={formatNetValue(maxNetValue)} />
+        <DescriptionItem label="Point count" value={formatInteger(chartPoints.length)} />
+        <DescriptionItem label="Start point" value={formatEquityCurvePoint(firstPoint)} />
+        <DescriptionItem label="End point" value={formatEquityCurvePoint(lastPoint)} />
+        <DescriptionItem label="Min net value" value={formatNetValue(minNetValue)} />
+        <DescriptionItem label="Max net value" value={formatNetValue(maxNetValue)} />
       </dl>
     </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </>
   );
 }
 
@@ -243,83 +234,4 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   );
-}
-
-function getValidEquityCurvePoints(points: BacktestEquityCurvePoint[]): EquityCurveChartPoint[] {
-  return points.flatMap((point) => {
-    if (point.net_value === null) {
-      return [];
-    }
-
-    const netValue = Number(point.net_value);
-    return Number.isFinite(netValue) ? [{ tradeDate: point.trade_date, netValue }] : [];
-  });
-}
-
-function buildEquityCurveCoordinates(points: EquityCurveChartPoint[]): EquityCurveChartCoordinate[] {
-  const chart = {
-    height: 220,
-    paddingBottom: 44,
-    paddingLeft: 48,
-    paddingRight: 32,
-    paddingTop: 24,
-    width: 640
-  };
-  const drawableWidth = chart.width - chart.paddingLeft - chart.paddingRight;
-  const drawableHeight = chart.height - chart.paddingTop - chart.paddingBottom;
-  const netValues = points.map((point) => point.netValue);
-  const minNetValue = Math.min(...netValues);
-  const maxNetValue = Math.max(...netValues);
-  const netValueRange = maxNetValue - minNetValue;
-
-  return points.map((point, index) => {
-    const x = chart.paddingLeft + (drawableWidth * index) / (points.length - 1);
-    const normalizedY =
-      netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
-    const y = chart.paddingTop + normalizedY * drawableHeight;
-
-    return { index, x, y };
-  });
-}
-
-function buildEquityCurvePath(coordinates: EquityCurveChartCoordinate[]): string {
-  return coordinates
-    .map((coordinate, index) => {
-      const command = index === 0 ? "M" : "L";
-
-      return `${command} ${coordinate.x.toFixed(2)} ${coordinate.y.toFixed(2)}`;
-    })
-    .join(" ");
-}
-
-function getEquityCurveHighlightCoordinates(
-  points: EquityCurveChartPoint[],
-  coordinates: EquityCurveChartCoordinate[]
-): EquityCurveChartCoordinate[] {
-  const netValues = points.map((point) => point.netValue);
-  const minNetValue = Math.min(...netValues);
-  const maxNetValue = Math.max(...netValues);
-  const highlightIndexes = new Set([
-    points.length - 1,
-    points.findIndex((point) => point.netValue === minNetValue),
-    points.findIndex((point) => point.netValue === maxNetValue)
-  ]);
-
-  return [...highlightIndexes].map((index) => coordinates[index]);
-}
-
-function formatEquityCurvePoint(point: EquityCurveChartPoint): string {
-  return `${formatDate(point.tradeDate)} / ${formatNetValue(point.netValue)}`;
-}
-
-function formatParameterSummary(value: string | null): string {
-  if (!value) {
-    return formatNullableText(value);
-  }
-
-  try {
-    return JSON.stringify(JSON.parse(value), null, 2);
-  } catch {
-    return value;
-  }
 }

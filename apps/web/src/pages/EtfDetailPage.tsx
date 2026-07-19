@@ -13,7 +13,7 @@ import {
   type PriceTrendRange,
   getEtfPriceTrend
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
 import { formatDate, formatDecimal } from "../utils/formatters";
 import {
   computeTrendGeometry,
@@ -206,8 +206,8 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
       <div className="trend-single-point">
         <EmptyState>Only one price point is available.</EmptyState>
         <dl className="trend-readout">
-          <Detail label="Trade date" value={formatDate(point.tradeDate)} />
-          <Detail label="Price" value={formatDecimal(point.price, 4)} />
+          <DescriptionItem label="Trade date" value={formatDate(point.tradeDate)} />
+          <DescriptionItem label="Price" value={formatDecimal(point.price, 4)} />
         </dl>
       </div>
     );
@@ -325,21 +325,12 @@ const TrendReadout = memo(
   function TrendReadout({ tradeDate, price }: { tradeDate: string; price: string }) {
     return (
       <dl className="trend-readout" data-testid="trend-readout">
-        <Detail label="Trade date" value={formatDate(tradeDate)} />
-        <Detail label="Price" value={formatDecimal(price, 4)} />
+        <DescriptionItem label="Trade date" value={formatDate(tradeDate)} />
+        <DescriptionItem label="Price" value={formatDecimal(price, 4)} />
       </dl>
     );
   }
 );
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </>
-  );
-}
 
 function getValidTrendPoints(points: EtfPriceTrendPoint[]): TrendChartPoint[] {
   return points.flatMap((point) => {

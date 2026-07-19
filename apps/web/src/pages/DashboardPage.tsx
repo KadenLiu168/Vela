@@ -19,7 +19,7 @@ import {
   getLatestStrategySignal,
   runBacktest
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
 import {
   formatBoolean,
   formatCompactNumber,
@@ -29,6 +29,12 @@ import {
   formatRatioAsPercent,
   formatRows
 } from "../utils/formatters";
+import {
+  formatDefensiveAssets,
+  formatFailedSymbols,
+  formatMomentumWindows,
+  formatScoreWeights
+} from "./dashboardFormatters";
 
 type DashboardState =
   | { status: "loading"; data?: never; error?: never }
@@ -324,26 +330,29 @@ export function DashboardPage({
           <PanelHeading eyebrow="Config" title="Strategy" />
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
-            <Detail label="Version" value={data?.strategy.version ?? "Loading"} />
-            <Detail
+            <DescriptionItem label="Version" value={data?.strategy.version ?? "Loading"} />
+            <DescriptionItem
               label="Momentum windows"
-              value={data ? formatMomentumWindows(data.strategy.momentum) : "Loading"}
+              value={data ? formatMomentumWindows({
+                longWindowDays: data.strategy.momentum.long_window_days,
+                shortWindowDays: data.strategy.momentum.short_window_days
+              }) : "Loading"}
             />
-            <Detail
+            <DescriptionItem
               label="Score weights"
               value={data ? formatScoreWeights(data.strategy.score_weights) : "Loading"}
             />
-            <Detail label="Top N" value={data ? formatInteger(data.strategy.selection.top_n) : "Loading"} />
-            <Detail
+            <DescriptionItem label="Top N" value={data ? formatInteger(data.strategy.selection.top_n) : "Loading"} />
+            <DescriptionItem
               label="Defensive assets"
-              value={data ? formatDefensiveAsset(data.strategy.defense.assets) : "Loading"}
+              value={data ? formatDefensiveAssets(data.strategy.defense.assets) : "Loading"}
             />
-            <Detail
+            <DescriptionItem
               label="Trading cost"
               value={data ? `${formatCompactNumber(data.strategy.costs.transaction_cost_bps)} bps` : "Loading"}
             />
-            <Detail label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
-            <Detail
+            <DescriptionItem label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
+            <DescriptionItem
               label="Rebalance frequency"
               value={data ? data.strategy.rebalance.frequency.replace(/^./, (c) => c.toUpperCase()) : "Loading"}
             />
@@ -530,10 +539,10 @@ function SignalGenerationSummary({ result }: { result: StrategySignalGenerationR
     >
       <strong>Signal generation {result.status}</strong>
       <dl className="compact-list">
-        <Detail label="Signal" value={`#${formatInteger(result.signal_id)}`} />
-        <Detail label="Signal date" value={formatDate(result.signal_date)} />
-        <Detail label="Result" value={formatNullableText(result.result)} />
-        <Detail label="Positions" value={formatInteger(result.positions.length)} />
+        <DescriptionItem label="Signal" value={`#${formatInteger(result.signal_id)}`} />
+        <DescriptionItem label="Signal date" value={formatDate(result.signal_date)} />
+        <DescriptionItem label="Result" value={formatNullableText(result.result)} />
+        <DescriptionItem label="Positions" value={formatInteger(result.positions.length)} />
       </dl>
       {result.error_message ? <p className="operation-guidance">{result.error_message}</p> : null}
     </FeedbackMessage>
@@ -550,13 +559,13 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
     >
       <strong>Market data fetch {result.status}</strong>
       <dl className="compact-list">
-        <Detail label="Fetched" value={formatRows(result.rows_fetched)} />
-        <Detail label="Inserted" value={formatRows(result.rows_inserted)} />
-        <Detail label="Updated" value={formatRows(result.rows_updated)} />
+        <DescriptionItem label="Fetched" value={formatRows(result.rows_fetched)} />
+        <DescriptionItem label="Inserted" value={formatRows(result.rows_inserted)} />
+        <DescriptionItem label="Updated" value={formatRows(result.rows_updated)} />
         {hasFailures ? (
           <>
-            <Detail label="Failed symbols" value={formatFailedSymbols(result.failed_symbols)} />
-            <Detail label="Error summary" value={formatNullableText(result.error_message)} />
+            <DescriptionItem label="Failed symbols" value={formatFailedSymbols(result.failed_symbols)} />
+            <DescriptionItem label="Error summary" value={formatNullableText(result.error_message)} />
           </>
         ) : null}
       </dl>
@@ -577,15 +586,15 @@ function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
     >
       <strong>Backtest run {result.status}</strong>
       <dl className="compact-list">
-        <Detail label="Run" value={`#${formatInteger(result.run_id)}`} />
-        <Detail label="Status" value={result.status} />
-        <Detail label="Trading days" value={formatInteger(result.trading_day_count)} />
-        <Detail label="Signals" value={formatInteger(result.signal_count)} />
-        <Detail label="Total return" value={formatRatioAsPercent(result.total_return)} />
-        <Detail label="Annualized return" value={formatRatioAsPercent(result.annualized_return)} />
-        <Detail label="Max drawdown" value={formatRatioAsPercent(result.max_drawdown)} />
-        <Detail label="Volatility" value={formatRatioAsPercent(result.volatility)} />
-        <Detail label="Sharpe" value={formatNullableText(result.sharpe_ratio)} />
+        <DescriptionItem label="Run" value={`#${formatInteger(result.run_id)}`} />
+        <DescriptionItem label="Status" value={result.status} />
+        <DescriptionItem label="Trading days" value={formatInteger(result.trading_day_count)} />
+        <DescriptionItem label="Signals" value={formatInteger(result.signal_count)} />
+        <DescriptionItem label="Total return" value={formatRatioAsPercent(result.total_return)} />
+        <DescriptionItem label="Annualized return" value={formatRatioAsPercent(result.annualized_return)} />
+        <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(result.max_drawdown)} />
+        <DescriptionItem label="Volatility" value={formatRatioAsPercent(result.volatility)} />
+        <DescriptionItem label="Sharpe" value={formatNullableText(result.sharpe_ratio)} />
       </dl>
       <a className="operation-link" href={`/backtests/${result.run_id}`}>
         View backtest detail
@@ -687,11 +696,11 @@ function SignalSummary({
     <>
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
-        <Detail label="Signal date" value={formatDate(signal.signal_date)} />
-        <Detail label="Status" value={signal.status} />
-        <Detail label="Result" value={formatNullableText(signal.result)} />
-        <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
-        <Detail label="Target holdings" value={formatInteger(signal.position_count)} />
+        <DescriptionItem label="Signal date" value={formatDate(signal.signal_date)} />
+        <DescriptionItem label="Status" value={signal.status} />
+        <DescriptionItem label="Result" value={formatNullableText(signal.result)} />
+        <DescriptionItem label="Fallback" value={formatBoolean(signal.is_fallback)} />
+        <DescriptionItem label="Target holdings" value={formatInteger(signal.position_count)} />
       </dl>
       <a className="operation-link" href={`/signals/${signal.signal_id}`}>
         View signal detail
@@ -723,11 +732,11 @@ function BacktestSummary({
     <>
       <strong className="panel-primary">Backtest #{backtest.run_id}</strong>
       <dl className="compact-list">
-        <Detail label="Range" value={`${formatDate(backtest.start_date)} to ${formatDate(backtest.end_date)}`} />
-        <Detail label="Status" value={backtest.status} />
-        <Detail label="Total return" value={formatRatioAsPercent(backtest.total_return)} />
-        <Detail label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
-        <Detail label="Sharpe" value={formatNullableText(backtest.sharpe_ratio)} />
+        <DescriptionItem label="Range" value={`${formatDate(backtest.start_date)} to ${formatDate(backtest.end_date)}`} />
+        <DescriptionItem label="Status" value={backtest.status} />
+        <DescriptionItem label="Total return" value={formatRatioAsPercent(backtest.total_return)} />
+        <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
+        <DescriptionItem label="Sharpe" value={formatNullableText(backtest.sharpe_ratio)} />
       </dl>
       <a className="operation-link" href={`/backtests/${backtest.run_id}`}>
         View backtest detail
@@ -915,9 +924,9 @@ function OperationErrorSummary({ error }: { error: OperationError }) {
     <>
       <strong>{getOperationLabel(error.operation)} failed</strong>
       <dl className="compact-list">
-        <Detail label="Type" value={formatOperationErrorCategory(error.category)} />
-        <Detail label="Reason" value={formatOperationErrorReason(error)} />
-        <Detail label="Next step" value={getOperationErrorGuidance(error.operation)} />
+        <DescriptionItem label="Type" value={formatOperationErrorCategory(error.category)} />
+        <DescriptionItem label="Reason" value={formatOperationErrorReason(error)} />
+        <DescriptionItem label="Next step" value={getOperationErrorGuidance(error.operation)} />
       </dl>
     </>
   );
@@ -1016,15 +1025,6 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </>
-  );
-}
-
 function getLoadLabel(state: DashboardState): string {
   if (state.status === "loading") {
     return "Loading dashboard";
@@ -1035,24 +1035,6 @@ function getLoadLabel(state: DashboardState): string {
   }
 
   return "Dashboard loaded";
-}
-
-function formatMomentumWindows(momentum: DashboardResponse["strategy"]["momentum"]): string {
-  return `${formatInteger(momentum.short_window_days)} / ${formatInteger(momentum.long_window_days)} days`;
-}
-
-function formatScoreWeights(scoreWeights: DashboardResponse["strategy"]["score_weights"]): string {
-  return `Short ${formatCompactNumber(scoreWeights.short)} / Long ${formatCompactNumber(scoreWeights.long)}`;
-}
-
-function formatDefensiveAsset(
-  assets: DashboardResponse["strategy"]["defense"]["assets"]
-): string {
-  return assets.map((asset) => `${asset.exchange}:${asset.symbol}`).join(", ");
-}
-
-function formatFailedSymbols(symbols: string[]): string {
-  return symbols.length > 0 ? symbols.join(", ") : formatNullableText(null);
 }
 
 function formatOperationErrorReason(error: OperationError): string {

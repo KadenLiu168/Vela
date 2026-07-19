@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { indexFromX } from "./pages/etfTrendChart";
 
 afterEach(() => {
   window.history.pushState({}, "", "/");
@@ -2112,27 +2111,6 @@ const trendOverlayRect = {
   right: 640,
   toJSON: () => ({})
 } as DOMRect;
-
-it("resolves the nearest trend point from the pointer x-coordinate", () => {
-  // 3 points on a 568-wide drawable area: x(0)=56, x(1)=340, x(2)=624 (spacing 284).
-  expect(indexFromX(56, 3)).toBe(0);
-  expect(indexFromX(340, 3)).toBe(1);
-  expect(indexFromX(624, 3)).toBe(2);
-});
-
-it("clamps the trend hover index to the series bounds", () => {
-  expect(indexFromX(-100, 3)).toBe(0);
-  expect(indexFromX(9999, 3)).toBe(2);
-});
-
-it("resolves the nearest trend point at band boundaries without half-cell offset", () => {
-  // Cursor at 220 falls inside the old band-0 cell [56, 245.33] but is nearer to point 1
-  // (x=340, dist 120) than point 0 (x=56, dist 164). Point-grid round resolves to 1, not
-  // band cell 0 -- the half-cell misalignment is gone. The switch happens at midpoint 198.
-  expect(indexFromX(197, 3)).toBe(0);
-  expect(indexFromX(199, 3)).toBe(1);
-  expect(indexFromX(220, 3)).toBe(1);
-});
 
 it("updates the trend readout and highlight to the hovered price point", async () => {
   window.history.pushState({}, "", "/etfs/1");

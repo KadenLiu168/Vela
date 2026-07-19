@@ -5,7 +5,7 @@ import {
   type StrategySignalDetailResponse,
   getStrategySignalDetail
 } from "../api/client";
-import { EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
 import {
   formatBoolean,
   formatDate,
@@ -100,23 +100,23 @@ function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
     <article className="dashboard-panel">
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
-        <Detail label="Signal date" value={formatDate(signal.signal_date)} />
-        <Detail label="Strategy" value={signal.strategy_id} />
-        <Detail label="Config version" value={signal.config_version} />
-        <Detail label="Result" value={formatNullableText(signal.result)} />
-        <Detail label="Source" value={signal.source} />
+        <DescriptionItem label="Signal date" value={formatDate(signal.signal_date)} />
+        <DescriptionItem label="Strategy" value={signal.strategy_id} />
+        <DescriptionItem label="Config version" value={signal.config_version} />
+        <DescriptionItem label="Result" value={formatNullableText(signal.result)} />
+        <DescriptionItem label="Source" value={signal.source} />
         {signal.source === "backtest" && signal.backtest_run_id !== null ? (
-          <>
-            <dt>Backtest</dt>
-            <dd>
+          <DescriptionItem
+            label="Backtest"
+            value={
               <a className="operation-link" href={`/backtests/${signal.backtest_run_id}`}>
                 Backtest #{signal.backtest_run_id}
               </a>
-            </dd>
-          </>
+            }
+          />
         ) : null}
-        <Detail label="Fallback" value={formatBoolean(signal.is_fallback)} />
-        <Detail label="Generated at" value={formatTimestamp(signal.generated_at)} />
+        <DescriptionItem label="Fallback" value={formatBoolean(signal.is_fallback)} />
+        <DescriptionItem label="Generated at" value={formatTimestamp(signal.generated_at)} />
       </dl>
       <section className="holdings-section" aria-labelledby="target-holdings-heading">
         <h3 id="target-holdings-heading">Target holdings</h3>
@@ -160,14 +160,5 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </>
   );
 }
