@@ -12,6 +12,7 @@
     "typecheck": "tsc -b",
     "lint:css": "stylelint \"src/**/*.css\"",
     "lint:css:root": "node ../../scripts/check-css-root.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "build:tokens-doc": "node ../../scripts/build-tokens-reference.mjs",
     "ladle": "ladle dev",
     "ladle:build": "ladle build"

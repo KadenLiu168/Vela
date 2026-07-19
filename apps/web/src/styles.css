@@ -346,6 +346,19 @@ main {
   animation: skeleton-pulse 1400ms ease-in-out infinite;
 }
 
+.route-loading-fallback {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 16rem;
+}
+
+.route-load-failure {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 16rem;
+  place-content: start;
+}
+
 @keyframes skeleton-pulse {
   0%,
   100% {

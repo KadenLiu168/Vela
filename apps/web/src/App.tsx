@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type ActionRow,
-  type PageRow,
-  CommandPalette
-} from "./components";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { CommandPalette } from "./components/CommandPalette";
+import type { ActionRow, PageRow } from "./components/commandPaletteFilter";
 import {
   getApiBaseUrl,
   getDashboard,
@@ -14,13 +11,30 @@ import {
   generateStrategySignal
 } from "./api/client";
 import { type NavItem, AppShell } from "./components/AppShell";
-import { ErrorBoundary } from "./components";
-import { BacktestDetailPage } from "./pages/BacktestDetailPage";
-import { BacktestListPage } from "./pages/BacktestListPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Skeleton } from "./components/Skeleton";
 import { DashboardPage } from "./pages/DashboardPage";
-import { EtfDetailPage } from "./pages/EtfDetailPage";
-import { SignalDetailPage } from "./pages/SignalDetailPage";
-import { SignalListPage } from "./pages/SignalListPage";
+
+const SignalListPage = lazy(async () => {
+  const module = await import("./pages/SignalListPage");
+  return { default: module.SignalListPage };
+});
+const SignalDetailPage = lazy(async () => {
+  const module = await import("./pages/SignalDetailPage");
+  return { default: module.SignalDetailPage };
+});
+const BacktestListPage = lazy(async () => {
+  const module = await import("./pages/BacktestListPage");
+  return { default: module.BacktestListPage };
+});
+const BacktestDetailPage = lazy(async () => {
+  const module = await import("./pages/BacktestDetailPage");
+  return { default: module.BacktestDetailPage };
+});
+const EtfDetailPage = lazy(async () => {
+  const module = await import("./pages/EtfDetailPage");
+  return { default: module.EtfDetailPage };
+});
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
@@ -166,8 +180,33 @@ export default function App() {
       navItems={navItems}
       onNavigate={navigate}
     >
-      <ErrorBoundary>{renderRoute(path, backtestStartDate, backtestEndDate, setBacktestStartDate, setBacktestEndDate)}</ErrorBoundary>
+      <ErrorBoundary key={path} fallback={<RouteLoadFailureFallback />}>
+        <Suspense fallback={<RouteLoadingFallback />}>
+          {renderRoute(path, backtestStartDate, backtestEndDate, setBacktestStartDate, setBacktestEndDate)}
+        </Suspense>
+      </ErrorBoundary>
     </AppShell>
+  );
+}
+
+function RouteLoadingFallback() {
+  return (
+    <div aria-label="Loading page" className="route-loading-fallback" role="status">
+      <Skeleton as="block" height="2.5rem" />
+      <Skeleton as="block" height="1rem" width="60%" />
+      <Skeleton as="block" height="1rem" width="85%" />
+    </div>
+  );
+}
+
+function RouteLoadFailureFallback() {
+  return (
+    <div className="route-load-failure">
+      <p>Unable to load this page.</p>
+      <button onClick={() => window.location.reload()} type="button">
+        Reload page
+      </button>
+    </div>
   );
 }
 
