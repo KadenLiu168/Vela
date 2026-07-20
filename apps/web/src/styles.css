@@ -362,13 +362,13 @@ main {
 
 .route-loading-fallback {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--spacing-12);
   min-height: 16rem;
 }
 
 .route-load-failure {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--spacing-12);
   min-height: 16rem;
   place-content: start;
 }
