@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from vela_core.models import ETFInfo, StrategySignal, StrategySignalPosition
+from vela_core.models import BacktestRun, ETFInfo, StrategySignal, StrategySignalPosition
 
 
 class LatestStrategySignalReportNotFoundError(ValueError):
@@ -95,13 +95,14 @@ def list_strategy_signals(
     config_version: str,
     limit: int,
     offset: int = 0,
+    source: str | None = None,
 ) -> list[StrategySignalListEntry]:
     if limit < 0:
         raise ValueError("limit must be non-negative")
     if offset < 0:
         raise ValueError("offset must be non-negative")
 
-    rows = session.execute(
+    statement = (
         select(
             StrategySignal.id,
             StrategySignal.signal_date,
@@ -114,7 +115,11 @@ def list_strategy_signals(
         .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
-        .order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())
+    )
+    if source is not None:
+        statement = statement.where(StrategySignal.source == source)
+    rows = session.execute(
+        statement.order_by(StrategySignal.generated_at.desc(), StrategySignal.id.desc())
         .offset(offset)
         .limit(limit)
     ).all()
@@ -173,6 +178,61 @@ def get_strategy_signal_report(
         return None
 
     return _to_report(session, signal)
+
+
+@dataclass(frozen=True)
+class BacktestSignalSummaryEntry:
+    signal_id: int
+    signal_date: date
+    result: str | None
+    backtest_run_id: int
+
+
+def list_backtest_signals(
+    session: Session,
+    *,
+    run_id: int,
+    strategy_id: str,
+    config_version: str,
+    limit: int,
+    offset: int = 0,
+) -> list[BacktestSignalSummaryEntry] | None:
+    if limit < 1:
+        raise ValueError("limit must be at least 1")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+
+    run = session.scalar(
+        select(BacktestRun.id)
+        .where(BacktestRun.id == run_id)
+        .where(BacktestRun.strategy_id == strategy_id)
+        .where(BacktestRun.config_version == config_version)
+    )
+    if run is None:
+        return None
+
+    rows = session.execute(
+        select(
+            StrategySignal.id,
+            StrategySignal.signal_date,
+            StrategySignal.result,
+            StrategySignal.backtest_run_id,
+        )
+        .where(StrategySignal.backtest_run_id == run_id)
+        .order_by(StrategySignal.signal_date.asc(), StrategySignal.id.asc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+    return [
+        BacktestSignalSummaryEntry(
+            signal_id=row.id,
+            signal_date=row.signal_date,
+            result=row.result,
+            backtest_run_id=row.backtest_run_id,
+        )
+        for row in rows
+    ]
 
 
 def _is_fallback_signal(signal: StrategySignal) -> bool:

@@ -12,11 +12,24 @@ const PAGE_SIZE = 20;
 
 type SignalListState =
   | { status: "loading"; data?: never; error?: never; offset?: never }
-  | { status: "ready"; data: StrategySignalListItem[]; error?: never; offset: number }
-  | { status: "error"; data?: never; error: string; offset: number };
+  | {
+      status: "ready";
+      data: StrategySignalListItem[];
+      error?: never;
+      offset: number;
+      source: StrategySignalSource | undefined;
+    }
+  | {
+      status: "error";
+      data?: never;
+      error: string;
+      offset: number;
+      source: StrategySignalSource | undefined;
+    };
 
 export function SignalListPage() {
   const [offset, setOffset] = useState(0);
+  const [source, setSource] = useState<StrategySignalSource | undefined>(getSourceFromLocation);
   const [signalState, setSignalState] = useState<SignalListState>({
     status: "loading"
   });
@@ -24,10 +37,10 @@ export function SignalListPage() {
   useEffect(() => {
     let isCurrent = true;
 
-    listStrategySignals(PAGE_SIZE, offset)
+    listStrategySignals(PAGE_SIZE, offset, source)
       .then((data) => {
         if (isCurrent) {
-          setSignalState({ status: "ready", data: data.signals, offset });
+          setSignalState({ status: "ready", data: data.signals, offset, source });
         }
       })
       .catch((error: unknown) => {
@@ -38,14 +51,27 @@ export function SignalListPage() {
         setSignalState({
           status: "error",
           error: error instanceof ApiClientError ? error.kind : "unavailable",
-          offset
+          offset,
+          source
         });
       });
 
     return () => {
       isCurrent = false;
     };
-  }, [offset]);
+  }, [offset, source]);
+
+  function selectSource(nextSource: StrategySignalSource | undefined) {
+    setOffset(0);
+    setSource(nextSource);
+    const url = new URL(window.location.href);
+    if (nextSource === undefined) {
+      url.searchParams.delete("source");
+    } else {
+      url.searchParams.set("source", nextSource);
+    }
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
 
   return (
     <section className="page list-page signal-list-page">
@@ -53,42 +79,59 @@ export function SignalListPage() {
         <p>Signal research workspace</p>
         <h1>Signals</h1>
       </div>
-      {renderSignalList(getSignalListState(signalState, offset), offset, setOffset)}
+      {renderSignalList(
+        getSignalListState(signalState, offset, source),
+        offset,
+        source,
+        selectSource,
+        setOffset
+      )}
     </section>
   );
 }
 
-function getSignalListState(state: SignalListState, offset: number): SignalListState {
-  return state.status === "loading" || state.offset === offset ? state : { status: "loading" };
+function getSignalListState(
+  state: SignalListState,
+  offset: number,
+  source: StrategySignalSource | undefined
+): SignalListState {
+  return state.status === "loading" || (state.offset === offset && state.source === source)
+    ? state
+    : { status: "loading" };
 }
 
 function renderSignalList(
   state: SignalListState,
   offset: number,
+  source: StrategySignalSource | undefined,
+  setSource: (source: StrategySignalSource | undefined) => void,
   setOffset: (value: number) => void
 ) {
-  if (state.status === "loading") {
-    return <FeedbackMessage variant="loading">Loading signal history.</FeedbackMessage>;
-  }
-
-  if (state.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Signal history API unavailable: {state.error}
-      </FeedbackMessage>
-    );
-  }
-
-  if (state.data.length === 0 && offset === 0) {
-    return (
-      <EmptyState>
-        No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready.
-      </EmptyState>
-    );
-  }
-
   return (
     <article className="dashboard-panel">
+      <div aria-label="Filter signals by source" className="signal-source-filter" role="group">
+        <SourceFilterButton active={source === undefined} onClick={() => setSource(undefined)}>
+          All
+        </SourceFilterButton>
+        {(Object.keys(SOURCE_LABELS) as StrategySignalSource[]).map((value) => (
+          <SourceFilterButton active={source === value} key={value} onClick={() => setSource(value)}>
+            {SOURCE_LABELS[value]}
+          </SourceFilterButton>
+        ))}
+      </div>
+      {state.status === "loading" ? (
+        <FeedbackMessage variant="loading">Loading signal history.</FeedbackMessage>
+      ) : state.status === "error" ? (
+        <FeedbackMessage className="dashboard-alert" variant="error">
+          Signal history API unavailable: {state.error}
+        </FeedbackMessage>
+      ) : state.data.length === 0 && offset === 0 ? (
+        <EmptyState>
+          {source === undefined
+            ? "No successful local signal exists yet. Generate a signal from the Dashboard after market data is ready."
+            : `No successful signals are available for ${SOURCE_LABELS[source]}.`}
+        </EmptyState>
+      ) : (
       <div className="holdings-table-wrap">
         <table className="holdings-table">
           <thead>
@@ -121,13 +164,49 @@ function renderSignalList(
           </tbody>
         </table>
       </div>
-      <Pagination
-        offset={offset}
-        pageSize={PAGE_SIZE}
-        itemCount={state.data.length}
-        onOffsetChange={setOffset}
-      />
+      )}
+      {state.status === "ready" ? (
+        <Pagination
+          offset={offset}
+          pageSize={PAGE_SIZE}
+          itemCount={state.data.length}
+          onOffsetChange={setOffset}
+        />
+      ) : null}
     </article>
+  );
+}
+
+function getSourceFromLocation(): StrategySignalSource | undefined {
+  const url = new URL(window.location.href);
+  const source = url.searchParams.get("source");
+  if (isStrategySignalSource(source)) {
+    return source;
+  }
+  if (source !== null) {
+    url.searchParams.delete("source");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  return undefined;
+}
+
+function isStrategySignalSource(value: string | null): value is StrategySignalSource {
+  return value === "manual" || value === "scheduled" || value === "backtest" || value === "legacy";
+}
+
+function SourceFilterButton({
+  active,
+  children,
+  onClick
+}: {
+  active: boolean;
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <button aria-pressed={active} className="signal-source-filter-button" onClick={onClick} type="button">
+      {children}
+    </button>
   );
 }
 

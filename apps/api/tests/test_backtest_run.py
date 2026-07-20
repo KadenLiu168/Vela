@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
@@ -555,3 +556,267 @@ def _add_price_history(
         for offset in range(total_days + 1)
         for close_price in [Decimal("100.000000") + daily_step * Decimal(offset)]
     )
+
+
+def _seed_backtest_run_with_signals(
+    session_factory,
+    *,
+    signal_dates: list[date],
+    strategy_id: str = "Dual_momentum",
+    config_version: str = "v1",
+) -> int:
+    with session_factory() as session:
+        run = BacktestRun(
+            strategy_id=strategy_id,
+            config_version=config_version,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            parameters_json='{"top_n": 2}',
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+            status="success",
+            total_return=Decimal("0.120000"),
+            annualized_return=Decimal("0.180000"),
+            max_drawdown=Decimal("-0.050000"),
+            volatility=Decimal("0.200000"),
+            sharpe_ratio=Decimal("1.100000"),
+        )
+        session.add(run)
+        session.flush()
+        for signal_date in signal_dates:
+            session.add(
+                StrategySignal(
+                    signal_date=signal_date,
+                    strategy_id=strategy_id,
+                    config_version=config_version,
+                    source="backtest",
+                    backtest_run_id=run.id,
+                    generated_at=datetime(
+                        signal_date.year, signal_date.month, signal_date.day, 9, 30, tzinfo=UTC
+                    ),
+                    status="success",
+                    result="rebalance",
+                )
+            )
+        session.commit()
+        return run.id
+
+
+def test_backtest_signals_endpoint_returns_paginated_summaries(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    run_id = _seed_backtest_run_with_signals(
+        session_factory,
+        signal_dates=[date(2026, 6, 3), date(2026, 6, 1), date(2026, 6, 2)],
+    )
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}/signals?limit=20&offset=0")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert list(body.keys()) == ["signals"]
+    signals = body["signals"]
+    assert [signal["signal_date"] for signal in signals] == [
+        "2026-06-01",
+        "2026-06-02",
+        "2026-06-03",
+    ]
+    for signal in signals:
+        assert set(signal.keys()) == {
+            "signal_id",
+            "signal_date",
+            "result",
+            "backtest_run_id",
+        }
+        assert signal["result"] == "rebalance"
+        assert signal["backtest_run_id"] == run_id
+
+
+def test_backtest_signals_endpoint_uses_default_pagination(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-default.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    run_id = _seed_backtest_run_with_signals(
+        session_factory,
+        signal_dates=[date(2026, 6, 1), date(2026, 6, 2)],
+    )
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        default_response = TestClient(app).get(f"/api/backtests/{run_id}/signals")
+        explicit_response = TestClient(app).get(
+            f"/api/backtests/{run_id}/signals?limit=20&offset=0"
+        )
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert default_response.status_code == 200
+    assert default_response.json() == explicit_response.json()
+    assert [signal["signal_date"] for signal in default_response.json()["signals"]] == [
+        "2026-06-01",
+        "2026-06-02",
+    ]
+
+
+def test_backtest_signals_endpoint_honors_offset(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-offset.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    run_id = _seed_backtest_run_with_signals(
+        session_factory,
+        signal_dates=[date(2026, 6, 1), date(2026, 6, 2), date(2026, 6, 3)],
+    )
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}/signals?limit=20&offset=1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert [signal["signal_date"] for signal in response.json()["signals"]] == [
+        "2026-06-02",
+        "2026-06-03",
+    ]
+
+
+def test_backtest_signals_endpoint_returns_empty_when_no_signals(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-empty.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    run_id = _seed_backtest_run_with_signals(session_factory, signal_dates=[])
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}/signals")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {"signals": []}
+
+
+def test_backtest_signals_endpoint_returns_404_for_unknown_run(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-unknown.db'}"
+    prepare_sqlite_database(database_url)
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get("/api/backtests/999/signals")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "category": "not_found",
+            "message": "Backtest run not found",
+        }
+    }
+
+
+def test_backtest_signals_endpoint_returns_404_for_foreign_strategy(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-foreign-strategy.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    foreign_run_id = _seed_backtest_run_with_signals(
+        session_factory,
+        signal_dates=[date(2026, 6, 1)],
+        strategy_id="Other_strategy",
+        config_version="v1",
+    )
+
+    try:
+        initialize_database(app, database_url=database_url)
+        client = TestClient(app)
+
+        foreign_response = client.get(f"/api/backtests/{foreign_run_id}/signals")
+        unknown_response = client.get("/api/backtests/999/signals")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert foreign_response.status_code == 404
+    assert unknown_response.status_code == 404
+    assert foreign_response.json() == unknown_response.json()
+
+
+def test_backtest_signals_endpoint_returns_404_for_foreign_config(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-foreign-config.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    foreign_run_id = _seed_backtest_run_with_signals(
+        session_factory,
+        signal_dates=[date(2026, 6, 1)],
+        strategy_id="Dual_momentum",
+        config_version="v2",
+    )
+
+    try:
+        initialize_database(app, database_url=database_url)
+        client = TestClient(app)
+
+        foreign_response = client.get(f"/api/backtests/{foreign_run_id}/signals")
+        unknown_response = client.get("/api/backtests/999/signals")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert foreign_response.status_code == 404
+    assert unknown_response.status_code == 404
+    assert foreign_response.json() == unknown_response.json()
+
+
+@pytest.mark.parametrize("query_string", ["limit=0", "limit=101", "offset=-1"])
+def test_backtest_signals_endpoint_rejects_invalid_pagination(tmp_path, query_string: str) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-invalid.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    run_id = _seed_backtest_run_with_signals(session_factory, signal_dates=[date(2026, 6, 1)])
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}/signals?{query_string}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 422
+    assert response.json()["error"] == {
+        "code": "validation_error",
+        "category": "validation",
+        "message": "Request validation failed",
+    }
+
+
+def test_backtest_signals_endpoint_collection_matches_signal_count(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-collection.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    signal_dates = [date(2026, 6, 1) + timedelta(days=day) for day in range(25)]
+    run_id = _seed_backtest_run_with_signals(session_factory, signal_dates=signal_dates)
+
+    try:
+        initialize_database(app, database_url=database_url)
+        client = TestClient(app)
+
+        detail = client.get(f"/api/backtests/{run_id}").json()
+        collected_ids: list[int] = []
+        offset = 0
+        while True:
+            page = client.get(f"/api/backtests/{run_id}/signals?limit=20&offset={offset}").json()[
+                "signals"
+            ]
+            if not page:
+                break
+            collected_ids.extend(signal["signal_id"] for signal in page)
+            offset += 20
+
+        detail_signal_ids = set(detail["signal_ids"])
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert len(collected_ids) == detail["signal_count"]
+    assert len(set(collected_ids)) == len(collected_ids)
+    assert set(collected_ids) == detail_signal_ids

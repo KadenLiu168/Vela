@@ -1461,12 +1461,12 @@ it("renders distinct accessible source badges for every signal source", async ()
     ["Backtest", "backtest"],
     ["Legacy", "legacy"]
   ]) {
-    expect(await screen.findByText(label)).toHaveClass(
+    expect(await within(await screen.findByRole("table")).findByText(label)).toHaveClass(
       "source-badge",
       `source-badge-${source}`
     );
   }
-  expect(screen.getByText("Legacy")).toHaveAccessibleDescription(
+  expect(within(await screen.findByRole("table")).getByText("Legacy")).toHaveAccessibleDescription(
     "Predates provenance tracking"
   );
 });
@@ -1672,7 +1672,13 @@ it("renders an API failure state on the signal detail route", async () => {
 
 it("loads backtest detail data through the shared client", async () => {
   window.history.pushState({}, "", "/backtests/8");
-  const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createBacktestDetailResponse()));
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/api/backtests/8/signals?")) {
+      return Promise.resolve(jsonResponse({ signals: createBacktestDetailResponse().signal_ids.map((signal_id) => ({ backtest_run_id: 8, result: "rebalance", signal_date: "2026-01-02", signal_id })) }));
+    }
+    return Promise.resolve(jsonResponse(createBacktestDetailResponse()));
+  });
   vi.stubGlobal("fetch", fetchMock);
 
   render(<App />);
@@ -1703,7 +1709,8 @@ it("loads backtest detail data through the shared client", async () => {
   expect(metrics.getByText("20.00%")).toBeInTheDocument();
   expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
   expect(metrics.getByText("1.10")).toBeInTheDocument();
-  const signalsSection = screen.getByRole("heading", { name: "Signals (2)" }).closest("section");
+  fireEvent.click(screen.getByRole("tab", { name: "Signals (2)" }));
+  const signalsSection = (await screen.findByRole("columnheader", { name: "Signal #" })).closest("section");
   expect(signalsSection).not.toBeNull();
   const signals = within(signalsSection as HTMLElement);
   expect(signals.getAllByRole("link").map((link) => link.textContent)).toEqual([
@@ -1714,6 +1721,7 @@ it("loads backtest detail data through the shared client", async () => {
     "href",
     "/signals/7"
   );
+  fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
   const equitySection = screen.getByRole("heading", { name: "Equity curve" }).closest("section");
   expect(equitySection).not.toBeNull();
   const equityCurve = within(equitySection as HTMLElement);
@@ -1753,7 +1761,7 @@ it("renders an explicit empty state for a backtest with no linked signals", asyn
 
   render(<App />);
 
-  expect(await screen.findByRole("heading", { name: "Signals (0)" })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("tab", { name: "Signals (0)" }));
   expect(screen.getByText("No signals are linked to this backtest.")).toBeInTheDocument();
 });
 

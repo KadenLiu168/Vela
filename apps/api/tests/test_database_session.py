@@ -80,6 +80,7 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
     assert routes == {
         ("/api/backtests", ("GET",)),
         ("/api/backtests/{run_id}", ("GET",)),
+        ("/api/backtests/{run_id}/signals", ("GET",)),
         ("/api/backtests/run", ("POST",)),
         ("/api/config", ("GET",)),
         ("/api/dashboard", ("GET",)),

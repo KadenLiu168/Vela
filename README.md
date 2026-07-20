@@ -16,7 +16,7 @@ Current capabilities:
 - Market price storage & querying (SQLAlchemy + Alembic on SQLite)
 - Dual-momentum signal generation (momentum scoring + trend filter + defense fallback; no look-ahead bias)
 - Historical backtesting (total & annualized return, max drawdown, volatility, Sharpe ratio; transaction cost applied)
-- FastAPI HTTP service (13 endpoints) + React web UI (6 pages, command palette, SVG charts)
+- FastAPI HTTP service (14 endpoints) + React web UI (6 pages, command palette, SVG charts)
 - Trading-calendar sync, data-quality checks, CLI report export
 
 ## Tech Stack
@@ -54,7 +54,7 @@ trading calendar, data quality, CLI/API service helpers.
 Web application (`apps/web/`): React 19 SPA - Dashboard, Signal list/detail,
 Backtest list/detail, ETF detail pages, command palette, SVG charts.
 
-API service (`apps/api/src/vela_api/`): FastAPI app with 13 endpoints.
+API service (`apps/api/src/vela_api/`): FastAPI app with 14 endpoints.
 
 CLI (`apps/cli/src/vela_cli/`): 8 subcommands (init-db, fetch-market-data,
 sync-etf-pool, sync-trading-calendar, generate-signal, run-backtest, export
@@ -340,7 +340,7 @@ Implemented (code complete + tested):
 - SQLAlchemy models + Alembic (10 revisions, 8 business tables)
 - CLI data pipeline: `sync-etf-pool`, `fetch-market-data`, `sync-trading-calendar`,
   `generate-signal`, `run-backtest`, report export
-- FastAPI service with 13 endpoints + structured error envelope
+- FastAPI service with 14 endpoints + structured error envelope
 - React research frontend (Dashboard / Signals / Backtests / ETF detail + command palette + SVG charts)
 - Dual-momentum strategy v1, backtest engine, Tencent + JoinQuant data providers,
   trading calendar, data-quality checks

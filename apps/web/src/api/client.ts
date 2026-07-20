@@ -415,15 +415,48 @@ export function getBacktestDetail(runId: string): Promise<BacktestDetailResponse
   return apiRequest<BacktestDetailResponse>(`/backtests/${encodeURIComponent(runId)}`);
 }
 
-export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {
-  return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
-}
+export type BacktestSignalSummary = {
+  signal_id: number;
+  signal_date: string;
+  result: string | null;
+  backtest_run_id: number;
+};
 
-export function listStrategySignals(limit = 20, offset = 0): Promise<StrategySignalListResponse> {
+export type BacktestSignalsResponse = {
+  signals: BacktestSignalSummary[];
+};
+
+export function listBacktestSignals(
+  runId: string,
+  limit = 20,
+  offset = 0
+): Promise<BacktestSignalsResponse> {
   const searchParams = new URLSearchParams({
     limit: String(limit),
     offset: String(offset)
   });
+
+  return apiRequest<BacktestSignalsResponse>(
+    `/backtests/${encodeURIComponent(runId)}/signals?${searchParams.toString()}`
+  );
+}
+
+export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {
+  return apiRequest<LatestStrategySignalResponse>("/strategy-signals/latest");
+}
+
+export function listStrategySignals(
+  limit = 20,
+  offset = 0,
+  source?: StrategySignalSource
+): Promise<StrategySignalListResponse> {
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  if (source !== undefined) {
+    searchParams.set("source", source);
+  }
 
   return apiRequest<StrategySignalListResponse>(`/strategy-signals?${searchParams.toString()}`);
 }

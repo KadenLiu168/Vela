@@ -701,6 +701,37 @@ main {
   color: var(--feedback-accent-empty);
 }
 
+.signal-source-filter,
+.backtest-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  margin-bottom: var(--spacing-16);
+}
+
+.signal-source-filter-button,
+.backtest-tab {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-sm);
+  color: var(--color-mist);
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 var(--spacing-12);
+}
+
+.signal-source-filter-button[aria-pressed="true"],
+.backtest-tab[aria-selected="true"] {
+  background: var(--color-iris-violet);
+  color: var(--color-paper);
+}
+
+.signal-source-filter-button:focus-visible,
+.backtest-tab:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 .metric-row {
   display: grid;
   gap: var(--spacing-12);

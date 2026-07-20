@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 from vela_core import (
     BacktestRunResult,
+    BacktestSignalSummaryEntry,
     BootstrapResult,
     ConfigError,
     GeneratedSignalPosition,
@@ -29,6 +30,7 @@ from vela_core import (
     get_etf_price_trend,
     get_latest_strategy_signal_report,
     get_strategy_signal_report,
+    list_backtest_signals,
     list_strategy_signals,
     load_app_config,
     run_backtest,
@@ -49,6 +51,7 @@ initialize_database(app)
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
 MarketDataFetchMode = Literal["incremental", "full"]
 ErrorCategory = Literal["validation", "not_found", "operation_failed", "unexpected"]
+StrategySignalSourceFilter = Literal["manual", "scheduled", "backtest", "legacy"]
 
 
 def get_market_data_provider() -> MarketDataProvider:
@@ -215,6 +218,7 @@ def list_strategy_signals_endpoint(
     session: DatabaseSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
+    source: Annotated[StrategySignalSourceFilter | None, Query()] = None,
 ) -> dict[str, object]:
     config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
     entries = list_strategy_signals(
@@ -223,6 +227,7 @@ def list_strategy_signals_endpoint(
         config_version=config.version,
         limit=limit,
         offset=offset,
+        source=source,
     )
     return {"signals": [_strategy_signal_list_item_response(entry) for entry in entries]}
 
@@ -305,6 +310,28 @@ def backtest_detail(run_id: int, session: DatabaseSession) -> dict[str, object]:
         "signal_ids": [signal.id for signal in run.signals],
         "signal_count": len(run.signals),
     }
+
+
+@app.get("/api/backtests/{run_id}/signals")
+def backtest_signals_endpoint(
+    run_id: int,
+    session: DatabaseSession,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, object]:
+    config = load_strategy_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    entries = list_backtest_signals(
+        session,
+        run_id=run_id,
+        strategy_id=config.strategy_id,
+        config_version=config.version,
+        limit=limit,
+        offset=offset,
+    )
+    if entries is None:
+        raise HTTPException(status_code=404, detail="Backtest run not found")
+
+    return {"signals": [_backtest_signal_summary_response(entry) for entry in entries]}
 
 
 def _bootstrap_response(result: BootstrapResult) -> dict[str, object]:
@@ -420,6 +447,15 @@ def _backtest_curve_point_response(row: BacktestEquityCurve) -> dict[str, object
         "market_value": _format_decimal(row.market_value),
         "total_assets": _format_decimal(row.total_assets),
         "positions_json": row.positions_json,
+    }
+
+
+def _backtest_signal_summary_response(entry: BacktestSignalSummaryEntry) -> dict[str, object]:
+    return {
+        "signal_id": entry.signal_id,
+        "signal_date": entry.signal_date.isoformat(),
+        "result": entry.result,
+        "backtest_run_id": entry.backtest_run_id,
     }
 
 

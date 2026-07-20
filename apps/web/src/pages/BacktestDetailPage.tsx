@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ApiClientError,
   type BacktestDetailResponse,
-  getBacktestDetail
+  type BacktestSignalSummary,
+  getBacktestDetail,
+  listBacktestSignals
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, Pagination } from "../components";
 import {
   formatDate,
   formatDecimal,
@@ -31,10 +33,27 @@ type BacktestDetailState =
   | { status: "not-found"; data?: never; error?: never; backtestId: string }
   | { status: "error"; data?: never; error: string; backtestId: string };
 
+type SignalsState =
+  | { status: "idle"; data?: never; error?: never; offset?: never }
+  | { status: "loading"; data?: never; error?: never; offset: number }
+  | { status: "ready"; data: BacktestSignalSummary[]; error?: never; offset: number }
+  | { status: "error"; data?: never; error: string; offset: number };
+
+const PAGE_SIZE = 20;
+
 export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
+  return <BacktestDetailPageForId backtestId={backtestId} key={backtestId} />;
+}
+
+function BacktestDetailPageForId({ backtestId }: BacktestDetailPageProps) {
   const [backtestState, setBacktestState] = useState<BacktestDetailState>({
     status: "loading"
   });
+  const [activeTab, setActiveTab] = useState<"overview" | "signals">("overview");
+  const [signalOffset, setSignalOffset] = useState(0);
+  const [signalsState, setSignalsState] = useState<SignalsState>({ status: "idle" });
+  const signalRequestKey = useRef(0);
+  const loadedSignalOffset = useRef<number | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -67,13 +86,55 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
     };
   }, [backtestId]);
 
+  useEffect(() => {
+    if (activeTab !== "signals" || backtestState.status !== "ready" || backtestState.backtestId !== backtestId || backtestState.data.signal_count === 0) {
+      return;
+    }
+    if (loadedSignalOffset.current === signalOffset) {
+      return;
+    }
+    const requestKey = ++signalRequestKey.current;
+    listBacktestSignals(backtestId, PAGE_SIZE, signalOffset)
+      .then((data) => {
+        if (signalRequestKey.current === requestKey) {
+          loadedSignalOffset.current = signalOffset;
+          setSignalsState({ status: "ready", data: data.signals, offset: signalOffset });
+        }
+      })
+      .catch((error: unknown) => {
+        if (signalRequestKey.current === requestKey) {
+          setSignalsState({
+            status: "error",
+            error: error instanceof ApiClientError ? error.kind : "unavailable",
+            offset: signalOffset
+          });
+        }
+      });
+  }, [activeTab, backtestId, backtestState, signalOffset]);
+
   return (
     <section className="page detail-page">
       <div className="page-heading">
         <p>Backtest research workspace</p>
         <h1>Backtest Detail</h1>
       </div>
-      {renderBacktestDetail(getBacktestDetailState(backtestState, backtestId), backtestId)}
+      {renderBacktestDetail(
+        getBacktestDetailState(backtestState, backtestId),
+        backtestId,
+        activeTab,
+        (tab) => {
+          setActiveTab(tab);
+          if (tab === "signals" && signalsState.status === "idle" && backtestState.status === "ready" && backtestState.data.signal_count > 0) {
+            setSignalsState({ status: "loading", offset: signalOffset });
+          }
+        },
+        signalOffset,
+        (offset) => {
+          setSignalOffset(offset);
+          setSignalsState({ status: "loading", offset });
+        },
+        signalsState
+      )}
     </section>
   );
 }
@@ -82,7 +143,15 @@ function getBacktestDetailState(state: BacktestDetailState, backtestId: string):
   return state.status === "loading" || state.backtestId === backtestId ? state : { status: "loading" };
 }
 
-function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: string) {
+function renderBacktestDetail(
+  backtestState: BacktestDetailState,
+  backtestId: string,
+  activeTab: "overview" | "signals",
+  setActiveTab: (tab: "overview" | "signals") => void,
+  signalOffset: number,
+  setSignalOffset: (offset: number) => void,
+  signalsState: SignalsState
+) {
   if (backtestState.status === "loading") {
     return <FeedbackMessage variant="loading">Loading backtest detail.</FeedbackMessage>;
   }
@@ -100,12 +169,34 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
   }
 
   const { metrics, run } = backtestState.data;
-  const signalIds = backtestState.data.signal_ids;
   const signalCount = backtestState.data.signal_count;
+  const selectTab = setActiveTab;
+  const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const tab =
+      event.key === "Home"
+        ? "overview"
+        : event.key === "End"
+          ? "signals"
+          : event.key === "ArrowLeft" || event.key === "ArrowRight"
+            ? activeTab === "overview"
+              ? "signals"
+              : "overview"
+            : undefined;
+    if (tab === undefined) return;
+    event.preventDefault();
+    selectTab(tab);
+    document.getElementById(`backtest-${tab}-tab`)?.focus();
+  };
 
   return (
     <article className="dashboard-panel">
       <strong className="panel-primary">Backtest #{run.run_id}</strong>
+      <div aria-label="Backtest detail sections" className="backtest-tabs" role="tablist">
+        <button aria-controls="backtest-overview-panel" aria-selected={activeTab === "overview"} className="backtest-tab" id="backtest-overview-tab" onClick={() => selectTab("overview")} onKeyDown={onTabKeyDown} role="tab" tabIndex={activeTab === "overview" ? 0 : -1} type="button">Overview</button>
+        <button aria-controls="backtest-signals-panel" aria-selected={activeTab === "signals"} className="backtest-tab" id="backtest-signals-tab" onClick={() => selectTab("signals")} onKeyDown={onTabKeyDown} role="tab" tabIndex={activeTab === "signals" ? 0 : -1} type="button">Signals ({signalCount})</button>
+      </div>
+      {activeTab === "overview" ? (
+      <div aria-labelledby="backtest-overview-tab" id="backtest-overview-panel" role="tabpanel">
       <dl className="compact-list">
         <DescriptionItem label="Strategy" value={run.strategy_id} />
         <DescriptionItem label="Config version" value={run.config_version} />
@@ -128,22 +219,6 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
           <MetricCard label="Sharpe ratio" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
         </dl>
       </section>
-      <section className="holdings-section" aria-labelledby="backtest-signals-heading">
-        <h3 id="backtest-signals-heading">Signals ({signalCount})</h3>
-        {signalIds.length === 0 ? (
-          <EmptyState>No signals are linked to this backtest.</EmptyState>
-        ) : (
-          <ul>
-            {signalIds.map((signalId) => (
-              <li key={signalId}>
-                <a className="operation-link" href={`/signals/${signalId}`}>
-                  Signal #{signalId}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
         <h3 id="backtest-equity-curve-heading">Equity curve</h3>
         <EquityCurveChart points={backtestState.data.equity_curve} />
@@ -152,8 +227,18 @@ function renderBacktestDetail(backtestState: BacktestDetailState, backtestId: st
         <h3 id="backtest-parameters-heading">Parameters</h3>
         <pre className="parameter-summary">{formatParameterSummary(run.parameters_json)}</pre>
       </section>
+      </div>
+      ) : (
+        <SignalsPanel count={signalCount} offset={signalOffset} setOffset={setSignalOffset} state={signalsState} />
+      )}
     </article>
   );
+}
+
+function SignalsPanel({ count, offset, setOffset, state }: { count: number; offset: number; setOffset: (offset: number) => void; state: SignalsState }) {
+  return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><thead><tr><th scope="col">Signal #</th><th scope="col">Signal date</th><th scope="col">Result</th><th scope="col">Action</th></tr></thead><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><td>{signal.signal_id}</td><td>{formatDate(signal.signal_date)}</td><td>{formatNullableText(signal.result)}</td><td><a className="operation-link" href={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</a></td></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+  </section>;
 }
 
 function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_curve"] }) {

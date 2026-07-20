@@ -5,16 +5,18 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
+    BacktestSignalSummaryEntry,
     LatestStrategySignalReportNotFoundError,
     StrategySignalListEntry,
     StrategySignalPositionInput,
     export_latest_strategy_signal_report,
     get_latest_strategy_signal_report,
     get_strategy_signal_report,
+    list_backtest_signals,
     list_strategy_signals,
     persist_strategy_signal,
 )
-from vela_core.models import Base, ETFInfo
+from vela_core.models import BacktestRun, Base, ETFInfo, StrategySignal
 
 
 def test_export_latest_strategy_signal_report_formats_positions() -> None:
@@ -466,6 +468,341 @@ def test_list_strategy_signals_returns_empty_when_no_match() -> None:
     assert entries == []
 
 
+def test_list_strategy_signals_filters_by_source_before_pagination() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(session, source="manual", signal_date=date(2026, 6, 1))
+        _add_signal(session, source="manual", signal_date=date(2026, 6, 2))
+        _add_signal(session, source="manual", signal_date=date(2026, 6, 3))
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 4), run_id=run.id)
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 5), run_id=run.id)
+        session.commit()
+
+        manual_all = list_strategy_signals(
+            session, strategy_id="Dual_momentum", config_version="v1", limit=10, source="manual"
+        )
+        manual_page = list_strategy_signals(
+            session,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=2,
+            offset=0,
+            source="manual",
+        )
+        backtest_all = list_strategy_signals(
+            session, strategy_id="Dual_momentum", config_version="v1", limit=10, source="backtest"
+        )
+        all_signals = list_strategy_signals(
+            session, strategy_id="Dual_momentum", config_version="v1", limit=10
+        )
+
+    assert [entry.signal_date for entry in manual_all] == [
+        date(2026, 6, 3),
+        date(2026, 6, 2),
+        date(2026, 6, 1),
+    ]
+    assert [entry.source for entry in manual_all] == ["manual", "manual", "manual"]
+    assert len(manual_page) == 2
+    assert [entry.signal_date for entry in backtest_all] == [
+        date(2026, 6, 5),
+        date(2026, 6, 4),
+    ]
+    assert len(all_signals) == 5
+
+
+def test_list_strategy_signals_accepts_every_declared_source() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        for source in StrategySignal.SOURCES:
+            _add_signal(
+                session,
+                source=source,
+                signal_date=date(2026, 6, 1),
+                run_id=run.id if source == "backtest" else None,
+            )
+        session.commit()
+
+        for source in StrategySignal.SOURCES:
+            entries = list_strategy_signals(
+                session,
+                strategy_id="Dual_momentum",
+                config_version="v1",
+                limit=10,
+                source=source,
+            )
+            assert len(entries) == 1
+            assert entries[0].source == source
+
+
+def test_list_strategy_signals_omitting_source_returns_all_sources() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(session, source="manual", signal_date=date(2026, 6, 1))
+        _add_signal(session, source="scheduled", signal_date=date(2026, 6, 2))
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 3), run_id=run.id)
+        _add_signal(session, source="legacy", signal_date=date(2026, 6, 4))
+        session.commit()
+
+        entries = list_strategy_signals(
+            session, strategy_id="Dual_momentum", config_version="v1", limit=10
+        )
+
+    assert sorted(entry.source for entry in entries) == sorted(StrategySignal.SOURCES)
+
+
+def test_list_backtest_signals_returns_summaries_for_in_scope_run() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(
+            session, source="backtest", signal_date=date(2026, 6, 3), run_id=run.id, result="buy"
+        )
+        _add_signal(
+            session, source="backtest", signal_date=date(2026, 6, 1), run_id=run.id, result="hold"
+        )
+        _add_signal(
+            session,
+            source="backtest",
+            signal_date=date(2026, 6, 2),
+            run_id=run.id,
+            result="rebalance",
+        )
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=10,
+        )
+
+    assert entries is not None
+    assert all(isinstance(entry, BacktestSignalSummaryEntry) for entry in entries)
+    assert [entry.signal_date for entry in entries] == [
+        date(2026, 6, 1),
+        date(2026, 6, 2),
+        date(2026, 6, 3),
+    ]
+    assert [entry.result for entry in entries] == ["hold", "rebalance", "buy"]
+    assert all(entry.backtest_run_id == run.id for entry in entries)
+
+
+def test_list_backtest_signals_orders_by_signal_date_then_id() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        first_same_day = _add_signal(
+            session, source="backtest", signal_date=date(2026, 6, 2), run_id=run.id
+        )
+        earlier = _add_signal(
+            session, source="backtest", signal_date=date(2026, 6, 1), run_id=run.id
+        )
+        second_same_day = _add_signal(
+            session, source="backtest", signal_date=date(2026, 6, 2), run_id=run.id
+        )
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=10,
+        )
+        expected_signal_ids = [earlier.id, first_same_day.id, second_same_day.id]
+
+    assert entries is not None
+    assert [entry.signal_id for entry in entries] == expected_signal_ids
+
+
+def test_list_backtest_signals_returns_none_for_foreign_strategy() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 1), run_id=run.id)
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Other_strategy",
+            config_version="v1",
+            limit=10,
+        )
+
+    assert entries is None
+
+
+def test_list_backtest_signals_returns_none_for_foreign_config() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 1), run_id=run.id)
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v2",
+            limit=10,
+        )
+
+    assert entries is None
+
+
+def test_list_backtest_signals_returns_none_for_unknown_run() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        entries = list_backtest_signals(
+            session,
+            run_id=999,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=10,
+        )
+
+    assert entries is None
+
+
+def test_list_backtest_signals_returns_empty_when_run_has_no_signals() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=10,
+        )
+
+    assert entries == []
+
+
+def test_list_backtest_signals_paginates_with_limit_and_offset() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        signals = [
+            _add_signal(
+                session, source="backtest", signal_date=date(2026, 6, 1 + day), run_id=run.id
+            )
+            for day in range(5)
+        ]
+        session.commit()
+
+        page1 = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=2,
+            offset=0,
+        )
+        page2 = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=2,
+            offset=2,
+        )
+        page3 = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=2,
+            offset=4,
+        )
+        signal_ids = [signal.id for signal in signals]
+
+    assert [entry.signal_id for entry in page1] == signal_ids[0:2]
+    assert [entry.signal_id for entry in page2] == signal_ids[2:4]
+    assert [entry.signal_id for entry in page3] == signal_ids[4:5]
+
+
+def test_list_backtest_signals_does_not_filter_by_status() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        _add_signal(
+            session,
+            source="backtest",
+            signal_date=date(2026, 6, 1),
+            run_id=run.id,
+            status="failed",
+            result=None,
+            error_message="missing market data",
+        )
+        _add_signal(session, source="backtest", signal_date=date(2026, 6, 2), run_id=run.id)
+        session.commit()
+
+        entries = list_backtest_signals(
+            session,
+            run_id=run.id,
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            limit=10,
+        )
+
+    assert entries is not None
+    assert len(entries) == 2
+
+
+def test_list_backtest_signals_rejects_invalid_limit() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        session.commit()
+
+        with pytest.raises(ValueError):
+            list_backtest_signals(
+                session,
+                run_id=run.id,
+                strategy_id="Dual_momentum",
+                config_version="v1",
+                limit=0,
+            )
+
+
+def test_list_backtest_signals_rejects_invalid_offset() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        run = _add_backtest_run(session)
+        session.commit()
+
+        with pytest.raises(ValueError):
+            list_backtest_signals(
+                session,
+                run_id=run.id,
+                strategy_id="Dual_momentum",
+                config_version="v1",
+                limit=10,
+                offset=-1,
+            )
+
+
 def test_get_strategy_signal_report_returns_report_by_id() -> None:
     session_factory = _create_session_factory()
 
@@ -527,3 +864,53 @@ def _add_etf(session: Session, symbol: str) -> ETFInfo:
     session.add(etf)
     session.flush()
     return etf
+
+
+def _add_backtest_run(session: Session) -> BacktestRun:
+    run = BacktestRun(
+        strategy_id="Dual_momentum",
+        config_version="v1",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 31),
+        parameters_json='{"top_n": 2}',
+        started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+        finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+        status="success",
+        total_return=Decimal("0.120000"),
+        annualized_return=Decimal("0.180000"),
+        max_drawdown=Decimal("-0.050000"),
+        volatility=Decimal("0.200000"),
+        sharpe_ratio=Decimal("1.100000"),
+    )
+    session.add(run)
+    session.flush()
+    return run
+
+
+def _add_signal(
+    session: Session,
+    *,
+    source: str,
+    signal_date: date,
+    run_id: int | None = None,
+    result: str | None = "rebalance",
+    status: str = "success",
+    error_message: str | None = None,
+) -> StrategySignal:
+    signal = StrategySignal(
+        signal_date=signal_date,
+        strategy_id="Dual_momentum",
+        config_version="v1",
+        source=source,
+        backtest_run_id=run_id,
+        generated_at=datetime(
+            signal_date.year, signal_date.month, signal_date.day, 9, 30, tzinfo=UTC
+        ),
+        status=status,
+        result=result,
+        error_message=error_message,
+        positions=[],
+    )
+    session.add(signal)
+    session.flush()
+    return signal

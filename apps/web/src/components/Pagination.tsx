@@ -2,12 +2,13 @@ type PaginationProps = {
   offset: number;
   pageSize: number;
   itemCount: number;
+  totalCount?: number;
   onOffsetChange: (value: number) => void;
 };
 
-export function Pagination({ offset, pageSize, itemCount, onOffsetChange }: PaginationProps) {
+export function Pagination({ offset, pageSize, itemCount, totalCount, onOffsetChange }: PaginationProps) {
   const hasPrevious = offset > 0;
-  const hasNext = itemCount >= pageSize;
+  const hasNext = totalCount === undefined ? itemCount >= pageSize : offset + itemCount < totalCount;
 
   return (
     <div className="list-pagination">

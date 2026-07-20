@@ -11,6 +11,7 @@ import {
   getHealth,
   getLatestStrategySignal,
   getStrategySignalDetail,
+  listBacktestSignals,
   listBacktests,
   listStrategySignals,
   runBacktest
@@ -613,4 +614,61 @@ it("exposes a typed API client error", () => {
     status: 500,
     message: "HTTP request failed"
   });
+});
+
+it("encodes a source filter on strategy signal list requests", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ signals: [] }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await listStrategySignals(20, 0, "backtest");
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/strategy-signals?limit=20&offset=0&source=backtest",
+    undefined
+  );
+});
+
+it("omits source on strategy signal list requests when none is supplied", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ signals: [] }), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await listStrategySignals(20, 0);
+
+  expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals?limit=20&offset=0", undefined);
+});
+
+it("calls backtest signals with run id and pagination through the shared client", async () => {
+  const list = {
+    signals: [
+      {
+        signal_id: 7,
+        signal_date: "2026-01-02",
+        result: "rebalance",
+        backtest_run_id: 8
+      }
+    ]
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(list), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(listBacktestSignals("8", 20, 0)).resolves.toEqual(list);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/backtests/8/signals?limit=20&offset=0",
+    undefined
+  );
 });

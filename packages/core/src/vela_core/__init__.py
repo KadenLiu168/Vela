@@ -114,6 +114,7 @@ from vela_core.strategy_signal_persistence import (
     persist_strategy_signal,
 )
 from vela_core.strategy_signal_report import (
+    BacktestSignalSummaryEntry,
     LatestStrategySignalReportNotFoundError,
     StrategySignalListEntry,
     StrategySignalReport,
@@ -121,6 +122,7 @@ from vela_core.strategy_signal_report import (
     export_latest_strategy_signal_report,
     get_latest_strategy_signal_report,
     get_strategy_signal_report,
+    list_backtest_signals,
     list_strategy_signals,
 )
 from vela_core.strategy_signal_service import generate_and_persist_strategy_signal
@@ -141,6 +143,7 @@ __all__ = [
     "BacktestReportNotFoundError",
     "BacktestRunResult",
     "BacktestGapDetectionConfig",
+    "BacktestSignalSummaryEntry",
     "BootstrapResult",
     "BootstrapStepResult",
     "ConfigError",
@@ -221,6 +224,7 @@ __all__ = [
     "get_latest_strategy_signal_report",
     "get_strategy_signal_report",
     "generate_strategy_signal",
+    "list_backtest_signals",
     "list_strategy_signals",
     "export_latest_strategy_signal_report",
     "export_backtest_report",
