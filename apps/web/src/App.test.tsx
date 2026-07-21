@@ -2166,7 +2166,7 @@ it("reverts the trend readout to the latest point when the pointer leaves", asyn
   fireEvent.mouseMove(overlay, { clientX: 56 });
   expect(readout).toHaveTextContent("2026-01-02");
 
-  fireEvent.mouseLeave(screen.getByRole("img", { name: "ETF backward-adjusted price trend" }));
+  fireEvent.mouseLeave(screen.getByRole("img", { name: "ETF forward-adjusted price trend" }));
   expect(readout).toHaveTextContent("2026-03-02");
 });
 

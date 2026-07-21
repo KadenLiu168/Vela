@@ -33,6 +33,7 @@ def test_calculates_weighted_momentum_score_from_complete_configured_windows() -
                 20: Decimal("100"),
                 30: Decimal("112"),
             },
+            factor_by_offset={0: Decimal("1"), 20: Decimal("2"), 30: Decimal("4")},
             row_count=31,
         )
 
@@ -46,9 +47,9 @@ def test_calculates_weighted_momentum_score_from_complete_configured_windows() -
     assert momentum_score == MomentumScore(
         etf_id=etf.id,
         as_of_date=_trade_date(30),
-        short_return=Decimal("0.12"),
-        long_return=Decimal("0.4"),
-        score=Decimal("0.288"),
+        short_return=Decimal("1.24"),
+        long_return=Decimal("4.6"),
+        score=Decimal("3.256"),
     )
 
 

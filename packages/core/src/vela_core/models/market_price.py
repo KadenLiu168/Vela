@@ -44,7 +44,3 @@ class MarketPrice(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
-
-    @property
-    def strategy_price(self) -> Decimal:
-        return self.close_price * self.factor_hfq

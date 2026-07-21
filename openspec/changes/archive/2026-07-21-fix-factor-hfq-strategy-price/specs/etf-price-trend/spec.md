@@ -1,8 +1,5 @@
-# etf-price-trend Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-etf-price-trend-chart. Update Purpose after archive.
-## Requirements
 ### Requirement: ETF price trend endpoint
 
 The system SHALL expose `GET /api/etfs/{etf_id}/prices?range={1m|3m|1y|3y|max}` returning the forward-adjusted daily price series for one ETF over the requested horizon, derived from stored `market_price` rows at query time without persisting adjusted prices. The series SHALL be anchored at the latest persisted trade date selected for that request.
@@ -42,27 +39,6 @@ The system SHALL expose `GET /api/etfs/{etf_id}/prices?range={1m|3m|1y|3y|max}` 
 - **THEN** the response status is 422
 - **AND** the response body uses the stable API error shape with category `validation`
 
-### Requirement: ETF trend page horizon switching
-The web frontend SHALL render an ETF trend detail page at route `/etfs/{etf_id}` that loads the price series for a selected horizon and re-fetches when the horizon changes.
-
-#### Scenario: Page loads default horizon
-- **WHEN** the user navigates to `/etfs/{etf_id}`
-- **THEN** the frontend requests `GET /api/etfs/{etf_id}/prices?range=1y`
-- **AND** the page renders the ETF identity and the trend chart for the returned series
-
-#### Scenario: User switches horizon
-- **WHEN** the user selects a different horizon control (`1M`, `3M`, `1Y`, `3Y`, `Max`)
-- **THEN** the frontend requests the price series for the new range
-- **AND** the chart re-renders with the new series
-
-#### Scenario: Unknown etf_id renders not-found state
-- **WHEN** the price-series request returns 404
-- **THEN** the page renders a not-found state instead of the chart
-
-#### Scenario: Loading and error states
-- **WHEN** a price-series request is in flight or fails
-- **THEN** the page renders a loading or error feedback state consistent with the other detail pages
-
 ### Requirement: ETF trend chart interaction
 
 The trend chart SHALL render the forward-adjusted price series returned by the endpoint as a line without applying a second adjustment. It SHALL surface per-point readout on hover. Hover SHALL resolve to the data point whose x-coordinate is nearest the pointer, clamped to the series bounds, so the highlighted point tracks the cursor without band-cell misalignment. Hover hit detection SHALL be served by a single overlay element covering the plot area rather than one interactive element per data point, so interaction cost does not grow with series length.
@@ -97,15 +73,3 @@ The trend chart SHALL render the forward-adjusted price series returned by the e
 #### Scenario: Empty series
 - **WHEN** the series has zero points
 - **THEN** the chart renders an empty state
-
-### Requirement: Dashboard ETF row links to trend detail
-The web frontend Dashboard SHALL render an entry control on each `etf-row` that navigates to that ETF's trend detail page using the `etf_id` from the Dashboard aggregate.
-
-#### Scenario: etf-row navigates to trend detail
-- **WHEN** the user activates the detail entry control on a Dashboard `etf_row`
-- **THEN** the frontend navigates to `/etfs/{etf_id}` using that row's `etf_id`
-
-#### Scenario: etf-row renders entry control only when etf_id is present
-- **WHEN** the Dashboard aggregate returns an `etf_list` entry without `etf_id`
-- **THEN** the detail entry control is not rendered for that row
-

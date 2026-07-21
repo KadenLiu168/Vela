@@ -84,7 +84,7 @@ def test_returns_none_for_all_windows_when_current_price_is_missing() -> None:
     assert returns.return_120d is None
 
 
-def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
+def test_uses_forward_adjusted_prices_and_ignores_other_etf_histories() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:

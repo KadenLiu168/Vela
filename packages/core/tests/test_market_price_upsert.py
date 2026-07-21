@@ -57,8 +57,31 @@ def test_upsert_market_prices_updates_existing_row_without_duplicate() -> None:
         assert result.rows_updated == 1
         assert len(prices) == 1
         assert prices[0].close_price == Decimal("501.000000")
-        assert prices[0].factor_hfq == Decimal("1")  # immutable: refetch does not overwrite
+        assert prices[0].factor_hfq == Decimal("2")
         assert prices[0].volume == 2000
+
+
+def test_upsert_market_prices_counts_unchanged_factor_as_updated() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        upsert_market_prices(
+            session,
+            [_market_price(etf_id=etf.id, close_price=Decimal("500.00"), factor_hfq=Decimal("2"))],
+        )
+        session.commit()
+
+        result = upsert_market_prices(
+            session,
+            [_market_price(etf_id=etf.id, close_price=Decimal("501.00"), factor_hfq=Decimal("2"))],
+        )
+        session.commit()
+
+        price = session.query(MarketPrice).one()
+        assert result.rows_inserted == 0
+        assert result.rows_updated == 1
+        assert price.factor_hfq == Decimal("2")
 
 
 def test_upsert_market_prices_stores_different_etfs_on_same_trade_date() -> None:

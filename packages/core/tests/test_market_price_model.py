@@ -87,23 +87,16 @@ def test_market_price_has_lookup_indexes() -> None:
     assert ("trade_date",) in indexed_columns
 
 
-def test_market_price_strategy_price_is_backward_adjusted() -> None:
+def test_market_price_has_no_strategy_price_attribute() -> None:
     market_price = _market_price(
         etf_id=1,
         close_price=Decimal("100.00"),
         factor_hfq=Decimal("1.25"),
     )
 
-    assert market_price.strategy_price == Decimal("125.0000")
-
-
-def test_market_price_strategy_price_uses_unit_factor_by_default() -> None:
-    market_price = _market_price(
-        etf_id=1,
-        close_price=Decimal("100.00"),
-    )
-
-    assert market_price.strategy_price == Decimal("100.00")
+    assert not hasattr(market_price, "strategy_price")
+    with pytest.raises(AttributeError):
+        _ = market_price.strategy_price
 
 
 def _create_session_factory() -> sessionmaker[Session]:

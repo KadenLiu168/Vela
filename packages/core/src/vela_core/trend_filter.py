@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import StrategyConfig
@@ -43,7 +44,8 @@ def _trend_filter_from_prices(
             passes_filter=False,
         )
 
-    current_price = prices[-1].strategy_price
+    adjusted_prices = forward_adjusted_prices(prices, rebalance_date=as_of_date)
+    current_price = adjusted_prices[-1].price
 
     if len(prices) < window:
         return TrendFilterResult(
@@ -55,7 +57,7 @@ def _trend_filter_from_prices(
         )
 
     ma_value = sum(
-        (price.strategy_price for price in prices[-window:]),
+        (price.price for price in adjusted_prices[-window:]),
         Decimal("0"),
     ) / Decimal(window)
 

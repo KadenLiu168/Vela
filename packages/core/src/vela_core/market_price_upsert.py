@@ -38,11 +38,8 @@ def upsert_market_prices(
     # `insertmanyvalues` optimization, which auto-chunks the bind parameters
     # and avoids `too many SQL variables` on large batches.
     #
-    # ``factor_hfq`` is intentionally absent from the conflict update set: the
-    # backward-adjustment factor is an append-only snapshot, so an existing
-    # row's factor is never overwritten by a refetch (immune to upstream
-    # retroactive factor revisions). New rows still receive their factor via
-    # the INSERT values below.
+    # ``factor_hfq`` is updated with the other provider values so a full
+    # refetch can rewrite an existing ETF's factor series consistently.
     statement = insert(MarketPrice).on_conflict_do_update(
         index_elements=[MarketPrice.etf_id, MarketPrice.trade_date],
         set_={
@@ -50,6 +47,7 @@ def upsert_market_prices(
             "high_price": insert(MarketPrice).excluded.high_price,
             "low_price": insert(MarketPrice).excluded.low_price,
             "close_price": insert(MarketPrice).excluded.close_price,
+            "factor_hfq": insert(MarketPrice).excluded.factor_hfq,
             "volume": insert(MarketPrice).excluded.volume,
             "updated_at": func.now(),
         },

@@ -1,22 +1,19 @@
-# adjusted-price-projection Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change add-adjusted-price-foundation. Update Purpose after archive.
-## Requirements
-### Requirement: Adjusted price projection from stored factors
-The system SHALL derive forward-adjusted (qfq) price series from stored unadjusted close prices and backward-adjusted factors without persisting a separate adjusted price column.
+### Requirement: MarketPrice strategy_price property removal
 
-#### Scenario: Forward-adjusted price is computed at query time
-- **WHEN** backend code requests the forward-adjusted price series for an ETF over a window ending at rebalance date `T`
-- **THEN** for each historical date `D` in the window, the forward-adjusted price equals `close_price(D) * factor_hfq(D) / factor_hfq(T)`
+The system SHALL NOT expose a `strategy_price` property on the `MarketPrice` ORM model. Pricing normalization is the responsibility of the `adjusted_price_projection` module, not the persistence model.
 
-#### Scenario: Forward-adjusted price at rebalance date equals unadjusted close
-- **WHEN** backend code requests the forward-adjusted price for the rebalance date `T` itself
-- **THEN** the forward-adjusted price equals `close_price(T)` (the unadjusted execution price)
+#### Scenario: MarketPrice has no strategy_price attribute
+- **WHEN** backend code accesses a `MarketPrice` instance
+- **THEN** the instance does not have a `strategy_price` attribute or property
+- **AND** accessing `market_price.strategy_price` raises `AttributeError`
 
-#### Scenario: Forward-adjusted prices are never persisted or cached
-- **WHEN** backend code computes forward-adjusted prices
-- **THEN** no forward-adjusted price value is written to a database column or materialized cache; the value is recomputed on each query
+#### Scenario: Forward_adjusted_prices is the canonical pricing entry point
+- **WHEN** any consumer needs a strategy-usable price from `MarketPrice` data
+- **THEN** the consumer MUST compute it through `forward_adjusted_prices()`, which normalizes `close_price × factor_hfq` against a rebalance-date anchor
+
+## MODIFIED Requirements
 
 ### Requirement: Three price viewpoint contract
 
@@ -44,17 +41,3 @@ The system SHALL produce identical ratio-based signal values whether computed fr
 - **WHEN** backend code computes a ratio-based signal (such as momentum return or trend comparison) over a window anchored at rebalance date `T`
 - **THEN** the signal value computed from the forward-adjusted series equals the signal value computed from the backward-adjusted series
 - **AND** this holds because forward-adjusted price equals backward-adjusted price divided by `factor_hfq(T)`, a constant that cancels in any ratio
-
-### Requirement: MarketPrice strategy_price property removal
-
-The system SHALL NOT expose a `strategy_price` property on the `MarketPrice` ORM model. Pricing normalization is the responsibility of the `adjusted_price_projection` module, not the persistence model.
-
-#### Scenario: MarketPrice has no strategy_price attribute
-- **WHEN** backend code accesses a `MarketPrice` instance
-- **THEN** the instance does not have a `strategy_price` attribute or property
-- **AND** accessing `market_price.strategy_price` raises `AttributeError`
-
-#### Scenario: Forward_adjusted_prices is the canonical pricing entry point
-- **WHEN** any consumer needs a strategy-usable price from `MarketPrice` data
-- **THEN** the consumer MUST compute it through `forward_adjusted_prices()`, which normalizes `close_price × factor_hfq` against a rebalance-date anchor
-

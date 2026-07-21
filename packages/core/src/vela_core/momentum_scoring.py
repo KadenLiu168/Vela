@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from vela_core.adjusted_price_projection import ForwardAdjustedPrice, forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
 from vela_core.strategy_config import StrategyConfig
@@ -52,9 +53,8 @@ def _momentum_score_from_prices(
 ) -> MomentumScore:
     """Pure-function momentum score over an in-memory ascending price series.
 
-    ``prices`` MUST be sorted by ``trade_date`` ascending. ``current_price``
-    is ``prices[-1].strategy_price`` and short/long returns are computed
-    against ``prices[-1 - window]``.
+    ``prices`` MUST be sorted by ``trade_date`` ascending. Values are
+    forward-adjusted using ``as_of_date`` before calculating returns.
     """
     if not prices or prices[-1].trade_date != as_of_date:
         return MomentumScore(
@@ -65,8 +65,9 @@ def _momentum_score_from_prices(
             score=None,
         )
 
-    short_return = _calculate_window_return(prices, config.momentum.short_window_days)
-    long_return = _calculate_window_return(prices, config.momentum.long_window_days)
+    adjusted_prices = forward_adjusted_prices(prices, rebalance_date=as_of_date)
+    short_return = _calculate_window_return(adjusted_prices, config.momentum.short_window_days)
+    long_return = _calculate_window_return(adjusted_prices, config.momentum.long_window_days)
     score = _calculate_weighted_score(short_return, long_return, config)
 
     return MomentumScore(
@@ -172,7 +173,7 @@ def select_with_defensive_fallback(
 
 
 def _calculate_window_return(
-    prices: list[MarketPrice],
+    prices: list[ForwardAdjustedPrice],
     window: int,
 ) -> Decimal | None:
     """Return ``prices[-1] / prices[-1-window] - 1``.
@@ -182,8 +183,8 @@ def _calculate_window_return(
     if len(prices) <= window:
         return None
 
-    current_price = prices[-1].strategy_price
-    prior_price = prices[-1 - window].strategy_price
+    current_price = prices[-1].price
+    prior_price = prices[-1 - window].price
     return current_price / prior_price - Decimal("1")
 
 

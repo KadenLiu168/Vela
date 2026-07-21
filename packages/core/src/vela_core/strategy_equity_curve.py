@@ -6,6 +6,7 @@ from typing import TypeAlias
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.models import MarketPrice
 from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
 from vela_core.strategy_config import StrategyConfig
@@ -187,7 +188,7 @@ def calculate_strategy_sharpe_ratio(
 def _load_prices_by_key(
     session: Session,
     holding_snapshots: list[PortfolioHoldingSnapshot],
-) -> dict[_PriceKey, Decimal]:
+) -> dict[_PriceKey, MarketPrice]:
     etf_ids = {holding.etf_id for snapshot in holding_snapshots for holding in snapshot.holdings}
     trade_dates = {snapshot.trade_date for snapshot in holding_snapshots}
 
@@ -200,7 +201,7 @@ def _load_prices_by_key(
         .where(MarketPrice.trade_date.in_(trade_dates))
     ).all()
 
-    return {(price.etf_id, price.trade_date): price.strategy_price for price in prices}
+    return {(price.etf_id, price.trade_date): price for price in prices}
 
 
 def _calculate_daily_return(
@@ -208,16 +209,23 @@ def _calculate_daily_return(
     snapshot: PortfolioHoldingSnapshot,
     previous_snapshot: PortfolioHoldingSnapshot,
     previous_date: date,
-    prices_by_key: dict[_PriceKey, Decimal],
+    prices_by_key: dict[_PriceKey, MarketPrice],
     transaction_cost_rate: Decimal,
 ) -> Decimal:
     daily_return = Decimal("0")
 
     for holding in previous_snapshot.holdings:
-        previous_price = prices_by_key.get((holding.etf_id, previous_date))
-        current_price = prices_by_key.get((holding.etf_id, snapshot.trade_date))
-        if previous_price is None or current_price is None:
+        previous_row = prices_by_key.get((holding.etf_id, previous_date))
+        current_row = prices_by_key.get((holding.etf_id, snapshot.trade_date))
+        if previous_row is None or current_row is None:
             continue
+        previous_price, current_price = (
+            price.price
+            for price in forward_adjusted_prices(
+                [previous_row, current_row],
+                rebalance_date=snapshot.trade_date,
+            )
+        )
 
         daily_return += holding.target_weight * (current_price / previous_price - Decimal("1"))
 

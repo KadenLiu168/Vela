@@ -232,8 +232,9 @@ def _collect_incremental_prices(
     For each ETF, fetch starting at its own last stored trade date so the
     stored last-row factor can be compared against the upstream same-date
     factor. On a factor mismatch (corporate action detected) the ETF is
-    fully refetched to rewrite its factor series; otherwise only rows newer
-    than the last stored date are appended.
+    fully refetched. A successful refetch rewrites factors for provider-returned
+    existing rows; it does not delete or repair historical dates the provider
+    did not return. Otherwise only rows newer than the last stored date append.
     """
     market_prices: list[MarketPrice] = []
     errors: list[str] = []

@@ -43,15 +43,17 @@ The system SHALL define indexes that support daily market price lookup for strat
 - **THEN** indexes exist for querying prices by ETF over trading dates and by trading date
 
 ### Requirement: Strategy price selection
-The system SHALL define the strategy calculation price as the backward-adjusted price, computed as unadjusted close multiplied by the backward-adjustment factor.
 
-#### Scenario: Strategy price is backward-adjusted
-- **WHEN** a market price row has a non-null `factor_hfq`
-- **THEN** strategy calculations use `close_price * factor_hfq` as the backward-adjusted price value
+The system SHALL define the strategy calculation price as the forward-adjusted (qfq) price, computed by normalizing the backward-adjusted price (`close_price × factor_hfq`) against the rebalance-date anchor via the `forward_adjusted_prices` function in `adjusted_price_projection`. The `MarketPrice` ORM model SHALL NOT expose a `strategy_price` property.
 
-#### Scenario: Forward-adjusted price is derived at query time
-- **WHEN** backend code needs the forward-adjusted price for a date within a window anchored at rebalance date `T`
-- **THEN** the forward-adjusted price equals `close_price * factor_hfq` divided by the rebalance-date `factor_hfq`, and is not stored as a column
+#### Scenario: Forward-adjusted price is the canonical strategy price
+- **WHEN** a consumer needs the strategy price for a date within a window anchored at rebalance date `T`
+- **THEN** the consumer computes `forward_adjusted_prices(prices, rebalance_date=T)` and uses the resulting `.price` field
+- **AND** the consumer does not access `MarketPrice.strategy_price` (the property does not exist on the ORM model)
+
+#### Scenario: Forward-adjusted price at rebalance date equals unadjusted close
+- **WHEN** backend code computes the forward-adjusted price for the rebalance date `T` itself
+- **THEN** the forward-adjusted price equals `close_price(T)`, matching the actual execution price on that date
 
 ### Requirement: Data fetch log ORM model
 The system SHALL define a `DataFetchLog` SQLAlchemy ORM model for market data fetch task logging.
@@ -253,17 +255,18 @@ The system SHALL record one `DataFetchLog` row for each incremental daily market
 - **THEN** the system records a fetch log with `partial` status, successful row counts, finish time, and an error message identifying failed symbols
 
 ### Requirement: Market price window return calculation
-The system SHALL calculate 20 / 60 / 120 trading-day returns for a single ETF from stored `MarketPrice` history.
+
+The system SHALL calculate 20 / 60 / 120 trading-day returns for a single ETF from stored `MarketPrice` history using forward-adjusted prices.
 
 #### Scenario: Calculate complete window returns
 - **WHEN** backend code calculates market price returns for an ETF and `as_of_date` with enough prior trading-day `MarketPrice` rows
 - **THEN** the system returns 20-day, 60-day, and 120-day returns for that ETF
-- **AND** each return uses the formula `current strategy price / prior strategy price - 1`
+- **AND** each return uses forward-adjusted prices computed via `forward_adjusted_prices` anchored at `as_of_date`
 
-#### Scenario: Use strategy price for return calculation
-- **WHEN** a `MarketPrice` row has a non-null `adjusted_close`
-- **THEN** the return calculation uses `adjusted_close` for that row
-- **AND** when `adjusted_close` is null, the calculation uses `close_price`
+#### Scenario: Use canonical projection for return calculation
+- **WHEN** the return calculation has an ascending price window containing `as_of_date`
+- **THEN** it calls `forward_adjusted_prices(prices, rebalance_date=as_of_date)` after the missing-current-price guard
+- **AND** it calculates each return from the resulting `.price` values
 
 #### Scenario: Count windows by trading price rows
 - **WHEN** backend code calculates a 20-day return
@@ -284,16 +287,17 @@ The system SHALL calculate 20 / 60 / 120 trading-day returns for a single ETF fr
 - **THEN** the return calculation only uses `MarketPrice` rows for the requested ETF
 
 ### Requirement: Market price 120-day moving average calculation
-The system SHALL calculate a 120-trading-day moving average for a single ETF from stored `MarketPrice` history.
+
+The system SHALL calculate a 120-trading-day moving average for a single ETF from stored `MarketPrice` history using forward-adjusted prices.
 
 #### Scenario: Calculate complete 120-day moving average
 - **WHEN** backend code calculates the 120-day moving average for an ETF and `as_of_date` with 120 same-ETF `MarketPrice` rows through that date
-- **THEN** the system returns the arithmetic average of those 120 strategy prices for that ETF
+- **THEN** the system returns the arithmetic average of those 120 forward-adjusted prices for that ETF, anchored at `as_of_date`
 
-#### Scenario: Use strategy price for moving average calculation
-- **WHEN** a `MarketPrice` row has a non-null `adjusted_close`
-- **THEN** the moving average calculation uses `adjusted_close` for that row
-- **AND** when `adjusted_close` is null, the calculation uses `close_price`
+#### Scenario: Use canonical projection for moving average calculation
+- **WHEN** the moving-average calculation has the required ascending price window containing `as_of_date`
+- **THEN** it calls `forward_adjusted_prices(prices, rebalance_date=as_of_date)` after the missing-current-price guard
+- **AND** it calculates the arithmetic average from the resulting `.price` values
 
 #### Scenario: Count moving average window by trading price rows
 - **WHEN** backend code calculates the 120-day moving average for an ETF and `as_of_date`
@@ -416,29 +420,47 @@ log row can carry both kinds of warnings.
 - **THEN** the fetch status and error message are determined solely by row counts and provider errors, not by the gap warnings
 
 ### Requirement: Backward-adjustment factor consistency check on incremental fetch
-The system SHALL detect corporate actions on every incremental market price fetch by comparing the stored last-row `factor_hfq` against the upstream same-date factor value. Because the stored factor is an append-only snapshot immune to upstream retroactive factor revisions, this check's sole purpose is to detect corporate actions so that newly fetched rows receive the correct factor (incremental fetch only pulls unadjusted prices and cannot otherwise observe factor changes).
+
+The system SHALL detect corporate actions on every incremental market price fetch by comparing the stored last-row `factor_hfq` against the upstream same-date factor value. When a factor mismatch is detected, the system SHALL trigger a full refetch that updates existing rows' `factor_hfq` (via the upsert conflict SET) to maintain cross-batch factor anchor consistency.
 
 #### Scenario: Factor match appends new rows
 - **WHEN** an incremental fetch compares the stored last-row `factor_hfq` against the upstream same-date factor value and the relative difference is below the configured tolerance
-- **THEN** the system appends the newly fetched rows using the stored factor without modifying existing rows
+- **THEN** the system appends the newly fetched rows without modifying existing rows
 
 #### Scenario: Factor mismatch triggers full refetch for the ETF
 - **WHEN** an incremental fetch compares the stored last-row `factor_hfq` against the upstream same-date factor value and the relative difference meets or exceeds the configured tolerance
-- **THEN** the system refetches the full history for that ETF from the earliest available date and rewrites the factor series as an append-only operation without leaving mixed-factor rows
+- **THEN** the system refetches the full history for that ETF from the earliest available date and rewrites the factor series by updating existing rows' `factor_hfq` to match the recalculated upstream values
 
 #### Scenario: Factor mismatch records a quality warning
 - **WHEN** the consistency check detects a factor mismatch (corporate action) for an ETF
 - **THEN** the system records a quality warning in the existing fetch log `quality_warnings` field, consistent with the trading-day-gap and duplicate-trade-date detection mechanisms
 
-### Requirement: Corporate-action factor is append-only
-The system SHALL treat the backward-adjustment factor as an append-only series, where corporate actions append new factor rows without modifying historical factor rows.
+### Requirement: Market price upsert factor update
 
-#### Scenario: Historical factor rows are immutable
-- **WHEN** a corporate action occurs after some history has been stored
-- **THEN** the factor rows for trade dates before the corporate action are not modified
-- **AND** only trade dates on or after the corporate action carry the updated factor
+The system SHALL include `factor_hfq` in the SQLite upsert `ON CONFLICT DO UPDATE SET` clause so that when a corporate action triggers a full refetch, existing rows' backward-adjustment factors are updated alongside open/high/low/close/volume, maintaining consistent factor anchoring across all rows for a given ETF.
 
-#### Scenario: Stored history never expires from upstream factor revisions
-- **WHEN** an upstream data source retroactively revises a historical adjustment factor
-- **THEN** the stored factor snapshot for already-stored rows is preserved, and the revision only affects how new factor rows are written going forward
+#### Scenario: Factor is updated on upsert conflict
+- **WHEN** backend code upserts a market price whose `etf_id` and `trade_date` already exist in SQLite and the incoming `factor_hfq` differs from the stored value
+- **THEN** the system updates the stored `factor_hfq` to the incoming value
+- **AND** the update is part of the same `ON CONFLICT DO UPDATE` statement that updates open/high/low/close/volume
+
+#### Scenario: Factor update is a no-op when unchanged
+- **WHEN** backend code upserts a market price whose `factor_hfq` equals the stored value
+- **THEN** the stored `factor_hfq` remains unchanged
+- **AND** the upsert count still reports the row as updated (not inserted)
+
+#### Scenario: Full refetch repairs an existing factor series
+- **WHEN** a successful full market-data fetch receives rows for an active ETF already stored with an earlier factor anchoring base
+- **THEN** the conflict updates rewrite every fetched existing row's `factor_hfq` to the upstream value
+- **AND** a local database created before this change is repaired for its active ETF universe by running the existing full fetch command without `--incremental` and obtaining `success` with no failed symbols
+
+#### Scenario: Partial full fetch is not a complete repair
+- **WHEN** a full market-data fetch succeeds for at least one active ETF but fails for another and returns `partial`
+- **THEN** the caller-managed session commits updates for the successfully fetched ETFs according to the existing partial-fetch contract
+- **AND** the database is not considered fully repaired until the provider failure is resolved and a later full fetch returns `success` with no failed symbols
+- **AND** inactive ETF history is not changed by the full fetch
+
+#### Scenario: New rows always receive their factor
+- **WHEN** backend code inserts a market price whose `etf_id` and `trade_date` do not exist in SQLite
+- **THEN** the new row receives the `factor_hfq` from the INSERT values
 

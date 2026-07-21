@@ -40,7 +40,7 @@ def forward_adjusted_prices(
 
     Pure function: performs no database access, persists nothing, and caches
     nothing -- the series is recomputed on every call so it always reflects
-    the current append-only factor snapshot and the caller's chosen anchor.
+    the current stored factor series and the caller's chosen anchor.
     """
     if not prices:
         return []

@@ -1,10 +1,10 @@
-"""Single-ETF backward-adjusted daily price trend.
+"""Single-ETF forward-adjusted daily price trend.
 
-Derives a backward-adjusted (hfq) daily price series for one ETF over a
+Derives a forward-adjusted (qfq) daily price series for one ETF over a
 selected time window, computed at query time from stored ``market_price``
-rows. The price ``close_price * factor_hfq`` reuses the
-``adjusted-price-projection`` contract so ex-dividend days do not produce
-phantom gaps in the trend. Adjusted prices are never persisted or cached.
+rows. Each price is normalized through ``forward_adjusted_prices`` using the
+latest selected date as anchor, so ex-dividend days do not produce phantom
+gaps in the trend. Adjusted prices are never persisted or cached.
 
 ``range`` selects a *time window* anchored at the ETF's latest persisted
 ``trade_date``; it does not resample. Daily precision is preserved -- the
@@ -21,6 +21,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice
 
@@ -39,7 +40,7 @@ _RANGE_MONTHS: Mapping[PriceTrendRange, int | None] = {
 
 @dataclass(frozen=True)
 class EtfPriceTrendPoint:
-    """A single backward-adjusted daily price point in a trend series."""
+    """A single forward-adjusted daily price point in a trend series."""
 
     trade_date: date
     price: Decimal
@@ -47,7 +48,7 @@ class EtfPriceTrendPoint:
 
 @dataclass(frozen=True)
 class EtfPriceTrendResult:
-    """Backward-adjusted daily price trend for one ETF over a time window.
+    """Forward-adjusted daily price trend for one ETF over a time window.
 
     ``points`` is empty when the ETF exists but has no persisted
     ``market_price`` rows in the window. A missing ``ETFInfo`` row is
@@ -84,13 +85,13 @@ def get_etf_price_trend(
     etf_id: int,
     range_: PriceTrendRange = "1y",
 ) -> EtfPriceTrendResult | None:
-    """Return the backward-adjusted daily price trend for one ETF.
+    """Return the forward-adjusted daily price trend for one ETF.
 
     Resolves ``range_`` to a date window anchored at the ETF's latest
     persisted ``trade_date`` per design D6, loads the matching
     ``market_price`` rows via ``load_price_panel`` (single SELECT on
     ``ix_market_price_etf_trade_date``), and projects each row to
-    ``close_price * factor_hfq`` at query time without persisting.
+    forward-adjusted values at query time without persisting.
 
     Returns ``None`` when no ``ETFInfo`` row exists for ``etf_id`` (a
     distinct not-found signal). Returns a result with empty ``points`` when
@@ -98,7 +99,7 @@ def get_etf_price_trend(
 
     Pure query function: performs no mutation, persists nothing, caches
     nothing -- the series is recomputed on every call so it always reflects
-    the current append-only price/factor snapshot.
+    the current stored price/factor series.
     """
     etf = session.get(ETFInfo, etf_id)
     if etf is None:
@@ -123,9 +124,9 @@ def get_etf_price_trend(
         start_date=start_date,
         end_date=end_date,
     )
+    projected_prices = forward_adjusted_prices(panel.get(etf_id, []), rebalance_date=end_date)
     points = tuple(
-        EtfPriceTrendPoint(trade_date=row.trade_date, price=row.strategy_price)
-        for row in panel.get(etf_id, [])
+        EtfPriceTrendPoint(trade_date=row.trade_date, price=row.price) for row in projected_prices
     )
     return EtfPriceTrendResult(
         etf_id=etf.id,

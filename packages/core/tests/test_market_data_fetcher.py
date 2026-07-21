@@ -57,6 +57,27 @@ def test_fetch_full_market_prices_maps_and_upserts_provider_rows() -> None:
     assert {price.close_price for price in prices} == {Decimal("100.500000")}
 
 
+def test_fetch_full_market_prices_rewrites_existing_factors() -> None:
+    session_factory = _create_session_factory()
+    provider = RecordingMarketDataProvider(
+        [_daily_price(symbol="SPY", trade_date=date(2026, 6, 17), factor=Decimal("1.5"))]
+    )
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="SPY")
+        _add_market_price(session, etf_id=etf.id, trade_date=date(2026, 6, 17))
+
+        result = fetch_full_market_prices(session, provider=provider)
+        session.commit()
+
+        price = session.query(MarketPrice).one()
+
+    assert result.status == "success"
+    assert result.rows_inserted == 0
+    assert result.rows_updated == 1
+    assert price.factor_hfq == Decimal("1.500000000000")
+
+
 def test_fetch_full_market_prices_logs_successful_full_fetch() -> None:
     session_factory = _create_session_factory()
     provider = RecordingMarketDataProvider([_daily_price(symbol="SPY")])
@@ -448,9 +469,9 @@ def test_incremental_factor_mismatch_triggers_refetch_and_records_warning() -> N
     assert result.rows_inserted == 1
     assert result.rows_updated == 1
 
-    # Historical factor row immutable: 2026-06-17 keeps stored factor 1.0
+    # Full refetch rewrites the historical factor row from the provider.
     assert prices[0].trade_date == date(2026, 6, 17)
-    assert prices[0].factor_hfq == Decimal("1.0")
+    assert prices[0].factor_hfq == Decimal("1.1")
     # New row gets the upstream factor 1.1
     assert prices[1].trade_date == date(2026, 6, 18)
     assert prices[1].factor_hfq == Decimal("1.1")
@@ -547,6 +568,7 @@ def _daily_price(
     *,
     symbol: str,
     trade_date: date = date(2026, 6, 18),
+    factor: Decimal = Decimal("1.0"),
 ) -> DailyPrice:
     return DailyPrice(
         symbol=symbol,
@@ -555,7 +577,7 @@ def _daily_price(
         high_price=Decimal("101.00"),
         low_price=Decimal("99.00"),
         close_price=Decimal("100.50"),
-        factor=Decimal("1.0"),
+        factor=factor,
         volume=1000,
     )
 

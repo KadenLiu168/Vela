@@ -174,7 +174,7 @@ def test_returns_none_when_current_price_is_missing() -> None:
     )
 
 
-def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
+def test_uses_forward_adjusted_prices_and_ignores_other_etf_histories() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
@@ -209,7 +209,7 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
             window=120,
         )
 
-    assert moving_average.ma == Decimal("101")
+    assert moving_average.ma == Decimal("50.500000")
 
 
 def _create_session_factory() -> sessionmaker[Session]:

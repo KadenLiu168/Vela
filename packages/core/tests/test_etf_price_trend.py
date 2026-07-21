@@ -7,18 +7,26 @@ from vela_core import get_etf_price_trend
 from vela_core.models import Base, ETFInfo, MarketPrice
 
 
-def test_etf_price_trend_returns_backward_adjusted_price_at_query_time() -> None:
+def test_etf_price_trend_returns_forward_adjusted_prices_anchored_at_latest_date() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
         etf = _add_etf(session, symbol="SPY")
-        session.add(
-            _market_price(
-                etf_id=etf.id,
-                trade_date=date(2026, 6, 23),
-                close_price=Decimal("100.000000"),
-                factor_hfq=Decimal("2.000000000000"),
-            )
+        session.add_all(
+            [
+                _market_price(
+                    etf_id=etf.id,
+                    trade_date=date(2026, 6, 22),
+                    close_price=Decimal("100.000000"),
+                    factor_hfq=Decimal("1.000000000000"),
+                ),
+                _market_price(
+                    etf_id=etf.id,
+                    trade_date=date(2026, 6, 23),
+                    close_price=Decimal("80.000000"),
+                    factor_hfq=Decimal("1.500000000000"),
+                ),
+            ]
         )
         session.commit()
 
@@ -29,9 +37,9 @@ def test_etf_price_trend_returns_backward_adjusted_price_at_query_time() -> None
     assert result.exchange == "NYSEARCA"
     assert result.symbol == "SPY"
     assert result.name == "SPY ETF"
-    assert [point.trade_date for point in result.points] == [date(2026, 6, 23)]
-    # price == close_price * factor_hfq, derived at query time, never persisted
-    assert result.points[0].price == Decimal("100.000000") * Decimal("2.000000000000")
+    assert [point.trade_date for point in result.points] == [date(2026, 6, 22), date(2026, 6, 23)]
+    assert result.points[0].price == Decimal("100.000000") / Decimal("1.500000000000")
+    assert result.points[-1].price == Decimal("80.000000")
 
 
 def test_etf_price_trend_range_windows_anchor_at_latest_trade_date() -> None:

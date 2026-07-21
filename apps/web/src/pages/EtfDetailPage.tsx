@@ -230,7 +230,7 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
         role="img"
         viewBox={`0 0 ${TREND_CHART.width} ${TREND_CHART.height}`}
       >
-        <title id="trend-chart-title">ETF backward-adjusted price trend</title>
+        <title id="trend-chart-title">ETF forward-adjusted price trend</title>
         <TrendChartFrame
           dateAxisIndexes={dateAxisIndexes}
           dateLabels={dateLabels}

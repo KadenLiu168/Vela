@@ -1,6 +1,8 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import pytest
+import vela_core.strategy_equity_curve as equity_curve_module
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
@@ -891,11 +893,11 @@ def _add_signal(
 
 
 def test_equity_curve_no_artificial_jump_on_ex_dividend_date() -> None:
-    """Backward-adjusted strategy_price eliminates dividend-induced price jumps.
+    """Interval-forward-adjusted prices eliminate dividend-induced price jumps.
 
     On the ex-dividend date the unadjusted close drops by the dividend amount,
-    but the backward-adjustment factor increases so that
-    ``strategy_price = close_price * factor_hfq`` stays continuous.
+    but the backward-adjustment factor increases. Projection of both rows
+    using the current interval date as anchor stays continuous.
     The equity curve's daily return reflects only real market movement,
     not the dividend artifact.
     """
@@ -910,10 +912,10 @@ def test_equity_curve_no_artificial_jump_on_ex_dividend_date() -> None:
                 StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1.000000")),
             ],
         )
-        # Pre-ex-dividend: close=100, factor=1.0 -> strategy_price=100
+        # Pre-ex-dividend: close=100, factor=1.0 -> backward-adjusted price=100
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
         # Ex-dividend: close drops to 90 (dividend payout), factor rises to 1.1
-        # strategy_price = 90 * 1.1 = 99 (continuous, no artificial -10% jump)
+        # Backward-adjusted price = 90 * 1.1 = 99 (continuous, no artificial -10% jump)
         _add_price(
             session,
             etf_id=spy.id,
@@ -932,6 +934,55 @@ def test_equity_curve_no_artificial_jump_on_ex_dividend_date() -> None:
     # Daily return should be -1% (99/100 - 1), NOT -10% (90/100 - 1)
     assert points[1].daily_return == Decimal("-0.010000")
     assert points[1].net_value == Decimal("0.990000")
+
+
+def test_equity_curve_projects_each_interval_at_its_current_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    calls: list[tuple[tuple[date, ...], date]] = []
+    real_projection = equity_curve_module.forward_adjusted_prices
+
+    def recording_projection(
+        prices: list[MarketPrice],
+        *,
+        rebalance_date: date,
+    ):
+        calls.append((tuple(price.trade_date for price in prices), rebalance_date))
+        return real_projection(prices, rebalance_date=rebalance_date)
+
+    monkeypatch.setattr(equity_curve_module, "forward_adjusted_prices", recording_projection)
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(
+            session,
+            etf_id=spy.id,
+            trade_date=date(2026, 6, 24),
+            close_price=50,
+            factor_hfq=Decimal("2"),
+        )
+        _add_price(
+            session,
+            etf_id=spy.id,
+            trade_date=date(2026, 6, 25),
+            close_price=25,
+            factor_hfq=Decimal("4"),
+        )
+        session.commit()
+
+        calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24), date(2026, 6, 25)],
+            strategy_config=_strategy_config(),
+        )
+
+    assert calls == [
+        ((date(2026, 6, 23), date(2026, 6, 24)), date(2026, 6, 24)),
+        ((date(2026, 6, 24), date(2026, 6, 25)), date(2026, 6, 25)),
+    ]
 
 
 def _add_price(

@@ -13,7 +13,7 @@ from tests.integration_data import add_etf, market_price, prepare_sqlite_databas
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_etf_prices_endpoint_returns_backward_adjusted_series_ordered_ascending(tmp_path) -> None:
+def test_etf_prices_endpoint_returns_forward_adjusted_series_ordered_ascending(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'etf-prices.db'}"
     session_factory = prepare_sqlite_database(database_url)
     with session_factory() as session:
@@ -52,9 +52,8 @@ def test_etf_prices_endpoint_returns_backward_adjusted_series_ordered_ascending(
     }
     points = body["points"]
     assert [point["trade_date"] for point in points] == ["2026-06-22", "2026-06-23"]
-    # price == close_price * factor_hfq, derived at query time
-    assert Decimal(points[0]["price"]) == Decimal("100.000000") * Decimal("1")
-    assert Decimal(points[1]["price"]) == Decimal("80.000000") * Decimal("1.500000000000")
+    assert Decimal(points[0]["price"]) == Decimal("100.000000") / Decimal("1.500000000000")
+    assert Decimal(points[1]["price"]) == Decimal("80.000000")
 
 
 def test_etf_prices_endpoint_resolves_range_window_anchored_at_latest_trade_date(tmp_path) -> None:

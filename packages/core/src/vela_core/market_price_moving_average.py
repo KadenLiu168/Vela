@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
 
@@ -41,7 +42,11 @@ def _moving_average_from_prices(
         etf_id=etf_id,
         as_of_date=as_of_date,
         window=window,
-        ma=sum((price.strategy_price for price in prices), Decimal("0")) / Decimal(window),
+        ma=sum(
+            (price.price for price in forward_adjusted_prices(prices, rebalance_date=as_of_date)),
+            Decimal("0"),
+        )
+        / Decimal(window),
     )
 
 

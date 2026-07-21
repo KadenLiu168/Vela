@@ -132,7 +132,7 @@ def test_fails_when_moving_average_is_missing() -> None:
     )
 
 
-def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
+def test_uses_forward_adjusted_prices_and_ignores_other_etf_histories() -> None:
     session_factory = _create_session_factory()
     config = _strategy_config(moving_average_days=120, price_relation="above")
 
@@ -156,8 +156,8 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
             session, etf_id=target_etf.id, as_of_date=_trade_date(119), config=config
         )
 
-    assert result.current_price == Decimal("150")
-    assert result.moving_average == Decimal("100.4166666666666666666666667")
+    assert result.current_price == Decimal("1.000000")
+    assert result.moving_average == Decimal("0.6694444444444444444444444473")
     assert result.passes_filter is True
 
 
