@@ -118,6 +118,12 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=200)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=180)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 25), close_price=198)
+        _add_price(
+            session,
+            etf_id=qqq.id,
+            trade_date=date(2026, 6, 26),
+            close_price=Decimal("217.8"),
+        )
         session.commit()
 
         points = calculate_strategy_equity_curve(
@@ -126,6 +132,7 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
                 date(2026, 6, 23),
                 date(2026, 6, 24),
                 date(2026, 6, 25),
+                date(2026, 6, 26),
             ],
             strategy_config=_strategy_config(),
         )
@@ -143,7 +150,12 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
         ),
         StrategyEquityCurvePoint(
             trade_date=date(2026, 6, 25),
-            net_value=Decimal("1.122000"),
+            net_value=Decimal("0.754800"),
+            daily_return=Decimal("-0.260000"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 6, 26),
+            net_value=Decimal("0.830280"),
             daily_return=Decimal("0.100000"),
         ),
     ]
@@ -177,7 +189,7 @@ def test_calculate_strategy_equity_curve_carries_and_rebalances_holdings() -> No
     assert [point.net_value for point in points] == [
         Decimal("1.000000"),
         Decimal("1.100000"),
-        Decimal("1.210000"),
+        Decimal("0.550000"),
     ]
 
 
@@ -246,6 +258,7 @@ def test_calculate_strategy_equity_curve_deducts_rebalance_transaction_cost() ->
         _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
         _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
         session.commit()
@@ -340,6 +353,7 @@ def test_calculate_strategy_equity_curve_applies_different_cost_rates() -> None:
         _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
         _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=100)
         session.commit()
@@ -355,10 +369,10 @@ def test_calculate_strategy_equity_curve_applies_different_cost_rates() -> None:
             strategy_config=_strategy_config(transaction_cost_bps=25),
         )
 
-    assert low_cost_points[1].daily_return == Decimal("-0.002000")
-    assert low_cost_points[1].net_value == Decimal("0.998000")
-    assert high_cost_points[1].daily_return == Decimal("-0.005000")
-    assert high_cost_points[1].net_value == Decimal("0.995000")
+    assert low_cost_points[1].daily_return == Decimal("0.098000")
+    assert low_cost_points[1].net_value == Decimal("1.098000")
+    assert high_cost_points[1].daily_return == Decimal("0.095000")
+    assert high_cost_points[1].net_value == Decimal("1.095000")
     assert high_cost_points[1].daily_return < low_cost_points[1].daily_return
 
 
@@ -371,6 +385,7 @@ def test_calculate_strategy_equity_curve_transaction_cost_reduces_net_value() ->
         _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
         _add_signal(session, signal_date=date(2026, 6, 23), etf_id=qqq.id)
         _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
         _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=110)
         session.commit()
@@ -924,7 +939,7 @@ def _add_price(
     *,
     etf_id: int,
     trade_date: date,
-    close_price: int,
+    close_price: int | Decimal,
     factor_hfq: Decimal = Decimal("1"),
 ) -> None:
     session.add(

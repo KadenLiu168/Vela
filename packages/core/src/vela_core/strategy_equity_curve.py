@@ -73,6 +73,8 @@ def calculate_strategy_equity_curve(
     net_value = Decimal("1.000000")
 
     for index, snapshot in enumerate(holding_snapshots[1:], start=1):
+        # Point i closes interval i-1 to i: prior holdings earn market return and the
+        # snapshot transition at i incurs turnover.
         daily_return = _calculate_daily_return(
             snapshot=snapshot,
             previous_snapshot=holding_snapshots[index - 1],
@@ -211,7 +213,7 @@ def _calculate_daily_return(
 ) -> Decimal:
     daily_return = Decimal("0")
 
-    for holding in snapshot.holdings:
+    for holding in previous_snapshot.holdings:
         previous_price = prices_by_key.get((holding.etf_id, previous_date))
         current_price = prices_by_key.get((holding.etf_id, snapshot.trade_date))
         if previous_price is None or current_price is None:
