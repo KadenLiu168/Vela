@@ -169,18 +169,36 @@ def calculate_strategy_volatility(points: list[StrategyEquityCurvePoint]) -> Str
 
 
 def calculate_strategy_sharpe_ratio(
-    annualized_return: StrategyAnnualizedReturn,
-    volatility: StrategyVolatility,
+    points: list[StrategyEquityCurvePoint],
     *,
     risk_free_rate: Decimal,
 ) -> StrategySharpeRatio:
-    if annualized_return.annualized_return is None:
-        return StrategySharpeRatio(sharpe_ratio=None)
-    if volatility.volatility is None or volatility.volatility == 0:
+    # Effective observations exclude the initial placeholder return
+    # (points[0].daily_return == 0.000000 is an initialization artifact).
+    effective_returns = [point.daily_return for point in points[1:]]
+    if len(effective_returns) < 2:
         return StrategySharpeRatio(sharpe_ratio=None)
 
-    sharpe_ratio = (
-        (annualized_return.annualized_return - risk_free_rate) / volatility.volatility
+    # Arithmetic daily risk-free rate, consistent with the 252 trading-day
+    # convention used for volatility annualization.
+    daily_risk_free_rate = risk_free_rate / Decimal("252")
+    excess_returns = [daily_return - daily_risk_free_rate for daily_return in effective_returns]
+    # Population standard deviation is zero iff all excess returns are equal.
+    # Comparing the excess values directly (rather than the Decimal variance,
+    # which can carry division rounding error from the mean) keeps this
+    # boundary exact even when every effective daily return is identical.
+    if all(excess == excess_returns[0] for excess in excess_returns):
+        return StrategySharpeRatio(sharpe_ratio=None)
+
+    mean_excess = sum(excess_returns, Decimal("0")) / Decimal(len(excess_returns))
+    # Population variance: the backtest return sequence is the full realized
+    # population being summarized, not a sample (matches volatility).
+    variance = sum(
+        (excess - mean_excess) * (excess - mean_excess) for excess in excess_returns
+    ) / Decimal(len(excess_returns))
+
+    sharpe_ratio = Decimal(
+        str(float(mean_excess) / (float(variance) ** 0.5) * (252**0.5))
     ).quantize(_SIX_PLACES)
     return StrategySharpeRatio(sharpe_ratio=sharpe_ratio)
 

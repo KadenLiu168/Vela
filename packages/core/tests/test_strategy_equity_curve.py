@@ -744,66 +744,130 @@ def test_calculate_strategy_volatility_returns_none_for_one_effective_return() -
     assert result == StrategyVolatility(volatility=None)
 
 
-def test_calculate_strategy_sharpe_ratio_uses_configured_risk_free_rate() -> None:
-    config = _strategy_config()
-
-    result = calculate_strategy_sharpe_ratio(
-        StrategyAnnualizedReturn(
-            total_return=Decimal("0.100000"),
-            annualized_return=Decimal("0.120000"),
+def test_calculate_strategy_sharpe_ratio_uses_effective_daily_excess_returns() -> None:
+    # risk_free_rate = 0.0126 -> daily_rf = 0.0126 / 252 = 0.00005
+    # Effective observations (points[1:]) and their excess returns:
+    #   0.005050 - 0.00005 = 0.005000
+    #   0.015050 - 0.00005 = 0.015000
+    # mean_excess = (0.005 + 0.015) / 2 = 0.010000
+    # population variance = ((0.005-0.01)^2 + (0.015-0.01)^2) / 2 = 0.000025
+    # population stddev  = sqrt(0.000025) = 0.005000
+    # sharpe = 0.01 / 0.005 * sqrt(252) = 2 * 15.874507... = 31.749015... -> 31.749016
+    # The hand-derived value only holds when the initial placeholder return
+    # (0.000000) is excluded: including it would shift both the mean and the
+    # population standard deviation, producing a different result.
+    # net_value is irrelevant to Sharpe (only daily_return is read).
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
         ),
-        StrategyVolatility(volatility=Decimal("0.200000")),
-        risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
-    )
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 2),
+            net_value=Decimal("1.005050"),
+            daily_return=Decimal("0.005050"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 3),
+            net_value=Decimal("1.020253"),
+            daily_return=Decimal("0.015050"),
+        ),
+    ]
 
-    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("0.500000"))
+    result = calculate_strategy_sharpe_ratio(points, risk_free_rate=Decimal("0.0126"))
+
+    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("31.749016"))
 
 
 def test_calculate_strategy_sharpe_ratio_returns_negative_for_negative_excess_return() -> None:
-    result = calculate_strategy_sharpe_ratio(
-        StrategyAnnualizedReturn(
-            total_return=Decimal("0.010000"),
-            annualized_return=Decimal("0.010000"),
+    # risk_free_rate = 0.0126 -> daily_rf = 0.00005
+    # Effective excess returns: -0.015000, -0.005000 (two non-constant returns)
+    # mean_excess = -0.010000, population stddev = 0.005000
+    # sharpe = -0.01 / 0.005 * sqrt(252) = -31.749016
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
         ),
-        StrategyVolatility(volatility=Decimal("0.100000")),
-        risk_free_rate=Decimal("0.030000"),
-    )
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 2),
+            net_value=Decimal("0.985050"),
+            daily_return=Decimal("-0.014950"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 3),
+            net_value=Decimal("0.980175"),
+            daily_return=Decimal("-0.004950"),
+        ),
+    ]
 
-    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("-0.200000"))
+    result = calculate_strategy_sharpe_ratio(points, risk_free_rate=Decimal("0.0126"))
+
+    assert result == StrategySharpeRatio(sharpe_ratio=Decimal("-31.749016"))
 
 
-def test_calculate_strategy_sharpe_ratio_returns_none_for_unavailable_annualized_return() -> None:
-    result = calculate_strategy_sharpe_ratio(
-        StrategyAnnualizedReturn(total_return=None, annualized_return=None),
-        StrategyVolatility(volatility=Decimal("0.100000")),
-        risk_free_rate=Decimal("0.020000"),
-    )
+def test_calculate_strategy_sharpe_ratio_returns_none_for_zero_effective_observations() -> None:
+    # Only the initial placeholder point -> no effective observations.
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
+        ),
+    ]
+
+    result = calculate_strategy_sharpe_ratio(points, risk_free_rate=Decimal("0.0126"))
 
     assert result == StrategySharpeRatio(sharpe_ratio=None)
 
 
-def test_calculate_strategy_sharpe_ratio_returns_none_for_unavailable_volatility() -> None:
-    result = calculate_strategy_sharpe_ratio(
-        StrategyAnnualizedReturn(
-            total_return=Decimal("0.100000"),
-            annualized_return=Decimal("0.120000"),
+def test_calculate_strategy_sharpe_ratio_returns_none_for_single_effective_observation() -> None:
+    # Placeholder plus exactly one effective observation -> fewer than two.
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
         ),
-        StrategyVolatility(volatility=None),
-        risk_free_rate=Decimal("0.020000"),
-    )
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 2),
+            net_value=Decimal("1.005050"),
+            daily_return=Decimal("0.005050"),
+        ),
+    ]
+
+    result = calculate_strategy_sharpe_ratio(points, risk_free_rate=Decimal("0.0126"))
 
     assert result == StrategySharpeRatio(sharpe_ratio=None)
 
 
-def test_calculate_strategy_sharpe_ratio_returns_none_for_zero_volatility() -> None:
-    result = calculate_strategy_sharpe_ratio(
-        StrategyAnnualizedReturn(
-            total_return=Decimal("0.000000"),
-            annualized_return=Decimal("0.000000"),
+def test_calculate_strategy_sharpe_ratio_returns_none_for_zero_dispersion() -> None:
+    # All effective daily returns are equal (here, zero, matching a flat
+    # equity curve over the backtest window) -> the population standard
+    # deviation of daily excess returns is zero, so no Sharpe ratio is
+    # returned. This also guards against a regression where Decimal rounding
+    # in the mean left a tiny nonzero variance artifact on identical returns.
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
         ),
-        StrategyVolatility(volatility=Decimal("0.000000")),
-        risk_free_rate=Decimal("0.020000"),
-    )
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 2),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 3),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
+        ),
+    ]
+
+    result = calculate_strategy_sharpe_ratio(points, risk_free_rate=Decimal("0.02"))
 
     assert result == StrategySharpeRatio(sharpe_ratio=None)
 

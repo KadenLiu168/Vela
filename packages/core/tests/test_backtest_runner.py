@@ -35,13 +35,14 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session_factory = _create_session_factory()
+    captured_sharpe_calls: list[tuple[list[StrategyEquityCurvePoint], Decimal]] = []
 
     with session_factory() as session:
         etf = _add_etf(session)
         _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
         _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
         session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id, sharpe_calls=captured_sharpe_calls)
 
         result = run_backtest(
             session,
@@ -87,6 +88,23 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     assert len(signals) == 1
     assert signals[0].source == "backtest"
     assert signals[0].backtest_run_id == run.id
+    assert captured_sharpe_calls == [
+        (
+            [
+                StrategyEquityCurvePoint(
+                    trade_date=date(2026, 1, 1),
+                    net_value=Decimal("1.000000"),
+                    daily_return=Decimal("0.000000"),
+                ),
+                StrategyEquityCurvePoint(
+                    trade_date=date(2026, 1, 3),
+                    net_value=Decimal("1.100000"),
+                    daily_return=Decimal("0.100000"),
+                ),
+            ],
+            Decimal("0.02"),
+        )
+    ]
 
 
 def test_run_backtest_links_failed_generated_signals(
@@ -293,6 +311,7 @@ def _patch_runner_helpers(
     captured_dates: list[date] | None = None,
     signal_status: str = "success",
     return_missing_id: bool = False,
+    sharpe_calls: list[tuple[list[StrategyEquityCurvePoint], Decimal]] | None = None,
 ) -> None:
     def fake_generate_historical_strategy_signals(
         *,
@@ -404,12 +423,20 @@ def _patch_runner_helpers(
         "calculate_strategy_volatility",
         lambda points: StrategyVolatility(volatility=Decimal("0.180000")),
     )
+
+    def fake_calculate_strategy_sharpe_ratio(
+        points: list[StrategyEquityCurvePoint],
+        *,
+        risk_free_rate: Decimal,
+    ) -> StrategySharpeRatio:
+        if sharpe_calls is not None:
+            sharpe_calls.append((list(points), risk_free_rate))
+        return StrategySharpeRatio(sharpe_ratio=Decimal("1.000000"))
+
     monkeypatch.setattr(
         runner,
         "calculate_strategy_sharpe_ratio",
-        lambda annualized_return, volatility, *, risk_free_rate: StrategySharpeRatio(
-            sharpe_ratio=Decimal("1.000000")
-        ),
+        fake_calculate_strategy_sharpe_ratio,
     )
 
 

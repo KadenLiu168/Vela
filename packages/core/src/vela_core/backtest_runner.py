@@ -180,8 +180,7 @@ def run_backtest(
     maximum_drawdown = calculate_strategy_maximum_drawdown(points)
     volatility = calculate_strategy_volatility(points)
     sharpe_ratio = calculate_strategy_sharpe_ratio(
-        annualized_return,
-        volatility,
+        points,
         risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
     )
     status = (
