@@ -10,7 +10,7 @@ from vela_core import (
     load_price_panel,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
-from vela_core.strategy_config import RebalanceConfig, StrategyConfig
+from vela_core.strategy_config import RebalanceConfig, StrategyConfig, validate_strategy_config
 from vela_core.strategy_signal_persistence import (
     StrategySignalPositionInput,
     persist_strategy_signal,
@@ -68,14 +68,11 @@ def test_generate_strategy_signal_persists_ranked_positions() -> None:
             start_date=None,
             end_date=_trade_date(120),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
-
         result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -140,14 +137,12 @@ def test_generate_strategy_signal_persists_defensive_fallback() -> None:
             start_date=None,
             end_date=_trade_date(120),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -209,7 +204,6 @@ def test_generate_strategy_signal_persists_failure_when_no_active_etfs_exist() -
             config=config,
             price_panel={},
             active_etfs=[],
-            defense_lookup={},
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -270,14 +264,12 @@ def test_generate_strategy_signal_persists_failure_when_defensive_asset_is_missi
             start_date=None,
             end_date=_trade_date(120),
         )
-        defense_lookup = {(only.exchange, only.symbol): only}
 
         result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -293,20 +285,23 @@ def test_generate_strategy_signal_persists_failure_when_defensive_asset_is_missi
 
 def test_generate_strategy_signal_names_second_missing_defensive_asset() -> None:
     session_factory = _create_session_factory()
-    config = StrategyConfig.model_validate(
+    config = validate_strategy_config(
         {
             "strategy_id": "dual_momentum",
             "version": "v1",
+            "type": "dual_momentum",
             "universe_config": "config/etf_pool.yaml",
-            "momentum": {"short_window_days": 63, "long_window_days": 120},
-            "score_weights": {"short": 0.4, "long": 0.6},
-            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
-            "selection": {"top_n": 2},
-            "defense": {
-                "assets": [
-                    {"exchange": "SSE", "symbol": "511010"},
-                    {"exchange": "SSE", "symbol": "511880"},
-                ],
+            "parameters": {
+                "momentum": {"short_window_days": 63, "long_window_days": 120},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": 2},
+                "defense": {
+                    "assets": [
+                        {"exchange": "SSE", "symbol": "511010"},
+                        {"exchange": "SSE", "symbol": "511880"},
+                    ]
+                },
             },
             "costs": {"transaction_cost_bps": 5},
             "performance": {"risk_free_rate": 0.02},
@@ -357,15 +352,12 @@ def test_generate_strategy_signal_names_second_missing_defensive_asset() -> None
             start_date=None,
             end_date=_trade_date(120),
         )
-        # defense_lookup resolves 511010 (active) but NOT 511880 (not seeded)
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         result = generate_strategy_signal(
             signal_date=_trade_date(120),
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -434,14 +426,12 @@ def test_generate_historical_strategy_signals_persists_rebalance_date_positions(
             start_date=None,
             end_date=_trade_date(127),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         results = generate_historical_strategy_signals(
             historical_trading_dates=[_trade_date(120), _trade_date(127)],
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -516,14 +506,12 @@ def test_generate_historical_strategy_signals_do_not_use_future_prices() -> None
             start_date=None,
             end_date=_trade_date(127),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         results = generate_historical_strategy_signals(
             historical_trading_dates=[_trade_date(120)],
             config=config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=_persist,
         )
@@ -542,7 +530,6 @@ def test_generate_historical_strategy_signals_returns_empty_without_persisting_r
             config=config,
             price_panel={},
             active_etfs=[],
-            defense_lookup={},
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=None,
         )
@@ -579,14 +566,12 @@ def test_generate_historical_strategy_signals_uses_configured_rebalance_frequenc
             start_date=None,
             end_date=_trade_date(130),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         weekly_results = generate_historical_strategy_signals(
             historical_trading_dates=trading_dates,
             config=weekly_config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=None,
         )
@@ -597,7 +582,6 @@ def test_generate_historical_strategy_signals_uses_configured_rebalance_frequenc
             config=monthly_config,
             price_panel=price_panel,
             active_etfs=active_etfs,
-            defense_lookup=defense_lookup,
             generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
             persist=None,
         )
@@ -633,7 +617,6 @@ def test_generate_strategy_signal_performs_zero_market_price_queries() -> None:
             start_date=None,
             end_date=_trade_date(120),
         )
-        defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
         original_scalars = session.scalars
 
@@ -660,7 +643,6 @@ def test_generate_strategy_signal_performs_zero_market_price_queries() -> None:
                 config=config,
                 price_panel=price_panel,
                 active_etfs=active_etfs,
-                defense_lookup=defense_lookup,
                 generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
                 persist=None,
             )
@@ -753,29 +735,14 @@ def _strategy_config(*, top_n: int) -> StrategyConfig:
     config: dict[str, Any] = {
         "strategy_id": "dual_momentum",
         "version": "v1",
+        "type": "dual_momentum",
         "universe_config": "config/etf_pool.yaml",
-        "momentum": {
-            "short_window_days": 63,
-            "long_window_days": 120,
-        },
-        "score_weights": {
-            "short": 0.4,
-            "long": 0.6,
-        },
-        "trend_filter": {
-            "moving_average_days": 120,
-            "price_relation": "above",
-        },
-        "selection": {
-            "top_n": top_n,
-        },
-        "defense": {
-            "assets": [
-                {
-                    "exchange": "SSE",
-                    "symbol": "511010",
-                },
-            ],
+        "parameters": {
+            "momentum": {"short_window_days": 63, "long_window_days": 120},
+            "score_weights": {"short": 0.4, "long": 0.6},
+            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+            "selection": {"top_n": top_n},
+            "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
         },
         "costs": {
             "transaction_cost_bps": 5,
@@ -784,4 +751,4 @@ def _strategy_config(*, top_n: int) -> StrategyConfig:
             "risk_free_rate": 0.02,
         },
     }
-    return StrategyConfig.model_validate(config)
+    return validate_strategy_config(config)

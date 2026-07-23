@@ -1,32 +1,33 @@
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from vela_core.config import (
     ConfigError,
     ETFPoolConfig,
+    _format_validation_error,
+    _load_yaml,
     load_etf_pool_config,
-    load_yaml_config,
 )
 from vela_core.rebalance_dates import RebalanceFrequency
 
 
 class ETFIdentity(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     exchange: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
 
 
 class RebalanceConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     frequency: RebalanceFrequency = "weekly"
 
 
 class MomentumConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     short_window_days: int = Field(gt=0)
     long_window_days: int = Field(gt=0)
@@ -39,34 +40,33 @@ class MomentumConfig(BaseModel):
 
 
 class ScoreWeightsConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     short: float = Field(gt=0)
     long: float = Field(gt=0)
 
     @model_validator(mode="after")
     def validate_total_weight(self) -> "ScoreWeightsConfig":
-        total_weight = self.short + self.long
-        if abs(total_weight - 1.0) > 1e-9:
+        if abs(self.short + self.long - 1.0) > 1e-9:
             raise ValueError("score weights must sum to 1.0")
         return self
 
 
 class TrendFilterConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     moving_average_days: Literal[60, 120, 250]
     price_relation: Literal["above", "below"]
 
 
 class SelectionConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     top_n: int = Field(gt=0)
 
 
 class DefenseConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     assets: list[ETFIdentity] = Field(min_length=1)
 
@@ -85,39 +85,102 @@ class DefenseConfig(BaseModel):
 
 
 class TransactionCostsConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     transaction_cost_bps: float = Field(ge=0)
 
 
 class PerformanceConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     risk_free_rate: float = Field(ge=0)
 
 
-class StrategyConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class DualMomentumParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
-    strategy_id: str = Field(min_length=1)
-    version: Literal["v1"]
-    universe_config: str = Field(min_length=1)
-    rebalance: RebalanceConfig = Field(default_factory=RebalanceConfig)
     momentum: MomentumConfig
     score_weights: ScoreWeightsConfig
     trend_filter: TrendFilterConfig
     selection: SelectionConfig
     defense: DefenseConfig
+
+
+class EqualWeightParams(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class BaseStrategyConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    strategy_id: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    universe_config: str = Field(min_length=1)
+    rebalance: RebalanceConfig = Field(default_factory=RebalanceConfig)
     costs: TransactionCostsConfig
     performance: PerformanceConfig
 
 
+class DualMomentumStrategyConfig(BaseStrategyConfig):
+    type: Literal["dual_momentum"]
+    parameters: DualMomentumParams
+
+    @property
+    def momentum(self) -> MomentumConfig:
+        return self.parameters.momentum
+
+    @property
+    def score_weights(self) -> ScoreWeightsConfig:
+        return self.parameters.score_weights
+
+    @property
+    def trend_filter(self) -> TrendFilterConfig:
+        return self.parameters.trend_filter
+
+    @property
+    def selection(self) -> SelectionConfig:
+        return self.parameters.selection
+
+    @property
+    def defense(self) -> DefenseConfig:
+        return self.parameters.defense
+
+
+class EqualWeightStrategyConfig(BaseStrategyConfig):
+    type: Literal["equal_weight"]
+    parameters: EqualWeightParams
+
+
+StrategyConfig: TypeAlias = Annotated[
+    DualMomentumStrategyConfig | EqualWeightStrategyConfig,
+    Field(discriminator="type"),
+]
+STRATEGY_CONFIG_ADAPTER: TypeAdapter[StrategyConfig] = TypeAdapter(StrategyConfig)
+
+
+def validate_strategy_config(data: Any) -> StrategyConfig:
+    return STRATEGY_CONFIG_ADAPTER.validate_python(data)
+
+
 def load_strategy_config(path: str | Path) -> StrategyConfig:
     config_path = Path(path)
-    config = load_yaml_config(config_path, StrategyConfig)
-    universe_path = _resolve_universe_config_path(config_path, config.universe_config)
-    universe = load_etf_pool_config(universe_path)
-    _validate_defensive_asset(config, universe, universe_path, config_path)
+    data = _load_yaml(config_path)
+    if isinstance(data, dict) and "momentum" in data and "type" not in data:
+        raise ConfigError(
+            "Failed to validate configuration file "
+            f"{config_path}: legacy flat strategy config; use type + parameters as in "
+            "config/strategy_v1.yaml",
+            path=config_path,
+        )
+    try:
+        config = validate_strategy_config(data)
+    except ValidationError as exc:
+        raise ConfigError(_format_validation_error(config_path, exc), path=config_path) from exc
+    if isinstance(config, DualMomentumStrategyConfig):
+        universe_path = _resolve_universe_config_path(config_path, config.universe_config)
+        _validate_defensive_assets(
+            config, load_etf_pool_config(universe_path), universe_path, config_path
+        )
     return config
 
 
@@ -128,21 +191,20 @@ def _resolve_universe_config_path(strategy_path: Path, universe_config: str) -> 
     return strategy_path.parent / universe_path
 
 
-def _validate_defensive_asset(
-    config: StrategyConfig,
+def _validate_defensive_assets(
+    config: DualMomentumStrategyConfig,
     universe: ETFPoolConfig,
     universe_path: Path,
     strategy_path: Path,
 ) -> None:
-    for index, asset in enumerate(config.defense.assets):
-        is_active_universe_asset = any(
+    for index, asset in enumerate(config.parameters.defense.assets):
+        if not any(
             etf.exchange == asset.exchange and etf.symbol == asset.symbol and etf.is_active
             for etf in universe.etfs
-        )
-        if not is_active_universe_asset:
+        ):
             raise ConfigError(
                 "Failed to validate configuration file "
-                f"{strategy_path}: defense.assets[{index}] {asset.exchange} {asset.symbol} "
-                f"must exist as an active ETF in universe_config {universe_path}",
+                f"{strategy_path}: parameters.defense.assets[{index}] {asset.exchange} "
+                f"{asset.symbol} must exist as an active ETF in universe_config {universe_path}",
                 path=strategy_path,
             )

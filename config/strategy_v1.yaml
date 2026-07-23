@@ -1,33 +1,33 @@
+# Persisted identity is (strategy_id, version): changing type requires a distinct
+# pair, and changing effective parameters requires a new version.
 strategy_id: Dual_momentum
 version: v1
+type: dual_momentum
 universe_config: config/etf_pool.yaml
 
 rebalance:
   frequency: weekly
 
-momentum:
-  short_window_days: 63
-  long_window_days: 126
-
-score_weights:
-  short: 0.4
-  long: 0.6
-
-trend_filter:
-  moving_average_days: 120
-  price_relation: above
-
-selection:
-  top_n: 2
-
-defense:
-  assets:
-    - exchange: SSE
-      symbol: "511010"
-    - exchange: SSE
-      symbol: "511880"
-    - exchange: SSE
-      symbol: "518880"
+parameters:
+  momentum:
+    short_window_days: 63
+    long_window_days: 126
+  score_weights:
+    short: 0.4
+    long: 0.6
+  trend_filter:
+    moving_average_days: 120
+    price_relation: above
+  selection:
+    top_n: 2
+  defense:
+    assets:
+      - exchange: SSE
+        symbol: "511010"
+      - exchange: SSE
+        symbol: "511880"
+      - exchange: SSE
+        symbol: "518880"
 
 costs:
   transaction_cost_bps: 5

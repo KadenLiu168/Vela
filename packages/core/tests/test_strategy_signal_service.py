@@ -2,10 +2,12 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+import vela_core.strategy_signal_service as signal_service
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
+from vela_core.strategy_signal_generation import GenerateStrategySignalResult
 from vela_core.strategy_signal_service import generate_and_persist_strategy_signal
 
 
@@ -70,6 +72,37 @@ def test_generate_and_persist_strategy_signal_rejects_missing_local_market_price
         signals = session.scalars(select(StrategySignal)).all()
 
     assert signals == []
+
+
+def test_live_service_dispatches_generic_generation_without_defense_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    captured: dict[str, object] = {}
+
+    def fake_generate_strategy_signal(**kwargs):
+        captured.update(kwargs)
+        return GenerateStrategySignalResult(
+            strategy_signal_id=None,
+            signal_date=kwargs["signal_date"],
+            config_version=kwargs["config"].version,
+            status="success",
+            result="empty",
+            error_message=None,
+            positions=[],
+        )
+
+    with session_factory() as session:
+        etf = _add_etf(session, exchange="SSE", symbol="510300")
+        _add_price_history(session, etf_id=etf.id, current_price=Decimal("100"), end_offset=0)
+        monkeypatch.setattr(
+            signal_service, "generate_strategy_signal", fake_generate_strategy_signal
+        )
+
+        result = generate_and_persist_strategy_signal(session, config=_strategy_config(top_n=2))
+
+    assert result.result == "empty"
+    assert set(captured) == {"signal_date", "config", "price_panel", "active_etfs", "persist"}
 
 
 def test_generate_and_persist_strategy_signal_persists_signal_and_positions() -> None:
@@ -183,33 +216,18 @@ def _trade_date(offset: int) -> date:
 
 
 def _strategy_config(*, top_n: int) -> StrategyConfig:
-    return StrategyConfig.model_validate(
+    return validate_strategy_config(
         {
             "strategy_id": "dual_momentum",
             "version": "v1",
+            "type": "dual_momentum",
             "universe_config": "config/etf_pool.yaml",
-            "momentum": {
-                "short_window_days": 63,
-                "long_window_days": 120,
-            },
-            "score_weights": {
-                "short": 0.4,
-                "long": 0.6,
-            },
-            "trend_filter": {
-                "moving_average_days": 120,
-                "price_relation": "above",
-            },
-            "selection": {
-                "top_n": top_n,
-            },
-            "defense": {
-                "assets": [
-                    {
-                        "exchange": "SSE",
-                        "symbol": "511010",
-                    },
-                ],
+            "parameters": {
+                "momentum": {"short_window_days": 63, "long_window_days": 120},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": top_n},
+                "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
             },
             "costs": {
                 "transaction_cost_bps": 5,

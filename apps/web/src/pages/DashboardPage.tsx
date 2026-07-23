@@ -331,22 +331,16 @@ export function DashboardPage({
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
             <DescriptionItem label="Version" value={data?.strategy.version ?? "Loading"} />
-            <DescriptionItem
-              label="Momentum windows"
-              value={data ? formatMomentumWindows({
-                longWindowDays: data.strategy.momentum.long_window_days,
-                shortWindowDays: data.strategy.momentum.short_window_days
-              }) : "Loading"}
-            />
-            <DescriptionItem
-              label="Score weights"
-              value={data ? formatScoreWeights(data.strategy.score_weights) : "Loading"}
-            />
-            <DescriptionItem label="Top N" value={data ? formatInteger(data.strategy.selection.top_n) : "Loading"} />
-            <DescriptionItem
-              label="Defensive assets"
-              value={data ? formatDefensiveAssets(data.strategy.defense.assets) : "Loading"}
-            />
+            <DescriptionItem label="Type" value={data?.strategy.type ?? "Loading"} />
+            {data?.strategy.type === "dual_momentum" ? <>
+              <DescriptionItem label="Momentum windows" value={formatMomentumWindows({
+                longWindowDays: data.strategy.parameters.momentum.long_window_days,
+                shortWindowDays: data.strategy.parameters.momentum.short_window_days
+              })} />
+              <DescriptionItem label="Score weights" value={formatScoreWeights(data.strategy.parameters.score_weights)} />
+              <DescriptionItem label="Top N" value={formatInteger(data.strategy.parameters.selection.top_n)} />
+              <DescriptionItem label="Defensive assets" value={formatDefensiveAssets(data.strategy.parameters.defense.assets)} />
+            </> : null}
             <DescriptionItem
               label="Trading cost"
               value={data ? `${formatCompactNumber(data.strategy.costs.transaction_cost_bps)} bps` : "Loading"}

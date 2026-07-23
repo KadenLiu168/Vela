@@ -7,34 +7,29 @@ from vela_api.main import app, get_market_data_provider
 from vela_core import BootstrapResult, ConfigError, ETFConfig, ETFPoolConfig
 from vela_core.app_config import AppConfig
 from vela_core.database import DEFAULT_DATABASE_URL
-from vela_core.strategy_config import (
-    DefenseConfig,
-    ETFIdentity,
-    MomentumConfig,
-    PerformanceConfig,
-    ScoreWeightsConfig,
-    SelectionConfig,
-    StrategyConfig,
-    TransactionCostsConfig,
-    TrendFilterConfig,
-)
+from vela_core.strategy_config import validate_strategy_config
 
 from tests.integration_data import ControlledMarketDataProvider, daily_price
 
 
 def _make_test_app_config() -> AppConfig:
     return AppConfig(
-        strategy=StrategyConfig(
-            strategy_id="test_strategy",
-            version="v1",
-            universe_config="test_pool.yaml",
-            momentum=MomentumConfig(short_window_days=20, long_window_days=60),
-            score_weights=ScoreWeightsConfig(short=0.4, long=0.6),
-            trend_filter=TrendFilterConfig(moving_average_days=120, price_relation="above"),
-            selection=SelectionConfig(top_n=2),
-            defense=DefenseConfig(assets=[ETFIdentity(exchange="SSE", symbol="511010")]),
-            costs=TransactionCostsConfig(transaction_cost_bps=5),
-            performance=PerformanceConfig(risk_free_rate=0.03),
+        strategy=validate_strategy_config(
+            {
+                "strategy_id": "test_strategy",
+                "version": "v1",
+                "type": "dual_momentum",
+                "universe_config": "test_pool.yaml",
+                "parameters": {
+                    "momentum": {"short_window_days": 20, "long_window_days": 60},
+                    "score_weights": {"short": 0.4, "long": 0.6},
+                    "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                    "selection": {"top_n": 2},
+                    "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
+                },
+                "costs": {"transaction_cost_bps": 5},
+                "performance": {"risk_free_rate": 0.03},
+            }
         ),
         etf_pool=ETFPoolConfig(
             pool_id="test_pool",

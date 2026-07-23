@@ -12,7 +12,7 @@ type ApiClientErrorOptions =
       kind: "network";
       status?: never;
       category?: never;
-    };
+    }
 
 export class ApiClientError extends Error {
   kind: ApiClientErrorOptions["kind"];
@@ -40,36 +40,44 @@ export type DashboardResponse = {
   recent_fetch_logs: DashboardFetchLogSummary[];
 };
 
-export type DashboardStrategySummary = {
+type DashboardStrategyCommon = {
   strategy_id: string;
   version: string;
   universe_config: string;
-  momentum: {
-    short_window_days: number;
-    long_window_days: number;
-  };
-  score_weights: {
-    short: number;
-    long: number;
-  };
-  trend_filter: Record<string, unknown>;
-  selection: {
-    top_n: number;
-  };
-  defense: {
-    assets: {
-      exchange: string;
-      symbol: string;
-    }[];
-  };
-  costs: {
-    transaction_cost_bps: number;
-  };
+  costs: { transaction_cost_bps: number };
   performance: Record<string, unknown>;
-  rebalance: {
-    frequency: string;
-  };
+  rebalance: { frequency: string };
 };
+
+export type DashboardStrategySummary = DashboardStrategyCommon & (
+  | {
+      type: "dual_momentum";
+      parameters: {
+        momentum: {
+          short_window_days: number;
+          long_window_days: number;
+        };
+        score_weights: {
+          short: number;
+          long: number;
+        };
+        trend_filter: {
+          moving_average_days: 60 | 120 | 250;
+          price_relation: "above" | "below";
+        };
+        selection: {
+          top_n: number;
+        };
+        defense: {
+          assets: {
+            exchange: string;
+            symbol: string;
+          }[];
+        };
+      };
+    }
+  | { type: "equal_weight"; parameters: Record<string, never> }
+);
 
 export type EtfBrief = {
   etf_id: number;

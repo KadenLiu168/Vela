@@ -20,7 +20,7 @@ from vela_core import (
     persist_strategy_signal,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 
 def test_calculate_strategy_equity_curve_returns_empty_for_empty_dates() -> None:
@@ -815,33 +815,18 @@ def _create_session_factory() -> sessionmaker[Session]:
 
 
 def _strategy_config(transaction_cost_bps: float = 0) -> StrategyConfig:
-    return StrategyConfig.model_validate(
+    return validate_strategy_config(
         {
             "strategy_id": "Dual_momentum",
             "version": "v1",
+            "type": "dual_momentum",
             "universe_config": "config/etf_pool.yaml",
-            "momentum": {
-                "short_window_days": 63,
-                "long_window_days": 126,
-            },
-            "score_weights": {
-                "short": 0.4,
-                "long": 0.6,
-            },
-            "trend_filter": {
-                "moving_average_days": 120,
-                "price_relation": "above",
-            },
-            "selection": {
-                "top_n": 2,
-            },
-            "defense": {
-                "assets": [
-                    {
-                        "exchange": "SSE",
-                        "symbol": "511010",
-                    },
-                ],
+            "parameters": {
+                "momentum": {"short_window_days": 63, "long_window_days": 126},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": 2},
+                "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
             },
             "costs": {
                 "transaction_cost_bps": transaction_cost_bps,

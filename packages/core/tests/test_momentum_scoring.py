@@ -16,7 +16,7 @@ from vela_core import (
     select_with_defensive_fallback,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 
 def test_calculates_weighted_momentum_score_from_complete_configured_windows() -> None:
@@ -41,7 +41,7 @@ def test_calculates_weighted_momentum_score_from_complete_configured_windows() -
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(30),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert momentum_score == MomentumScore(
@@ -74,7 +74,7 @@ def test_uses_configured_windows_instead_of_fixed_market_return_windows() -> Non
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(13),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert momentum_score.short_return == Decimal("0.3")
@@ -103,13 +103,13 @@ def test_reproduces_momentum_score_for_identical_inputs() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(30),
-            config=config,
+            parameters=config.parameters,
         )
         second_score = calculate_momentum_score(
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(30),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert first_score == second_score
@@ -190,13 +190,13 @@ def test_calculates_reproducible_scores_for_multiple_window_and_weight_combinati
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(long_window_days),
-            config=config,
+            parameters=config.parameters,
         )
         second_score = calculate_momentum_score(
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(long_window_days),
-            config=config,
+            parameters=config.parameters,
         )
 
     expected = MomentumScore(
@@ -230,7 +230,7 @@ def test_returns_none_score_when_a_configured_window_has_insufficient_history() 
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(10),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert momentum_score.short_return == Decimal("0.25")
@@ -250,7 +250,7 @@ def test_returns_none_score_when_current_price_is_missing() -> None:
             session,
             etf_id=etf.id,
             as_of_date=_trade_date(40),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert momentum_score == MomentumScore(
@@ -299,7 +299,7 @@ def test_uses_strategy_price_and_ignores_other_etf_histories() -> None:
             session,
             etf_id=target_etf.id,
             as_of_date=_trade_date(30),
-            config=config,
+            parameters=config.parameters,
         )
 
     assert momentum_score.short_return == Decimal("0.12")
@@ -397,7 +397,7 @@ def test_selects_configured_top_n_ranked_etfs() -> None:
         _momentum_ranking(etf_id=3, score=Decimal("0.2"), rank=3),
     ]
 
-    selections = select_top_n_etfs(rankings, config)
+    selections = select_top_n_etfs(rankings, config.parameters)
 
     assert [selection.etf_id for selection in selections] == [2, 1]
 
@@ -409,7 +409,7 @@ def test_selected_etfs_include_rank_score_and_equal_target_weight() -> None:
         _momentum_ranking(etf_id=2, score=Decimal("0.2"), rank=2),
     ]
 
-    selections = select_top_n_etfs(rankings, config)
+    selections = select_top_n_etfs(rankings, config.parameters)
 
     assert selections == [
         TopNSelection(
@@ -433,7 +433,7 @@ def test_selects_all_available_ranked_etfs_when_top_n_is_insufficient() -> None:
         _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=1),
     ]
 
-    selections = select_top_n_etfs(rankings, config)
+    selections = select_top_n_etfs(rankings, config.parameters)
 
     assert selections == [
         TopNSelection(
@@ -448,7 +448,7 @@ def test_selects_all_available_ranked_etfs_when_top_n_is_insufficient() -> None:
 def test_selects_no_etfs_from_empty_rankings() -> None:
     config = _strategy_config(short_window_days=10, long_window_days=30)
 
-    selections = select_top_n_etfs([], config)
+    selections = select_top_n_etfs([], config.parameters)
 
     assert selections == []
 
@@ -456,7 +456,7 @@ def test_selects_no_etfs_from_empty_rankings() -> None:
 def test_selects_defensive_asset_when_no_ranked_etfs_are_available() -> None:
     config = _strategy_config(short_window_days=10, long_window_days=30)
 
-    selections = select_with_defensive_fallback([], config)
+    selections = select_with_defensive_fallback([], config.parameters)
 
     assert selections == [
         DefensiveFallbackSelection(
@@ -475,7 +475,7 @@ def test_selects_defensive_asset_when_ranked_etfs_are_insufficient() -> None:
         _momentum_ranking(etf_id=1, score=Decimal("0.4"), rank=1),
     ]
 
-    selections = select_with_defensive_fallback(rankings, config)
+    selections = select_with_defensive_fallback(rankings, config.parameters)
 
     assert selections == [
         DefensiveFallbackSelection(
@@ -495,7 +495,7 @@ def test_selects_top_n_without_defensive_asset_when_ranked_etfs_are_sufficient()
         _momentum_ranking(etf_id=2, score=Decimal("0.6"), rank=1),
     ]
 
-    selections = select_with_defensive_fallback(rankings, config)
+    selections = select_with_defensive_fallback(rankings, config.parameters)
 
     assert selections == [
         TopNSelection(
@@ -514,28 +514,31 @@ def test_selects_top_n_without_defensive_asset_when_ranked_etfs_are_sufficient()
 
 
 def test_selects_defensive_fallback_spans_all_configured_assets_with_equal_weight() -> None:
-    config = StrategyConfig.model_validate(
+    config = validate_strategy_config(
         {
             "strategy_id": "dual_momentum",
             "version": "v1",
+            "type": "dual_momentum",
             "universe_config": "config/etf_pool.yaml",
-            "momentum": {"short_window_days": 10, "long_window_days": 30},
-            "score_weights": {"short": 0.4, "long": 0.6},
-            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
-            "selection": {"top_n": 2},
-            "defense": {
-                "assets": [
-                    {"exchange": "SSE", "symbol": "511010"},
-                    {"exchange": "SSE", "symbol": "511880"},
-                    {"exchange": "SSE", "symbol": "518880"},
-                ],
+            "parameters": {
+                "momentum": {"short_window_days": 10, "long_window_days": 30},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": 2},
+                "defense": {
+                    "assets": [
+                        {"exchange": "SSE", "symbol": "511010"},
+                        {"exchange": "SSE", "symbol": "511880"},
+                        {"exchange": "SSE", "symbol": "518880"},
+                    ]
+                },
             },
             "costs": {"transaction_cost_bps": 5},
             "performance": {"risk_free_rate": 0.02},
         }
     )
 
-    selections = select_with_defensive_fallback([], config)
+    selections = select_with_defensive_fallback([], config.parameters)
 
     expected_weight = Decimal("1") / Decimal(3)
     assert selections == [
@@ -656,29 +659,17 @@ def _strategy_config(
     config: dict[str, Any] = {
         "strategy_id": "dual_momentum",
         "version": "v1",
+        "type": "dual_momentum",
         "universe_config": "config/etf_pool.yaml",
-        "momentum": {
-            "short_window_days": short_window_days,
-            "long_window_days": long_window_days,
-        },
-        "score_weights": {
-            "short": short_weight,
-            "long": long_weight,
-        },
-        "trend_filter": {
-            "moving_average_days": 120,
-            "price_relation": "above",
-        },
-        "selection": {
-            "top_n": 2,
-        },
-        "defense": {
-            "assets": [
-                {
-                    "exchange": "SSE",
-                    "symbol": "511010",
-                },
-            ],
+        "parameters": {
+            "momentum": {
+                "short_window_days": short_window_days,
+                "long_window_days": long_window_days,
+            },
+            "score_weights": {"short": short_weight, "long": long_weight},
+            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+            "selection": {"top_n": 2},
+            "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
         },
         "costs": {
             "transaction_cost_bps": 5,
@@ -687,4 +678,4 @@ def _strategy_config(
             "risk_free_rate": 0.02,
         },
     }
-    return StrategyConfig.model_validate(config)
+    return validate_strategy_config(config)

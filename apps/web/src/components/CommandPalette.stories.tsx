@@ -16,12 +16,9 @@ function dashboardWithEtfs(etf_list: DashboardMarketDataStatus["etf_list"]): Das
     strategy: {
       strategy_id: "",
       version: "",
+      type: "equal_weight",
       universe_config: "",
-      momentum: { short_window_days: 0, long_window_days: 0 },
-      score_weights: { short: 0, long: 0 },
-      trend_filter: {},
-      selection: { top_n: 0 },
-      defense: { assets: [{ exchange: "", symbol: "" }] },
+      parameters: {},
       costs: { transaction_cost_bps: 0 },
       performance: {},
       rebalance: { frequency: "" }

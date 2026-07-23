@@ -9,7 +9,7 @@ from vela_core import (
     load_app_config,
     load_etf_pool_config,
 )
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import DualMomentumStrategyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ETF_POOL_PATH = REPO_ROOT / "config" / "etf_pool.yaml"
@@ -134,7 +134,7 @@ def test_load_existing_app_config_returns_typed_config() -> None:
     config = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml")
 
     assert isinstance(config, AppConfig)
-    assert isinstance(config.strategy, StrategyConfig)
+    assert isinstance(config.strategy, DualMomentumStrategyConfig)
     assert isinstance(config.etf_pool, ETFPoolConfig)
 
 
@@ -167,22 +167,24 @@ def test_app_config_resolves_universe_config_from_strategy_file_directory(
         """
 strategy_id: dual_momentum
 version: v1
+type: dual_momentum
 universe_config: etf_pool.yaml
-momentum:
-  short_window_days: 63
-  long_window_days: 126
-score_weights:
-  short: 0.4
-  long: 0.6
-trend_filter:
-  moving_average_days: 120
-  price_relation: above
-selection:
-  top_n: 2
-defense:
-  assets:
-    - exchange: SSE
-      symbol: "511010"
+parameters:
+  momentum:
+    short_window_days: 63
+    long_window_days: 126
+  score_weights:
+    short: 0.4
+    long: 0.6
+  trend_filter:
+    moving_average_days: 120
+    price_relation: above
+  selection:
+    top_n: 2
+  defense:
+    assets:
+      - exchange: SSE
+        symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:
@@ -217,22 +219,24 @@ def test_app_config_missing_referenced_etf_pool_includes_pool_path(tmp_path: Pat
         f"""
 strategy_id: dual_momentum
 version: v1
+type: dual_momentum
 universe_config: {missing_pool_path}
-momentum:
-  short_window_days: 63
-  long_window_days: 126
-score_weights:
-  short: 0.4
-  long: 0.6
-trend_filter:
-  moving_average_days: 120
-  price_relation: above
-selection:
-  top_n: 2
-defense:
-  assets:
-    - exchange: SSE
-      symbol: "511010"
+parameters:
+  momentum:
+    short_window_days: 63
+    long_window_days: 126
+  score_weights:
+    short: 0.4
+    long: 0.6
+  trend_filter:
+    moving_average_days: 120
+    price_relation: above
+  selection:
+    top_n: 2
+  defense:
+    assets:
+      - exchange: SSE
+        symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:
@@ -258,22 +262,24 @@ def test_app_config_invalid_referenced_etf_pool_includes_pool_path_and_field(
         f"""
 strategy_id: dual_momentum
 version: v1
+type: dual_momentum
 universe_config: {pool_path}
-momentum:
-  short_window_days: 63
-  long_window_days: 126
-score_weights:
-  short: 0.4
-  long: 0.6
-trend_filter:
-  moving_average_days: 120
-  price_relation: above
-selection:
-  top_n: 2
-defense:
-  assets:
-    - exchange: SSE
-      symbol: "511010"
+parameters:
+  momentum:
+    short_window_days: 63
+    long_window_days: 126
+  score_weights:
+    short: 0.4
+    long: 0.6
+  trend_filter:
+    moving_average_days: 120
+    price_relation: above
+  selection:
+    top_n: 2
+  defense:
+    assets:
+      - exchange: SSE
+        symbol: "511010"
 costs:
   transaction_cost_bps: 5
 performance:

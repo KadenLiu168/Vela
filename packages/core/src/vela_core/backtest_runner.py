@@ -20,6 +20,7 @@ from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
 from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
 from vela_core.rebalance_dates import generate_rebalance_dates
+from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
@@ -106,17 +107,15 @@ def run_backtest(
         trading_dates,
         frequency=config.rebalance.frequency,
     )
-    defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
     # Convert the longest trading-day window to a safe calendar-day buffer:
     # ~252 trading days per ~365 calendar days gives a ratio of ~0.69, so
     # ``max_window / 0.69`` calendar days is the minimum; ``* 2 + 10`` adds a
     # comfortable margin for weekends, holidays, and suspended-trading gaps so
     # the first rebalance date always sees enough history for trend + momentum.
-    max_window = max(
-        config.momentum.long_window_days,
-        config.trend_filter.moving_average_days,
-    )
+    max_window = resolve_strategy(config).lookback_days()
+    if max_window < 0:
+        raise ValueError("Strategy lookback_days must be non-negative")
     panel_window_start = rebalance_dates[0] - timedelta(days=max_window * 2 + 10)
     price_panel = load_price_panel(
         session,
@@ -162,7 +161,6 @@ def run_backtest(
         config=config,
         price_panel=price_panel,
         active_etfs=active_etfs,
-        defense_lookup=defense_lookup,
         generated_at=started_at,
         persist=_persist_signal,
     )
@@ -373,6 +371,7 @@ def _parameters_json(config: StrategyConfig, *, start_date: date, end_date: date
         {
             "strategy_id": config.strategy_id,
             "config_version": config.version,
+            "type": config.type,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "risk_free_rate": config.performance.risk_free_rate,

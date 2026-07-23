@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { DashboardResponse } from "./api/client";
 import App from "./App";
 
 afterEach(() => {
@@ -49,7 +50,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(market.getByText("Covered ETFs")).toBeInTheDocument();
   expect(market.getByText("8 ETFs")).toBeInTheDocument();
   expect(market.getByText("Earliest")).toBeInTheDocument();
-  expect(market.getByText("2025-01-02")).toBeInTheDocument();
+  expect(market.getByText("2025-01-02", { selector: "time" })).toBeInTheDocument();
   expect(market.getByText("Latest")).toBeInTheDocument();
   expect(market.getByText("2026-06-23")).toBeInTheDocument();
   expect(market.getByText("SPY")).toBeInTheDocument();
@@ -59,7 +60,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   const strategyPanel = screen.getByRole("heading", { name: "Strategy" }).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
-  expect(strategy.getByText("dual_momentum")).toBeInTheDocument();
+  expect(strategy.getAllByText("dual_momentum")).toHaveLength(2);
   expect(strategy.getByText("v1")).toBeInTheDocument();
   expect(strategy.getByText("63 / 126 days")).toBeInTheDocument();
   expect(strategy.getByText("Short 0.4 / Long 0.6")).toBeInTheDocument();
@@ -114,6 +115,31 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(screen.queryByRole("button", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /edit strategy|edit config/i })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/dashboard", undefined);
+});
+
+it("renders equal weight strategy details without dual-momentum fields", async () => {
+  const response: DashboardResponse = createDashboardResponse();
+  response.strategy = {
+    strategy_id: "equal_weight_test",
+    version: "v2",
+    type: "equal_weight",
+    universe_config: "config/etf_pool.yaml",
+    parameters: {},
+    costs: { transaction_cost_bps: 0 },
+    performance: { risk_free_rate: 0 },
+    rebalance: { frequency: "weekly" }
+  };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(response)));
+
+  render(<App />);
+
+  const strategyPanel = (await screen.findByRole("heading", { name: "Strategy" })).closest("article");
+  expect(strategyPanel).not.toBeNull();
+  const strategy = within(strategyPanel as HTMLElement);
+  expect(strategy.getByText("equal_weight")).toBeInTheDocument();
+  expect(strategy.getByText("v2")).toBeInTheDocument();
+  expect(strategy.queryByText("Momentum windows")).not.toBeInTheDocument();
+  expect(strategy.queryByText("Defensive assets")).not.toBeInTheDocument();
 });
 
 it("renders shared page loading feedback while dashboard data is pending", () => {
@@ -2281,29 +2307,26 @@ it("exposes local research navigation without production account entry points", 
   expect(screen.queryByRole("link", { name: /backtest detail/i })).not.toBeInTheDocument();
 });
 
-function createDashboardResponse() {
+function createDashboardResponse(): DashboardResponse {
   return {
     strategy: {
       strategy_id: "dual_momentum",
       version: "v1",
+      type: "dual_momentum",
       universe_config: "config/etf_pool.yaml",
-      momentum: {
-        short_window_days: 63,
-        long_window_days: 126
-      },
-      score_weights: {
-        short: 0.4,
-        long: 0.6
-      },
-      trend_filter: { enabled: true },
-      selection: { top_n: 2 },
-      defense: {
-        assets: [
-          {
-            exchange: "SSE",
-            symbol: "511010"
-          }
-        ]
+      parameters: {
+        momentum: { short_window_days: 63, long_window_days: 126 },
+        score_weights: { short: 0.4, long: 0.6 },
+        trend_filter: { moving_average_days: 120, price_relation: "above" },
+        selection: { top_n: 2 },
+        defense: {
+          assets: [
+            {
+              exchange: "SSE",
+              symbol: "511010"
+            }
+          ]
+        }
       },
       costs: { transaction_cost_bps: 5 },
       performance: { risk_free_rate: 0.02 },
@@ -2315,8 +2338,22 @@ function createDashboardResponse() {
       earliest_trade_date: "2025-01-02",
       latest_trade_date: "2026-06-23",
       etf_list: [
-        { etf_id: 1, exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
-        { etf_id: 2, exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
+        {
+          etf_id: 1,
+          exchange: "NYSEARCA",
+          symbol: "SPY",
+          name: "SPY ETF",
+          category: "equity_us",
+          earliest_trade_date: "2025-01-02"
+        },
+        {
+          etf_id: 2,
+          exchange: "NYSEARCA",
+          symbol: "QQQ",
+          name: "QQQ ETF",
+          category: "equity_us_tech",
+          earliest_trade_date: "2025-01-02"
+        }
       ],
     },
     latest_signal: {

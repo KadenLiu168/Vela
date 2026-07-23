@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import TrendFilterResult, apply_trend_filter
 from vela_core.models import Base, ETFInfo, MarketPrice
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 
 def test_passes_when_current_price_is_above_120_day_moving_average() -> None:
@@ -19,7 +19,7 @@ def test_passes_when_current_price_is_above_120_day_moving_average() -> None:
             session, etf_id=etf.id, prices_by_offset={119: Decimal("150")}, row_count=120
         )
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(119), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(119), parameters=config.parameters
         )
 
     assert result == TrendFilterResult(
@@ -39,7 +39,7 @@ def test_fails_when_current_price_equals_120_day_moving_average() -> None:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=120)
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(119), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(119), parameters=config.parameters
         )
 
     assert result.current_price == Decimal("100")
@@ -57,7 +57,7 @@ def test_fails_when_current_price_is_below_120_day_moving_average() -> None:
             session, etf_id=etf.id, prices_by_offset={119: Decimal("50")}, row_count=120
         )
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(119), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(119), parameters=config.parameters
         )
 
     assert result.current_price == Decimal("50")
@@ -77,10 +77,16 @@ def test_distinguishes_passing_and_failing_etfs_for_same_date() -> None:
         )
         _add_price_history(session, etf_id=failing_etf.id, prices_by_offset={}, row_count=120)
         passing_result = apply_trend_filter(
-            session, etf_id=passing_etf.id, as_of_date=_trade_date(119), config=config
+            session,
+            etf_id=passing_etf.id,
+            as_of_date=_trade_date(119),
+            parameters=config.parameters,
         )
         failing_result = apply_trend_filter(
-            session, etf_id=failing_etf.id, as_of_date=_trade_date(119), config=config
+            session,
+            etf_id=failing_etf.id,
+            as_of_date=_trade_date(119),
+            parameters=config.parameters,
         )
 
     results = [passing_result, failing_result]
@@ -100,7 +106,7 @@ def test_fails_when_current_price_is_missing() -> None:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=120)
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(130), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(130), parameters=config.parameters
         )
 
     assert result == TrendFilterResult(
@@ -120,7 +126,7 @@ def test_fails_when_moving_average_is_missing() -> None:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=119)
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(118), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(118), parameters=config.parameters
         )
 
     assert result == TrendFilterResult(
@@ -153,7 +159,7 @@ def test_uses_forward_adjusted_prices_and_ignores_other_etf_histories() -> None:
             row_count=120,
         )
         result = apply_trend_filter(
-            session, etf_id=target_etf.id, as_of_date=_trade_date(119), config=config
+            session, etf_id=target_etf.id, as_of_date=_trade_date(119), parameters=config.parameters
         )
 
     assert result.current_price == Decimal("1.000000")
@@ -174,7 +180,7 @@ def test_passes_when_current_price_is_below_60_day_moving_average() -> None:
             session, etf_id=etf.id, prices_by_offset={59: Decimal("50")}, row_count=60
         )
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(59), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(59), parameters=config.parameters
         )
 
     assert result.passes_filter is True
@@ -192,7 +198,7 @@ def test_fails_when_current_price_is_above_ma_under_below_relation() -> None:
             session, etf_id=etf.id, prices_by_offset={59: Decimal("150")}, row_count=60
         )
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(59), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(59), parameters=config.parameters
         )
 
     assert result.passes_filter is False
@@ -208,7 +214,7 @@ def test_fails_when_current_price_equals_ma_under_below_relation() -> None:
         etf = _add_etf(session, symbol="SPY")
         _add_price_history(session, etf_id=etf.id, prices_by_offset={}, row_count=60)
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(59), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(59), parameters=config.parameters
         )
 
     assert result.passes_filter is False
@@ -235,7 +241,7 @@ def test_60_day_window_uses_60_rows_not_120() -> None:
             row_count=62,
         )
         result = apply_trend_filter(
-            session, etf_id=etf.id, as_of_date=_trade_date(59), config=config
+            session, etf_id=etf.id, as_of_date=_trade_date(59), parameters=config.parameters
         )
 
     assert result.moving_average == Decimal("100")
@@ -300,20 +306,19 @@ def _strategy_config(*, moving_average_days: int, price_relation: str) -> Strate
     config: dict[str, Any] = {
         "strategy_id": "dual_momentum",
         "version": "v1",
+        "type": "dual_momentum",
         "universe_config": "config/etf_pool.yaml",
-        "momentum": {"short_window_days": 63, "long_window_days": 126},
-        "score_weights": {"short": 0.4, "long": 0.6},
-        "trend_filter": {
-            "moving_average_days": moving_average_days,
-            "price_relation": price_relation,
-        },
-        "selection": {"top_n": 2},
-        "defense": {
-            "assets": [
-                {"exchange": "SSE", "symbol": "511010"},
-            ],
+        "parameters": {
+            "momentum": {"short_window_days": 63, "long_window_days": 126},
+            "score_weights": {"short": 0.4, "long": 0.6},
+            "trend_filter": {
+                "moving_average_days": moving_average_days,
+                "price_relation": price_relation,
+            },
+            "selection": {"top_n": 2},
+            "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
         },
         "costs": {"transaction_cost_bps": 5},
         "performance": {"risk_free_rate": 0.02},
     }
-    return StrategyConfig.model_validate(config)
+    return validate_strategy_config(config)

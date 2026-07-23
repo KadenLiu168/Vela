@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from vela_core.adjusted_price_projection import ForwardAdjustedPrice, forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import DualMomentumParams
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,7 @@ def _momentum_score_from_prices(
     *,
     etf_id: int,
     as_of_date: date,
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> MomentumScore:
     """Pure-function momentum score over an in-memory ascending price series.
 
@@ -66,9 +66,9 @@ def _momentum_score_from_prices(
         )
 
     adjusted_prices = forward_adjusted_prices(prices, rebalance_date=as_of_date)
-    short_return = _calculate_window_return(adjusted_prices, config.momentum.short_window_days)
-    long_return = _calculate_window_return(adjusted_prices, config.momentum.long_window_days)
-    score = _calculate_weighted_score(short_return, long_return, config)
+    short_return = _calculate_window_return(adjusted_prices, parameters.momentum.short_window_days)
+    long_return = _calculate_window_return(adjusted_prices, parameters.momentum.long_window_days)
+    score = _calculate_weighted_score(short_return, long_return, parameters)
 
     return MomentumScore(
         etf_id=etf_id,
@@ -84,7 +84,7 @@ def calculate_momentum_score(
     *,
     etf_id: int,
     as_of_date: date,
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> MomentumScore:
     """Compatibility wrapper that loads a single-ETF panel then delegates.
 
@@ -100,13 +100,13 @@ def calculate_momentum_score(
     )
     # Trim to the most-recent ``long_window + 1`` rows so the score uses
     # the same rows the historical ``LIMIT long_window+1`` query did.
-    prices = panel.get(etf_id, [])[-(config.momentum.long_window_days + 1) :]
+    prices = panel.get(etf_id, [])[-(parameters.momentum.long_window_days + 1) :]
 
     return _momentum_score_from_prices(
         prices,
         etf_id=etf_id,
         as_of_date=as_of_date,
-        config=config,
+        parameters=parameters,
     )
 
 
@@ -130,9 +130,11 @@ def rank_momentum_scores(scores: list[MomentumScore]) -> list[MomentumRanking]:
 
 def select_top_n_etfs(
     rankings: list[MomentumRanking],
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> list[TopNSelection]:
-    selected_rankings = sorted(rankings, key=lambda ranking: ranking.rank)[: config.selection.top_n]
+    selected_rankings = sorted(rankings, key=lambda ranking: ranking.rank)[
+        : parameters.selection.top_n
+    ]
     if not selected_rankings:
         return []
 
@@ -150,10 +152,10 @@ def select_top_n_etfs(
 
 def select_with_defensive_fallback(
     rankings: list[MomentumRanking],
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> list[TopNSelection | DefensiveFallbackSelection]:
-    if len(rankings) < config.selection.top_n:
-        defensive_assets = config.defense.assets
+    if len(rankings) < parameters.selection.top_n:
+        defensive_assets = parameters.defense.assets
         target_weight = Decimal("1") / Decimal(len(defensive_assets))
         return [
             DefensiveFallbackSelection(
@@ -167,7 +169,7 @@ def select_with_defensive_fallback(
         ]
 
     selections: list[TopNSelection | DefensiveFallbackSelection] = list(
-        select_top_n_etfs(rankings, config)
+        select_top_n_etfs(rankings, parameters)
     )
     return selections
 
@@ -191,11 +193,11 @@ def _calculate_window_return(
 def _calculate_weighted_score(
     short_return: Decimal | None,
     long_return: Decimal | None,
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> Decimal | None:
     if short_return is None or long_return is None:
         return None
 
-    short_weight = Decimal(str(config.score_weights.short))
-    long_weight = Decimal(str(config.score_weights.long))
+    short_weight = Decimal(str(parameters.score_weights.short))
+    long_weight = Decimal(str(parameters.score_weights.long))
     return short_return * short_weight + long_return * long_weight

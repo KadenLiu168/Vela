@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 import yaml
 from pydantic import ValidationError
-from vela_core import ConfigError
-from vela_core.strategy_config import StrategyConfig, load_strategy_config
+from vela_core import ConfigError, strategy_config
+from vela_core.strategy_config import load_strategy_config, validate_strategy_config
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -33,7 +33,7 @@ def test_strategy_v1_config_loads_and_validates() -> None:
 
 
 def test_strategy_config_accepts_valid_schema_input() -> None:
-    config = StrategyConfig.model_validate(_valid_strategy_config())
+    config = validate_strategy_config(_valid_strategy_config())
 
     assert config.strategy_id == "dual_momentum"
     assert config.version == "v1"
@@ -41,6 +41,56 @@ def test_strategy_config_accepts_valid_schema_input() -> None:
     assert config.momentum.long_window_days == 126
     assert config.score_weights.short == 0.4
     assert config.score_weights.long == 0.6
+
+
+def test_strategy_config_adapter_accepts_equal_weight_with_empty_parameters() -> None:
+    config = _valid_equal_weight_config()
+
+    validated = strategy_config.validate_strategy_config(config)
+
+    assert validated.type == "equal_weight"
+    assert validated.parameters.model_dump() == {}
+
+
+def test_strategy_config_adapter_rejects_legacy_fields_mixed_with_new_shape() -> None:
+    config = _valid_strategy_config()
+    dict.__setitem__(config, "momentum", {"short_window_days": 63, "long_window_days": 126})
+
+    with pytest.raises(ValidationError) as exc_info:
+        strategy_config.validate_strategy_config(config)
+
+    assert "momentum" in str(exc_info.value)
+
+
+def test_strategy_config_adapter_rejects_empty_version() -> None:
+    config = _valid_equal_weight_config()
+    config["version"] = ""
+
+    with pytest.raises(ValidationError) as exc_info:
+        strategy_config.validate_strategy_config(config)
+
+    assert "version" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("field", ["type", "parameters"])
+def test_strategy_config_adapter_requires_variant_fields(field: str) -> None:
+    config = _valid_equal_weight_config()
+    del config[field]
+
+    with pytest.raises(ValidationError) as exc_info:
+        validate_strategy_config(config)
+
+    assert field in str(exc_info.value)
+
+
+def test_strategy_config_adapter_rejects_unknown_type() -> None:
+    config = _valid_equal_weight_config()
+    config["type"] = "unsupported"
+
+    with pytest.raises(ValidationError) as exc_info:
+        validate_strategy_config(config)
+
+    assert "unsupported" in str(exc_info.value)
 
 
 def test_strategy_config_loader_missing_file_raises_config_error(tmp_path: Path) -> None:
@@ -194,7 +244,7 @@ def test_strategy_config_rejects_missing_required_groups(group: str) -> None:
     del config[group]
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert group in message
@@ -213,7 +263,7 @@ def test_strategy_config_rejects_invalid_momentum_windows(field: str, value: int
     config["momentum"][field] = value
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert f"momentum.{field}" in message
@@ -236,7 +286,7 @@ def test_strategy_config_rejects_invalid_momentum_window_relationship(
     config["momentum"]["long_window_days"] = long_window_days
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "momentum" in message
@@ -249,7 +299,7 @@ def test_strategy_config_rejects_invalid_score_weights() -> None:
     config["score_weights"]["long"] = 0.6
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "score_weights" in message
@@ -262,7 +312,7 @@ def test_strategy_config_rejects_zero_score_weights(field: str) -> None:
     config["score_weights"][field] = 0
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert f"score_weights.{field}" in message
@@ -284,7 +334,7 @@ def test_strategy_config_rejects_unsupported_trend_filter(
     config["trend_filter"][field] = value
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert f"trend_filter.{field}" in message
@@ -310,7 +360,7 @@ def test_strategy_config_accepts_supported_trend_filter_values(
     config["trend_filter"]["moving_average_days"] = moving_average_days
     config["trend_filter"]["price_relation"] = price_relation
 
-    validated = StrategyConfig.model_validate(config)
+    validated = validate_strategy_config(config)
 
     assert validated.trend_filter.moving_average_days == moving_average_days
     assert validated.trend_filter.price_relation == price_relation
@@ -321,7 +371,7 @@ def test_strategy_config_rejects_invalid_top_n() -> None:
     config["selection"]["top_n"] = 0
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "selection.top_n" in message
@@ -333,7 +383,7 @@ def test_strategy_config_rejects_negative_transaction_cost() -> None:
     config["costs"]["transaction_cost_bps"] = -1
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "costs.transaction_cost_bps" in message
@@ -345,7 +395,7 @@ def test_strategy_config_rejects_negative_risk_free_rate() -> None:
     config["performance"]["risk_free_rate"] = -0.01
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "performance.risk_free_rate" in message
@@ -355,7 +405,7 @@ def test_strategy_config_rejects_negative_risk_free_rate() -> None:
 def test_rebalance_config_defaults_to_weekly_when_omitted() -> None:
     config = _valid_strategy_config()
 
-    validated = StrategyConfig.model_validate(config)
+    validated = validate_strategy_config(config)
 
     assert validated.rebalance.frequency == "weekly"
 
@@ -364,7 +414,7 @@ def test_rebalance_config_accepts_weekly_frequency() -> None:
     config = _valid_strategy_config()
     config["rebalance"] = {"frequency": "weekly"}
 
-    validated = StrategyConfig.model_validate(config)
+    validated = validate_strategy_config(config)
 
     assert validated.rebalance.frequency == "weekly"
 
@@ -373,7 +423,7 @@ def test_rebalance_config_accepts_monthly_frequency() -> None:
     config = _valid_strategy_config()
     config["rebalance"] = {"frequency": "monthly"}
 
-    validated = StrategyConfig.model_validate(config)
+    validated = validate_strategy_config(config)
 
     assert validated.rebalance.frequency == "monthly"
 
@@ -383,7 +433,7 @@ def test_rebalance_config_rejects_unsupported_frequency() -> None:
     config["rebalance"] = {"frequency": "biweekly"}
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "rebalance.frequency" in message
@@ -395,7 +445,7 @@ def test_strategy_config_requires_defensive_asset_identity_fields(field: str) ->
     del config["defense"]["assets"][0][field]
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "defense.assets" in message
@@ -408,7 +458,7 @@ def test_strategy_config_rejects_empty_defensive_assets_list() -> None:
     config["defense"]["assets"] = []
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "defense.assets" in message
@@ -423,7 +473,7 @@ def test_strategy_config_rejects_duplicate_defensive_assets() -> None:
     ]
 
     with pytest.raises(ValidationError) as exc_info:
-        StrategyConfig.model_validate(config)
+        validate_strategy_config(config)
 
     message = str(exc_info.value)
     assert "defense.assets" in message
@@ -469,48 +519,67 @@ def test_strategy_config_loader_names_specific_inactive_defensive_asset_by_index
 
 
 def _valid_strategy_config() -> dict[str, Any]:
-    return deepcopy(
-        {
-            "strategy_id": "dual_momentum",
-            "version": "v1",
-            "universe_config": "config/etf_pool.yaml",
-            "momentum": {
-                "short_window_days": 63,
-                "long_window_days": 126,
-            },
-            "score_weights": {
-                "short": 0.4,
-                "long": 0.6,
-            },
-            "trend_filter": {
-                "moving_average_days": 120,
-                "price_relation": "above",
-            },
-            "selection": {
-                "top_n": 2,
-            },
-            "defense": {
-                "assets": [
-                    {
-                        "exchange": "SSE",
-                        "symbol": "511010",
-                    },
-                ],
-            },
-            "costs": {
-                "transaction_cost_bps": 5,
-            },
-            "performance": {
-                "risk_free_rate": 0.02,
-            },
-        }
+    class _NestedConfig(dict[str, Any]):
+        _parameter_fields = {"momentum", "score_weights", "trend_filter", "selection", "defense"}
+
+        def __getitem__(self, key: str) -> Any:
+            if key in self._parameter_fields:
+                return super().__getitem__("parameters")[key]
+            return super().__getitem__(key)
+
+        def __delitem__(self, key: str) -> None:
+            if key in self._parameter_fields:
+                del super().__getitem__("parameters")[key]
+                return
+            super().__delitem__(key)
+
+        def __setitem__(self, key: str, value: Any) -> None:
+            if key in self._parameter_fields:
+                super().__getitem__("parameters")[key] = value
+                return
+            super().__setitem__(key, value)
+
+    return _NestedConfig(
+        deepcopy(
+            {
+                "strategy_id": "dual_momentum",
+                "version": "v1",
+                "type": "dual_momentum",
+                "universe_config": "config/etf_pool.yaml",
+                "parameters": {
+                    "momentum": {"short_window_days": 63, "long_window_days": 126},
+                    "score_weights": {"short": 0.4, "long": 0.6},
+                    "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                    "selection": {"top_n": 2},
+                    "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
+                },
+                "costs": {
+                    "transaction_cost_bps": 5,
+                },
+                "performance": {
+                    "risk_free_rate": 0.02,
+                },
+            }
+        )
     )
+
+
+def _valid_equal_weight_config() -> dict[str, Any]:
+    return {
+        "strategy_id": "equal_weight",
+        "version": "v2",
+        "type": "equal_weight",
+        "universe_config": "config/etf_pool.yaml",
+        "parameters": {},
+        "costs": {"transaction_cost_bps": 5},
+        "performance": {"risk_free_rate": 0.02},
+    }
 
 
 def _write_strategy_config(tmp_path: Path, config: dict[str, Any]) -> Path:
     config_path = tmp_path / "strategy.yaml"
     config_path.write_text(
-        yaml.safe_dump(config, sort_keys=False),
+        yaml.safe_dump(dict(config), sort_keys=False),
         encoding="utf-8",
     )
     return config_path

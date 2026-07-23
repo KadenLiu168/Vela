@@ -1,6 +1,7 @@
 from collections.abc import Iterable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -19,7 +20,7 @@ from vela_core.models import (
     TradingCalendar,
 )
 from vela_core.portfolio_holdings import PortfolioHolding, PortfolioHoldingSnapshot
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
@@ -75,7 +76,7 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     assert run.parameters_json == (
         '{"config_version": "v1", "end_date": "2026-01-03", '
         '"risk_free_rate": 0.02, "start_date": "2026-01-01", '
-        '"strategy_id": "dual_momentum"}'
+        '"strategy_id": "dual_momentum", "type": "dual_momentum"}'
     )
     assert [row.trade_date for row in curve_rows] == [date(2026, 1, 1), date(2026, 1, 3)]
     assert curve_rows[0].cash == Decimal("0.000000")
@@ -211,6 +212,79 @@ def test_run_backtest_fails_without_local_market_dates() -> None:
         assert session.query(BacktestRun).count() == 0
 
 
+def test_run_backtest_rejects_negative_strategy_lookback_before_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    class NegativeLookbackStrategy:
+        def lookback_days(self) -> int:
+            return -1
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        monkeypatch.setattr(runner, "resolve_strategy", lambda config: NegativeLookbackStrategy())
+
+        with pytest.raises(ValueError, match="lookback_days must be non-negative"):
+            run_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 1),
+            )
+
+        assert session.query(BacktestRun).count() == 0
+
+
+@pytest.mark.parametrize(("lookback_days", "calendar_buffer_days"), [(0, 10), (126, 262)])
+def test_run_backtest_sizes_price_panel_from_resolved_strategy_lookback(
+    monkeypatch: pytest.MonkeyPatch,
+    lookback_days: int,
+    calendar_buffer_days: int,
+) -> None:
+    session_factory = _create_session_factory()
+    captured_start_dates: list[date] = []
+
+    class StrategyWithLookback:
+        def lookback_days(self) -> int:
+            return lookback_days
+
+    def fake_load_price_panel(session: Session, **kwargs: Any) -> dict[int, list[Any]]:
+        del session
+        captured_start_dates.append(kwargs["start_date"])
+        return {}
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        signal_date = date(2026, 6, 15)
+        _add_price(session, etf_id=etf.id, trade_date=signal_date, close_price=100)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+        monkeypatch.setattr(runner, "resolve_strategy", lambda config: StrategyWithLookback())
+        monkeypatch.setattr(runner, "load_price_panel", fake_load_price_panel)
+
+        run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=signal_date,
+            end_date=signal_date,
+        )
+
+    assert captured_start_dates == [signal_date - timedelta(days=calendar_buffer_days)]
+
+
+def test_backtest_runner_has_no_concrete_strategy_dependency() -> None:
+    source = runner.__file__
+    assert source is not None
+    contents = Path(source).read_text(encoding="utf-8")
+
+    assert "strategies.dual_momentum" not in contents
+    assert "strategies.equal_weight" not in contents
+    assert 'config.type == "' not in contents
+
+
 def _patch_runner_helpers(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -226,7 +300,6 @@ def _patch_runner_helpers(
         config: StrategyConfig,
         price_panel: dict[int, list[Any]] | None = None,
         active_etfs: list[Any] | None = None,
-        defense_lookup: dict[tuple[str, str], Any] | None = None,
         generated_at: datetime | None = None,
         persist: Any = None,
     ) -> list[GenerateStrategySignalResult]:
@@ -347,21 +420,24 @@ def _create_session_factory() -> sessionmaker[Session]:
 
 
 def _strategy_config() -> StrategyConfig:
-    return StrategyConfig.model_validate(
+    return validate_strategy_config(
         {
             "strategy_id": "dual_momentum",
             "version": "v1",
+            "type": "dual_momentum",
             "universe_config": "config/etf_pool.yaml",
-            "momentum": {"short_window_days": 63, "long_window_days": 126},
-            "score_weights": {"short": 0.4, "long": 0.6},
-            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
-            "selection": {"top_n": 2},
-            "defense": {
-                "assets": [
-                    {"exchange": "SSE", "symbol": "511010"},
-                    {"exchange": "SSE", "symbol": "511880"},
-                    {"exchange": "SSE", "symbol": "518880"},
-                ],
+            "parameters": {
+                "momentum": {"short_window_days": 63, "long_window_days": 126},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": 2},
+                "defense": {
+                    "assets": [
+                        {"exchange": "SSE", "symbol": "511010"},
+                        {"exchange": "SSE", "symbol": "511880"},
+                        {"exchange": "SSE", "symbol": "518880"},
+                    ]
+                },
             },
             "costs": {"transaction_cost_bps": 5},
             "performance": {"risk_free_rate": 0.02},

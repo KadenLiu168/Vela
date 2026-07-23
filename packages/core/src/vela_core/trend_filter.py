@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
-from vela_core.strategy_config import StrategyConfig
+from vela_core.strategy_config import DualMomentumParams
 
 
 @dataclass(frozen=True)
@@ -24,7 +24,7 @@ def _trend_filter_from_prices(
     *,
     etf_id: int,
     as_of_date: date,
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> TrendFilterResult:
     """Pure-function trend filter over an in-memory ascending price series.
 
@@ -32,8 +32,8 @@ def _trend_filter_from_prices(
     expected to contain at least the longest window (trend
     ``moving_average_days``) of rows through ``as_of_date``.
     """
-    window = config.trend_filter.moving_average_days
-    relation = config.trend_filter.price_relation
+    window = parameters.trend_filter.moving_average_days
+    relation = parameters.trend_filter.price_relation
 
     if not prices or prices[-1].trade_date != as_of_date:
         return TrendFilterResult(
@@ -79,7 +79,7 @@ def apply_trend_filter(
     *,
     etf_id: int,
     as_of_date: date,
-    config: StrategyConfig,
+    parameters: DualMomentumParams,
 ) -> TrendFilterResult:
     """Compatibility wrapper that loads a single-ETF panel then delegates.
 
@@ -87,7 +87,7 @@ def apply_trend_filter(
     code; this entry point remains for callers that already hold a
     session and want a single trend verdict.
     """
-    window = config.trend_filter.moving_average_days
+    window = parameters.trend_filter.moving_average_days
     panel = load_price_panel(
         session,
         etf_ids=[etf_id],
@@ -102,5 +102,5 @@ def apply_trend_filter(
         prices,
         etf_id=etf_id,
         as_of_date=as_of_date,
-        config=config,
+        parameters=parameters,
     )

@@ -16,6 +16,7 @@ import {
   listStrategySignals,
   runBacktest
 } from "./client";
+import type { DashboardResponse } from "./client";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -194,25 +195,28 @@ it("calls health through the shared client", async () => {
 });
 
 it("calls dashboard through the shared client", async () => {
-  const dashboard = {
+  const dashboard: DashboardResponse = {
     strategy: {
       strategy_id: "dual_momentum",
       version: "v1",
+      type: "dual_momentum",
       universe_config: "config/etf_universe.yaml",
-      momentum: {
-        short_window_days: 20,
-        long_window_days: 60
-      },
-      score_weights: { short: 0.4, long: 0.6 },
-      trend_filter: { enabled: true },
-      selection: { top_n: 2 },
-      defense: {
-        assets: [
-          {
-            exchange: "NASDAQ",
-            symbol: "BIL"
-          }
-        ]
+      parameters: {
+        momentum: {
+          short_window_days: 20,
+          long_window_days: 60
+        },
+        score_weights: { short: 0.4, long: 0.6 },
+        trend_filter: { moving_average_days: 120, price_relation: "above" },
+        selection: { top_n: 2 },
+        defense: {
+          assets: [
+            {
+              exchange: "NASDAQ",
+              symbol: "BIL"
+            }
+          ]
+        }
       },
       costs: { transaction_cost_bps: 5 },
       performance: { risk_free_rate: 0.02 },
@@ -224,8 +228,22 @@ it("calls dashboard through the shared client", async () => {
       earliest_trade_date: "2025-01-02",
       latest_trade_date: "2026-06-23",
       etf_list: [
-        { exchange: "NYSEARCA", symbol: "SPY", name: "SPY ETF", category: "equity_us" },
-        { exchange: "NYSEARCA", symbol: "QQQ", name: "QQQ ETF", category: "equity_us_tech" },
+        {
+          etf_id: 1,
+          exchange: "NYSEARCA",
+          symbol: "SPY",
+          name: "SPY ETF",
+          category: "equity_us",
+          earliest_trade_date: "2025-01-02"
+        },
+        {
+          etf_id: 2,
+          exchange: "NYSEARCA",
+          symbol: "QQQ",
+          name: "QQQ ETF",
+          category: "equity_us_tech",
+          earliest_trade_date: "2025-01-02"
+        }
       ],
     },
     latest_signal: {

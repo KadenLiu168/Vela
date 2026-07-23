@@ -39,7 +39,6 @@ def generate_and_persist_strategy_signal(
         start_date=None,
         end_date=resolved_signal_date,
     )
-    defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
 
     def _persist(
         *,
@@ -79,6 +78,5 @@ def generate_and_persist_strategy_signal(
         config=config,
         price_panel=price_panel,
         active_etfs=active_etfs,
-        defense_lookup=defense_lookup,
         persist=_persist,
     )

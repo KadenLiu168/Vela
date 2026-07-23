@@ -1,8 +1,5 @@
-# strategy-configuration Specification
+## MODIFIED Requirements
 
-## Purpose
-Define versioned strategy configuration files and validation behavior used by ETF rotation signal generation and historical backtesting.
-## Requirements
 ### Requirement: Versioned strategy configuration file
 The system SHALL provide a checked-in `config/strategy_v1.yaml` for the initial ETF rotation strategy. The file SHALL select `type: dual_momentum`, place its momentum, score-weight, trend-filter, selection, and defense groups under `parameters`, and retain the common strategy_id, version, universe_config, rebalance, costs, and performance groups.
 
@@ -123,31 +120,6 @@ The loader SHALL wrap file-read, YAML-parse, adapter-validation, and strategy-sp
 - **WHEN** a document uses an unregistered discriminator value
 - **THEN** loading raises `ConfigError` naming the unknown type and file path
 
-### Requirement: Rebalance frequency parameter
-The system SHALL define a rebalance frequency parameter group in the strategy configuration that selects the rebalance date generation frequency.
-
-#### Scenario: Strategy v1 config defines rebalance parameter group
-- **WHEN** backend code parses `config/strategy_v1.yaml`
-- **THEN** the configuration includes a rebalance parameter group
-- **AND** the rebalance parameter group includes a `frequency` field
-
-#### Scenario: Rebalance frequency accepts weekly value
-- **WHEN** backend code validates a strategy configuration with `rebalance.frequency` set to `"weekly"`
-- **THEN** validation succeeds
-
-#### Scenario: Rebalance frequency accepts monthly value
-- **WHEN** backend code validates a strategy configuration with `rebalance.frequency` set to `"monthly"`
-- **THEN** validation succeeds
-
-#### Scenario: Rebalance frequency rejects unsupported value
-- **WHEN** backend code validates a strategy configuration with `rebalance.frequency` set to any value other than `"weekly"` or `"monthly"`
-- **THEN** validation fails
-
-#### Scenario: Rebalance frequency defaults to weekly when omitted
-- **WHEN** backend code loads a strategy configuration that omits the rebalance parameter group
-- **THEN** the loaded configuration uses `weekly` as the rebalance frequency
-- **AND** the loaded configuration is otherwise valid
-
 ### Requirement: Trend filter configuration accepted values
 Dual-momentum configuration SHALL accept `parameters.trend_filter.moving_average_days` from `{60, 120, 250}` and `parameters.trend_filter.price_relation` from `{above, below}`. Values outside those sets SHALL be rejected at load time.
 
@@ -162,6 +134,8 @@ Dual-momentum configuration SHALL accept `parameters.trend_filter.moving_average
 #### Scenario: Unsupported price relation is rejected
 - **WHEN** dual momentum uses a relation other than above or below
 - **THEN** validation fails at `parameters.trend_filter.price_relation`
+
+## ADDED Requirements
 
 ### Requirement: Strategy type and version discriminators
 Every strategy configuration SHALL require a known `type`. `version` SHALL be any non-empty string and SHALL identify the parameter/configuration version rather than the strategy type.
