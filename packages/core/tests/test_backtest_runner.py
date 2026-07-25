@@ -133,6 +133,200 @@ def test_run_backtest_links_failed_generated_signals(
     assert signal.backtest_run_id == result.backtest_run_id
 
 
+def test_run_backtest_passes_generated_signal_ids_before_persistence_and_linking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    calculation_signal_ids: list[tuple[str, list[int] | None]] = []
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        _patch_runner_helpers(
+            monkeypatch,
+            etf_id=etf.id,
+            calculation_signal_ids=calculation_signal_ids,
+        )
+        real_persist = runner.persist_backtest_result
+        real_link = runner.link_signals_to_backtest_run
+
+        def persist_after_calculations(*args: Any, **kwargs: Any) -> Any:
+            assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+            return real_persist(*args, **kwargs)
+
+        def link_after_calculations(*args: Any, **kwargs: Any) -> Any:
+            assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+            return real_link(*args, **kwargs)
+
+        monkeypatch.setattr(runner, "persist_backtest_result", persist_after_calculations)
+        monkeypatch.setattr(runner, "link_signals_to_backtest_run", link_after_calculations)
+        run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 1),
+        )
+
+    assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+
+
+def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    call_count = 0
+
+    def fake_generate_historical_strategy_signals(
+        *,
+        config: StrategyConfig,
+        generated_at: datetime,
+        persist: Any,
+        **_: Any,
+    ) -> list[GenerateStrategySignalResult]:
+        nonlocal call_count
+        call_count += 1
+        first_run = call_count == 1
+        first_id = persist(
+            signal_date=date(2026, 1, 1),
+            generated_at=generated_at,
+            status="success",
+            result="rebalance",
+            positions=[
+                {
+                    "etf_id": spy.id,
+                    "rank": 1,
+                    "score": Decimal("1"),
+                    "target_weight": Decimal("1"),
+                }
+            ],
+            error_message=None,
+        )
+        second_id = persist(
+            signal_date=date(2026, 1, 2),
+            generated_at=generated_at,
+            status="success" if first_run else "failed",
+            result="rebalance" if first_run else None,
+            positions=(
+                [
+                    {
+                        "etf_id": qqq.id,
+                        "rank": 1,
+                        "score": Decimal("1"),
+                        "target_weight": Decimal("1"),
+                    }
+                ]
+                if first_run
+                else []
+            ),
+            error_message=None if first_run else "generation failed",
+        )
+        return [
+            GenerateStrategySignalResult(
+                strategy_signal_id=first_id,
+                signal_date=date(2026, 1, 1),
+                config_version=config.version,
+                status="success",
+                result="rebalance",
+                error_message=None,
+                positions=[],
+            ),
+            GenerateStrategySignalResult(
+                strategy_signal_id=second_id,
+                signal_date=date(2026, 1, 2),
+                config_version=config.version,
+                status="success" if first_run else "failed",
+                result="rebalance" if first_run else None,
+                error_message=None if first_run else "generation failed",
+                positions=[],
+            ),
+        ]
+
+    monkeypatch.setattr(
+        runner,
+        "generate_historical_strategy_signals",
+        fake_generate_historical_strategy_signals,
+    )
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        for trade_date, spy_price, qqq_price in [
+            (date(2026, 1, 1), 100, 100),
+            (date(2026, 1, 2), 110, 90),
+            (date(2026, 1, 3), 121, 81),
+        ]:
+            _add_price(session, etf_id=spy.id, trade_date=trade_date, close_price=spy_price)
+            _add_price(session, etf_id=qqq.id, trade_date=trade_date, close_price=qqq_price)
+        session.commit()
+
+        first = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            started_at=datetime(2026, 1, 4, tzinfo=UTC),
+        )
+        session.commit()
+        first_curve_before = [
+            (row.trade_date, row.positions_json, row.net_value)
+            for row in session.query(BacktestEquityCurve)
+            .filter_by(backtest_run_id=first.backtest_run_id)
+            .order_by(BacktestEquityCurve.trade_date)
+        ]
+        first_metrics_before = (
+            session.get(BacktestRun, first.backtest_run_id).total_return,
+            session.get(BacktestRun, first.backtest_run_id).annualized_return,
+            session.get(BacktestRun, first.backtest_run_id).max_drawdown,
+            session.get(BacktestRun, first.backtest_run_id).sharpe_ratio,
+            session.get(BacktestRun, first.backtest_run_id).volatility,
+        )
+
+        second = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            started_at=datetime(2026, 1, 5, tzinfo=UTC),
+        )
+        session.commit()
+        first_curve_after = [
+            (row.trade_date, row.positions_json, row.net_value)
+            for row in session.query(BacktestEquityCurve)
+            .filter_by(backtest_run_id=first.backtest_run_id)
+            .order_by(BacktestEquityCurve.trade_date)
+        ]
+        first_metrics_after = (
+            session.get(BacktestRun, first.backtest_run_id).total_return,
+            session.get(BacktestRun, first.backtest_run_id).annualized_return,
+            session.get(BacktestRun, first.backtest_run_id).max_drawdown,
+            session.get(BacktestRun, first.backtest_run_id).sharpe_ratio,
+            session.get(BacktestRun, first.backtest_run_id).volatility,
+        )
+        second_final_row = (
+            session.query(BacktestEquityCurve)
+            .filter_by(backtest_run_id=second.backtest_run_id, trade_date=date(2026, 1, 3))
+            .one()
+        )
+        run_signal_ids = {
+            run_id: {
+                signal.id
+                for signal in session.query(StrategySignal).filter_by(backtest_run_id=run_id)
+            }
+            for run_id in [first.backtest_run_id, second.backtest_run_id]
+        }
+
+    assert second.status == "partial"
+    assert second_final_row.positions_json == (
+        '[{"etf_id": ' + str(spy.id) + ', "target_weight": "1.000000"}]'
+    )
+    assert first_curve_after == first_curve_before
+    assert first_metrics_after == first_metrics_before
+    assert run_signal_ids[first.backtest_run_id].isdisjoint(run_signal_ids[second.backtest_run_id])
+    assert len(run_signal_ids[first.backtest_run_id]) == 2
+    assert len(run_signal_ids[second.backtest_run_id]) == 2
+
+
 def test_run_backtest_missing_signal_id_rolls_back_all_persisted_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -312,6 +506,7 @@ def _patch_runner_helpers(
     signal_status: str = "success",
     return_missing_id: bool = False,
     sharpe_calls: list[tuple[list[StrategyEquityCurvePoint], Decimal]] | None = None,
+    calculation_signal_ids: list[tuple[str, list[int] | None]] | None = None,
 ) -> None:
     def fake_generate_historical_strategy_signals(
         *,
@@ -354,7 +549,10 @@ def _patch_runner_helpers(
         *,
         trading_dates: list[date],
         strategy_config: StrategyConfig,
+        signal_ids: list[int] | None = None,
     ) -> list[StrategyEquityCurvePoint]:
+        if calculation_signal_ids is not None:
+            calculation_signal_ids.append(("curve", signal_ids))
         return [
             StrategyEquityCurvePoint(
                 trade_date=trading_dates[0],
@@ -374,7 +572,10 @@ def _patch_runner_helpers(
         trading_dates: list[date],
         strategy_id: str,
         config_version: str,
+        signal_ids: list[int] | None = None,
     ) -> list[PortfolioHoldingSnapshot]:
+        if calculation_signal_ids is not None:
+            calculation_signal_ids.append(("holdings", signal_ids))
         snapshot_holdings = (
             [PortfolioHolding(etf_id=etf_id, target_weight=Decimal("1.000000"))]
             if holdings is None

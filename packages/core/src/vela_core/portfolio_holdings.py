@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -29,6 +29,7 @@ def calculate_portfolio_holdings(
     trading_dates: Iterable[date],
     strategy_id: str,
     config_version: str,
+    signal_ids: Sequence[int] | None = None,
 ) -> list[PortfolioHoldingSnapshot]:
     requested_dates = list(trading_dates)
     if not requested_dates:
@@ -39,6 +40,7 @@ def calculate_portfolio_holdings(
         strategy_id=strategy_id,
         config_version=config_version,
         through_date=max(requested_dates),
+        signal_ids=signal_ids,
     )
     signal_dates = sorted(signals_by_date)
     next_signal_index = 0
@@ -67,15 +69,24 @@ def _latest_successful_signals_by_date(
     strategy_id: str,
     config_version: str,
     through_date: date,
+    signal_ids: Sequence[int] | None,
 ) -> dict[date, StrategySignal]:
-    signals = session.scalars(
+    if signal_ids is not None and not signal_ids:
+        return {}
+
+    statement = (
         select(StrategySignal)
         .options(selectinload(StrategySignal.positions))
         .where(StrategySignal.strategy_id == strategy_id)
         .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
         .where(StrategySignal.signal_date <= through_date)
-        .order_by(
+    )
+    if signal_ids is not None:
+        statement = statement.where(StrategySignal.id.in_(signal_ids))
+
+    signals = session.scalars(
+        statement.order_by(
             StrategySignal.signal_date.asc(),
             StrategySignal.generated_at.desc(),
             StrategySignal.id.desc(),

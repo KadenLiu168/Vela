@@ -164,17 +164,24 @@ def run_backtest(
         generated_at=started_at,
         persist=_persist_signal,
     )
+    signal_ids: list[int] = []
+    for result in signal_results:
+        if result.strategy_signal_id is None:
+            raise ValueError("Backtest signal generation did not persist every signal")
+        signal_ids.append(result.strategy_signal_id)
 
     points = calculate_strategy_equity_curve(
         session,
         trading_dates=trading_dates,
         strategy_config=config,
+        signal_ids=signal_ids,
     )
     holdings = calculate_portfolio_holdings(
         session,
         trading_dates=trading_dates,
         strategy_id=config.strategy_id,
         config_version=config.version,
+        signal_ids=signal_ids,
     )
     annualized_return = calculate_strategy_annualized_return(points)
     maximum_drawdown = calculate_strategy_maximum_drawdown(points)
@@ -206,11 +213,6 @@ def run_backtest(
         ),
         equity_curve=_to_curve_inputs(points, holdings),
     )
-    signal_ids: list[int] = []
-    for result in signal_results:
-        if result.strategy_signal_id is None:
-            raise ValueError("Backtest signal generation did not persist every signal")
-        signal_ids.append(result.strategy_signal_id)
     link_signals_to_backtest_run(
         session,
         run_id=persistence_result.backtest_run.id,

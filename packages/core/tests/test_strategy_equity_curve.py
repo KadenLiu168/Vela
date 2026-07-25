@@ -93,6 +93,51 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
     assert points[1].daily_return == Decimal("0.020000")
 
 
+def test_calculate_strategy_equity_curve_scopes_to_selected_same_date_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        selected = persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 22),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 22, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="backtest",
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 22),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 22, 9, 31, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="backtest",
+            positions=[StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1"))],
+        )
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=qqq.id, trade_date=date(2026, 6, 24), close_price=50)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(),
+            signal_ids=[selected.strategy_signal.id],
+        )
+
+    assert [point.net_value for point in points] == [Decimal("1.000000"), Decimal("1.100000")]
+    assert [point.daily_return for point in points] == [Decimal("0.000000"), Decimal("0.100000")]
+
+
 def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_effect() -> None:
     session_factory = _create_session_factory()
 

@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
     StrategySignalPositionInput,
@@ -329,6 +329,95 @@ def test_calculate_holdings_ignores_newer_foreign_strategy_signal() -> None:
     assert snapshots[0].holdings == []
     assert snapshots[1].strategy_signal_id == matching.strategy_signal.id
     assert [holding.etf_id for holding in snapshots[1].holdings] == [spy.id]
+
+
+def test_calculate_holdings_scopes_to_explicit_signal_ids() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        selected = persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="backtest",
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 31, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="backtest",
+            positions=[StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1"))],
+        )
+        session.commit()
+
+        scoped = calculate_portfolio_holdings(
+            session,
+            trading_dates=[date(2026, 6, 24)],
+            strategy_id="Dual_momentum",
+            config_version="v1",
+            signal_ids=[selected.strategy_signal.id],
+        )
+    assert scoped[0].strategy_signal_id == selected.strategy_signal.id
+    assert [holding.etf_id for holding in scoped[0].holdings] == [spy.id]
+
+
+def test_calculate_holdings_empty_signal_ids_return_empty_without_query() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        persist_strategy_signal(
+            session,
+            strategy_id="Dual_momentum",
+            signal_date=date(2026, 6, 23),
+            config_version="v1",
+            generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+            status="success",
+            result="rebalance",
+            source="backtest",
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        session.commit()
+        statements: list[str] = []
+        bind = session.get_bind()
+
+        def capture_statement(
+            _connection: object,
+            _cursor: object,
+            statement: str,
+            _parameters: object,
+            _context: object,
+            _executemany: bool,
+        ) -> None:
+            statements.append(statement)
+
+        event.listen(bind, "before_cursor_execute", capture_statement)
+        try:
+            empty = calculate_portfolio_holdings(
+                session,
+                trading_dates=[date(2026, 6, 24)],
+                strategy_id="Dual_momentum",
+                config_version="v1",
+                signal_ids=[],
+            )
+        finally:
+            event.remove(bind, "before_cursor_execute", capture_statement)
+
+    assert statements == []
+    assert empty[0].signal_date is None
+    assert empty[0].strategy_signal_id is None
+    assert empty[0].holdings == []
 
 
 def _create_session_factory() -> sessionmaker[Session]:

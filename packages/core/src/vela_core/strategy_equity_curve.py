@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -51,6 +52,7 @@ def calculate_strategy_equity_curve(
     *,
     trading_dates: list[date],
     strategy_config: StrategyConfig,
+    signal_ids: Sequence[int] | None = None,
 ) -> list[StrategyEquityCurvePoint]:
     if not trading_dates:
         return []
@@ -60,6 +62,7 @@ def calculate_strategy_equity_curve(
         trading_dates=trading_dates,
         strategy_id=strategy_config.strategy_id,
         config_version=strategy_config.version,
+        signal_ids=signal_ids,
     )
     prices_by_key = _load_prices_by_key(session, holding_snapshots)
     transaction_cost_rate = Decimal(str(strategy_config.costs.transaction_cost_bps)) / _BASIS_POINTS
