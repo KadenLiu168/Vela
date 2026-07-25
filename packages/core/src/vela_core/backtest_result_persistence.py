@@ -25,6 +25,7 @@ class BacktestResultRunInput:
     max_drawdown: Decimal | None = None
     sharpe_ratio: Decimal | None = None
     volatility: Decimal | None = None
+    data_snapshot_json: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ def persist_backtest_result(
         start_date=run.start_date,
         end_date=run.end_date,
         parameters_json=run.parameters_json,
+        data_snapshot_json=run.data_snapshot_json,
         started_at=run.started_at,
         finished_at=run.finished_at,
         status=run.status,

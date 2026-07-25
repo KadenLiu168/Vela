@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import cast
 
 import pytest
-from sqlalchemy import Table, Text, UniqueConstraint, create_engine
+from sqlalchemy import JSON, Table, Text, UniqueConstraint, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core.models import BacktestEquityCurve, BacktestRun, Base
@@ -20,6 +20,7 @@ def test_backtest_run_table_has_required_columns() -> None:
         "start_date",
         "end_date",
         "parameters_json",
+        "data_snapshot_json",
         "started_at",
         "finished_at",
         "status",
@@ -53,6 +54,13 @@ def test_backtest_run_uses_sqlite_compatible_text_for_parameters() -> None:
     table = cast(Table, BacktestRun.__table__)
 
     assert isinstance(table.columns["parameters_json"].type, Text)
+
+
+def test_backtest_run_uses_nullable_json_for_data_snapshot() -> None:
+    table = cast(Table, BacktestRun.__table__)
+
+    assert isinstance(table.columns["data_snapshot_json"].type, JSON)
+    assert table.columns["data_snapshot_json"].nullable is True
 
 
 def test_backtest_run_supports_expected_status_values() -> None:

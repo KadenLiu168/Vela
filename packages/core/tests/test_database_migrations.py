@@ -136,6 +136,63 @@ def test_strategy_signal_provenance_migration_backfills_and_round_trips(
         engine.dispose()
 
 
+def test_data_snapshot_migration_round_trips_and_matches_metadata(tmp_path: Path) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    previous_revision = "20260719_0011"
+    alembic.command.upgrade(config, previous_revision)
+
+    engine = _create_engine(config)
+    try:
+        columns = {column["name"] for column in inspect(engine).get_columns("backtest_run")}
+        assert "data_snapshot_json" not in columns
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        column = next(
+            candidate
+            for candidate in inspect(engine).get_columns("backtest_run")
+            if candidate["name"] == "data_snapshot_json"
+        )
+        assert column["nullable"] is True
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_id, config_version, start_date, end_date, parameters_json, "
+                    "started_at, status, data_snapshot_json) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-31', '{}', "
+                    "'2026-02-01 09:00:00', 'success', :snapshot)"
+                ),
+                {"snapshot": '{"data_checksum":"abc"}'},
+            )
+            assert (
+                connection.execute(text("SELECT data_snapshot_json FROM backtest_run")).scalar_one()
+                == '{"data_checksum":"abc"}'
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.downgrade(config, previous_revision)
+    engine = _create_engine(config)
+    try:
+        columns = {column["name"] for column in inspect(engine).get_columns("backtest_run")}
+        assert "data_snapshot_json" not in columns
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        with engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        engine.dispose()
+
+
 def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
     tmp_path: Path,
 ) -> None:

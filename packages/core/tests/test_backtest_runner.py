@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -308,6 +310,7 @@ def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
             .filter_by(backtest_run_id=second.backtest_run_id, trade_date=date(2026, 1, 3))
             .one()
         )
+        second_snapshot = session.get(BacktestRun, second.backtest_run_id).data_snapshot_json
         run_signal_ids = {
             run_id: {
                 signal.id
@@ -325,6 +328,7 @@ def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
     assert run_signal_ids[first.backtest_run_id].isdisjoint(run_signal_ids[second.backtest_run_id])
     assert len(run_signal_ids[first.backtest_run_id]) == 2
     assert len(run_signal_ids[second.backtest_run_id]) == 2
+    assert second_snapshot is not None
 
 
 def test_run_backtest_missing_signal_id_rolls_back_all_persisted_rows(
@@ -497,6 +501,187 @@ def test_backtest_runner_has_no_concrete_strategy_dependency() -> None:
     assert 'config.type == "' not in contents
 
 
+def test_build_data_snapshot_is_deterministic_and_detects_row_changes() -> None:
+    first = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 2),
+        close_price=Decimal("12.34"),
+        factor_hfq=Decimal("1.25"),
+    )
+    second = _price_row(
+        etf_id=1,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("10"),
+        factor_hfq=Decimal("1"),
+    )
+    third = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("11"),
+        factor_hfq=Decimal("1.2"),
+    )
+    unchanged = runner.build_data_snapshot({2: [first, third], 1: [second]})
+
+    assert unchanged == runner.build_data_snapshot({1: [second], 2: [first, third]})
+    assert unchanged == runner.build_data_snapshot({2: [third, first], 1: [second]})
+    assert unchanged["min_trade_date"] == "2026-01-01"
+    assert unchanged["max_trade_date"] == "2026-01-02"
+    assert unchanged["trading_day_count"] == 2
+    assert unchanged["active_etf_count"] == 2
+    assert unchanged["per_etf_row_counts"] == {"1": 1, "2": 2}
+
+    changed_close = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 2),
+        close_price=Decimal("12.35"),
+        factor_hfq=Decimal("1.25"),
+    )
+    changed_factor = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 2),
+        close_price=Decimal("12.34"),
+        factor_hfq=Decimal("1.26"),
+    )
+
+    changed_close_checksum = runner.build_data_snapshot({2: [changed_close, third], 1: [second]})[
+        "data_checksum"
+    ]
+    changed_factor_checksum = runner.build_data_snapshot({2: [changed_factor, third], 1: [second]})[
+        "data_checksum"
+    ]
+
+    assert unchanged["data_checksum"] != changed_close_checksum
+    assert unchanged["data_checksum"] != changed_factor_checksum
+
+
+def test_build_data_snapshot_checksum_matches_canonical_byte_protocol() -> None:
+    first = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 2),
+        close_price=Decimal("12.34"),
+        factor_hfq=Decimal("1.25"),
+    )
+    second = _price_row(
+        etf_id=1,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("10"),
+        factor_hfq=Decimal("1"),
+    )
+
+    snapshot = runner.build_data_snapshot({2: [first], 1: [second]})
+
+    assert snapshot["data_checksum"] == (
+        "73171e60a67823b72d721505311588360b2e42f5cfb4fd988ee3a08e740661c6"
+    )
+
+
+def test_build_data_snapshot_uses_structured_rows_and_handles_empty_panel() -> None:
+    empty_snapshot = runner.build_data_snapshot({})
+    first = _price_row(
+        etf_id=1,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("2"),
+        factor_hfq=Decimal("34"),
+    )
+    second = _price_row(
+        etf_id=1,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("23"),
+        factor_hfq=Decimal("4"),
+    )
+
+    assert empty_snapshot == {
+        "min_trade_date": None,
+        "max_trade_date": None,
+        "trading_day_count": 0,
+        "active_etf_count": 0,
+        "per_etf_row_counts": {},
+        "data_checksum": hashlib.sha256().hexdigest(),
+    }
+    assert (
+        runner.build_data_snapshot({1: [first]})["data_checksum"]
+        != runner.build_data_snapshot({1: [second]})["data_checksum"]
+    )
+    single_snapshot = runner.build_data_snapshot({1: [first]})
+    assert json.loads(json.dumps(single_snapshot))["per_etf_row_counts"] == {"1": 1}
+    assert single_snapshot["min_trade_date"] == "2026-01-01"
+    assert single_snapshot["max_trade_date"] == "2026-01-01"
+    assert single_snapshot["trading_day_count"] == 1
+    assert single_snapshot["active_etf_count"] == 1
+
+
+def test_build_data_snapshot_uses_global_trade_date_bounds() -> None:
+    late_low_id = _price_row(
+        etf_id=1,
+        trade_date=date(2026, 1, 3),
+        close_price=Decimal("10"),
+        factor_hfq=Decimal("1"),
+    )
+    early_high_id = _price_row(
+        etf_id=2,
+        trade_date=date(2026, 1, 1),
+        close_price=Decimal("10"),
+        factor_hfq=Decimal("1"),
+    )
+
+    snapshot = runner.build_data_snapshot({1: [late_low_id], 2: [early_high_id]})
+
+    assert snapshot["min_trade_date"] == "2026-01-01"
+    assert snapshot["max_trade_date"] == "2026-01-03"
+
+
+def test_run_backtest_snapshots_full_panel_without_future_signal_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    captured_panels: list[dict[int, list[Any]]] = []
+    captured_curve_panels: list[dict[int, list[Any]]] = []
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 2), close_price=101)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=102)
+        session.commit()
+        _patch_runner_helpers(
+            monkeypatch,
+            etf_id=etf.id,
+            captured_panels=captured_panels,
+            captured_curve_panels=captured_curve_panels,
+        )
+
+        result = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        assert session.in_transaction() is True
+
+    assert run is not None
+    assert run.data_snapshot_json is not None
+    assert run.data_snapshot_json["max_trade_date"] == "2026-01-03"
+    assert run.data_snapshot_json["per_etf_row_counts"] == {str(etf.id): 3}
+    assert [price.trade_date for price in captured_panels[0][etf.id]] == [
+        date(2026, 1, 1),
+        date(2026, 1, 2),
+        date(2026, 1, 3),
+    ]
+    assert captured_curve_panels == captured_panels
+
+
+def _price_row(
+    *, etf_id: int, trade_date: date, close_price: Decimal, factor_hfq: Decimal
+) -> MarketPrice:
+    return MarketPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        close_price=close_price,
+        factor_hfq=factor_hfq,
+    )
+
+
 def _patch_runner_helpers(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -507,6 +692,8 @@ def _patch_runner_helpers(
     return_missing_id: bool = False,
     sharpe_calls: list[tuple[list[StrategyEquityCurvePoint], Decimal]] | None = None,
     calculation_signal_ids: list[tuple[str, list[int] | None]] | None = None,
+    captured_panels: list[dict[int, list[Any]]] | None = None,
+    captured_curve_panels: list[dict[int, list[Any]]] | None = None,
 ) -> None:
     def fake_generate_historical_strategy_signals(
         *,
@@ -518,6 +705,8 @@ def _patch_runner_helpers(
         persist: Any = None,
     ) -> list[GenerateStrategySignalResult]:
         dates = list(historical_trading_dates)
+        if captured_panels is not None:
+            captured_panels.append(price_panel or {})
         if captured_dates is not None:
             captured_dates.extend(dates)
         signal_id = (
@@ -550,7 +739,10 @@ def _patch_runner_helpers(
         trading_dates: list[date],
         strategy_config: StrategyConfig,
         signal_ids: list[int] | None = None,
+        price_panel: dict[int, list[Any]] | None = None,
     ) -> list[StrategyEquityCurvePoint]:
+        if captured_curve_panels is not None:
+            captured_curve_panels.append(price_panel or {})
         if calculation_signal_ids is not None:
             calculation_signal_ids.append(("curve", signal_ids))
         return [

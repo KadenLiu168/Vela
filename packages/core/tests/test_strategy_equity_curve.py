@@ -93,6 +93,41 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
     assert points[1].daily_return == Decimal("0.020000")
 
 
+def test_calculate_strategy_equity_curve_uses_supplied_price_panel() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=999)
+        session.commit()
+
+        price_panel = {
+            spy.id: [
+                _market_price(
+                    etf_id=spy.id,
+                    trade_date=date(2026, 6, 23),
+                    close_price=Decimal("100"),
+                ),
+                _market_price(
+                    etf_id=spy.id,
+                    trade_date=date(2026, 6, 24),
+                    close_price=Decimal("110"),
+                ),
+            ]
+        }
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(),
+            price_panel=price_panel,
+        )
+
+    assert points[1].daily_return == Decimal("0.100000")
+    assert points[1].net_value == Decimal("1.100000")
+
+
 def test_calculate_strategy_equity_curve_scopes_to_selected_same_date_signal() -> None:
     session_factory = _create_session_factory()
 
@@ -1079,6 +1114,25 @@ def test_equity_curve_projects_each_interval_at_its_current_date(
     ]
 
 
+def _market_price(
+    *,
+    etf_id: int,
+    trade_date: date,
+    close_price: int | Decimal,
+    factor_hfq: Decimal = Decimal("1"),
+) -> MarketPrice:
+    return MarketPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        open_price=Decimal(close_price),
+        high_price=Decimal(close_price),
+        low_price=Decimal(close_price),
+        close_price=Decimal(close_price),
+        factor_hfq=factor_hfq,
+        volume=1000,
+    )
+
+
 def _add_price(
     session: Session,
     *,
@@ -1088,14 +1142,10 @@ def _add_price(
     factor_hfq: Decimal = Decimal("1"),
 ) -> None:
     session.add(
-        MarketPrice(
+        _market_price(
             etf_id=etf_id,
             trade_date=trade_date,
-            open_price=Decimal(close_price),
-            high_price=Decimal(close_price),
-            low_price=Decimal(close_price),
-            close_price=Decimal(close_price),
+            close_price=close_price,
             factor_hfq=factor_hfq,
-            volume=1000,
         )
     )

@@ -1,3 +1,4 @@
+import hashlib
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -121,8 +122,9 @@ def run_backtest(
         session,
         etf_ids=[etf.id for etf in active_etfs],
         start_date=panel_window_start,
-        end_date=rebalance_dates[-1] if rebalance_dates else end_date,
+        end_date=end_date,
     )
+    data_snapshot_json = build_data_snapshot(price_panel)
 
     def _persist_signal(
         *,
@@ -175,6 +177,7 @@ def run_backtest(
         trading_dates=trading_dates,
         strategy_config=config,
         signal_ids=signal_ids,
+        price_panel=price_panel,
     )
     holdings = calculate_portfolio_holdings(
         session,
@@ -210,6 +213,7 @@ def run_backtest(
             max_drawdown=maximum_drawdown.max_drawdown,
             sharpe_ratio=sharpe_ratio.sharpe_ratio,
             volatility=volatility.volatility,
+            data_snapshot_json=data_snapshot_json,
         ),
         equity_curve=_to_curve_inputs(points, holdings),
     )
@@ -231,6 +235,40 @@ def run_backtest(
         volatility=volatility,
         sharpe_ratio=sharpe_ratio,
     )
+
+
+def build_data_snapshot(price_panel: dict[int, list[MarketPrice]]) -> dict[str, object]:
+    rows = sorted(
+        (price for prices in price_panel.values() for price in prices),
+        key=lambda price: (price.etf_id, price.trade_date),
+    )
+    checksum = hashlib.sha256()
+    per_etf_row_counts: dict[str, int] = {}
+
+    for price in rows:
+        etf_id = str(price.etf_id)
+        per_etf_row_counts[etf_id] = per_etf_row_counts.get(etf_id, 0) + 1
+        checksum.update(
+            json.dumps(
+                [
+                    price.etf_id,
+                    price.trade_date.isoformat(),
+                    str(price.close_price),
+                    str(price.factor_hfq),
+                ],
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+        checksum.update(b"\n")
+
+    return {
+        "min_trade_date": min(price.trade_date for price in rows).isoformat() if rows else None,
+        "max_trade_date": max(price.trade_date for price in rows).isoformat() if rows else None,
+        "trading_day_count": len({price.trade_date for price in rows}),
+        "active_etf_count": len(per_etf_row_counts),
+        "per_etf_row_counts": per_etf_row_counts,
+        "data_checksum": checksum.hexdigest(),
+    }
 
 
 def _load_trading_dates(session: Session, *, start_date: date, end_date: date) -> list[date]:

@@ -48,6 +48,35 @@ def test_persist_backtest_result_writes_run_metrics_and_curve_rows() -> None:
     assert curve_rows[0].positions_json == '[{"symbol": "SPY", "weight": 1.0}]'
 
 
+def test_persist_backtest_result_writes_optional_data_snapshot_without_committing() -> None:
+    session_factory = _create_session_factory()
+    snapshot = {
+        "min_trade_date": "2026-01-01",
+        "max_trade_date": "2026-01-31",
+        "trading_day_count": 21,
+        "active_etf_count": 2,
+        "per_etf_row_counts": {"1": 21, "2": 20},
+        "data_checksum": "a" * 64,
+    }
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(data_snapshot_json=snapshot),
+            equity_curve=[],
+        )
+
+        assert session.get(BacktestRun, persisted.backtest_run.id) is not None
+        assert session.in_transaction() is True
+        session.commit()
+        session.expire_all()
+
+        run = session.get(BacktestRun, persisted.backtest_run.id)
+
+    assert run is not None
+    assert run.data_snapshot_json == snapshot
+
+
 def test_persist_backtest_result_preserves_rerun_history() -> None:
     session_factory = _create_session_factory()
 
@@ -129,6 +158,7 @@ def _create_session_factory() -> sessionmaker[Session]:
 def _run_input(
     *,
     started_at: datetime = datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+    data_snapshot_json: dict[str, object] | None = None,
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
         strategy_id="dual_momentum",
@@ -144,6 +174,7 @@ def _run_input(
         max_drawdown=Decimal("-0.050000"),
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
+        data_snapshot_json=data_snapshot_json,
     )
 
 

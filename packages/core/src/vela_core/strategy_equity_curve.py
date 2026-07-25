@@ -53,6 +53,7 @@ def calculate_strategy_equity_curve(
     trading_dates: list[date],
     strategy_config: StrategyConfig,
     signal_ids: Sequence[int] | None = None,
+    price_panel: dict[int, list[MarketPrice]] | None = None,
 ) -> list[StrategyEquityCurvePoint]:
     if not trading_dates:
         return []
@@ -64,7 +65,11 @@ def calculate_strategy_equity_curve(
         config_version=strategy_config.version,
         signal_ids=signal_ids,
     )
-    prices_by_key = _load_prices_by_key(session, holding_snapshots)
+    prices_by_key = _load_prices_by_key(
+        session,
+        holding_snapshots,
+        price_panel=price_panel,
+    )
     transaction_cost_rate = Decimal(str(strategy_config.costs.transaction_cost_bps)) / _BASIS_POINTS
 
     points = [
@@ -209,12 +214,22 @@ def calculate_strategy_sharpe_ratio(
 def _load_prices_by_key(
     session: Session,
     holding_snapshots: list[PortfolioHoldingSnapshot],
+    *,
+    price_panel: dict[int, list[MarketPrice]] | None = None,
 ) -> dict[_PriceKey, MarketPrice]:
     etf_ids = {holding.etf_id for snapshot in holding_snapshots for holding in snapshot.holdings}
     trade_dates = {snapshot.trade_date for snapshot in holding_snapshots}
 
     if not etf_ids or not trade_dates:
         return {}
+
+    if price_panel is not None:
+        return {
+            (price.etf_id, price.trade_date): price
+            for prices in price_panel.values()
+            for price in prices
+            if price.etf_id in etf_ids and price.trade_date in trade_dates
+        }
 
     prices = session.scalars(
         select(MarketPrice)

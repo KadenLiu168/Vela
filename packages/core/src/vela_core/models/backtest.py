@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import (
+    JSON,
     Date,
     DateTime,
     ForeignKey,
@@ -37,6 +38,7 @@ class BacktestRun(Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     parameters_json: Mapped[str] = mapped_column(Text, nullable=False)
+    data_snapshot_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
