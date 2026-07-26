@@ -39,7 +39,7 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
                 ]
             },
         },
-        "costs": {"transaction_cost_bps": 5.0},
+        "costs": {"transaction_cost_bps": 10.0},
         "performance": {"risk_free_rate": 0.02},
         "rebalance": {"frequency": "weekly"},
     }

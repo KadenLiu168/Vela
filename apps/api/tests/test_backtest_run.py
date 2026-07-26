@@ -78,7 +78,7 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
     assert body["signal_count"] == 2
     assert body["total_return"] is not None
     assert body["annualized_return"] is not None
-    assert body["max_drawdown"] == "-0.000500"
+    assert body["max_drawdown"] == "-0.001000"
     assert body["volatility"] is not None
     assert body["sharpe_ratio"] is not None
 

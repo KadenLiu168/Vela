@@ -27,7 +27,7 @@ def test_strategy_v1_config_loads_and_validates() -> None:
         ("SSE", "511880"),
         ("SSE", "518880"),
     ]
-    assert config.costs.transaction_cost_bps == 5
+    assert config.costs.transaction_cost_bps == 10
     assert config.performance.risk_free_rate == 0.02
     assert config.rebalance.frequency == "weekly"
 
