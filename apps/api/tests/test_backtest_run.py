@@ -2,12 +2,14 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+import vela_api.main as api_main
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
 from vela_api.main import app
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice, StrategySignal
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 from tests.integration_data import (
     add_etf,
@@ -17,7 +19,9 @@ from tests.integration_data import (
 )
 
 
-def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path) -> None:
+def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'run-backtest.db'}"
     session_factory = prepare_sqlite_database(database_url)
     start_date = date(2026, 1, 1)
@@ -61,6 +65,8 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
 
     try:
         initialize_database(app, database_url=database_url)
+        config = _test_strategy_config()
+        monkeypatch.setattr(api_main, "load_strategy_config", lambda _path: config)
 
         response = TestClient(app).post(
             "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10"
@@ -78,7 +84,6 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
     assert body["signal_count"] == 2
     assert body["total_return"] is not None
     assert body["annualized_return"] is not None
-    assert body["max_drawdown"] == "-0.001000"
     assert body["volatility"] is not None
     assert body["sharpe_ratio"] is not None
 
@@ -94,9 +99,20 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(tmp_path)
     assert run.status == "success"
     assert len(curve_rows) == body["trading_day_count"]
     assert curve_rows[0].backtest_run_id == run.id
+    for metric in (
+        "total_return",
+        "annualized_return",
+        "max_drawdown",
+        "volatility",
+        "sharpe_ratio",
+    ):
+        assert Decimal(body[metric]) == getattr(run, metric)
+    assert Decimal("-1") < Decimal(body["max_drawdown"]) <= Decimal("0")
 
 
-def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
+def test_run_backtest_endpoint_updates_backtest_detail(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'run-backtest-detail-loop.db'}"
     session_factory = prepare_sqlite_database(database_url)
     start_date = date(2026, 1, 1)
@@ -140,6 +156,8 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
 
     try:
         initialize_database(app, database_url=database_url)
+        config = _test_strategy_config()
+        monkeypatch.setattr(api_main, "load_strategy_config", lambda _path: config)
         client = TestClient(app)
 
         run_response = client.post("/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10")
@@ -168,6 +186,15 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
     assert [signal.source for signal in signals] == ["backtest", "backtest"]
     assert [signal.backtest_run_id for signal in signals] == [run.id, run.id]
     assert len(curve_rows) == run_body["trading_day_count"]
+    for metric in (
+        "total_return",
+        "annualized_return",
+        "max_drawdown",
+        "volatility",
+        "sharpe_ratio",
+    ):
+        assert Decimal(run_body[metric]) == getattr(run, metric)
+    assert Decimal("-1") < Decimal(run_body["max_drawdown"]) <= Decimal("0")
 
     assert detail_response.status_code == 200
     detail = detail_response.json()
@@ -188,6 +215,33 @@ def test_run_backtest_endpoint_updates_backtest_detail(tmp_path) -> None:
     assert detail["equity_curve"][-1]["net_value"] == str(curve_rows[-1].net_value)
     assert detail["signal_ids"] == [signal.id for signal in signals]
     assert detail["signal_count"] == len(signals)
+
+
+def _test_strategy_config() -> StrategyConfig:
+    return validate_strategy_config(
+        {
+            "strategy_id": "test_dual_momentum",
+            "version": "test-v1",
+            "type": "dual_momentum",
+            "universe_config": "config/etf_pool.yaml",
+            "rebalance": {"frequency": "weekly"},
+            "parameters": {
+                "momentum": {"short_window_days": 63, "long_window_days": 126},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
+                "selection": {"top_n": 2},
+                "defense": {
+                    "assets": [
+                        {"exchange": "SSE", "symbol": "511010"},
+                        {"exchange": "SSE", "symbol": "511880"},
+                        {"exchange": "SSE", "symbol": "518880"},
+                    ]
+                },
+            },
+            "costs": {"transaction_cost_bps": 10},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
 
 
 def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:

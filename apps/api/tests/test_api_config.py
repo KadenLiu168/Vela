@@ -5,7 +5,7 @@ import vela_api.config as api_config
 import vela_api.main as api_main
 from fastapi.testclient import TestClient
 from vela_api.main import app
-from vela_core import load_app_config, load_etf_pool_config
+from vela_core import load_app_config
 from vela_core.strategy_config import validate_strategy_config
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -18,44 +18,29 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
     body = response.json()
 
     app_config = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml")
-    etf_pool_config = load_etf_pool_config(REPO_ROOT / "config" / "etf_pool.yaml")
-    expected_active = sum(1 for etf in etf_pool_config.etfs if etf.is_active)
+    strategy = app_config.strategy
+    etf_pool = app_config.etf_pool
 
     assert body["strategy"] == {
-        "strategy_id": app_config.strategy.strategy_id,
-        "version": "v1",
-        "type": "dual_momentum",
-        "universe_config": "config/etf_pool.yaml",
-        "parameters": {
-            "momentum": {"short_window_days": 63, "long_window_days": 126},
-            "score_weights": {"short": 0.4, "long": 0.6},
-            "trend_filter": {"moving_average_days": 120, "price_relation": "above"},
-            "selection": {"top_n": 2},
-            "defense": {
-                "assets": [
-                    {"exchange": "SSE", "symbol": "511010"},
-                    {"exchange": "SSE", "symbol": "511880"},
-                    {"exchange": "SSE", "symbol": "518880"},
-                ]
-            },
-        },
-        "costs": {"transaction_cost_bps": 10.0},
-        "performance": {"risk_free_rate": 0.02},
-        "rebalance": {"frequency": "weekly"},
+        "strategy_id": strategy.strategy_id,
+        "version": strategy.version,
+        "type": strategy.type,
+        "universe_config": strategy.universe_config,
+        "parameters": strategy.parameters.model_dump(),
+        "costs": strategy.costs.model_dump(),
+        "performance": strategy.performance.model_dump(),
+        "rebalance": strategy.rebalance.model_dump(),
     }
-    assert body["etf_pool"]["pool_id"] == "phase1_core"
-    assert body["etf_pool"]["version"] == 1
-    assert body["etf_pool"]["provider"] == "tencent"
-    assert body["etf_pool"]["currency"] == "CNY"
-    assert body["etf_pool"]["total_etfs"] == len(etf_pool_config.etfs)
-    assert body["etf_pool"]["active_etfs"] == expected_active
-    assert {
-        "exchange": "SSE",
-        "symbol": "511010",
-        "name": "国债ETF",
-        "category": "bond_cn",
-        "is_active": True,
-    } in body["etf_pool"]["etfs"]
+    assert body["etf_pool"] == {
+        "pool_id": etf_pool.pool_id,
+        "version": etf_pool.version,
+        "description": etf_pool.description,
+        "provider": etf_pool.provider,
+        "currency": etf_pool.currency,
+        "total_etfs": len(etf_pool.etfs),
+        "active_etfs": sum(1 for etf in etf_pool.etfs if etf.is_active),
+        "etfs": [etf.model_dump() for etf in etf_pool.etfs],
+    }
 
 
 def test_config_and_dashboard_endpoints_serialize_equal_weight_shape(

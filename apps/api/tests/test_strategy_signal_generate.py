@@ -1,15 +1,19 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from vela_api.database import initialize_database
 from vela_api.main import app
+from vela_core import load_app_config
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.models import StrategySignal, StrategySignalPosition
 
 from tests.integration_data import add_etf, add_price_history, prepare_sqlite_database
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_strategy_signal_generate_endpoint_uses_latest_local_market_date(tmp_path) -> None:
@@ -38,9 +42,10 @@ def test_strategy_signal_generate_endpoint_uses_latest_local_market_date(tmp_pat
 
     assert response.status_code == 200
     body = response.json()
+    strategy = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml").strategy
     assert body["signal_id"] == 1
     assert body["signal_date"] == "2026-06-23"
-    assert body["config_version"] == "v1"
+    assert body["config_version"] == strategy.version
     assert body["status"] == "success"
     assert body["result"] == "rebalance"
     assert body["error_message"] is None

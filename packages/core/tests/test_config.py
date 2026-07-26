@@ -13,18 +13,20 @@ from vela_core.strategy_config import DualMomentumStrategyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ETF_POOL_PATH = REPO_ROOT / "config" / "etf_pool.yaml"
+STRATEGY_PATH = REPO_ROOT / "config" / "strategy_v1.yaml"
 
 
 def test_load_existing_etf_pool_yaml_returns_typed_config() -> None:
     config = load_etf_pool_config(ETF_POOL_PATH)
+    raw_config = yaml.safe_load(ETF_POOL_PATH.read_text())
 
     assert isinstance(config, ETFPoolConfig)
-    assert config.pool_id == "phase1_core"
-    assert config.provider == "tencent"
-    assert config.currency == "CNY"
-    raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
+    assert config.pool_id == raw_config["pool_id"]
+    assert config.provider == raw_config["provider"]
+    assert config.currency == raw_config["currency"]
+    raw_etfs = raw_config["etfs"]
     assert len(config.etfs) == len(raw_etfs)
-    assert config.etfs[0].exchange == "SSE"
+    assert config.etfs[0].exchange == raw_etfs[0]["exchange"]
     assert isinstance(config.etfs[0].exchange, str)
 
 
@@ -131,7 +133,7 @@ def test_config_error_includes_missing_file_path(tmp_path: Path) -> None:
 
 
 def test_load_existing_app_config_returns_typed_config() -> None:
-    config = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml")
+    config = load_app_config(STRATEGY_PATH)
 
     assert isinstance(config, AppConfig)
     assert isinstance(config.strategy, DualMomentumStrategyConfig)
@@ -139,20 +141,22 @@ def test_load_existing_app_config_returns_typed_config() -> None:
 
 
 def test_load_existing_app_config_contains_checked_in_values() -> None:
-    config = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml")
+    config = load_app_config(STRATEGY_PATH)
+    raw_strategy = yaml.safe_load(STRATEGY_PATH.read_text())
+    raw_etf_pool = yaml.safe_load(ETF_POOL_PATH.read_text())
 
-    assert config.strategy.version == "v1"
-    assert config.strategy.universe_config == "config/etf_pool.yaml"
-    assert config.etf_pool.pool_id == "phase1_core"
-    assert config.etf_pool.provider == "tencent"
-    raw_etfs = yaml.safe_load(ETF_POOL_PATH.read_text())["etfs"]
-    assert len(config.etf_pool.etfs) == len(raw_etfs)
+    assert config.strategy.version == raw_strategy["version"]
+    assert config.strategy.universe_config == raw_strategy["universe_config"]
+    assert config.etf_pool.pool_id == raw_etf_pool["pool_id"]
+    assert config.etf_pool.provider == raw_etf_pool["provider"]
+    assert len(config.etf_pool.etfs) == len(raw_etf_pool["etfs"])
 
 
 def test_app_config_resolves_universe_config_from_working_directory() -> None:
-    config = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml")
+    config = load_app_config(STRATEGY_PATH)
+    raw_etf_pool = yaml.safe_load(ETF_POOL_PATH.read_text())
 
-    assert config.etf_pool.pool_id == "phase1_core"
+    assert config.etf_pool.pool_id == raw_etf_pool["pool_id"]
 
 
 def test_app_config_resolves_universe_config_from_strategy_file_directory(

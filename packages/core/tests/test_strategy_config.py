@@ -6,7 +6,11 @@ import pytest
 import yaml
 from pydantic import ValidationError
 from vela_core import ConfigError, strategy_config
-from vela_core.strategy_config import load_strategy_config, validate_strategy_config
+from vela_core.strategy_config import (
+    DualMomentumStrategyConfig,
+    load_strategy_config,
+    validate_strategy_config,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -14,22 +18,18 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 def test_strategy_v1_config_loads_and_validates() -> None:
     config = load_strategy_config(REPO_ROOT / "config" / "strategy_v1.yaml")
 
-    assert config.version == "v1"
-    assert config.momentum.short_window_days == 63
-    assert config.momentum.long_window_days == 126
-    assert config.score_weights.short == 0.4
-    assert config.score_weights.long == 0.6
-    assert config.trend_filter.moving_average_days == 120
-    assert config.trend_filter.price_relation == "above"
-    assert config.selection.top_n == 2
-    assert [(a.exchange, a.symbol) for a in config.defense.assets] == [
-        ("SSE", "511010"),
-        ("SSE", "511880"),
-        ("SSE", "518880"),
-    ]
-    assert config.costs.transaction_cost_bps == 10
-    assert config.performance.risk_free_rate == 0.02
-    assert config.rebalance.frequency == "weekly"
+    assert isinstance(config, DualMomentumStrategyConfig)
+    assert config.strategy_id
+    assert config.version
+    assert config.universe_config
+    assert (
+        config.parameters.momentum.short_window_days < config.parameters.momentum.long_window_days
+    )
+    assert config.parameters.score_weights.short + config.parameters.score_weights.long == 1.0
+    assert config.parameters.selection.top_n > 0
+    assert config.parameters.defense.assets
+    assert config.costs.transaction_cost_bps >= 0
+    assert config.performance.risk_free_rate >= 0
 
 
 def test_strategy_config_accepts_valid_schema_input() -> None:

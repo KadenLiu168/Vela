@@ -102,11 +102,9 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert (
-        body["strategy"]["strategy_id"]
-        == load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml").strategy.strategy_id
-    )
-    assert body["strategy"]["version"] == "v1"
+    strategy = load_app_config(REPO_ROOT / "config" / "strategy_v1.yaml").strategy
+    assert body["strategy"]["strategy_id"] == strategy.strategy_id
+    assert body["strategy"]["version"] == strategy.version
     assert body["market_data"] == {
         "price_rows": 2,
         "covered_etfs": 2,
