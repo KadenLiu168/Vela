@@ -39,6 +39,9 @@ from vela_core.database import (
 )
 from vela_core.models import StrategySignal
 from vela_core.strategy_config import load_strategy_config
+from vela_core.walk_forward.config import load_walk_forward_config
+from vela_core.walk_forward.report import format_report
+from vela_core.walk_forward.runner import WalkForwardRunner
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
@@ -204,6 +207,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DATABASE_URL,
         help="Database URL to read the persisted backtest from",
     )
+
+    walk_forward_parser = subparsers.add_parser(
+        "walk-forward",
+        help="Run walk-forward parameter search and out-of-sample backtests",
+    )
+    walk_forward_parser.add_argument("--config", type=Path, required=True)
+    walk_forward_parser.add_argument("--database-url", default=DEFAULT_DATABASE_URL)
+    walk_forward_parser.add_argument("--output", type=Path, default=None)
     export_backtest_report_parser.add_argument(
         "--run-id",
         type=int,
@@ -353,6 +364,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Exported backtest report to {args.output}")
         return 0
 
+    if args.command == "walk-forward":
+        try:
+            report = run_walk_forward(args.database_url, config_path=args.config)
+            output = format_report(report)
+        except Exception as exc:
+            print(f"Failed to run walk-forward in {args.database_url}: {exc}", file=sys.stderr)
+            return 1
+        if args.output is None:
+            print(output, end="")
+        else:
+            args.output.write_text(output)
+            print(f"Exported walk-forward report to {args.output}")
+        return 0
+
     parser.error(f"unknown command: {args.command}")
 
 
@@ -445,6 +470,14 @@ def run_backtest(
             end_date=end_date,
             gap_detection=gap_detection,
         )
+
+
+def run_walk_forward(database_url: str, *, config_path: Path):
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    config = load_walk_forward_config(config_path)
+    with managed_session(session_factory) as session:
+        return WalkForwardRunner(config).run(session)
 
 
 def export_backtest_report(database_url: str, *, run_id: int) -> str:

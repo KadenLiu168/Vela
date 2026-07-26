@@ -132,6 +132,8 @@ from vela_core.trading_calendar_sync import (
     sync_trading_calendar_to_db,
 )
 from vela_core.trend_filter import TrendFilterResult, apply_trend_filter
+from vela_core.walk_forward.config import WalkForwardConfig, load_walk_forward_config
+from vela_core.walk_forward.runner import WalkForwardRunner
 
 __version__ = "0.1.0"
 
@@ -192,6 +194,8 @@ __all__ = [
     "SystematicTradingDayGap",
     "TopNSelection",
     "TrendFilterResult",
+    "WalkForwardConfig",
+    "WalkForwardRunner",
     "apply_trend_filter",
     "build_alembic_config",
     "build_quality_warnings_json",
@@ -230,6 +234,7 @@ __all__ = [
     "export_backtest_report",
     "load_app_config",
     "load_etf_pool_config",
+    "load_walk_forward_config",
     "persist_strategy_signal",
     "persist_backtest_result",
     "rank_momentum_scores",

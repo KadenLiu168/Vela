@@ -1,0 +1,33 @@
+strategy:
+  base_config: strategy_v1.yaml
+window:
+  scheme: anchored_rolling
+  start_date: 2019-01-01
+  end_date: 2024-12-31
+  train_years: 3
+  test_years: 1
+  step_years: 1
+objective: sharpe_ratio
+parameter_space:
+  - name: parameters.momentum.short_window_days
+    type: int_range
+    low: 20
+    high: 100
+    step: 20
+  - name: parameters.momentum.long_window_days
+    type: int_range
+    low: 80
+    high: 250
+    step: 40
+  - name: parameters.trend_filter.moving_average_days
+    type: choice
+    values: [60, 120, 250]
+  - name: parameters.selection.top_n
+    type: int_range
+    low: 1
+    high: 3
+    step: 1
+baseline:
+  type: equal_weight
+  strategy_id: walk_forward_equal_weight
+  version: v1
