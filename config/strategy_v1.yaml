@@ -30,7 +30,7 @@ parameters:
         symbol: "518880"
 
 costs:
-  transaction_cost_bps: 5
+  transaction_cost_bps: 10
 
 performance:
   risk_free_rate: 0.02

@@ -66,7 +66,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(strategy.getByText("Short 0.4 / Long 0.6")).toBeInTheDocument();
   expect(strategy.getByText("2")).toBeInTheDocument();
   expect(strategy.getByText("SSE:511010")).toBeInTheDocument();
-  expect(strategy.getByText("5 bps")).toBeInTheDocument();
+  expect(strategy.getByText("10 bps")).toBeInTheDocument();
   const signalPanel = screen.getByTestId("workflow-panel-signal");
   expect(signalPanel).not.toBeNull();
   const signal = within(signalPanel as HTMLElement);
