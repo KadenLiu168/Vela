@@ -27,6 +27,8 @@ from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
     StrategyEquityCurvePoint,
     StrategyMaximumDrawdown,
+    StrategyPortfolioPosition,
+    StrategyPortfolioState,
     StrategySharpeRatio,
     StrategyVolatility,
 )
@@ -78,6 +80,7 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     assert run.strategy_id == "dual_momentum"
     assert run.parameters_json == (
         '{"config_version": "v1", "end_date": "2026-01-03", '
+        '"equity_model_version": "drift_v1", '
         '"risk_free_rate": 0.02, "start_date": "2026-01-01", '
         '"strategy_id": "dual_momentum", "type": "dual_momentum"}'
     )
@@ -85,7 +88,9 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
     assert curve_rows[0].cash == Decimal("0.000000")
     assert curve_rows[0].market_value == Decimal("1.000000")
     assert curve_rows[0].total_assets == Decimal("1.000000")
-    assert curve_rows[0].positions_json == '[{"etf_id": 1, "target_weight": "1.000000"}]'
+    assert curve_rows[0].positions_json == (
+        '[{"actual_weight": "1.000000", "etf_id": 1, "target_weight": "1.000000"}]'
+    )
     assert curve_rows[1].net_value == Decimal("1.100000")
     assert len(signals) == 1
     assert signals[0].source == "backtest"
@@ -135,6 +140,49 @@ def test_run_backtest_links_failed_generated_signals(
     assert signal.backtest_run_id == result.backtest_run_id
 
 
+def test_to_curve_inputs_persists_calculated_drifted_state_and_rejects_missing_state() -> None:
+    point = StrategyEquityCurvePoint(
+        trade_date=date(2026, 1, 2),
+        net_value=Decimal("1.500000"),
+        daily_return=Decimal("0.500000"),
+        portfolio_state=StrategyPortfolioState(
+            cash=Decimal("0.000000"),
+            market_value=Decimal("1.500000"),
+            total_assets=Decimal("1.500000"),
+            positions=(
+                StrategyPortfolioPosition(
+                    etf_id=7,
+                    target_weight=Decimal("0.500000"),
+                    actual_weight=Decimal("0.666667"),
+                ),
+                StrategyPortfolioPosition(
+                    etf_id=8,
+                    target_weight=Decimal("0.500000"),
+                    actual_weight=Decimal("0.333333"),
+                ),
+            ),
+        ),
+    )
+
+    row = runner._to_curve_inputs([point])[0]
+
+    assert row.cash + row.market_value == row.total_assets == point.net_value
+    assert row.positions_json == (
+        '[{"actual_weight": "0.666667", "etf_id": 7, "target_weight": "0.500000"}, '
+        '{"actual_weight": "0.333333", "etf_id": 8, "target_weight": "0.500000"}]'
+    )
+    with pytest.raises(ValueError, match="missing calculated portfolio state"):
+        runner._to_curve_inputs(
+            [
+                StrategyEquityCurvePoint(
+                    trade_date=date(2026, 1, 2),
+                    net_value=Decimal("1.000000"),
+                    daily_return=Decimal("0.000000"),
+                )
+            ]
+        )
+
+
 def test_run_backtest_passes_generated_signal_ids_before_persistence_and_linking(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -154,11 +202,11 @@ def test_run_backtest_passes_generated_signal_ids_before_persistence_and_linking
         real_link = runner.link_signals_to_backtest_run
 
         def persist_after_calculations(*args: Any, **kwargs: Any) -> Any:
-            assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+            assert calculation_signal_ids == [("curve", [1])]
             return real_persist(*args, **kwargs)
 
         def link_after_calculations(*args: Any, **kwargs: Any) -> Any:
-            assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+            assert calculation_signal_ids == [("curve", [1])]
             return real_link(*args, **kwargs)
 
         monkeypatch.setattr(runner, "persist_backtest_result", persist_after_calculations)
@@ -170,7 +218,7 @@ def test_run_backtest_passes_generated_signal_ids_before_persistence_and_linking
             end_date=date(2026, 1, 1),
         )
 
-    assert calculation_signal_ids == [("curve", [1]), ("holdings", [1])]
+    assert calculation_signal_ids == [("curve", [1])]
 
 
 def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
@@ -321,7 +369,9 @@ def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
 
     assert second.status == "partial"
     assert second_final_row.positions_json == (
-        '[{"etf_id": ' + str(spy.id) + ', "target_weight": "1.000000"}]'
+        '[{"actual_weight": "1.000000", "etf_id": '
+        + str(spy.id)
+        + ', "target_weight": "1.000000"}]'
     )
     assert first_curve_after == first_curve_before
     assert first_metrics_after == first_metrics_before
@@ -745,16 +795,29 @@ def _patch_runner_helpers(
             captured_curve_panels.append(price_panel or {})
         if calculation_signal_ids is not None:
             calculation_signal_ids.append(("curve", signal_ids))
+        has_holdings = holdings != []
+        first_state = _portfolio_state(
+            etf_id,
+            Decimal("1.000000"),
+            has_holdings=has_holdings,
+        )
+        last_state = _portfolio_state(
+            etf_id,
+            Decimal("1.100000"),
+            has_holdings=has_holdings,
+        )
         return [
             StrategyEquityCurvePoint(
                 trade_date=trading_dates[0],
                 net_value=Decimal("1.000000"),
                 daily_return=Decimal("0.000000"),
+                portfolio_state=first_state,
             ),
             StrategyEquityCurvePoint(
                 trade_date=trading_dates[-1],
                 net_value=Decimal("1.100000"),
                 daily_return=Decimal("0.100000"),
+                portfolio_state=last_state,
             ),
         ][: len(trading_dates)]
 
@@ -793,7 +856,6 @@ def _patch_runner_helpers(
         "calculate_strategy_equity_curve",
         fake_calculate_strategy_equity_curve,
     )
-    monkeypatch.setattr(runner, "calculate_portfolio_holdings", fake_calculate_portfolio_holdings)
     monkeypatch.setattr(
         runner,
         "calculate_strategy_annualized_return",
@@ -837,6 +899,33 @@ def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _portfolio_state(
+    etf_id: int,
+    total_assets: Decimal,
+    *,
+    has_holdings: bool,
+) -> StrategyPortfolioState:
+    if not has_holdings:
+        return StrategyPortfolioState(
+            cash=total_assets,
+            market_value=Decimal("0.000000"),
+            total_assets=total_assets,
+            positions=(),
+        )
+    return StrategyPortfolioState(
+        cash=Decimal("0.000000"),
+        market_value=total_assets,
+        total_assets=total_assets,
+        positions=(
+            StrategyPortfolioPosition(
+                etf_id=etf_id,
+                target_weight=Decimal("1.000000"),
+                actual_weight=Decimal("1.000000"),
+            ),
+        ),
+    )
 
 
 def _strategy_config() -> StrategyConfig:

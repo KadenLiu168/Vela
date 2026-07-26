@@ -93,6 +93,248 @@ def test_calculate_strategy_equity_curve_applies_weighted_daily_return() -> None
     assert points[1].daily_return == Decimal("0.020000")
 
 
+def test_calculate_strategy_equity_curve_carries_drifted_values_until_next_rebalance() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 22),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.5")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.5")),
+            ],
+        )
+        for trade_date, spy_price, qqq_price in [
+            (date(2026, 6, 23), 100, 100),
+            (date(2026, 6, 24), 200, 100),
+            (date(2026, 6, 25), 400, 100),
+        ]:
+            _add_price(session, etf_id=spy.id, trade_date=trade_date, close_price=spy_price)
+            _add_price(session, etf_id=qqq.id, trade_date=trade_date, close_price=qqq_price)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24), date(2026, 6, 25)],
+            strategy_config=_strategy_config(),
+        )
+
+    assert [point.net_value for point in points] == [
+        Decimal("1.000000"),
+        Decimal("1.500000"),
+        Decimal("2.500000"),
+    ]
+    assert points[1].portfolio_state is not None
+    assert points[1].portfolio_state.positions[0].actual_weight == Decimal("0.666667")
+
+
+def test_calculate_strategy_equity_curve_single_asset_matches_direct_compounding() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [
+        date(2026, 6, 23),
+        date(2026, 6, 24),
+        date(2026, 6, 25),
+        date(2026, 6, 26),
+    ]
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
+        for trade_date, close_price in zip(
+            trading_dates,
+            [Decimal("100"), Decimal("120"), Decimal("90"), Decimal("135")],
+            strict=True,
+        ):
+            _add_price(
+                session,
+                etf_id=spy.id,
+                trade_date=trade_date,
+                close_price=close_price,
+            )
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(),
+        )
+
+    assert [point.net_value for point in points] == [
+        Decimal("1.000000"),
+        Decimal("1.200000"),
+        Decimal("0.900000"),
+        Decimal("1.350000"),
+    ]
+    assert all(
+        point.portfolio_state is not None
+        and point.portfolio_state.positions[0].actual_weight == Decimal("1.000000")
+        for point in points
+    )
+
+
+def test_calculate_strategy_equity_curve_keeps_unquantized_state_between_outputs() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [
+        date(2026, 7, 1),
+        date(2026, 7, 2),
+        date(2026, 7, 3),
+        date(2026, 7, 6),
+        date(2026, 7, 7),
+        date(2026, 7, 8),
+        date(2026, 7, 9),
+        date(2026, 7, 10),
+        date(2026, 7, 13),
+    ]
+    spy_prices = [100, 114, 103, 106, 95, 81, 74, 88, 82]
+    qqq_prices = [100, 89, 75, 91, 100, 85, 92, 78, 62]
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 30),
+            positions=[
+                StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.5")),
+                StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.5")),
+            ],
+        )
+        for trade_date, spy_price, qqq_price in zip(
+            trading_dates,
+            spy_prices,
+            qqq_prices,
+            strict=True,
+        ):
+            _add_price(
+                session,
+                etf_id=spy.id,
+                trade_date=trade_date,
+                close_price=spy_price,
+            )
+            _add_price(
+                session,
+                etf_id=qqq.id,
+                trade_date=trade_date,
+                close_price=qqq_price,
+            )
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(),
+        )
+
+    # Exact value carry telescopes to 0.5 * 82/100 + 0.5 * 62/100 = 0.720000.
+    # Reconstructing positions from each six-place point instead yields 0.719999.
+    assert points[-1].net_value == Decimal("0.720000")
+    assert points[-1].net_value != Decimal("0.719999")
+
+
+def test_calculate_strategy_equity_curve_recenters_same_targets_for_new_signal() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        positions = [
+            StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0.5")),
+            StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("0.5")),
+        ]
+        _add_signal(session, signal_date=date(2026, 6, 22), positions=positions)
+        _add_signal(session, signal_date=date(2026, 6, 23), positions=positions)
+        for trade_date, spy_price, qqq_price in [
+            (date(2026, 6, 23), 100, 100),
+            (date(2026, 6, 24), 200, 100),
+        ]:
+            _add_price(session, etf_id=spy.id, trade_date=trade_date, close_price=spy_price)
+            _add_price(session, etf_id=qqq.id, trade_date=trade_date, close_price=qqq_price)
+        session.commit()
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+            strategy_config=_strategy_config(transaction_cost_bps=100),
+        )
+
+    assert points[1].net_value == Decimal("1.495000")
+    assert points[1].daily_return == Decimal("0.495000")
+    assert points[1].portfolio_state is not None
+    assert [position.actual_weight for position in points[1].portfolio_state.positions] == [
+        Decimal("0.500000"),
+        Decimal("0.500000"),
+    ]
+
+
+def test_calculate_strategy_equity_curve_normalizes_repeating_targets_without_cash() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etfs = [_add_etf(session, symbol=symbol) for symbol in ["AAA", "BBB", "CCC"]]
+        third = Decimal("1") / Decimal("3")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 22),
+            positions=[
+                StrategySignalPositionInput(etf_id=etf.id, target_weight=third) for etf in etfs
+            ],
+        )
+        for etf in etfs:
+            _add_price(session, etf_id=etf.id, trade_date=date(2026, 6, 23), close_price=100)
+        session.commit()
+
+        point = calculate_strategy_equity_curve(
+            session,
+            trading_dates=[date(2026, 6, 23)],
+            strategy_config=_strategy_config(),
+        )[0]
+
+    assert point.portfolio_state is not None
+    assert point.portfolio_state.cash == Decimal("0.000000")
+    assert sum(position.actual_weight for position in point.portfolio_state.positions) == Decimal(
+        "0.999999"
+    )
+
+
+def test_calculate_strategy_equity_curve_rejects_non_positive_targets_and_exhausted_costs() -> None:
+    session_factory = _create_session_factory()
+
+    exhausting_session_factory = _create_session_factory()
+    with exhausting_session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(
+            session,
+            signal_date=date(2026, 6, 22),
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("0"))],
+        )
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        session.commit()
+
+        with pytest.raises(ValueError, match="target weights must be positive"):
+            calculate_strategy_equity_curve(
+                session,
+                trading_dates=[date(2026, 6, 23)],
+                strategy_config=_strategy_config(),
+            )
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(session, signal_date=date(2026, 6, 23), etf_id=spy.id)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 23), close_price=100)
+        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=100)
+        session.commit()
+
+        with pytest.raises(ValueError, match="exhausted portfolio assets"):
+            calculate_strategy_equity_curve(
+                session,
+                trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+                strategy_config=_strategy_config(transaction_cost_bps=10000),
+            )
+
+
 def test_calculate_strategy_equity_curve_uses_supplied_price_panel() -> None:
     session_factory = _create_session_factory()
 
@@ -232,12 +474,12 @@ def test_calculate_strategy_equity_curve_verifies_daily_values_and_rebalance_eff
         ),
         StrategyEquityCurvePoint(
             trade_date=date(2026, 6, 25),
-            net_value=Decimal("0.754800"),
-            daily_return=Decimal("-0.260000"),
+            net_value=Decimal("0.726000"),
+            daily_return=Decimal("-0.288235"),
         ),
         StrategyEquityCurvePoint(
             trade_date=date(2026, 6, 26),
-            net_value=Decimal("0.830280"),
+            net_value=Decimal("0.798600"),
             daily_return=Decimal("0.100000"),
         ),
     ]
@@ -351,8 +593,8 @@ def test_calculate_strategy_equity_curve_deducts_rebalance_transaction_cost() ->
             strategy_config=_strategy_config(transaction_cost_bps=10),
         )
 
-    assert points[1].daily_return == Decimal("0.098000")
-    assert points[1].net_value == Decimal("1.098000")
+    assert points[1].daily_return == Decimal("0.097800")
+    assert points[1].net_value == Decimal("1.097800")
 
 
 def test_calculate_strategy_equity_curve_skips_transaction_cost_when_configured_zero() -> None:
@@ -451,10 +693,10 @@ def test_calculate_strategy_equity_curve_applies_different_cost_rates() -> None:
             strategy_config=_strategy_config(transaction_cost_bps=25),
         )
 
-    assert low_cost_points[1].daily_return == Decimal("0.098000")
-    assert low_cost_points[1].net_value == Decimal("1.098000")
-    assert high_cost_points[1].daily_return == Decimal("0.095000")
-    assert high_cost_points[1].net_value == Decimal("1.095000")
+    assert low_cost_points[1].daily_return == Decimal("0.097800")
+    assert low_cost_points[1].net_value == Decimal("1.097800")
+    assert high_cost_points[1].daily_return == Decimal("0.094500")
+    assert high_cost_points[1].net_value == Decimal("1.094500")
     assert high_cost_points[1].daily_return < low_cost_points[1].daily_return
 
 
@@ -485,8 +727,8 @@ def test_calculate_strategy_equity_curve_transaction_cost_reduces_net_value() ->
 
     assert no_cost_points[1].daily_return == Decimal("0.100000")
     assert no_cost_points[1].net_value == Decimal("1.100000")
-    assert cost_points[1].daily_return == Decimal("0.098000")
-    assert cost_points[1].net_value == Decimal("1.098000")
+    assert cost_points[1].daily_return == Decimal("0.097800")
+    assert cost_points[1].net_value == Decimal("1.097800")
     assert cost_points[1].net_value < no_cost_points[1].net_value
 
 

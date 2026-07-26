@@ -1,8 +1,5 @@
-# strategy-equity-curve Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines how the daily strategy net-value equity curve is calculated from holding snapshots and market prices across trading dates.
-## Requirements
 ### Requirement: Calculate strategy equity curve
 The system SHALL calculate a daily strategy net value curve for requested trading dates using a continuous normalized state of per-ETF market values and cash, SHALL attribute each close-to-close market-return interval to the actual economic holdings effective at the interval's start, and SHALL rebalance that state to a new target allocation only when a different strategy signal becomes effective.
 
@@ -183,106 +180,6 @@ The system SHALL apply transaction costs only when a different strategy signal b
 - **WHEN** calculated transaction cost would leave zero or negative post-cost assets
 - **THEN** equity-curve calculation fails explicitly
 
-### Requirement: Calculate annualized return from strategy equity curve
-The system SHALL calculate annualized return from strategy equity curve points using first net value, last net value, and elapsed calendar days.
-
-#### Scenario: Positive elapsed curve
-- **WHEN** backend code calculates annualized return for an equity curve with at least two points, a positive starting net value, and a positive calendar-day span
-- **THEN** the system returns total return equal to `ending_net_value / starting_net_value - 1`
-- **AND** annualized return equal to `(ending_net_value / starting_net_value) ^ (365 / elapsed_calendar_days) - 1`
-
-#### Scenario: Flat curve
-- **WHEN** backend code calculates annualized return for an equity curve whose first and last net values are equal across a positive calendar-day span
-- **THEN** the system returns total return `0.000000`
-- **AND** annualized return `0.000000`
-
-#### Scenario: Not enough elapsed time
-- **WHEN** backend code calculates annualized return for an equity curve with fewer than two points or without a positive calendar-day span
-- **THEN** the system returns no total return or annualized return value
-
-#### Scenario: Non-positive starting net value
-- **WHEN** backend code calculates annualized return for an equity curve whose first net value is zero or negative
-- **THEN** the system returns no total return or annualized return value
-
-### Requirement: Calculate maximum drawdown from strategy equity curve
-The system SHALL calculate maximum drawdown from strategy equity curve points using each point's net value and trade date.
-
-#### Scenario: Typical drawdown curve
-- **WHEN** backend code calculates maximum drawdown for an equity curve that rises to a peak and then falls to a lower trough
-- **THEN** the system returns the lowest drawdown value equal to `trough_net_value / peak_net_value - 1`
-- **AND** the system returns the peak and trough dates that define that maximum drawdown interval
-
-#### Scenario: No drawdown
-- **WHEN** backend code calculates maximum drawdown for an empty, flat, or all-rising equity curve
-- **THEN** the system returns maximum drawdown `0.000000`
-- **AND** the system returns no peak or trough date interval
-
-### Requirement: Calculate annualized volatility from strategy equity curve
-The system SHALL calculate annualized volatility from strategy equity curve daily returns using the effective return observations after the initial curve point.
-
-#### Scenario: Typical volatile return sequence
-- **WHEN** backend code calculates volatility for an equity curve with at least two effective daily return observations after the initial point
-- **THEN** the system returns annualized volatility equal to the population standard deviation of those effective daily returns multiplied by the square root of 252
-- **AND** the result is quantized to six decimal places
-
-#### Scenario: Flat return sequence
-- **WHEN** backend code calculates volatility for an equity curve whose effective daily return observations are all zero
-- **THEN** the system returns volatility `0.000000`
-
-#### Scenario: Not enough effective return observations
-- **WHEN** backend code calculates volatility for an equity curve with fewer than two effective daily return observations after the initial point
-- **THEN** the system returns no volatility value
-
-### Requirement: Calculate Sharpe ratio from strategy metrics
-The system SHALL calculate Sharpe ratio from effective equity curve daily return observations and the configured annual risk-free rate, using `mean(daily_excess_returns) / population_stddev(daily_excess_returns) × √252`.
-
-#### Scenario: Typical positive Sharpe ratio
-- **WHEN** backend code calculates Sharpe ratio for an equity curve whose effective returns have positive mean excess return and positive population standard deviation
-- **THEN** the system treats only the points after the initial equity-curve point as effective return observations
-- **AND** the system computes each effective daily excess return as `daily_return - risk_free_rate / 252`
-- **AND** the system returns `mean(daily_excess) / population_stddev(daily_excess) × √252`
-- **AND** the result is quantized to six decimal places
-
-#### Scenario: Initial placeholder return is excluded
-- **WHEN** the initial equity-curve point has its initialization placeholder return and at least two effective return observations follow it
-- **THEN** the placeholder return does not contribute to the Sharpe mean or population standard deviation
-
-#### Scenario: Negative excess return
-- **WHEN** backend code calculates Sharpe ratio for an equity curve whose mean daily excess return is negative and daily excess returns have positive standard deviation
-- **THEN** the system returns a negative Sharpe ratio
-
-#### Scenario: Insufficient equity curve data
-- **WHEN** backend code calculates Sharpe ratio for an equity curve with fewer than two effective daily return observations after the initial point
-- **THEN** the system returns no Sharpe ratio value
-
-#### Scenario: Zero standard deviation of daily excess returns
-- **WHEN** backend code calculates Sharpe ratio for an equity curve whose daily excess returns have zero standard deviation
-- **THEN** the system returns no Sharpe ratio value
-
-#### Scenario: Backtest execution uses the corrected observations
-- **WHEN** the backtest runner calculates summary metrics for an equity curve
-- **THEN** it passes that equity curve and the configured annual risk-free rate to the Sharpe calculator
-- **AND** it persists the resulting nullable six-decimal Sharpe value without changing the backtest result schema
-
-### Requirement: Test maximum drawdown calculation
-The system SHALL include regression tests for maximum drawdown calculation across representative strategy net value curves.
-
-#### Scenario: Rising curve has no drawdown
-- **WHEN** backend tests calculate maximum drawdown for an all-rising strategy equity curve
-- **THEN** the tests verify maximum drawdown is `0.000000`
-- **AND** the tests verify no peak or trough date interval is returned
-
-#### Scenario: Falling curve records peak-to-trough loss
-- **WHEN** backend tests calculate maximum drawdown for a strategy equity curve that falls from its initial peak
-- **THEN** the tests verify the maximum drawdown value equals `trough_net_value / peak_net_value - 1`
-- **AND** the tests verify the peak date is the initial peak date
-- **AND** the tests verify the trough date is the lowest net value date
-
-#### Scenario: Recovery after drawdown preserves deepest interval
-- **WHEN** backend tests calculate maximum drawdown for a strategy equity curve that falls and later recovers without exceeding the prior peak
-- **THEN** the tests verify the maximum drawdown remains the deepest peak-to-trough loss
-- **AND** the tests verify the recovery point does not replace the trough date
-
 ### Requirement: Test transaction cost calculation
 The system SHALL include regression tests for actual-weight turnover, signal-identity transitions, cost compounding, configured cost rates, and net-value impact.
 
@@ -313,6 +210,8 @@ The system SHALL include regression tests for actual-weight turnover, signal-ide
 #### Scenario: Same-target signal identity regression
 - **WHEN** backend tests persist two different signals with equal target weights around a period of natural drift
 - **THEN** tests verify the second signal recenters the portfolio and incurs non-zero cost
+
+## ADDED Requirements
 
 ### Requirement: Expose auditable portfolio state on equity points
 The system SHALL expose each curve point's normalized cash, aggregate market value, and per-ETF target and actual weights from the same internal state used to calculate that point's net value.

@@ -19,12 +19,12 @@ from vela_core.data_quality import (
 )
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
-from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
 from vela_core.rebalance_dates import generate_rebalance_dates
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
+    StrategyEquityCurvePoint,
     StrategyMaximumDrawdown,
     StrategySharpeRatio,
     StrategyVolatility,
@@ -179,13 +179,6 @@ def run_backtest(
         signal_ids=signal_ids,
         price_panel=price_panel,
     )
-    holdings = calculate_portfolio_holdings(
-        session,
-        trading_dates=trading_dates,
-        strategy_id=config.strategy_id,
-        config_version=config.version,
-        signal_ids=signal_ids,
-    )
     annualized_return = calculate_strategy_annualized_return(points)
     maximum_drawdown = calculate_strategy_maximum_drawdown(points)
     volatility = calculate_strategy_volatility(points)
@@ -215,7 +208,7 @@ def run_backtest(
             volatility=volatility.volatility,
             data_snapshot_json=data_snapshot_json,
         ),
-        equity_curve=_to_curve_inputs(points, holdings),
+        equity_curve=_to_curve_inputs(points),
     )
     link_signals_to_backtest_run(
         session,
@@ -371,31 +364,28 @@ def _check_trading_day_gaps(
             )
 
 
-def _to_curve_inputs(
-    points: list,
-    holdings: list[PortfolioHoldingSnapshot],
-) -> list[BacktestEquityCurveInput]:
-    holdings_by_date = {snapshot.trade_date: snapshot for snapshot in holdings}
+def _to_curve_inputs(points: list[StrategyEquityCurvePoint]) -> list[BacktestEquityCurveInput]:
     curve_inputs: list[BacktestEquityCurveInput] = []
 
     for point in points:
-        snapshot = holdings_by_date.get(point.trade_date)
-        positions = [] if snapshot is None else snapshot.holdings
-        has_holdings = bool(positions)
+        state = point.portfolio_state
+        if state is None:
+            raise ValueError("Equity curve point is missing calculated portfolio state")
         curve_inputs.append(
             BacktestEquityCurveInput(
                 trade_date=point.trade_date,
                 net_value=point.net_value,
-                cash=Decimal("0.000000") if has_holdings else point.net_value,
-                market_value=point.net_value if has_holdings else Decimal("0.000000"),
-                total_assets=point.net_value,
+                cash=state.cash,
+                market_value=state.market_value,
+                total_assets=state.total_assets,
                 positions_json=json.dumps(
                     [
                         {
-                            "etf_id": holding.etf_id,
-                            "target_weight": str(holding.target_weight.quantize(_SIX_PLACES)),
+                            "etf_id": position.etf_id,
+                            "target_weight": str(position.target_weight),
+                            "actual_weight": str(position.actual_weight),
                         }
-                        for holding in positions
+                        for position in state.positions
                     ],
                     sort_keys=True,
                 ),
@@ -414,6 +404,7 @@ def _parameters_json(config: StrategyConfig, *, start_date: date, end_date: date
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "risk_free_rate": config.performance.risk_free_rate,
+            "equity_model_version": "drift_v1",
         },
         sort_keys=True,
     )

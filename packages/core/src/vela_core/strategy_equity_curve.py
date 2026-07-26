@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import TypeAlias
@@ -22,6 +22,22 @@ class StrategyEquityCurvePoint:
     trade_date: date
     net_value: Decimal
     daily_return: Decimal
+    portfolio_state: "StrategyPortfolioState | None" = field(default=None, compare=False)
+
+
+@dataclass(frozen=True)
+class StrategyPortfolioPosition:
+    etf_id: int
+    target_weight: Decimal
+    actual_weight: Decimal
+
+
+@dataclass(frozen=True)
+class StrategyPortfolioState:
+    cash: Decimal
+    market_value: Decimal
+    total_assets: Decimal
+    positions: tuple[StrategyPortfolioPosition, ...]
 
 
 @dataclass(frozen=True)
@@ -72,33 +88,33 @@ def calculate_strategy_equity_curve(
     )
     transaction_cost_rate = Decimal(str(strategy_config.costs.transaction_cost_bps)) / _BASIS_POINTS
 
-    points = [
-        StrategyEquityCurvePoint(
-            trade_date=trading_dates[0],
-            net_value=Decimal("1.000000"),
-            daily_return=Decimal("0.000000"),
-        )
-    ]
-    net_value = Decimal("1.000000")
+    active_signal_id = holding_snapshots[0].strategy_signal_id
+    cash, position_values = _allocate_target(Decimal("1"), holding_snapshots[0])
+    points = [_to_point(holding_snapshots[0], cash, position_values, Decimal("0"))]
 
     for index, snapshot in enumerate(holding_snapshots[1:], start=1):
-        # Point i closes interval i-1 to i: prior holdings earn market return and the
-        # snapshot transition at i incurs turnover.
-        daily_return = _calculate_daily_return(
-            snapshot=snapshot,
-            previous_snapshot=holding_snapshots[index - 1],
+        previous_total = cash + sum(position_values.values(), Decimal("0"))
+        position_values = _mark_to_market(
+            position_values=position_values,
             previous_date=trading_dates[index - 1],
+            current_date=snapshot.trade_date,
             prices_by_key=prices_by_key,
-            transaction_cost_rate=transaction_cost_rate,
         )
-        net_value = (net_value * (Decimal("1") + daily_return)).quantize(_SIX_PLACES)
-        points.append(
-            StrategyEquityCurvePoint(
-                trade_date=snapshot.trade_date,
-                net_value=net_value,
-                daily_return=daily_return.quantize(_SIX_PLACES),
+        marked_total = cash + sum(position_values.values(), Decimal("0"))
+
+        if snapshot.strategy_signal_id != active_signal_id:
+            cash, position_values = _rebalance(
+                total_assets=marked_total,
+                position_values=position_values,
+                snapshot=snapshot,
+                transaction_cost_rate=transaction_cost_rate,
             )
-        )
+            active_signal_id = snapshot.strategy_signal_id
+
+        total_assets = cash + sum(position_values.values(), Decimal("0"))
+        if previous_total <= 0 or total_assets <= 0:
+            raise ValueError("Portfolio assets must remain positive")
+        points.append(_to_point(snapshot, cash, position_values, total_assets / previous_total - 1))
 
     return points
 
@@ -240,56 +256,107 @@ def _load_prices_by_key(
     return {(price.etf_id, price.trade_date): price for price in prices}
 
 
-def _calculate_daily_return(
-    *,
+def _allocate_target(
+    total_assets: Decimal,
     snapshot: PortfolioHoldingSnapshot,
-    previous_snapshot: PortfolioHoldingSnapshot,
-    previous_date: date,
-    prices_by_key: dict[_PriceKey, MarketPrice],
-    transaction_cost_rate: Decimal,
-) -> Decimal:
-    daily_return = Decimal("0")
+) -> tuple[Decimal, dict[int, Decimal]]:
+    target_weights = _normalized_target_weights(snapshot)
+    if not target_weights:
+        return total_assets, {}
+    return Decimal("0"), {
+        etf_id: total_assets * weight for etf_id, weight in target_weights.items()
+    }
 
-    for holding in previous_snapshot.holdings:
-        previous_row = prices_by_key.get((holding.etf_id, previous_date))
-        current_row = prices_by_key.get((holding.etf_id, snapshot.trade_date))
+
+def _normalized_target_weights(snapshot: PortfolioHoldingSnapshot) -> dict[int, Decimal]:
+    weights = {holding.etf_id: holding.target_weight for holding in snapshot.holdings}
+    total_weight = sum(weights.values(), Decimal("0"))
+    if not weights:
+        return {}
+    if total_weight <= 0 or any(weight <= 0 for weight in weights.values()):
+        raise ValueError("Portfolio target weights must be positive")
+    return {etf_id: weight / total_weight for etf_id, weight in weights.items()}
+
+
+def _mark_to_market(
+    *,
+    position_values: dict[int, Decimal],
+    previous_date: date,
+    current_date: date,
+    prices_by_key: dict[_PriceKey, MarketPrice],
+) -> dict[int, Decimal]:
+    marked_values = dict(position_values)
+    for etf_id, value in position_values.items():
+        previous_row = prices_by_key.get((etf_id, previous_date))
+        current_row = prices_by_key.get((etf_id, current_date))
         if previous_row is None or current_row is None:
             continue
         previous_price, current_price = (
             price.price
             for price in forward_adjusted_prices(
                 [previous_row, current_row],
-                rebalance_date=snapshot.trade_date,
+                rebalance_date=current_date,
             )
         )
-
-        daily_return += holding.target_weight * (current_price / previous_price - Decimal("1"))
-
-    turnover = _calculate_turnover(previous_snapshot, snapshot)
-    return daily_return - turnover * transaction_cost_rate
+        marked_values[etf_id] = value * current_price / previous_price
+    return marked_values
 
 
-def _calculate_turnover(
-    previous_snapshot: PortfolioHoldingSnapshot,
-    current_snapshot: PortfolioHoldingSnapshot,
-) -> Decimal:
-    previous_weights = {
-        holding.etf_id: holding.target_weight for holding in previous_snapshot.holdings
-    }
-    current_weights = {
-        holding.etf_id: holding.target_weight for holding in current_snapshot.holdings
-    }
-    etf_ids = previous_weights.keys() | current_weights.keys()
-
-    return sum(
+def _rebalance(
+    *,
+    total_assets: Decimal,
+    position_values: dict[int, Decimal],
+    snapshot: PortfolioHoldingSnapshot,
+    transaction_cost_rate: Decimal,
+) -> tuple[Decimal, dict[int, Decimal]]:
+    if total_assets <= 0:
+        raise ValueError("Portfolio assets must remain positive before rebalancing")
+    target_weights = _normalized_target_weights(snapshot)
+    actual_weights = {etf_id: value / total_assets for etf_id, value in position_values.items()}
+    turnover = sum(
         (
-            abs(
-                current_weights.get(etf_id, Decimal("0"))
-                - previous_weights.get(etf_id, Decimal("0"))
-            )
-            for etf_id in etf_ids
+            abs(target_weights.get(etf_id, Decimal("0")) - actual_weights.get(etf_id, Decimal("0")))
+            for etf_id in target_weights.keys() | actual_weights.keys()
         ),
         Decimal("0"),
+    )
+    post_cost_assets = total_assets * (Decimal("1") - turnover * transaction_cost_rate)
+    if post_cost_assets <= 0:
+        raise ValueError("Transaction costs exhausted portfolio assets")
+    return _allocate_target(post_cost_assets, snapshot)
+
+
+def _to_point(
+    snapshot: PortfolioHoldingSnapshot,
+    cash: Decimal,
+    position_values: dict[int, Decimal],
+    daily_return: Decimal,
+) -> StrategyEquityCurvePoint:
+    total_assets = cash + sum(position_values.values(), Decimal("0"))
+    if total_assets <= 0:
+        raise ValueError("Portfolio assets must remain positive")
+    target_weights = {holding.etf_id: holding.target_weight for holding in snapshot.holdings}
+    total_output = total_assets.quantize(_SIX_PLACES)
+    cash_output = cash.quantize(_SIX_PLACES)
+    market_output = total_output - cash_output
+    positions = tuple(
+        StrategyPortfolioPosition(
+            etf_id=etf_id,
+            target_weight=target_weights[etf_id].quantize(_SIX_PLACES),
+            actual_weight=(value / total_assets).quantize(_SIX_PLACES),
+        )
+        for etf_id, value in sorted(position_values.items())
+    )
+    return StrategyEquityCurvePoint(
+        trade_date=snapshot.trade_date,
+        net_value=total_output,
+        daily_return=daily_return.quantize(_SIX_PLACES),
+        portfolio_state=StrategyPortfolioState(
+            cash=cash_output,
+            market_value=market_output,
+            total_assets=total_output,
+            positions=positions,
+        ),
     )
 
 
