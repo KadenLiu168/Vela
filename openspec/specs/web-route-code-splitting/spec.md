@@ -1,4 +1,9 @@
-## ADDED Requirements
+# web-route-code-splitting Specification
+
+## Purpose
+Defines on-demand route module loading, persistent shell behavior, accessible loading and failure states, cache-oriented vendor chunking, and bundle measurement requirements for the web frontend.
+
+## Requirements
 
 ### Requirement: Non-default route modules load on demand
 The web frontend SHALL keep the Signal list, Signal detail, Backtest list, Backtest detail, and ETF detail page modules outside the Dashboard route's initial static JavaScript dependency graph and SHALL load each page module when its matching route is rendered.
