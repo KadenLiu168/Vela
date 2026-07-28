@@ -7,7 +7,7 @@ from vela_core.backtest_result_persistence import (
     get_backtest_result,
     persist_backtest_result,
 )
-from vela_core.backtest_runner import BacktestGapDetectionConfig, BacktestRunResult, run_backtest
+from vela_core.backtest_runner import BacktestRunResult, run_backtest
 from vela_core.bootstrap import (
     BootstrapResult,
     BootstrapStepResult,
@@ -146,7 +146,6 @@ __all__ = [
     "BacktestResultRunInput",
     "BacktestReportNotFoundError",
     "BacktestRunResult",
-    "BacktestGapDetectionConfig",
     "BacktestSignalSummaryEntry",
     "BootstrapResult",
     "BootstrapStepResult",

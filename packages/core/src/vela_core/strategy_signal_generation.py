@@ -77,10 +77,22 @@ def generate_historical_strategy_signals(
             signal_date=rebalance_date,
             config=config,
             price_panel={
-                etf_id: [price for price in prices if price.trade_date <= rebalance_date]
+                etf_id: [
+                    price
+                    for price in prices
+                    if price.trade_date <= rebalance_date
+                    and (etf.inception_date is None or price.trade_date >= etf.inception_date)
+                ]
                 for etf_id, prices in price_panel.items()
+                for etf in active_etfs
+                if etf.id == etf_id
+                and (etf.inception_date is None or etf.inception_date <= rebalance_date)
             },
-            active_etfs=active_etfs,
+            active_etfs=[
+                etf
+                for etf in active_etfs
+                if etf.inception_date is None or etf.inception_date <= rebalance_date
+            ],
             generated_at=generated_at,
             persist=persist,
         )

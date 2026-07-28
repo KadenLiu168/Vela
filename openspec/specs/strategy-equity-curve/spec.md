@@ -4,7 +4,7 @@
 Defines how the daily strategy net-value equity curve is calculated from holding snapshots and market prices across trading dates.
 ## Requirements
 ### Requirement: Calculate strategy equity curve
-The system SHALL calculate a daily strategy net value curve for requested trading dates using a continuous normalized state of per-ETF market values and cash, SHALL attribute each close-to-close market-return interval to the actual economic holdings effective at the interval's start, and SHALL rebalance that state to a new target allocation only when a different strategy signal becomes effective.
+The system SHALL calculate a daily strategy net value curve for requested trading dates using a continuous normalized state of per-ETF market values and cash, SHALL attribute each close-to-close market-return interval to the actual economic holdings effective at the interval's start, SHALL require complete strategy prices for every economically held ETF at both official interval endpoints, and SHALL rebalance that state to a new target allocation only when a different strategy signal becomes effective.
 
 #### Scenario: Initial net value and state
 - **WHEN** backend code calculates an equity curve for a non-empty trading-date list
@@ -63,14 +63,15 @@ The system SHALL calculate a daily strategy net value curve for requested tradin
 - **WHEN** backend code calculates a curve point whose prior holding snapshot has no holdings
 - **THEN** the close-to-close market return contribution for that point is zero
 
-#### Scenario: Missing price return input freezes held value
+#### Scenario: Missing previous held price fails
 - **WHEN** an ETF held in the interval-start state lacks either the previous or current strategy price
-- **THEN** that ETF's market value is carried unchanged for the interval
-- **AND** the ETF remains in the portfolio state
+- **THEN** equity-curve calculation raises an error identifying the ETF and missing date
+- **AND** the system does not carry the value, synthesize a price, or emit a zero return
 
-#### Scenario: Missing price return input is neutral
+#### Scenario: Missing current held price fails
 - **WHEN** an ETF held in the interval-start state lacks either the previous or current strategy price
-- **THEN** that ETF contributes zero to the daily weighted return
+- **THEN** equity-curve calculation raises an error identifying the ETF and missing date
+- **AND** the system does not carry the value, synthesize a price, or emit a zero return
 
 #### Scenario: Non-positive portfolio cannot continue
 - **WHEN** marked-to-market assets or transaction costs leave non-positive total assets before a required weight calculation
@@ -82,7 +83,7 @@ The system SHALL calculate a daily strategy net value curve for requested tradin
 - **THEN** the returned curve is empty
 
 ### Requirement: Test strategy equity curve calculation
-The system SHALL include regression tests for continuous portfolio-state calculation covering natural weight drift, the initial state, single-asset equivalence, missing-price value carry, precision, and both sides of a rebalance-effective boundary.
+The system SHALL include regression tests for continuous portfolio-state calculation covering natural weight drift, the initial state, single-asset equivalence, missing held-price failure, precision, and both sides of a rebalance-effective boundary.
 
 #### Scenario: Verify initial and daily net values from held-position returns
 - **WHEN** the strategy equity curve is calculated for multiple trading dates with held ETFs that have complete strategy prices
@@ -121,6 +122,11 @@ The system SHALL include regression tests for continuous portfolio-state calcula
 - **WHEN** tests calculate a multi-day path whose intermediate values have more than six decimal places
 - **THEN** the final observable result matches an independent high-precision calculation rounded only at the output boundary
 - **AND** it does not match a calculation that reconstructs state from daily six-decimal outputs
+
+#### Scenario: Verify missing held-price endpoints fail
+- **WHEN** focused tests omit either the previous or current price for an ETF held at interval start
+- **THEN** each case raises with the ETF and missing official date
+- **AND** no test expects frozen value or neutral daily return behavior
 
 ### Requirement: Apply transaction costs to strategy equity curve
 The system SHALL apply transaction costs only when a different strategy signal becomes effective, SHALL calculate turnover from the pre-trade actual risky-asset weights to the normalized new target weights, and SHALL deduct cost from marked-to-market closing assets before creating the post-rebalance state.

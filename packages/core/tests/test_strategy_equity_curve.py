@@ -535,23 +535,32 @@ def test_calculate_strategy_equity_curve_keeps_net_value_for_empty_holdings() ->
     assert points[1].daily_return == Decimal("0.000000")
 
 
-def test_calculate_strategy_equity_curve_treats_missing_price_input_as_neutral() -> None:
+@pytest.mark.parametrize(
+    ("prices", "missing_date"),
+    [
+        ([(date(2026, 6, 24), 110)], date(2026, 6, 23)),
+        ([(date(2026, 6, 23), 100)], date(2026, 6, 24)),
+    ],
+)
+def test_calculate_strategy_equity_curve_rejects_missing_held_price_endpoint(
+    prices: list[tuple[date, int]],
+    missing_date: date,
+) -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
         _add_signal(session, signal_date=date(2026, 6, 22), etf_id=spy.id)
-        _add_price(session, etf_id=spy.id, trade_date=date(2026, 6, 24), close_price=110)
+        for trade_date, close_price in prices:
+            _add_price(session, etf_id=spy.id, trade_date=trade_date, close_price=close_price)
         session.commit()
 
-        points = calculate_strategy_equity_curve(
-            session,
-            trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
-            strategy_config=_strategy_config(),
-        )
-
-    assert points[1].net_value == Decimal("1.000000")
-    assert points[1].daily_return == Decimal("0.000000")
+        with pytest.raises(ValueError, match=missing_date.isoformat()):
+            calculate_strategy_equity_curve(
+                session,
+                trading_dates=[date(2026, 6, 23), date(2026, 6, 24)],
+                strategy_config=_strategy_config(),
+            )
 
 
 def test_calculate_strategy_equity_curve_deducts_initial_entry_transaction_cost() -> None:

@@ -1,8 +1,7 @@
 import hashlib
 import json
-from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -12,10 +11,6 @@ from vela_core.backtest_result_persistence import (
     BacktestEquityCurveInput,
     BacktestResultRunInput,
     persist_backtest_result,
-)
-from vela_core.data_quality import (
-    detect_etf_trading_day_gaps,
-    detect_systematic_trading_day_gaps,
 )
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
@@ -62,21 +57,6 @@ class BacktestRunResult:
     volatility: Decimal | None
 
 
-@dataclass(frozen=True)
-class BacktestGapDetectionConfig:
-    """Controls backtest trading-day gap detection strictness.
-
-    When ``strict`` is false (the default when this config is supplied),
-    detected gaps are printed as warnings and the backtest proceeds. When
-    ``strict`` is true, the backtest raises without persisting when the number
-    of systematic gaps exceeds ``max_systematic_gaps``. Per-ETF gaps never
-    trigger strict failure (they are usually suspensions, not corruption).
-    """
-
-    strict: bool = False
-    max_systematic_gaps: int = 5
-
-
 def run_backtest(
     session: Session,
     *,
@@ -84,45 +64,40 @@ def run_backtest(
     start_date: date,
     end_date: date,
     started_at: datetime | None = None,
-    gap_detection: BacktestGapDetectionConfig | None = None,
 ) -> BacktestRunResult:
     if start_date > end_date:
         raise ValueError("start_date must be on or before end_date")
 
     trading_dates = _load_trading_dates(session, start_date=start_date, end_date=end_date)
     if not trading_dates:
-        raise ValueError("No local market prices found in requested backtest date range")
+        raise ValueError("Trading calendar has no official sessions in requested backtest range")
 
     active_etfs = _list_active_etfs(session)
-    _check_trading_day_gaps(
+    strategy = resolve_strategy(config)
+    lookback_days = strategy.lookback_days()
+    if lookback_days < 0:
+        raise ValueError("Strategy lookback_days must be non-negative")
+    required_dates = _load_required_trading_dates(
         session,
         trading_dates=trading_dates,
-        active_etfs=active_etfs,
-        start_date=start_date,
-        end_date=end_date,
-        gap_detection=gap_detection,
+        first_rebalance_date=generate_rebalance_dates(
+            trading_dates,
+            frequency=config.rebalance.frequency,
+        )[0],
+        lookback_days=lookback_days,
     )
 
     started_at = started_at or datetime.now(UTC)
-    rebalance_dates = generate_rebalance_dates(
-        trading_dates,
-        frequency=config.rebalance.frequency,
-    )
-
-    # Convert the longest trading-day window to a safe calendar-day buffer:
-    # ~252 trading days per ~365 calendar days gives a ratio of ~0.69, so
-    # ``max_window / 0.69`` calendar days is the minimum; ``* 2 + 10`` adds a
-    # comfortable margin for weekends, holidays, and suspended-trading gaps so
-    # the first rebalance date always sees enough history for trend + momentum.
-    max_window = resolve_strategy(config).lookback_days()
-    if max_window < 0:
-        raise ValueError("Strategy lookback_days must be non-negative")
-    panel_window_start = rebalance_dates[0] - timedelta(days=max_window * 2 + 10)
     price_panel = load_price_panel(
         session,
         etf_ids=[etf.id for etf in active_etfs],
-        start_date=panel_window_start,
+        start_date=required_dates[0],
         end_date=end_date,
+    )
+    _validate_required_prices(
+        active_etfs=active_etfs,
+        required_dates=required_dates,
+        price_panel=price_panel,
     )
     data_snapshot_json = build_data_snapshot(price_panel)
 
@@ -267,11 +242,10 @@ def build_data_snapshot(price_panel: dict[int, list[MarketPrice]]) -> dict[str, 
 def _load_trading_dates(session: Session, *, start_date: date, end_date: date) -> list[date]:
     return list(
         session.scalars(
-            select(MarketPrice.trade_date)
-            .where(MarketPrice.trade_date >= start_date)
-            .where(MarketPrice.trade_date <= end_date)
-            .distinct()
-            .order_by(MarketPrice.trade_date)
+            select(TradingCalendar.trade_date)
+            .where(TradingCalendar.trade_date >= start_date)
+            .where(TradingCalendar.trade_date <= end_date)
+            .order_by(TradingCalendar.trade_date)
         )
     )
 
@@ -282,86 +256,59 @@ def _list_active_etfs(session: Session) -> list[ETFInfo]:
     )
 
 
-def _check_trading_day_gaps(
+def _load_required_trading_dates(
     session: Session,
     *,
     trading_dates: list[date],
-    active_etfs: list[ETFInfo],
-    start_date: date,
-    end_date: date,
-    gap_detection: BacktestGapDetectionConfig | None,
-) -> None:
-    """Warn about (and optionally block on) trading-day gaps before a backtest.
+    first_rebalance_date: date,
+    lookback_days: int,
+) -> list[date]:
+    if lookback_days == 0:
+        return trading_dates
 
-    Default mode (``gap_detection is None`` or ``strict=False``) prints detected
-    gaps and returns. Strict mode raises without persisting when systematic gaps
-    exceed the configured threshold, or when the trading calendar is empty (a
-    strict check has no reference to check against). Per-ETF gaps never trigger
-    strict failure.
-    """
-    expected_dates = list(
+    preceding_dates = list(
         session.scalars(
             select(TradingCalendar.trade_date)
-            .where(TradingCalendar.trade_date >= start_date)
-            .where(TradingCalendar.trade_date <= end_date)
-            .order_by(TradingCalendar.trade_date)
+            .where(TradingCalendar.trade_date < first_rebalance_date)
+            .order_by(TradingCalendar.trade_date.desc())
+            .limit(lookback_days)
         )
     )
-    if not expected_dates:
-        message = (
-            "Trading calendar has no rows covering the requested backtest range; "
-            "run `vela sync-trading-calendar` to enable gap detection"
+    if len(preceding_dates) != lookback_days:
+        raise ValueError(
+            f"Strategy requires {lookback_days} preceding official session(s), "
+            f"but trading calendar has {len(preceding_dates)} before "
+            f"{first_rebalance_date.isoformat()}"
         )
-        if gap_detection is not None and gap_detection.strict:
-            raise ValueError(
-                f"Strict data-quality mode requires a synced trading calendar: {message}"
-            )
-        print(f"Warning: {message}; skipping gap detection")
+    return sorted(set(preceding_dates) | set(trading_dates))
+
+
+def _validate_required_prices(
+    *,
+    active_etfs: list[ETFInfo],
+    required_dates: list[date],
+    price_panel: dict[int, list[MarketPrice]],
+) -> None:
+    available_keys = {
+        (price.etf_id, price.trade_date) for prices in price_panel.values() for price in prices
+    }
+    gaps = [
+        (etf.id, trade_date)
+        for etf in active_etfs
+        for trade_date in required_dates
+        if (etf.inception_date is None or trade_date >= etf.inception_date)
+        and (etf.id, trade_date) not in available_keys
+    ]
+    if not gaps:
         return
 
-    etf_rows = session.execute(
-        select(MarketPrice.etf_id, MarketPrice.trade_date)
-        .where(MarketPrice.trade_date >= start_date)
-        .where(MarketPrice.trade_date <= end_date)
-    ).all()
-    per_etf: dict[int, list[date]] = defaultdict(list)
-    for etf_id, trade_date in etf_rows:
-        per_etf[etf_id].append(trade_date)
-
-    inception_boundaries: dict[int, date] = {}
-    for etf in active_etfs:
-        stored = per_etf.get(etf.id)
-        if not stored:
-            continue
-        first_stored = min(stored)
-        boundary = first_stored
-        if etf.inception_date is not None and etf.inception_date > boundary:
-            boundary = etf.inception_date
-        inception_boundaries[etf.id] = boundary
-
-    systematic_gaps = detect_systematic_trading_day_gaps(trading_dates, expected_dates)
-    etf_gaps = detect_etf_trading_day_gaps(per_etf, expected_dates, inception_boundaries)
-
-    if systematic_gaps:
-        missing = ", ".join(gap.trade_date.isoformat() for gap in systematic_gaps)
-        print(
-            f"Warning: {len(systematic_gaps)} systematic trading-day gap(s) detected "
-            f"(missing from all ETFs): {missing}"
-        )
-    if etf_gaps:
-        print(
-            f"Warning: {len(etf_gaps)} per-ETF trading-day gap(s) detected "
-            "(may be suspensions, not corruption)"
-        )
-
-    if gap_detection is not None and gap_detection.strict and systematic_gaps:
-        threshold = gap_detection.max_systematic_gaps
-        if len(systematic_gaps) > threshold:
-            missing = ", ".join(gap.trade_date.isoformat() for gap in systematic_gaps)
-            raise ValueError(
-                f"Strict data-quality check failed: {len(systematic_gaps)} systematic "
-                f"trading-day gap(s) exceed threshold {threshold}: {missing}"
-            )
+    sample = ", ".join(
+        f"ETF {etf_id} on {trade_date.isoformat()}" for etf_id, trade_date in gaps[:10]
+    )
+    suffix = "" if len(gaps) <= 10 else ", ..."
+    raise ValueError(
+        f"Backtest input has {len(gaps)} missing active-universe price row(s): {sample}{suffix}"
+    )
 
 
 def _to_curve_inputs(points: list[StrategyEquityCurvePoint]) -> list[BacktestEquityCurveInput]:

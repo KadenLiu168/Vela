@@ -19,6 +19,7 @@ from vela_core.models import (
     MarketPrice,
     StrategySignal,
     StrategySignalPosition,
+    TradingCalendar,
 )
 
 
@@ -189,7 +190,7 @@ def add_price_history(
     etf_id: int,
     end_date: date,
     current_price: Decimal = Decimal("180.000000"),
-    days: int = 131,
+    days: int = 140,
 ) -> None:
     start_date = end_date - timedelta(days=days - 1)
     session.add_all(
@@ -200,6 +201,10 @@ def add_price_history(
         )
         for offset in range(days)
     )
+    for offset in range(days):
+        trade_date = start_date + timedelta(days=offset)
+        if session.get(TradingCalendar, trade_date) is None:
+            session.add(TradingCalendar(trade_date=trade_date, source="test"))
 
 
 def market_price(

@@ -290,7 +290,14 @@ def _mark_to_market(
         previous_row = prices_by_key.get((etf_id, previous_date))
         current_row = prices_by_key.get((etf_id, current_date))
         if previous_row is None or current_row is None:
-            continue
+            missing_dates = [
+                trade_date.isoformat()
+                for row, trade_date in ((previous_row, previous_date), (current_row, current_date))
+                if row is None
+            ]
+            raise ValueError(
+                f"Missing strategy price for held ETF {etf_id} on {', '.join(missing_dates)}"
+            )
         previous_price, current_price = (
             price.price
             for price in forward_adjusted_prices(

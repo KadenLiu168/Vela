@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from vela_api.database import initialize_database
 from vela_api.main import app, get_market_data_provider
 from vela_core.database import DEFAULT_DATABASE_URL
+from vela_core.models import TradingCalendar
 
 from tests.integration_data import (
     ControlledMarketDataProvider,
@@ -30,6 +31,7 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path) ->
         add_price_history(session, etf_id=defense.id, end_date=latest_seed_date)
         add_price_history(session, etf_id=defense_second.id, end_date=latest_seed_date)
         add_price_history(session, etf_id=defense_third.id, end_date=latest_seed_date)
+        session.add(TradingCalendar(trade_date=fetched_trade_date, source="test"))
         session.commit()
 
     provider = ControlledMarketDataProvider(

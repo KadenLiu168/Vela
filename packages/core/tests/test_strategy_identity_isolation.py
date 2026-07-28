@@ -1,10 +1,17 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core.backtest_runner import run_backtest
-from vela_core.models import BacktestRun, Base, ETFInfo, MarketPrice, StrategySignal
+from vela_core.models import (
+    BacktestRun,
+    Base,
+    ETFInfo,
+    MarketPrice,
+    StrategySignal,
+    TradingCalendar,
+)
 from vela_core.portfolio_holdings import calculate_portfolio_holdings
 from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 from vela_core.strategy_equity_curve import calculate_strategy_equity_curve
@@ -19,11 +26,17 @@ def test_config_only_strategy_switch_keeps_persisted_identity_isolated() -> None
     with session_factory() as session:
         risk = _add_etf(session, exchange="SSE", symbol="510300")
         defense = _add_etf(session, exchange="SSE", symbol="511010")
+        for offset in range(126, 0, -1):
+            trade_date = trading_dates[0] - timedelta(days=offset)
+            session.add(TradingCalendar(trade_date=trade_date, source="test"))
+            _add_price(session, etf_id=risk.id, trade_date=trade_date, close_price=100)
+            _add_price(session, etf_id=defense.id, trade_date=trade_date, close_price=100)
         for trade_date, risk_price, defense_price in [
             (trading_dates[0], 100, 100),
             (trading_dates[1], 110, 101),
             (trading_dates[2], 121, 102),
         ]:
+            session.add(TradingCalendar(trade_date=trade_date, source="test"))
             _add_price(session, etf_id=risk.id, trade_date=trade_date, close_price=risk_price)
             _add_price(
                 session,
@@ -82,7 +95,7 @@ def test_config_only_strategy_switch_keeps_persisted_identity_isolated() -> None
     assert [(signal.strategy_id, signal.config_version) for signal in equal_signals] == [
         ("equal_weight_test", "v2")
     ] * 3
-    assert [holding.etf_id for holding in dual_holdings[-1].holdings] == [defense.id]
+    assert [holding.etf_id for holding in dual_holdings[-1].holdings] == [risk.id]
     assert [holding.etf_id for holding in equal_holdings[-1].holdings] == [risk.id, defense.id]
     assert (dual_curve[-1].net_value, equal_curve[-1].net_value) == (
         Decimal("1.009901"),

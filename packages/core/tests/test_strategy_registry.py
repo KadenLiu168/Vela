@@ -114,6 +114,48 @@ def test_historical_generation_hides_future_prices_from_bound_strategy(
     ]
 
 
+def test_historical_generation_excludes_pre_inception_etfs_and_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_date = date(2026, 1, 1)
+    second_date = date(2026, 1, 8)
+    observed: list[tuple[list[int], dict[int, list[date]]]] = []
+
+    class InspectingStrategy:
+        def lookback_days(self) -> int:
+            return 0
+
+        def generate_signal(self, *, signal_date, price_panel, active_etfs):
+            observed.append(
+                (
+                    [etf.id for etf in active_etfs],
+                    {
+                        etf_id: [price.trade_date for price in prices]
+                        for etf_id, prices in price_panel.items()
+                    },
+                )
+            )
+            return []
+
+    late = _etf(2, "LATE")
+    late.inception_date = second_date
+    monkeypatch.setattr(generation, "resolve_strategy", lambda config: InspectingStrategy())
+    generation.generate_historical_strategy_signals(
+        historical_trading_dates=[first_date, second_date],
+        config=_equal_config(),
+        price_panel={
+            1: [_price(1, first_date), _price(1, second_date)],
+            2: [_price(2, first_date), _price(2, second_date)],
+        },
+        active_etfs=[_etf(1, "EARLY"), late],
+    )
+
+    assert observed == [
+        ([1], {1: [first_date]}),
+        ([1, 2], {1: [first_date, second_date], 2: [second_date]}),
+    ]
+
+
 def test_generation_converts_expected_error_once_and_propagates_programming_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

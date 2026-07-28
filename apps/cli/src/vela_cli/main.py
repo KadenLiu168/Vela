@@ -7,7 +7,6 @@ from datetime import date
 from pathlib import Path
 
 from vela_core import (
-    BacktestGapDetectionConfig,
     BacktestReportNotFoundError,
     BacktestRunResult,
     ETFPoolSyncResult,
@@ -186,17 +185,6 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Backtest end date in YYYY-MM-DD format",
     )
-    run_backtest_parser.add_argument(
-        "--strict-data-quality",
-        action="store_true",
-        help="Fail the backtest when systematic trading-day gaps exceed --max-gap-days",
-    )
-    run_backtest_parser.add_argument(
-        "--max-gap-days",
-        type=int,
-        default=5,
-        help="Maximum tolerated systematic trading-day gaps in strict mode (default: 5)",
-    )
 
     export_backtest_report_parser = subparsers.add_parser(
         "export-backtest-report",
@@ -325,17 +313,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "run-backtest":
-        gap_detection = BacktestGapDetectionConfig(
-            strict=args.strict_data_quality,
-            max_systematic_gaps=args.max_gap_days,
-        )
         try:
             result = run_backtest(
                 args.database_url,
                 strategy_config_path=Path(args.strategy_config),
                 start_date=args.start_date,
                 end_date=args.end_date,
-                gap_detection=gap_detection,
             )
         except Exception as exc:
             print(f"Failed to run backtest in {args.database_url}: {exc}", file=sys.stderr)
@@ -457,7 +440,6 @@ def run_backtest(
     strategy_config_path: Path,
     start_date: date,
     end_date: date,
-    gap_detection: BacktestGapDetectionConfig | None = None,
 ) -> BacktestRunResult:
     engine = create_engine_from_url(database_url)
     session_factory = create_session_factory(engine)
@@ -468,7 +450,6 @@ def run_backtest(
             config=config,
             start_date=start_date,
             end_date=end_date,
-            gap_detection=gap_detection,
         )
 
 

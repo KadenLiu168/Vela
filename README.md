@@ -170,8 +170,11 @@ Run a backtest over the signal history:
 
 ```bash
 uv run vela run-backtest
-uv run vela run-backtest --strict-data-quality --max-gap-days 5
 ```
+
+Backtests require complete local `TradingCalendar` sessions and active-universe prices for
+the requested interval and exact strategy lookback; missing required data fails before any
+backtest result is persisted.
 
 Export the latest signal or a backtest run as a readable report:
 

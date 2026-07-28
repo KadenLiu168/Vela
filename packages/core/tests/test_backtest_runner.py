@@ -10,7 +10,7 @@ import pytest
 import vela_core.backtest_runner as runner
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import BacktestGapDetectionConfig, BacktestRunResult, run_backtest
+from vela_core import BacktestRunResult, run_backtest
 from vela_core.database import managed_session
 from vela_core.models import (
     BacktestEquityCurve,
@@ -297,6 +297,25 @@ def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
         "generate_historical_strategy_signals",
         fake_generate_historical_strategy_signals,
     )
+    monkeypatch.setattr(
+        runner,
+        "_load_trading_dates",
+        lambda session, *, start_date, end_date: list(
+            session.scalars(
+                runner.select(MarketPrice.trade_date)
+                .where(MarketPrice.trade_date >= start_date)
+                .where(MarketPrice.trade_date <= end_date)
+                .distinct()
+                .order_by(MarketPrice.trade_date)
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_load_required_trading_dates",
+        lambda session, *, trading_dates, first_rebalance_date, lookback_days: trading_dates,
+    )
+    monkeypatch.setattr(runner, "_validate_required_prices", lambda **_kwargs: None)
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
@@ -408,29 +427,153 @@ def test_run_backtest_missing_signal_id_rolls_back_all_persisted_rows(
         assert session.query(StrategySignal).count() == 0
 
 
-def test_run_backtest_uses_distinct_ordered_local_market_dates(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_load_trading_dates_uses_ordered_calendar_not_market_price_union() -> None:
     session_factory = _create_session_factory()
-    captured_dates: list[date] = []
 
     with session_factory() as session:
-        first = _add_etf(session, symbol="AAA")
-        second = _add_etf(session, symbol="BBB")
-        _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 3), close_price=100)
-        _add_price(session, etf_id=second.id, trade_date=date(2026, 1, 3), close_price=100)
-        _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 1), close_price=100)
+        etf = _add_etf(session)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=100)
+        _add_calendar(session, date(2026, 1, 1))
+        _add_calendar(session, date(2026, 1, 2))
         session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=first.id, captured_dates=captured_dates)
 
-        run_backtest(
+        trading_dates = runner._load_trading_dates(
             session,
-            config=_strategy_config(),
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 3),
         )
 
-    assert captured_dates == [date(2026, 1, 1), date(2026, 1, 3)]
+    assert trading_dates == [date(2026, 1, 1), date(2026, 1, 2)]
+
+
+def test_load_required_trading_dates_uses_exact_preceding_calendar_sessions() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        for trade_date in [
+            date(2025, 12, 30),
+            date(2025, 12, 31),
+            date(2026, 1, 2),
+            date(2026, 1, 5),
+        ]:
+            _add_calendar(session, trade_date)
+        session.commit()
+
+        required_dates = runner._load_required_trading_dates(
+            session,
+            trading_dates=[date(2026, 1, 2), date(2026, 1, 5)],
+            first_rebalance_date=date(2026, 1, 2),
+            lookback_days=1,
+        )
+
+    assert required_dates == [date(2025, 12, 31), date(2026, 1, 2), date(2026, 1, 5)]
+
+
+def test_load_required_trading_dates_does_not_require_history_before_requested_sessions() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        for trade_date in [
+            date(2025, 12, 30),
+            date(2025, 12, 31),
+            date(2026, 1, 2),
+            date(2026, 1, 5),
+        ]:
+            _add_calendar(session, trade_date)
+        session.commit()
+
+        required_dates = runner._load_required_trading_dates(
+            session,
+            trading_dates=[date(2026, 1, 2), date(2026, 1, 5)],
+            first_rebalance_date=date(2026, 1, 5),
+            lookback_days=1,
+        )
+
+    assert required_dates == [date(2026, 1, 2), date(2026, 1, 5)]
+
+
+def test_load_required_trading_dates_rejects_insufficient_calendar_lookback() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        _add_calendar(session, date(2026, 1, 2))
+        session.commit()
+
+        with pytest.raises(ValueError, match="requires 1 preceding official session"):
+            runner._load_required_trading_dates(
+                session,
+                trading_dates=[date(2026, 1, 2)],
+                first_rebalance_date=date(2026, 1, 2),
+                lookback_days=1,
+            )
+
+
+def test_run_backtest_rejects_required_price_gap_before_any_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    class ZeroLookbackStrategy:
+        def lookback_days(self) -> int:
+            return 0
+
+    with session_factory() as session:
+        complete = _add_etf(session, symbol="AAA")
+        missing = _add_etf(session, symbol="BBB")
+        for trade_date in [date(2026, 1, 1), date(2026, 1, 2)]:
+            _add_calendar(session, trade_date)
+            _add_price(session, etf_id=complete.id, trade_date=trade_date, close_price=100)
+        _add_price(session, etf_id=missing.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        monkeypatch.setattr(runner, "resolve_strategy", lambda config: ZeroLookbackStrategy())
+
+        with pytest.raises(ValueError, match=r"ETF 2 on 2026-01-02"):
+            run_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 2),
+            )
+
+        assert session.query(StrategySignal).count() == 0
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+
+
+def test_validate_required_prices_applies_inception_boundary_without_first_price_exemption() -> (
+    None
+):
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        etf.inception_date = date(2026, 1, 2)
+        session.flush()
+        price_panel = {
+            etf.id: [
+                _price_row(
+                    etf_id=etf.id,
+                    trade_date=date(2026, 1, 2),
+                    close_price=Decimal("100"),
+                    factor_hfq=Decimal("1"),
+                )
+            ]
+        }
+
+        runner._validate_required_prices(
+            active_etfs=[etf],
+            required_dates=[date(2026, 1, 1), date(2026, 1, 2)],
+            price_panel=price_panel,
+        )
+
+        etf.inception_date = None
+        with pytest.raises(ValueError, match="2026-01-01"):
+            runner._validate_required_prices(
+                active_etfs=[etf],
+                required_dates=[date(2026, 1, 1), date(2026, 1, 2)],
+                price_panel=price_panel,
+            )
 
 
 def test_run_backtest_persists_empty_holdings_as_cash(
@@ -463,11 +606,11 @@ def test_run_backtest_persists_empty_holdings_as_cash(
     assert row.positions_json == "[]"
 
 
-def test_run_backtest_fails_without_local_market_dates() -> None:
+def test_run_backtest_fails_without_requested_trading_calendar_sessions() -> None:
     session_factory = _create_session_factory()
 
     with session_factory() as session:
-        with pytest.raises(ValueError, match="No local market prices"):
+        with pytest.raises(ValueError, match="Trading calendar has no official sessions"):
             run_backtest(
                 session,
                 config=_strategy_config(),
@@ -490,6 +633,7 @@ def test_run_backtest_rejects_negative_strategy_lookback_before_persistence(
     with session_factory() as session:
         etf = _add_etf(session)
         _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_calendar(session, date(2026, 1, 1))
         session.commit()
         monkeypatch.setattr(runner, "resolve_strategy", lambda config: NegativeLookbackStrategy())
 
@@ -504,11 +648,10 @@ def test_run_backtest_rejects_negative_strategy_lookback_before_persistence(
         assert session.query(BacktestRun).count() == 0
 
 
-@pytest.mark.parametrize(("lookback_days", "calendar_buffer_days"), [(0, 10), (126, 262)])
-def test_run_backtest_sizes_price_panel_from_resolved_strategy_lookback(
+@pytest.mark.parametrize("lookback_days", [0, 126])
+def test_run_backtest_loads_price_panel_from_exact_required_session_start(
     monkeypatch: pytest.MonkeyPatch,
     lookback_days: int,
-    calendar_buffer_days: int,
 ) -> None:
     session_factory = _create_session_factory()
     captured_start_dates: list[date] = []
@@ -530,6 +673,14 @@ def test_run_backtest_sizes_price_panel_from_resolved_strategy_lookback(
         _patch_runner_helpers(monkeypatch, etf_id=etf.id)
         monkeypatch.setattr(runner, "resolve_strategy", lambda config: StrategyWithLookback())
         monkeypatch.setattr(runner, "load_price_panel", fake_load_price_panel)
+        required_start = signal_date - timedelta(days=lookback_days)
+        monkeypatch.setattr(
+            runner,
+            "_load_required_trading_dates",
+            lambda session, *, trading_dates, first_rebalance_date, lookback_days: (
+                [required_start, *trading_dates] if lookback_days else trading_dates
+            ),
+        )
 
         run_backtest(
             session,
@@ -538,7 +689,7 @@ def test_run_backtest_sizes_price_panel_from_resolved_strategy_lookback(
             end_date=signal_date,
         )
 
-    assert captured_start_dates == [signal_date - timedelta(days=calendar_buffer_days)]
+    assert captured_start_dates == [signal_date - timedelta(days=lookback_days)]
 
 
 def test_backtest_runner_has_no_concrete_strategy_dependency() -> None:
@@ -745,6 +896,26 @@ def _patch_runner_helpers(
     captured_panels: list[dict[int, list[Any]]] | None = None,
     captured_curve_panels: list[dict[int, list[Any]]] | None = None,
 ) -> None:
+    monkeypatch.setattr(
+        runner,
+        "_load_trading_dates",
+        lambda session, *, start_date, end_date: list(
+            session.scalars(
+                runner.select(MarketPrice.trade_date)
+                .where(MarketPrice.trade_date >= start_date)
+                .where(MarketPrice.trade_date <= end_date)
+                .distinct()
+                .order_by(MarketPrice.trade_date)
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "_load_required_trading_dates",
+        lambda session, *, trading_dates, first_rebalance_date, lookback_days: trading_dates,
+    )
+    monkeypatch.setattr(runner, "_validate_required_prices", lambda **_kwargs: None)
+
     def fake_generate_historical_strategy_signals(
         *,
         historical_trading_dates: Iterable[date],
@@ -984,159 +1155,3 @@ def _add_price(
 
 def _add_calendar(session: Session, trade_date: date) -> None:
     session.add(TradingCalendar(trade_date=trade_date, source="akshare"))
-
-
-def test_run_backtest_warns_about_systematic_gap_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
-        _add_calendar(session, date(2026, 1, 1))
-        _add_calendar(session, date(2026, 1, 2))
-        _add_calendar(session, date(2026, 1, 3))
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
-
-        result = run_backtest(
-            session,
-            config=_strategy_config(),
-            start_date=date(2026, 1, 1),
-            end_date=date(2026, 1, 3),
-        )
-        session.commit()
-
-    assert result.status == "success"
-
-
-def test_run_backtest_strict_raises_when_systematic_gaps_exceed_threshold(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
-        _add_calendar(session, date(2026, 1, 1))
-        _add_calendar(session, date(2026, 1, 2))
-        _add_calendar(session, date(2026, 1, 3))
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
-
-        with pytest.raises(ValueError, match="Strict data-quality check failed"):
-            run_backtest(
-                session,
-                config=_strategy_config(),
-                start_date=date(2026, 1, 1),
-                end_date=date(2026, 1, 3),
-                gap_detection=BacktestGapDetectionConfig(strict=True, max_systematic_gaps=0),
-            )
-
-        assert session.query(BacktestRun).count() == 0
-
-
-def test_run_backtest_strict_tolerates_gaps_within_threshold(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
-        _add_calendar(session, date(2026, 1, 1))
-        _add_calendar(session, date(2026, 1, 2))
-        _add_calendar(session, date(2026, 1, 3))
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
-
-        result = run_backtest(
-            session,
-            config=_strategy_config(),
-            start_date=date(2026, 1, 1),
-            end_date=date(2026, 1, 3),
-            gap_detection=BacktestGapDetectionConfig(strict=True, max_systematic_gaps=5),
-        )
-        session.commit()
-
-    assert result.status == "success"
-
-
-def test_run_backtest_strict_never_fails_on_per_etf_gaps_only(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        first = _add_etf(session, symbol="AAA")
-        second = _add_etf(session, symbol="BBB")
-        _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 2), close_price=100)
-        _add_price(session, etf_id=first.id, trade_date=date(2026, 1, 3), close_price=100)
-        _add_price(session, etf_id=second.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=second.id, trade_date=date(2026, 1, 3), close_price=100)
-        _add_calendar(session, date(2026, 1, 1))
-        _add_calendar(session, date(2026, 1, 2))
-        _add_calendar(session, date(2026, 1, 3))
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=first.id, holdings=[])
-
-        result = run_backtest(
-            session,
-            config=_strategy_config(),
-            start_date=date(2026, 1, 1),
-            end_date=date(2026, 1, 3),
-            gap_detection=BacktestGapDetectionConfig(strict=True, max_systematic_gaps=0),
-        )
-        session.commit()
-
-    assert result.status == "success"
-
-
-def test_run_backtest_warns_and_proceeds_when_calendar_empty(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
-
-        result = run_backtest(
-            session,
-            config=_strategy_config(),
-            start_date=date(2026, 1, 1),
-            end_date=date(2026, 1, 3),
-        )
-        session.commit()
-
-    assert result.status == "success"
-
-
-def test_run_backtest_strict_refuses_without_calendar(monkeypatch: pytest.MonkeyPatch) -> None:
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
-        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
-        session.commit()
-        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
-
-        with pytest.raises(ValueError, match="synced trading calendar"):
-            run_backtest(
-                session,
-                config=_strategy_config(),
-                start_date=date(2026, 1, 1),
-                end_date=date(2026, 1, 3),
-                gap_detection=BacktestGapDetectionConfig(strict=True, max_systematic_gaps=5),
-            )
-
-        assert session.query(BacktestRun).count() == 0

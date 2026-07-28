@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
 from vela_api.main import app
 from vela_core.database import DEFAULT_DATABASE_URL
-from vela_core.models import BacktestEquityCurve, BacktestRun, MarketPrice, StrategySignal
+from vela_core.models import (
+    BacktestEquityCurve,
+    BacktestRun,
+    MarketPrice,
+    StrategySignal,
+    TradingCalendar,
+)
 from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 from tests.integration_data import (
@@ -610,6 +616,10 @@ def _add_price_history(
         for offset in range(total_days + 1)
         for close_price in [Decimal("100.000000") + daily_step * Decimal(offset)]
     )
+    for offset in range(total_days + 1):
+        trade_date = first_history_date + timedelta(days=offset)
+        if session.get(TradingCalendar, trade_date) is None:
+            session.add(TradingCalendar(trade_date=trade_date, source="test"))
 
 
 def _seed_backtest_run_with_signals(
