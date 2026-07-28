@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from math import sqrt
 
 import pytest
 import vela_core.strategy_equity_curve as equity_curve_module
@@ -752,6 +753,70 @@ def test_calculate_strategy_annualized_return_uses_calendar_day_span() -> None:
         total_return=Decimal("0.100000"),
         annualized_return=Decimal("0.100000"),
     )
+
+
+def test_performance_metrics_keep_calendar_cagr_and_daily_return_sharpe_contracts() -> None:
+    # The effective daily returns compound to 1.025049 over a 365-calendar-day
+    # curve.  CAGR is therefore 0.025049, while the 252D Sharpe numerator is
+    # the annualized arithmetic excess return, not CAGR minus the risk-free rate.
+    risk_free_rate = Decimal("0.0126")
+    effective_returns = [Decimal("0.010000"), Decimal("-0.005000"), Decimal("0.020000")]
+    points = [
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 1, 1),
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal("0.000000"),
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 4, 1),
+            net_value=Decimal("1.010000"),
+            daily_return=effective_returns[0],
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2026, 8, 1),
+            net_value=Decimal("1.004950"),
+            daily_return=effective_returns[1],
+        ),
+        StrategyEquityCurvePoint(
+            trade_date=date(2027, 1, 1),
+            net_value=Decimal("1.025049"),
+            daily_return=effective_returns[2],
+        ),
+    ]
+
+    annualized_return = calculate_strategy_annualized_return(points)
+    volatility = calculate_strategy_volatility(points)
+    sharpe_ratio = calculate_strategy_sharpe_ratio(points, risk_free_rate=risk_free_rate)
+
+    assert annualized_return == StrategyAnnualizedReturn(
+        total_return=Decimal("0.025049"),
+        annualized_return=Decimal("0.025049"),
+    )
+    assert volatility == StrategyVolatility(volatility=Decimal("0.163095"))
+    assert sharpe_ratio == StrategySharpeRatio(sharpe_ratio=Decimal("12.798671"))
+
+    daily_risk_free_rate = risk_free_rate / Decimal("252")
+    mean_excess_return = sum(
+        (daily_return - daily_risk_free_rate for daily_return in effective_returns), Decimal("0")
+    ) / Decimal(len(effective_returns))
+    mean_return = sum(effective_returns, Decimal("0")) / Decimal(len(effective_returns))
+    population_variance = sum(
+        ((daily_return - mean_return) ** 2 for daily_return in effective_returns), Decimal("0")
+    ) / Decimal(len(effective_returns))
+    annualized_arithmetic_excess_return = mean_excess_return * Decimal("252")
+    unquantized_annualized_volatility = Decimal(str(sqrt(float(population_variance)) * sqrt(252)))
+    reconstructed_sharpe = (
+        annualized_arithmetic_excess_return / unquantized_annualized_volatility
+    ).quantize(Decimal("0.000001"))
+    cagr_based_ratio = (
+        (annualized_return.annualized_return - risk_free_rate) / unquantized_annualized_volatility
+    ).quantize(Decimal("0.000001"))
+
+    assert annualized_arithmetic_excess_return == Decimal("2.087400000000000000000000000")
+    assert reconstructed_sharpe == Decimal("12.798671")
+    assert reconstructed_sharpe == sharpe_ratio.sharpe_ratio
+    assert cagr_based_ratio == Decimal("0.076330")
+    assert cagr_based_ratio != sharpe_ratio.sharpe_ratio
 
 
 def test_calculate_strategy_annualized_return_returns_zero_for_flat_curve() -> None:

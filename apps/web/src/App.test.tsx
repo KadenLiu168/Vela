@@ -88,6 +88,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("success")).toBeInTheDocument();
   expect(backtest.getByText("12.00%")).toBeInTheDocument();
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
+  expect(backtest.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
   expect(backtest.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
@@ -1183,6 +1184,9 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
   expect(operations.getByText("-5.00%")).toBeInTheDocument();
   expect(operations.getByText("20.00%")).toBeInTheDocument();
   expect(operations.getByText("1.100000")).toBeInTheDocument();
+  expect(operations.getByText("CAGR (calendar-time)")).toBeInTheDocument();
+  expect(operations.getByText("Annualized volatility (252D)")).toBeInTheDocument();
+  expect(operations.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
   expect(operations.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
     "/backtests/8"
@@ -1727,13 +1731,13 @@ it("loads backtest detail data through the shared client", async () => {
   const metrics = within(metricsSection as HTMLElement);
   expect(metrics.getByText("Total return")).toBeInTheDocument();
   expect(metrics.getByText("12.00%")).toBeInTheDocument();
-  expect(metrics.getByText("Annualized return")).toBeInTheDocument();
+  expect(metrics.getByText("CAGR (calendar-time)")).toBeInTheDocument();
   expect(metrics.getByText("144.00%")).toBeInTheDocument();
   expect(metrics.getByText("Max drawdown")).toBeInTheDocument();
   expect(metrics.getByText("-5.00%")).toBeInTheDocument();
-  expect(metrics.getByText("Volatility")).toBeInTheDocument();
+  expect(metrics.getByText("Annualized volatility (252D)")).toBeInTheDocument();
   expect(metrics.getByText("20.00%")).toBeInTheDocument();
-  expect(metrics.getByText("Sharpe ratio")).toBeInTheDocument();
+  expect(metrics.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
   expect(metrics.getByText("1.10")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: "Signals (2)" }));
   const signalsSection = (await screen.findByRole("columnheader", { name: "Signal #" })).closest("section");
@@ -2328,7 +2332,7 @@ function createDashboardResponse(): DashboardResponse {
           ]
         }
       },
-      costs: { transaction_cost_bps: 5 },
+      costs: { transaction_cost_bps: 10 },
       performance: { risk_free_rate: 0.02 },
       rebalance: { frequency: "weekly" }
     },

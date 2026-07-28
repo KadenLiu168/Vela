@@ -211,12 +211,12 @@ function renderBacktestDetail(
         <dl className="metric-card-grid">
           <MetricCard label="Total return" value={formatRatioAsPercent(metrics.total_return)} />
           <MetricCard
-            label="Annualized return"
+            label="CAGR (calendar-time)"
             value={formatRatioAsPercent(metrics.annualized_return)}
           />
           <MetricCard label="Max drawdown" value={formatRatioAsPercent(metrics.max_drawdown)} />
-          <MetricCard label="Volatility" value={formatRatioAsPercent(metrics.volatility)} />
-          <MetricCard label="Sharpe ratio" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
+          <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(metrics.volatility)} />
+          <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
         </dl>
       </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">

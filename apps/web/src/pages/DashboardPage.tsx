@@ -585,10 +585,10 @@ function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
         <DescriptionItem label="Trading days" value={formatInteger(result.trading_day_count)} />
         <DescriptionItem label="Signals" value={formatInteger(result.signal_count)} />
         <DescriptionItem label="Total return" value={formatRatioAsPercent(result.total_return)} />
-        <DescriptionItem label="Annualized return" value={formatRatioAsPercent(result.annualized_return)} />
+        <DescriptionItem label="CAGR (calendar-time)" value={formatRatioAsPercent(result.annualized_return)} />
         <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(result.max_drawdown)} />
-        <DescriptionItem label="Volatility" value={formatRatioAsPercent(result.volatility)} />
-        <DescriptionItem label="Sharpe" value={formatNullableText(result.sharpe_ratio)} />
+        <DescriptionItem label="Annualized volatility (252D)" value={formatRatioAsPercent(result.volatility)} />
+        <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(result.sharpe_ratio)} />
       </dl>
       <a className="operation-link" href={`/backtests/${result.run_id}`}>
         View backtest detail
@@ -730,7 +730,7 @@ function BacktestSummary({
         <DescriptionItem label="Status" value={backtest.status} />
         <DescriptionItem label="Total return" value={formatRatioAsPercent(backtest.total_return)} />
         <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
-        <DescriptionItem label="Sharpe" value={formatNullableText(backtest.sharpe_ratio)} />
+        <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(backtest.sharpe_ratio)} />
       </dl>
       <a className="operation-link" href={`/backtests/${backtest.run_id}`}>
         View backtest detail
