@@ -1,5 +1,6 @@
 from datetime import date
 
+import vela_core.market_data_fetcher as market_data_fetcher
 from fastapi.testclient import TestClient
 from vela_api.database import initialize_database
 from vela_api.main import app, get_market_data_provider
@@ -15,7 +16,9 @@ from tests.integration_data import (
 )
 
 
-def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(tmp_path) -> None:
+def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(
+    tmp_path, monkeypatch
+) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'market-data.db'}"
     session_factory = prepare_sqlite_database(database_url)
     provider = ControlledMarketDataProvider(
@@ -25,6 +28,7 @@ def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(tmp_pa
         spy = add_etf(session, symbol="SPY")
         add_market_price(session, etf_id=spy.id, trade_date=date(2026, 6, 17))
         session.commit()
+    monkeypatch.setattr(market_data_fetcher, "_today", lambda: date(2026, 6, 18))
 
     try:
         initialize_database(app, database_url=database_url)
@@ -45,7 +49,7 @@ def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(tmp_pa
         "failed_symbols": [],
         "error_message": None,
     }
-    assert provider.requests == [("SPY", date(2026, 6, 17))]
+    assert provider.requests == [("SPY", date(2026, 6, 17), date(2026, 6, 18))]
 
     with session_factory() as session:
         prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
@@ -59,7 +63,7 @@ def test_market_data_fetch_endpoint_runs_incremental_workflow_with_sqlite(tmp_pa
     assert log.rows_updated == 0
 
 
-def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
+def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path, monkeypatch) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'market-data-dashboard-loop.db'}"
     session_factory = prepare_sqlite_database(database_url)
     provider = ControlledMarketDataProvider(
@@ -69,6 +73,7 @@ def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
         spy = add_etf(session, symbol="SPY")
         add_market_price(session, etf_id=spy.id, trade_date=date(2026, 6, 17))
         session.commit()
+    monkeypatch.setattr(market_data_fetcher, "_today", lambda: date(2026, 6, 18))
 
     try:
         initialize_database(app, database_url=database_url)
@@ -91,7 +96,7 @@ def test_market_data_fetch_endpoint_updates_dashboard_summary(tmp_path) -> None:
         "failed_symbols": [],
         "error_message": None,
     }
-    assert provider.requests == [("SPY", date(2026, 6, 17))]
+    assert provider.requests == [("SPY", date(2026, 6, 17), date(2026, 6, 18))]
 
     with session_factory() as session:
         prices = session.query(MarketPrice).order_by(MarketPrice.trade_date).all()
@@ -166,7 +171,7 @@ def test_market_data_fetch_endpoint_runs_full_workflow(tmp_path) -> None:
         "failed_symbols": [],
         "error_message": None,
     }
-    assert provider.requests == [("SPY", None)]
+    assert provider.requests == [("SPY", None, None)]
 
 
 def test_market_data_fetch_endpoint_rejects_invalid_mode(tmp_path) -> None:

@@ -521,7 +521,9 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
                 "cash": "100.000000",
                 "market_value": "9900.000000",
                 "total_assets": "10000.000000",
-                "positions_json": '[{"symbol": "510300", "weight": 1.0}]',
+                "positions_json": (
+                    '[{"actual_weight": "1.000000", "etf_id": 1, "target_weight": "1.000000"}]'
+                ),
             },
             {
                 "trade_date": "2026-01-03",
@@ -529,7 +531,9 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
                 "cash": "100.000000",
                 "market_value": "9900.000000",
                 "total_assets": "10000.000000",
-                "positions_json": '[{"symbol": "510300", "weight": 1.0}]',
+                "positions_json": (
+                    '[{"actual_weight": "1.000000", "etf_id": 1, "target_weight": "1.000000"}]'
+                ),
             },
         ],
         "signal_ids": [],

@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import DailyPrice
+from vela_core import DailyPrice, ETFConfig, ETFPoolConfig
 from vela_core.database import DEFAULT_DATABASE_URL, create_engine_from_url, create_session_factory
 from vela_core.models import (
     BacktestEquityCurve,
@@ -21,6 +21,7 @@ from vela_core.models import (
     StrategySignalPosition,
     TradingCalendar,
 )
+from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class ControlledMarketDataProvider:
 
     def __init__(self, prices_by_symbol: dict[str, Sequence[DailyPrice]]) -> None:
         self._prices_by_symbol = prices_by_symbol
-        self.requests: list[tuple[str, date | None]] = []
+        self.requests: list[tuple[str, date | None, date | None]] = []
 
     def get_etf_daily_prices(
         self,
@@ -47,8 +48,113 @@ class ControlledMarketDataProvider:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
-        self.requests.append((symbol, start_date))
-        return self._prices_by_symbol.get(symbol, ())
+        self.requests.append((symbol, start_date, end_date))
+        return tuple(
+            price
+            for price in self._prices_by_symbol.get(symbol, ())
+            if (start_date is None or price.trade_date >= start_date)
+            and (end_date is None or price.trade_date <= end_date)
+        )
+
+
+def canonical_workflow_sessions() -> list[date]:
+    sessions: list[date] = []
+    candidate = date(2026, 1, 2)
+    while len(sessions) < 75:
+        if candidate.weekday() < 5:
+            sessions.append(candidate)
+        candidate += timedelta(days=1)
+    return sessions
+
+
+def canonical_etf_pool() -> ETFPoolConfig:
+    return ETFPoolConfig(
+        pool_id="canonical-contract-test",
+        version=1,
+        provider="controlled",
+        currency="CNY",
+        etfs=[
+            ETFConfig(
+                exchange="SSE",
+                symbol="510300",
+                name="Strong risk ETF",
+                category="risk",
+            ),
+            ETFConfig(
+                exchange="SZSE",
+                symbol="159915",
+                name="Unselected risk ETF",
+                category="risk",
+            ),
+            ETFConfig(
+                exchange="SSE",
+                symbol="511010",
+                name="Defensive ETF",
+                category="defense",
+            ),
+        ],
+    )
+
+
+def canonical_strategy_config() -> StrategyConfig:
+    return validate_strategy_config(
+        {
+            "strategy_id": "canonical_dual_momentum",
+            "version": "test-v1",
+            "type": "dual_momentum",
+            "universe_config": "canonical-contract-test.yaml",
+            "rebalance": {"frequency": "weekly"},
+            "parameters": {
+                "momentum": {"short_window_days": 2, "long_window_days": 4},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 60, "price_relation": "above"},
+                "selection": {"top_n": 1},
+                "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
+            },
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.03},
+        }
+    )
+
+
+def canonical_provider_prices(sessions: Sequence[date]) -> dict[str, Sequence[DailyPrice]]:
+    def prices(
+        symbol: str, *, first_close: Decimal, step: Decimal, factor: Decimal
+    ) -> list[DailyPrice]:
+        return [
+            DailyPrice(
+                symbol=symbol,
+                trade_date=trade_date,
+                open_price=first_close + step * index,
+                high_price=first_close + step * index,
+                low_price=first_close + step * index,
+                close_price=first_close + step * index,
+                factor=factor,
+                volume=2000,
+            )
+            for index, trade_date in enumerate(sessions)
+        ]
+
+    return {
+        "510300": prices(
+            "510300",
+            first_close=Decimal("100.000000"),
+            step=Decimal("1.000000"),
+            factor=Decimal("1"),
+        ),
+        "159915": prices(
+            "159915",
+            first_close=Decimal("100.000000"),
+            step=Decimal("0"),
+            factor=Decimal("1.234567"),
+        ),
+        "511010": prices(
+            "511010",
+            first_close=Decimal("100.000000"),
+            step=Decimal("0.100000"),
+            factor=Decimal("1"),
+        ),
+    }
 
 
 def prepare_sqlite_database(database_url: str, *, reset: bool = True) -> sessionmaker[Session]:
@@ -265,7 +371,9 @@ def equity_curve_row(
         cash=Decimal("100.000000"),
         market_value=Decimal("9900.000000"),
         total_assets=Decimal("10000.000000"),
-        positions_json='[{"symbol": "510300", "weight": 1.0}]',
+        positions_json=(
+            '[{"actual_weight": "1.000000", "etf_id": 1, "target_weight": "1.000000"}]'
+        ),
     )
 
 
