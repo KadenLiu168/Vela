@@ -1,3 +1,4 @@
+from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -7,7 +8,7 @@ from typing import Protocol, TypedDict
 from vela_core.models import ETFInfo, MarketPrice
 from vela_core.rebalance_dates import generate_rebalance_dates
 from vela_core.strategies.registry import resolve_strategy
-from vela_core.strategies.types import GeneratedSignalPosition, StrategyGenerationError
+from vela_core.strategies.types import GeneratedSignalPosition, Strategy, StrategyGenerationError
 from vela_core.strategy_config import StrategyConfig
 
 
@@ -54,8 +55,31 @@ def generate_strategy_signal(
     generated_at = generated_at or datetime.now(UTC)
     if not active_etfs:
         return _failed_result(signal_date, config, "No active ETFs found", generated_at, persist)
+    return _generate_strategy_signal(
+        signal_date=signal_date,
+        config=config,
+        strategy=resolve_strategy(config),
+        price_panel=price_panel,
+        active_etfs=active_etfs,
+        generated_at=generated_at,
+        persist=persist,
+    )
+
+
+def _generate_strategy_signal(
+    *,
+    signal_date: date,
+    config: StrategyConfig,
+    strategy: Strategy,
+    price_panel: dict[int, list[MarketPrice]],
+    active_etfs: list[ETFInfo],
+    generated_at: datetime,
+    persist: PersistStrategySignalCallable | None,
+) -> GenerateStrategySignalResult:
+    if not active_etfs:
+        return _failed_result(signal_date, config, "No active ETFs found", generated_at, persist)
     try:
-        positions = resolve_strategy(config).generate_signal(
+        positions = strategy.generate_signal(
             signal_date=signal_date, price_panel=price_panel, active_etfs=active_etfs
         )
     except StrategyGenerationError as exc:
@@ -72,22 +96,38 @@ def generate_historical_strategy_signals(
     generated_at: datetime | None = None,
     persist: PersistStrategySignalCallable | None = None,
 ) -> list[GenerateStrategySignalResult]:
+    rebalance_dates = generate_rebalance_dates(
+        historical_trading_dates, frequency=config.rebalance.frequency
+    )
+    if not rebalance_dates:
+        return []
+
+    strategy = resolve_strategy(config)
+    lookback_days = strategy.lookback_days()
+    if lookback_days < 0:
+        raise ValueError("Strategy lookback_days() must be non-negative")
+
+    etfs_by_id = {etf.id: etf for etf in active_etfs}
+    price_dates = {
+        etf_id: [price.trade_date for price in prices] for etf_id, prices in price_panel.items()
+    }
+    for etf_id, dates in price_dates.items():
+        if any(previous > current for previous, current in zip(dates, dates[1:], strict=False)):
+            raise ValueError(f"Price series for ETF {etf_id} must be ascending by trade_date")
+
+    generated_at = generated_at or datetime.now(UTC)
     return [
-        generate_strategy_signal(
+        _generate_strategy_signal(
             signal_date=rebalance_date,
             config=config,
-            price_panel={
-                etf_id: [
-                    price
-                    for price in prices
-                    if price.trade_date <= rebalance_date
-                    and (etf.inception_date is None or price.trade_date >= etf.inception_date)
-                ]
-                for etf_id, prices in price_panel.items()
-                for etf in active_etfs
-                if etf.id == etf_id
-                and (etf.inception_date is None or etf.inception_date <= rebalance_date)
-            },
+            strategy=strategy,
+            price_panel=_historical_price_window(
+                rebalance_date=rebalance_date,
+                lookback_days=lookback_days,
+                price_panel=price_panel,
+                price_dates=price_dates,
+                etfs_by_id=etfs_by_id,
+            ),
             active_etfs=[
                 etf
                 for etf in active_etfs
@@ -96,10 +136,32 @@ def generate_historical_strategy_signals(
             generated_at=generated_at,
             persist=persist,
         )
-        for rebalance_date in generate_rebalance_dates(
-            historical_trading_dates, frequency=config.rebalance.frequency
-        )
+        for rebalance_date in rebalance_dates
     ]
+
+
+def _historical_price_window(
+    *,
+    rebalance_date: date,
+    lookback_days: int,
+    price_panel: dict[int, list[MarketPrice]],
+    price_dates: dict[int, list[date]],
+    etfs_by_id: dict[int, ETFInfo],
+) -> dict[int, list[MarketPrice]]:
+    window_size = lookback_days + 1
+    windows: dict[int, list[MarketPrice]] = {}
+    for etf_id, prices in price_panel.items():
+        etf = etfs_by_id.get(etf_id)
+        if etf is None or (etf.inception_date is not None and etf.inception_date > rebalance_date):
+            continue
+        dates = price_dates[etf_id]
+        end = bisect_right(dates, rebalance_date)
+        inception_start = (
+            0 if etf.inception_date is None else bisect_left(dates, etf.inception_date)
+        )
+        start = max(inception_start, end - window_size)
+        windows[etf_id] = prices[start:end]
+    return windows
 
 
 def _success_result(

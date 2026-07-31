@@ -32,16 +32,19 @@ class DualMomentumStrategy:
     ) -> list[GeneratedSignalPosition]:
         etfs_by_id = {etf.id: etf for etf in active_etfs}
         defense_lookup = {(etf.exchange, etf.symbol): etf for etf in active_etfs}
+        prepared_prices = {
+            etf.id: _prices_through(price_panel.get(etf.id, []), signal_date) for etf in active_etfs
+        }
         eligible_scores = [
             _momentum_score_from_prices(
-                _prices_through(price_panel.get(etf.id, []), signal_date),
+                prepared_prices[etf.id],
                 etf_id=etf.id,
                 as_of_date=signal_date,
                 parameters=self._parameters,
             )
             for etf in active_etfs
             if _trend_filter_from_prices(
-                _prices_through(price_panel.get(etf.id, []), signal_date),
+                prepared_prices[etf.id],
                 etf_id=etf.id,
                 as_of_date=signal_date,
                 parameters=self._parameters,

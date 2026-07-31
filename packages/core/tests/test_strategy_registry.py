@@ -2,13 +2,16 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+import vela_core.strategies.dual_momentum as dual_momentum
 import vela_core.strategy_signal_generation as generation
 from vela_core.models import ETFInfo, MarketPrice
+from vela_core.momentum_scoring import MomentumScore
 from vela_core.strategies.dual_momentum import DualMomentumStrategy
 from vela_core.strategies.equal_weight import EqualWeightStrategy
 from vela_core.strategies.registry import STRATEGY_FACTORIES, resolve_strategy
 from vela_core.strategies.types import StrategyGenerationError
 from vela_core.strategy_config import validate_strategy_config
+from vela_core.trend_filter import TrendFilterResult
 
 
 def test_registry_binds_validated_variant_parameters() -> None:
@@ -110,8 +113,125 @@ def test_historical_generation_hides_future_prices_from_bound_strategy(
 
     assert observed_dates == [
         (first_date, [first_date]),
-        (second_date, [first_date, second_date]),
+        (second_date, [second_date]),
     ]
+
+
+def test_historical_generation_resolves_once_and_bounds_each_strategy_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = date(2026, 1, 1)
+    trading_dates = [start.fromordinal(start.toordinal() + offset) for offset in range(15)]
+    observed: list[tuple[date, list[date]]] = []
+    resolutions = 0
+
+    class InspectingStrategy:
+        def lookback_days(self) -> int:
+            return 2
+
+        def generate_signal(self, *, signal_date, price_panel, active_etfs):
+            observed.append((signal_date, [price.trade_date for price in price_panel[1]]))
+            return []
+
+    def _resolve(config):
+        nonlocal resolutions
+        resolutions += 1
+        return InspectingStrategy()
+
+    monkeypatch.setattr(generation, "resolve_strategy", _resolve)
+    results = generation.generate_historical_strategy_signals(
+        historical_trading_dates=trading_dates,
+        config=_equal_config(),
+        price_panel={1: [_price(1, trade_date) for trade_date in trading_dates]},
+        active_etfs=[_etf(1, "A")],
+    )
+
+    assert [result.signal_date for result in results] == [
+        date(2026, 1, 4),
+        date(2026, 1, 11),
+        date(2026, 1, 15),
+    ]
+    assert resolutions == 1
+    assert observed == [
+        (date(2026, 1, 4), [date(2026, 1, 2), date(2026, 1, 3), date(2026, 1, 4)]),
+        (date(2026, 1, 11), [date(2026, 1, 9), date(2026, 1, 10), date(2026, 1, 11)]),
+        (date(2026, 1, 15), [date(2026, 1, 13), date(2026, 1, 14), date(2026, 1, 15)]),
+    ]
+
+
+def test_historical_generation_rejects_unsorted_price_sequences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class InspectingStrategy:
+        def lookback_days(self) -> int:
+            return 0
+
+        def generate_signal(self, **kwargs):
+            return []
+
+    monkeypatch.setattr(generation, "resolve_strategy", lambda config: InspectingStrategy())
+    with pytest.raises(ValueError, match="ascending"):
+        generation.generate_historical_strategy_signals(
+            historical_trading_dates=[date(2026, 1, 1)],
+            config=_equal_config(),
+            price_panel={
+                1: [_price(1, date(2026, 1, 2)), _price(1, date(2026, 1, 1))],
+            },
+            active_etfs=[_etf(1, "A")],
+        )
+
+
+def test_historical_generation_long_history_never_exceeds_declared_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = date(2026, 1, 1)
+    trading_dates = [start.fromordinal(start.toordinal() + offset) for offset in range(366)]
+    supplied_rows = 0
+
+    class InspectingStrategy:
+        def lookback_days(self) -> int:
+            return 5
+
+        def generate_signal(self, *, price_panel, **kwargs):
+            nonlocal supplied_rows
+            supplied_rows += sum(len(prices) for prices in price_panel.values())
+            return []
+
+    monkeypatch.setattr(generation, "resolve_strategy", lambda config: InspectingStrategy())
+    results = generation.generate_historical_strategy_signals(
+        historical_trading_dates=trading_dates,
+        config=_equal_config(),
+        price_panel={
+            1: [_price(1, trade_date) for trade_date in trading_dates],
+            2: [_price(2, trade_date) for trade_date in trading_dates],
+        },
+        active_etfs=[_etf(1, "A"), _etf(2, "B")],
+    )
+
+    assert supplied_rows <= len(results) * 2 * 6
+
+
+def test_dual_momentum_reuses_prepared_series_for_trend_and_momentum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prices = [_price(1, date(2026, 1, 1)), _price(1, date(2026, 1, 2))]
+    seen_series: list[list[MarketPrice]] = []
+
+    def _trend(series, *, etf_id, as_of_date, parameters):
+        seen_series.append(series)
+        return TrendFilterResult(etf_id, as_of_date, Decimal("1"), Decimal("1"), True)
+
+    def _momentum(series, *, etf_id, as_of_date, parameters):
+        seen_series.append(series)
+        return MomentumScore(etf_id, as_of_date, Decimal("0"), Decimal("0"), Decimal("0"))
+
+    monkeypatch.setattr(dual_momentum, "_trend_filter_from_prices", _trend)
+    monkeypatch.setattr(dual_momentum, "_momentum_score_from_prices", _momentum)
+    DualMomentumStrategy(_dual_config().parameters).generate_signal(
+        signal_date=date(2026, 1, 2), price_panel={1: prices}, active_etfs=[_etf(1, "A")]
+    )
+
+    assert seen_series[0] is seen_series[1]
 
 
 def test_historical_generation_excludes_pre_inception_etfs_and_prices(
@@ -152,7 +272,7 @@ def test_historical_generation_excludes_pre_inception_etfs_and_prices(
 
     assert observed == [
         ([1], {1: [first_date]}),
-        ([1, 2], {1: [first_date, second_date], 2: [second_date]}),
+        ([1, 2], {1: [second_date], 2: [second_date]}),
     ]
 
 
