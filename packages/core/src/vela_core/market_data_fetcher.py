@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -21,6 +23,8 @@ from vela_core.market_data_provider import MarketDataProvider
 from vela_core.market_price_mapping import to_market_price
 from vela_core.market_price_upsert import upsert_market_prices
 from vela_core.models import DataFetchLog, ETFInfo, MarketPrice, TradingCalendar
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -78,6 +82,8 @@ def _fetch_market_prices(
     range_start: date | None,
     range_end: date | None,
 ) -> MarketDataFetchResult:
+    started = time.perf_counter()
+    logger.info("market_data.fetch.started provider=%s mode=%s", provider.name, fetch_mode)
     active_etfs = _active_etfs(session)
     requested_symbols = [etf.symbol for etf in active_etfs]
     fetch_log = DataFetchLog(
@@ -105,7 +111,7 @@ def _fetch_market_prices(
             quality_warnings=None,
         )
         session.flush()
-        return MarketDataFetchResult(
+        result = MarketDataFetchResult(
             fetch_log_id=fetch_log.id,
             status="failed",
             requested_symbol_count=len(requested_symbols),
@@ -115,6 +121,8 @@ def _fetch_market_prices(
             error_message=no_baseline_error,
             quality_warnings=None,
         )
+        _log_fetch_completion(result, provider=provider.name, started=started)
+        return result
 
     if not active_etfs:
         no_active_error = "No active ETFs found"
@@ -128,7 +136,7 @@ def _fetch_market_prices(
             quality_warnings=None,
         )
         session.flush()
-        return MarketDataFetchResult(
+        result = MarketDataFetchResult(
             fetch_log_id=fetch_log.id,
             status="failed",
             requested_symbol_count=0,
@@ -138,6 +146,8 @@ def _fetch_market_prices(
             error_message=no_active_error,
             quality_warnings=None,
         )
+        _log_fetch_completion(result, provider=provider.name, started=started)
+        return result
 
     corporate_action_warnings: list[CorporateActionFactorMismatchWarning] = []
     if fetch_mode == "incremental":
@@ -180,7 +190,7 @@ def _fetch_market_prices(
     )
     session.flush()
 
-    return MarketDataFetchResult(
+    result = MarketDataFetchResult(
         fetch_log_id=fetch_log.id,
         status=status,
         requested_symbol_count=len(requested_symbols),
@@ -190,6 +200,20 @@ def _fetch_market_prices(
         failed_symbols=tuple(failed_symbols),
         error_message=error_message,
         quality_warnings=quality_warnings,
+    )
+    _log_fetch_completion(result, provider=provider.name, started=started)
+    return result
+
+
+def _log_fetch_completion(result: MarketDataFetchResult, *, provider: str, started: float) -> None:
+    logger.info(
+        "market_data.fetch.completed provider=%s status=%s requested_etf_count=%s "
+        "rows_fetched=%s duration_ms=%.3f",
+        provider,
+        result.status,
+        result.requested_symbol_count,
+        result.rows_fetched,
+        (time.perf_counter() - started) * 1000,
     )
 
 

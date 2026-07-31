@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -37,7 +38,8 @@ from tests.integration_data import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_canonical_ingestion_to_quant_pipeline_contract(tmp_path, monkeypatch) -> None:
+def test_canonical_ingestion_to_quant_pipeline_contract(tmp_path, monkeypatch, caplog) -> None:
+    caplog.set_level(logging.INFO)
     database_url = f"sqlite+pysqlite:///{tmp_path / 'core-pipeline.db'}"
     sessions = canonical_workflow_sessions()
     config = canonical_strategy_config()
@@ -88,6 +90,16 @@ def test_canonical_ingestion_to_quant_pipeline_contract(tmp_path, monkeypatch) -
         ("511010", None, None),
     ]
 
+    messages = [record.msg for record in caplog.records]
+    assert messages.count("market_data.fetch.started provider=%s mode=%s") == 1
+    assert (
+        messages.count(
+            "market_data.fetch.completed provider=%s status=%s requested_etf_count=%s "
+            "rows_fetched=%s duration_ms=%.3f"
+        )
+        == 1
+    )
+
     with managed_session(session_factory) as session:
         manual = generate_and_persist_strategy_signal(
             session, config=config, signal_date=sessions[-1]
@@ -108,6 +120,32 @@ def test_canonical_ingestion_to_quant_pipeline_contract(tmp_path, monkeypatch) -
             started_at=datetime(2026, 7, 1, tzinfo=UTC),
         )
         assert first.status == "success"
+
+    messages = [record.msg for record in caplog.records]
+    assert messages.count("strategy_signal.current.started strategy_id=%s signal_date=%s") == 1
+    assert (
+        messages.count(
+            "strategy_signal.current.completed strategy_id=%s signal_date=%s status=%s "
+            "position_count=%s duration_ms=%.3f"
+        )
+        == 1
+    )
+    assert messages.count("backtest.started strategy_id=%s start_date=%s end_date=%s") == 1
+    assert messages.count("strategy_signal.historical.started strategy_id=%s date_range=%s") == 1
+    assert (
+        messages.count(
+            "strategy_signal.historical.completed strategy_id=%s date_range=%s "
+            "rebalance_count=%s duration_ms=%.3f"
+        )
+        == 1
+    )
+    assert (
+        messages.count(
+            "backtest.completed strategy_id=%s run_id=%s trading_day_count=%s signal_count=%s "
+            "duration_ms=%.3f"
+        )
+        == 1
+    )
 
     with session_factory() as session:
         first_run = get_backtest_result(session, run_id=first.backtest_run_id)

@@ -1,5 +1,7 @@
 import hashlib
 import json
+import logging
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -12,6 +14,7 @@ from vela_core.backtest_result_persistence import (
     BacktestResultRunInput,
     persist_backtest_result,
 )
+from vela_core.errors import BacktestDataError, InvalidDateRangeError
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
 from vela_core.rebalance_dates import generate_rebalance_dates
@@ -40,6 +43,7 @@ from vela_core.strategy_signal_persistence import (
 )
 
 _SIX_PLACES = Decimal("0.000001")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -65,12 +69,21 @@ def run_backtest(
     end_date: date,
     started_at: datetime | None = None,
 ) -> BacktestRunResult:
+    started = time.perf_counter()
+    logger.info(
+        "backtest.started strategy_id=%s start_date=%s end_date=%s",
+        config.strategy_id,
+        start_date.isoformat(),
+        end_date.isoformat(),
+    )
     if start_date > end_date:
-        raise ValueError("start_date must be on or before end_date")
+        raise InvalidDateRangeError("start_date must be on or before end_date")
 
     trading_dates = _load_trading_dates(session, start_date=start_date, end_date=end_date)
     if not trading_dates:
-        raise ValueError("Trading calendar has no official sessions in requested backtest range")
+        raise BacktestDataError(
+            "Trading calendar has no official sessions in requested backtest range"
+        )
 
     active_etfs = _list_active_etfs(session)
     strategy = resolve_strategy(config)
@@ -191,7 +204,7 @@ def run_backtest(
         signal_ids=signal_ids,
     )
 
-    return _to_result(
+    backtest_result = _to_result(
         backtest_run_id=persistence_result.backtest_run.id,
         status=status,
         start_date=start_date,
@@ -203,6 +216,16 @@ def run_backtest(
         volatility=volatility,
         sharpe_ratio=sharpe_ratio,
     )
+    logger.info(
+        "backtest.completed strategy_id=%s run_id=%s trading_day_count=%s signal_count=%s "
+        "duration_ms=%.3f",
+        config.strategy_id,
+        backtest_result.backtest_run_id,
+        backtest_result.trading_day_count,
+        backtest_result.signal_count,
+        (time.perf_counter() - started) * 1000,
+    )
+    return backtest_result
 
 
 def build_data_snapshot(price_panel: dict[int, list[MarketPrice]]) -> dict[str, object]:
@@ -275,7 +298,7 @@ def _load_required_trading_dates(
         )
     )
     if len(preceding_dates) != lookback_days:
-        raise ValueError(
+        raise BacktestDataError(
             f"Strategy requires {lookback_days} preceding official session(s), "
             f"but trading calendar has {len(preceding_dates)} before "
             f"{first_rebalance_date.isoformat()}"
@@ -306,7 +329,7 @@ def _validate_required_prices(
         f"ETF {etf_id} on {trade_date.isoformat()}" for etf_id, trade_date in gaps[:10]
     )
     suffix = "" if len(gaps) <= 10 else ", ..."
-    raise ValueError(
+    raise BacktestDataError(
         f"Backtest input has {len(gaps)} missing active-universe price row(s): {sample}{suffix}"
     )
 

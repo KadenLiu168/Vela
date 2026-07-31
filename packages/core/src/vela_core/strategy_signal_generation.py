@@ -1,3 +1,5 @@
+import logging
+import time
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ from vela_core.rebalance_dates import generate_rebalance_dates
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategies.types import GeneratedSignalPosition, Strategy, StrategyGenerationError
 from vela_core.strategy_config import StrategyConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -96,10 +100,27 @@ def generate_historical_strategy_signals(
     generated_at: datetime | None = None,
     persist: PersistStrategySignalCallable | None = None,
 ) -> list[GenerateStrategySignalResult]:
-    rebalance_dates = generate_rebalance_dates(
-        historical_trading_dates, frequency=config.rebalance.frequency
+    started = time.perf_counter()
+    trading_dates = list(historical_trading_dates)
+    date_range = (
+        "none"
+        if not trading_dates
+        else f"{min(trading_dates).isoformat()}:{max(trading_dates).isoformat()}"
     )
+    logger.info(
+        "strategy_signal.historical.started strategy_id=%s date_range=%s",
+        config.strategy_id,
+        date_range,
+    )
+    rebalance_dates = generate_rebalance_dates(trading_dates, frequency=config.rebalance.frequency)
     if not rebalance_dates:
+        logger.info(
+            "strategy_signal.historical.completed strategy_id=%s date_range=%s "
+            "rebalance_count=0 duration_ms=%.3f",
+            config.strategy_id,
+            date_range,
+            (time.perf_counter() - started) * 1000,
+        )
         return []
 
     strategy = resolve_strategy(config)
@@ -116,7 +137,7 @@ def generate_historical_strategy_signals(
             raise ValueError(f"Price series for ETF {etf_id} must be ascending by trade_date")
 
     generated_at = generated_at or datetime.now(UTC)
-    return [
+    results = [
         _generate_strategy_signal(
             signal_date=rebalance_date,
             config=config,
@@ -138,6 +159,15 @@ def generate_historical_strategy_signals(
         )
         for rebalance_date in rebalance_dates
     ]
+    logger.info(
+        "strategy_signal.historical.completed strategy_id=%s date_range=%s "
+        "rebalance_count=%s duration_ms=%.3f",
+        config.strategy_id,
+        date_range,
+        len(results),
+        (time.perf_counter() - started) * 1000,
+    )
+    return results
 
 
 def _historical_price_window(

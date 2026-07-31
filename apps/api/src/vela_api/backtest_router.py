@@ -51,12 +51,9 @@ def run_backtest_endpoint(
     start_date: Annotated[date, Query(alias="startDate")],
     end_date: Annotated[date, Query(alias="endDate")],
 ) -> dict[str, object]:
-    try:
-        result = run_backtest(
-            session, config=app_config.strategy, start_date=start_date, end_date=end_date
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = run_backtest(
+        session, config=app_config.strategy, start_date=start_date, end_date=end_date
+    )
     return _run_response(result)
 
 

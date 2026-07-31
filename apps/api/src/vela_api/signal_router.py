@@ -37,14 +37,9 @@ def generate_strategy_signal_endpoint(
 ) -> dict[str, object]:
     if source not in StrategySignal.LIVE_SOURCES:
         raise HTTPException(status_code=400, detail="Unsupported strategy signal source")
-    try:
-        result = generate_and_persist_strategy_signal(
-            session, config=app_config.strategy, signal_date=signal_date, source=source
-        )
-    except ValueError as exc:
-        if str(exc) != "No local market prices found":
-            raise
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = generate_and_persist_strategy_signal(
+        session, config=app_config.strategy, signal_date=signal_date, source=source
+    )
     return _strategy_signal_response(result, source=source)
 
 

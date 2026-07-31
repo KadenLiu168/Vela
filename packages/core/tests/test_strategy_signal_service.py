@@ -5,6 +5,7 @@ import pytest
 import vela_core.strategy_signal_service as signal_service
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
+from vela_core.errors import MissingMarketDataError
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
 from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 from vela_core.strategy_signal_generation import GenerateStrategySignalResult
@@ -66,7 +67,7 @@ def test_generate_and_persist_strategy_signal_rejects_missing_local_market_price
     config = _strategy_config(top_n=2)
 
     with session_factory() as session:
-        with pytest.raises(ValueError, match="No local market prices found"):
+        with pytest.raises(MissingMarketDataError, match="No local market prices found"):
             generate_and_persist_strategy_signal(session, config=config)
 
         signals = session.scalars(select(StrategySignal)).all()

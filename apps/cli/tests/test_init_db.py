@@ -73,3 +73,13 @@ def test_init_db_reports_failure(capsys: pytest.CaptureFixture[str]) -> None:
     assert exit_code == 1
     assert captured.out == ""
     assert "Failed to initialize database at not-a-valid-url:" in captured.err
+
+
+def test_cli_initializes_logging_before_dispatch(monkeypatch) -> None:
+    events: list[str] = []
+
+    monkeypatch.setattr("vela_cli.main.setup_logging", lambda: events.append("logging"))
+    monkeypatch.setattr("vela_cli.main.init_db", lambda _database_url: events.append("init-db"))
+
+    assert cli.main(["init-db", "--database-url", "sqlite:///test.db"]) == 0
+    assert events == ["logging", "init-db"]

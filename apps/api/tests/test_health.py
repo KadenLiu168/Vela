@@ -38,11 +38,13 @@ def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
 
 def test_api_command_starts_uvicorn(monkeypatch) -> None:
     calls: list[dict[str, object]] = []
+    logging_initialized: list[bool] = []
 
     def fake_run(app_path: str, **kwargs: object) -> None:
         calls.append({"app_path": app_path, **kwargs})
 
     monkeypatch.setattr("vela_api.cli.uvicorn.run", fake_run)
+    monkeypatch.setattr("vela_api.cli.setup_logging", lambda: logging_initialized.append(True))
 
     main()
 
@@ -54,3 +56,4 @@ def test_api_command_starts_uvicorn(monkeypatch) -> None:
             "reload": True,
         }
     ]
+    assert logging_initialized == [True]

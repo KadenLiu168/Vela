@@ -36,6 +36,7 @@ from vela_core.database import (
     create_session_factory,
     managed_session,
 )
+from vela_core.logging import setup_logging
 from vela_core.models import StrategySignal
 from vela_core.strategy_config import load_strategy_config
 from vela_core.walk_forward.config import load_walk_forward_config
@@ -222,6 +223,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    setup_logging()
 
     if args.command == "init-db":
         try:

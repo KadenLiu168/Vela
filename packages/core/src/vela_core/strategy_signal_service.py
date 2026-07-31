@@ -1,8 +1,11 @@
+import logging
+import time
 from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from vela_core.errors import MissingMarketDataError
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, StrategySignal
 from vela_core.strategy_config import StrategyConfig
@@ -16,6 +19,8 @@ from vela_core.strategy_signal_persistence import (
     persist_strategy_signal,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def generate_and_persist_strategy_signal(
     session: Session,
@@ -24,11 +29,17 @@ def generate_and_persist_strategy_signal(
     signal_date: date | None = None,
     source: str = "manual",
 ) -> GenerateStrategySignalResult:
+    started = time.perf_counter()
+    logger.info(
+        "strategy_signal.current.started strategy_id=%s signal_date=%s",
+        config.strategy_id,
+        signal_date.isoformat() if signal_date is not None else "latest",
+    )
     if source not in StrategySignal.LIVE_SOURCES:
         raise ValueError(f"Unsupported live strategy signal source: {source}")
     resolved_signal_date = signal_date or session.scalar(select(func.max(MarketPrice.trade_date)))
     if resolved_signal_date is None:
-        raise ValueError("No local market prices found")
+        raise MissingMarketDataError("No local market prices found")
 
     active_etfs = list(
         session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
@@ -73,10 +84,20 @@ def generate_and_persist_strategy_signal(
         session.commit()
         return persistence_result.strategy_signal.id
 
-    return generate_strategy_signal(
+    result = generate_strategy_signal(
         signal_date=resolved_signal_date,
         config=config,
         price_panel=price_panel,
         active_etfs=active_etfs,
         persist=_persist,
     )
+    logger.info(
+        "strategy_signal.current.completed strategy_id=%s signal_date=%s status=%s "
+        "position_count=%s duration_ms=%.3f",
+        config.strategy_id,
+        result.signal_date.isoformat(),
+        result.status,
+        len(result.positions),
+        (time.perf_counter() - started) * 1000,
+    )
+    return result
