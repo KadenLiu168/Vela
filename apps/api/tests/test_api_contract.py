@@ -162,13 +162,13 @@ def test_api_error_response_contracts(tmp_path, monkeypatch) -> None:
         )
         provider_failure = client.post("/api/market-data/fetch?mode=full")
 
-        def raise_config_error() -> dict[str, object]:
+        def raise_config_error(_config: object) -> dict[str, object]:
             raise ConfigError(
                 "Failed to read configuration file config/missing.yaml",
                 path=Path("config/missing.yaml"),
             )
 
-        monkeypatch.setattr("vela_api.main.get_config_summary", raise_config_error)
+        monkeypatch.setattr("vela_api.system_router.get_config_summary", raise_config_error)
         config_failure = client.get("/api/config")
 
     assert validation.status_code == 422
@@ -245,3 +245,26 @@ class FailingMarketDataProvider:
         end_date: date | None = None,
     ) -> Sequence[DailyPrice]:
         raise RuntimeError(f"{symbol} unavailable")
+
+
+def test_openapi_declares_concrete_success_schemas_for_every_api_route() -> None:
+    openapi = app.openapi()
+
+    for operations in openapi["paths"].values():
+        for operation in operations.values():
+            response_schema = operation["responses"]["200"]
+            schema = response_schema["content"]["application/json"]["schema"]
+            assert "$ref" in schema
+
+    for schema in openapi["components"]["schemas"].values():
+        assert not _has_unconstrained_object(schema)
+
+
+def _has_unconstrained_object(value: object) -> bool:
+    if isinstance(value, dict):
+        if value.get("additionalProperties") is True:
+            return True
+        return any(_has_unconstrained_object(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_unconstrained_object(item) for item in value)
+    return False

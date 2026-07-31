@@ -2,11 +2,12 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-import vela_api.main as api_main
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from vela_api.database import initialize_database
+from vela_api.dependencies import get_app_config
 from vela_api.main import app
+from vela_core import load_app_config
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.models import (
     BacktestEquityCurve,
@@ -72,12 +73,13 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
     try:
         initialize_database(app, database_url=database_url)
         config = _test_strategy_config()
-        monkeypatch.setattr(api_main, "load_strategy_config", lambda _path: config)
+        app.dependency_overrides[get_app_config] = lambda: _app_config_with_strategy(config)
 
         response = TestClient(app).post(
             "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10"
         )
     finally:
+        app.dependency_overrides.clear()
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert response.status_code == 200
@@ -163,12 +165,13 @@ def test_run_backtest_endpoint_updates_backtest_detail(
     try:
         initialize_database(app, database_url=database_url)
         config = _test_strategy_config()
-        monkeypatch.setattr(api_main, "load_strategy_config", lambda _path: config)
+        app.dependency_overrides[get_app_config] = lambda: _app_config_with_strategy(config)
         client = TestClient(app)
 
         run_response = client.post("/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10")
         detail_response = client.get(f"/api/backtests/{run_response.json()['run_id']}")
     finally:
+        app.dependency_overrides.clear()
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
     assert run_response.status_code == 200
@@ -248,6 +251,10 @@ def _test_strategy_config() -> StrategyConfig:
             "performance": {"risk_free_rate": 0.02},
         }
     )
+
+
+def _app_config_with_strategy(strategy: StrategyConfig):
+    return load_app_config("config/strategy_v1.yaml").model_copy(update={"strategy": strategy})
 
 
 def test_run_backtest_endpoint_rejects_invalid_date_range(tmp_path) -> None:

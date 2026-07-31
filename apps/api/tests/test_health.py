@@ -1,4 +1,3 @@
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from vela_api.cli import main
 from vela_api.main import app
@@ -15,9 +14,8 @@ def test_health_endpoint_reports_healthy_status() -> None:
 
 def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
     routes = {
-        (route.path, tuple(sorted(route.methods or ())))
-        for route in app.routes
-        if isinstance(route, APIRoute) and route.include_in_schema
+        (path, tuple(sorted(method.upper() for method in operations)))
+        for path, operations in app.openapi()["paths"].items()
     }
 
     assert routes == {

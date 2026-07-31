@@ -58,7 +58,9 @@ def test_bootstrap_endpoint_success(tmp_path, monkeypatch) -> None:
 
     try:
         initialize_database(app, database_url=database_url)
-        monkeypatch.setattr("vela_api.main.load_app_config", lambda _path: _make_test_app_config())
+        monkeypatch.setattr(
+            "vela_api.market_router.load_app_config", lambda _path: _make_test_app_config()
+        )
         app.dependency_overrides[get_market_data_provider] = lambda: provider
 
         response = TestClient(app).post("/api/setup/bootstrap")
@@ -89,7 +91,9 @@ def test_bootstrap_endpoint_step_failure(tmp_path, monkeypatch) -> None:
 
     try:
         initialize_database(app, database_url=database_url)
-        monkeypatch.setattr("vela_api.main.load_app_config", lambda _path: _make_test_app_config())
+        monkeypatch.setattr(
+            "vela_api.market_router.load_app_config", lambda _path: _make_test_app_config()
+        )
         app.dependency_overrides[get_market_data_provider] = lambda: provider
 
         response = TestClient(app).post("/api/setup/bootstrap")
@@ -126,8 +130,8 @@ def test_bootstrap_endpoint_loads_config_per_request(tmp_path, monkeypatch) -> N
         received_configs.append(app_config)
         return BootstrapResult(status="success")
 
-    monkeypatch.setattr("vela_api.main.load_app_config", load_config)
-    monkeypatch.setattr("vela_api.main.run_local_setup_bootstrap", record_bootstrap)
+    monkeypatch.setattr("vela_api.market_router.load_app_config", load_config)
+    monkeypatch.setattr("vela_api.market_router.run_local_setup_bootstrap", record_bootstrap)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -153,8 +157,8 @@ def test_bootstrap_endpoint_returns_config_error_before_orchestration(monkeypatc
         bootstrap_calls.append((args, kwargs))
         return BootstrapResult(status="success")
 
-    monkeypatch.setattr("vela_api.main.load_app_config", raise_config_error)
-    monkeypatch.setattr("vela_api.main.run_local_setup_bootstrap", record_bootstrap)
+    monkeypatch.setattr("vela_api.market_router.load_app_config", raise_config_error)
+    monkeypatch.setattr("vela_api.market_router.run_local_setup_bootstrap", record_bootstrap)
 
     response = TestClient(app, raise_server_exceptions=False).post("/api/setup/bootstrap")
 

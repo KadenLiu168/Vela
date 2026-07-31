@@ -8,9 +8,8 @@ DEFAULT_STRATEGY_CONFIG_PATH = ROOT / "config" / "strategy_v1.yaml"
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
 
 
-def get_config_summary(config_path: Path = DEFAULT_STRATEGY_CONFIG_PATH) -> dict[str, Any]:
-    config = load_app_config(config_path)
-    return _serialize_config(config)
+def get_config_summary(config: AppConfig | None = None) -> dict[str, Any]:
+    return _serialize_config(config or load_app_config(DEFAULT_STRATEGY_CONFIG_PATH))
 
 
 def _serialize_config(config: AppConfig) -> dict[str, Any]:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import vela_api.config as api_config
-import vela_api.main as api_main
+import vela_api.system_router as system_router
 from fastapi.testclient import TestClient
 from vela_api.main import app
 from vela_core import load_app_config
@@ -62,13 +62,19 @@ def test_config_and_dashboard_endpoints_serialize_equal_weight_shape(
         }
     )
     summary = api_config._serialize_config(app_config)
-    monkeypatch.setattr(api_main, "get_config_summary", lambda: summary)
+    monkeypatch.setattr(system_router, "get_config_summary", lambda _config: summary)
     monkeypatch.setattr(
-        api_main,
+        system_router,
         "get_dashboard_summary",
         lambda session, *, strategy_summary: {
             "strategy": strategy_summary,
-            "market_data": {},
+            "market_data": {
+                "price_rows": 0,
+                "covered_etfs": 0,
+                "earliest_trade_date": None,
+                "latest_trade_date": None,
+                "etf_list": [],
+            },
             "latest_signal": None,
             "recent_backtest": None,
             "recent_fetch_logs": [],

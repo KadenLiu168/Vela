@@ -104,7 +104,9 @@ def test_config_error_uses_stable_error_envelope(monkeypatch) -> None:
             path=Path("config/missing.yaml"),
         )
 
-    monkeypatch.setattr("vela_api.main.get_config_summary", raise_config_error)
+    monkeypatch.setattr(
+        "vela_api.system_router.get_config_summary", lambda _config: raise_config_error()
+    )
 
     response = TestClient(app, raise_server_exceptions=False).get("/api/config")
 

@@ -34,9 +34,13 @@ Read the current local strategy configuration and ETF pool summary:
 curl http://127.0.0.1:8000/api/config
 ```
 
-The endpoint loads the checked-in `config/strategy_v1.yaml` through
-`vela_core.load_app_config` and returns a read-only summary. It does not edit
-configuration files, calculate strategy outputs, or access the database.
+The API validates and loads the checked-in `config/strategy_v1.yaml` once at
+application startup. Routine endpoints reuse that immutable configuration for
+the lifetime of the process, so restart the API after editing configuration.
+`POST /api/setup/bootstrap` intentionally reloads configuration for each
+request so a local ETF-pool edit can be bootstrapped without a restart. The
+config endpoint returns a read-only summary and does not edit configuration
+files, calculate strategy outputs, or access the database.
 
 ## Database Session
 

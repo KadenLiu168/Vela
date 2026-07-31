@@ -1,10 +1,11 @@
 import json
 
-import vela_api.main as api_main
 import vela_core.market_data_fetcher as market_data_fetcher
 from fastapi.testclient import TestClient
 from vela_api.database import initialize_database
+from vela_api.dependencies import get_app_config
 from vela_api.main import app, get_market_data_provider
+from vela_core import load_app_config
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.market_price_mapping import to_market_price
 from vela_core.models import TradingCalendar
@@ -25,6 +26,7 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path, mo
     session_factory = prepare_sqlite_database(database_url)
     sessions = canonical_workflow_sessions()
     config = canonical_strategy_config()
+    app_config = load_app_config("config/strategy_v1.yaml").model_copy(update={"strategy": config})
     pool = canonical_etf_pool()
     provider = ControlledMarketDataProvider(canonical_provider_prices(sessions))
     etf_ids: dict[str, int] = {}
@@ -45,14 +47,9 @@ def test_full_p0_workflow_uses_real_api_and_persisted_backend_state(tmp_path, mo
         session.commit()
 
     monkeypatch.setattr(market_data_fetcher, "_today", lambda: sessions[-1])
-    monkeypatch.setattr(api_main, "load_strategy_config", lambda _path: config)
-    monkeypatch.setattr(
-        api_main,
-        "get_config_summary",
-        lambda: {"strategy": {"strategy_id": config.strategy_id, "version": config.version}},
-    )
     try:
         initialize_database(app, database_url=database_url)
+        app.dependency_overrides[get_app_config] = lambda: app_config
         app.dependency_overrides[get_market_data_provider] = lambda: provider
         client = TestClient(app)
 
