@@ -1,6 +1,7 @@
 from vela_core.app_config import AppConfig, load_app_config
 from vela_core.backtest_report import BacktestReportNotFoundError, export_backtest_report
 from vela_core.backtest_result_persistence import (
+    BacktestBenchmarkInput,
     BacktestEquityCurveInput,
     BacktestResultPersistenceResult,
     BacktestResultRunInput,
@@ -141,6 +142,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AppConfig",
+    "BacktestBenchmarkInput",
     "BacktestEquityCurveInput",
     "BacktestResultPersistenceResult",
     "BacktestResultRunInput",

@@ -164,6 +164,7 @@ export type BacktestRunResponse = {
   max_drawdown: string | null;
   volatility: string | null;
   sharpe_ratio: string | null;
+  benchmarks: BacktestBenchmark[];
 };
 
 export type BacktestDetailResponse = {
@@ -172,6 +173,20 @@ export type BacktestDetailResponse = {
   equity_curve: BacktestEquityCurvePoint[];
   signal_ids: number[];
   signal_count: number;
+  benchmarks: BacktestBenchmark[];
+};
+
+export type BacktestBenchmark = {
+  key: string;
+  name: string;
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+  total_return_difference: string | null;
+  annualized_return_difference: string | null;
+  equity_curve: Array<{ trade_date: string; net_value: string }>;
 };
 
 export type BacktestDetailRun = {

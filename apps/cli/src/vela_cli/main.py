@@ -4,6 +4,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 from vela_core import (
@@ -452,6 +453,7 @@ def run_backtest(
             config=config,
             start_date=start_date,
             end_date=end_date,
+            calculate_benchmarks=True,
         )
 
 
@@ -530,10 +532,40 @@ def _print_backtest_summary(result: BacktestRunResult) -> None:
     print(f"Max drawdown: {result.max_drawdown}")
     print(f"Volatility: {_format_optional_decimal(result.volatility)}")
     print(f"Sharpe ratio: {_format_optional_decimal(result.sharpe_ratio)}")
+    for benchmark in result.benchmarks:
+        total_return_difference = _difference(
+            result.total_return, benchmark.annualized_return.total_return
+        )
+        annualized_return_difference = _difference(
+            result.annualized_return, benchmark.annualized_return.annualized_return
+        )
+        print(f"Benchmark: {benchmark.name}")
+        print(
+            f"- Total return: {_format_optional_decimal(benchmark.annualized_return.total_return)}"
+        )
+        print(
+            "- Annualized return: "
+            f"{_format_optional_decimal(benchmark.annualized_return.annualized_return)}"
+        )
+        print(f"- Max drawdown: {benchmark.maximum_drawdown.max_drawdown}")
+        print(f"- Volatility: {_format_optional_decimal(benchmark.volatility.volatility)}")
+        print(f"- Sharpe ratio: {_format_optional_decimal(benchmark.sharpe_ratio.sharpe_ratio)}")
+        print(
+            "- Strategy total return difference: "
+            f"{_format_optional_decimal(total_return_difference)}"
+        )
+        print(
+            "- Strategy annualized return difference: "
+            f"{_format_optional_decimal(annualized_return_difference)}"
+        )
 
 
 def _format_optional_decimal(value: object | None) -> str:
     return "n/a" if value is None else str(value)
+
+
+def _difference(left: Decimal | None, right: Decimal | None) -> Decimal | None:
+    return None if left is None or right is None else left - right
 
 
 def _parse_signal_date(value: str) -> date:

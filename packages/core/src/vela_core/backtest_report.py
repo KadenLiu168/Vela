@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 
 from vela_core.backtest_result_persistence import get_backtest_result
@@ -66,6 +68,22 @@ def _format_report(run: BacktestRun) -> str:
             ]
         )
 
+    for benchmark in run.benchmarks:
+        lines.extend(
+            [
+                f"Benchmark: {benchmark.display_name}",
+                f"- Total return: {_format_optional(benchmark.total_return)}",
+                f"- Annualized return: {_format_optional(benchmark.annualized_return)}",
+                f"- Max drawdown: {_format_optional(benchmark.max_drawdown)}",
+                f"- Volatility: {_format_optional(benchmark.volatility)}",
+                f"- Sharpe ratio: {_format_optional(benchmark.sharpe_ratio)}",
+                "- Strategy total return difference: "
+                f"{_difference(run.total_return, benchmark.total_return)}",
+                "- Strategy annualized return difference: "
+                f"{_difference(run.annualized_return, benchmark.annualized_return)}",
+            ]
+        )
+
     return "\n".join(lines) + "\n"
 
 
@@ -78,3 +96,7 @@ def _format_curve_row(row: BacktestEquityCurve) -> str:
 
 def _format_optional(value: object | None) -> str:
     return "n/a" if value is None else str(value)
+
+
+def _difference(left: Decimal | None, right: Decimal | None) -> str:
+    return "n/a" if left is None or right is None else str(left - right)

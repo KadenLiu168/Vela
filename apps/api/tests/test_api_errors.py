@@ -7,6 +7,7 @@ from vela_api.database import initialize_database
 from vela_api.main import app, get_market_data_provider
 from vela_core import ConfigError, DailyPrice
 from vela_core.database import DEFAULT_DATABASE_URL
+from vela_core.errors import BacktestDataError
 
 from tests.integration_data import add_etf, prepare_sqlite_database
 
@@ -93,6 +94,32 @@ def test_invalid_date_range_error_uses_stable_error_envelope(tmp_path) -> None:
             "code": "invalid_date_range",
             "category": "operation_failed",
             "message": "start_date must be on or before end_date",
+        }
+    }
+
+
+def test_missing_benchmark_price_uses_backtest_data_error_envelope(tmp_path, monkeypatch) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'benchmark-data-error.db'}"
+    prepare_sqlite_database(database_url)
+
+    def fail_backtest(*_args, **_kwargs):
+        raise BacktestDataError("Benchmark requires price for SSE:510300 on 2026-01-02")
+
+    monkeypatch.setattr("vela_api.backtest_router.run_backtest", fail_backtest)
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).post(
+            "/api/backtests/run?startDate=2026-01-01&endDate=2026-01-02"
+        )
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": {
+            "code": "operation_failed",
+            "category": "operation_failed",
+            "message": "Benchmark requires price for SSE:510300 on 2026-01-02",
         }
     }
 

@@ -9,7 +9,9 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from vela_core.backtest_benchmarks import BacktestBenchmarkResult, calculate_backtest_benchmarks
 from vela_core.backtest_result_persistence import (
+    BacktestBenchmarkInput,
     BacktestEquityCurveInput,
     BacktestResultRunInput,
     persist_backtest_result,
@@ -59,6 +61,7 @@ class BacktestRunResult:
     max_drawdown: Decimal
     sharpe_ratio: Decimal | None
     volatility: Decimal | None
+    benchmarks: tuple[BacktestBenchmarkResult, ...] = ()
 
 
 def run_backtest(
@@ -68,6 +71,7 @@ def run_backtest(
     start_date: date,
     end_date: date,
     started_at: datetime | None = None,
+    calculate_benchmarks: bool = True,
 ) -> BacktestRunResult:
     started = time.perf_counter()
     logger.info(
@@ -106,6 +110,18 @@ def run_backtest(
         etf_ids=[etf.id for etf in active_etfs],
         start_date=required_dates[0],
         end_date=end_date,
+    )
+    benchmarks = (
+        calculate_backtest_benchmarks(
+            trading_dates=trading_dates,
+            active_etfs=active_etfs,
+            price_panel=price_panel,
+            transaction_cost_bps=config.costs.transaction_cost_bps,
+            risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
+            following_trading_date=_load_following_trading_date(session, end_date=end_date),
+        )
+        if calculate_benchmarks
+        else []
     )
     _validate_required_prices(
         active_etfs=active_etfs,
@@ -197,6 +213,7 @@ def run_backtest(
             data_snapshot_json=data_snapshot_json,
         ),
         equity_curve=_to_curve_inputs(points),
+        benchmarks=_to_benchmark_inputs(benchmarks),
     )
     link_signals_to_backtest_run(
         session,
@@ -215,6 +232,7 @@ def run_backtest(
         maximum_drawdown=maximum_drawdown,
         volatility=volatility,
         sharpe_ratio=sharpe_ratio,
+        benchmarks=benchmarks,
     )
     logger.info(
         "backtest.completed strategy_id=%s run_id=%s trading_day_count=%s signal_count=%s "
@@ -270,6 +288,15 @@ def _load_trading_dates(session: Session, *, start_date: date, end_date: date) -
             .where(TradingCalendar.trade_date <= end_date)
             .order_by(TradingCalendar.trade_date)
         )
+    )
+
+
+def _load_following_trading_date(session: Session, *, end_date: date) -> date | None:
+    return session.scalar(
+        select(TradingCalendar.trade_date)
+        .where(TradingCalendar.trade_date > end_date)
+        .order_by(TradingCalendar.trade_date)
+        .limit(1)
     )
 
 
@@ -365,6 +392,24 @@ def _to_curve_inputs(points: list[StrategyEquityCurvePoint]) -> list[BacktestEqu
     return curve_inputs
 
 
+def _to_benchmark_inputs(
+    benchmarks: list[BacktestBenchmarkResult],
+) -> list[BacktestBenchmarkInput]:
+    return [
+        BacktestBenchmarkInput(
+            key=benchmark.key,
+            name=benchmark.name,
+            total_return=benchmark.annualized_return.total_return,
+            annualized_return=benchmark.annualized_return.annualized_return,
+            max_drawdown=benchmark.maximum_drawdown.max_drawdown,
+            sharpe_ratio=benchmark.sharpe_ratio.sharpe_ratio,
+            volatility=benchmark.volatility.volatility,
+            equity_curve=[(point.trade_date, point.net_value) for point in benchmark.points],
+        )
+        for benchmark in benchmarks
+    ]
+
+
 def _parameters_json(config: StrategyConfig, *, start_date: date, end_date: date) -> str:
     return json.dumps(
         {
@@ -392,6 +437,7 @@ def _to_result(
     maximum_drawdown: StrategyMaximumDrawdown,
     volatility: StrategyVolatility,
     sharpe_ratio: StrategySharpeRatio,
+    benchmarks: list[BacktestBenchmarkResult],
 ) -> BacktestRunResult:
     return BacktestRunResult(
         backtest_run_id=backtest_run_id,
@@ -405,4 +451,5 @@ def _to_result(
         max_drawdown=maximum_drawdown.max_drawdown,
         sharpe_ratio=sharpe_ratio.sharpe_ratio,
         volatility=volatility.volatility,
+        benchmarks=tuple(benchmarks),
     )

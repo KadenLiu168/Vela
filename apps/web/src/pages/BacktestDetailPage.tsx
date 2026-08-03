@@ -19,8 +19,10 @@ import {
 import { formatEquityCurvePoint, formatParameterSummary } from "./backtestFormatters";
 import {
   computeEquityCurveGeometry,
+  computeMultiEquityCurveGeometry,
   EQUITY_CURVE_CHART,
-  normalizeEquityCurvePoints
+  normalizeEquityCurvePoints,
+  type EquityCurveChartSeries
 } from "./equityCurveChart";
 
 type BacktestDetailPageProps = {
@@ -218,10 +220,27 @@ function renderBacktestDetail(
           <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(metrics.volatility)} />
           <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
         </dl>
+        {(backtestState.data.benchmarks ?? []).map((benchmark) => (
+          <section aria-label={benchmark.name} className="benchmark-metrics" key={benchmark.key}>
+            <h4>{benchmark.name}</h4>
+            <dl className="metric-card-grid">
+              <MetricCard label="Total return" value={formatRatioAsPercent(benchmark.total_return)} />
+              <MetricCard label="CAGR (calendar-time)" value={formatRatioAsPercent(benchmark.annualized_return)} />
+              <MetricCard label="Max drawdown" value={formatRatioAsPercent(benchmark.max_drawdown)} />
+              <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(benchmark.volatility)} />
+              <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(benchmark.sharpe_ratio, 2, false)} />
+              <MetricCard label="Strategy total return difference" value={formatRatioAsPercent(benchmark.total_return_difference)} />
+              <MetricCard label="Strategy CAGR difference" value={formatRatioAsPercent(benchmark.annualized_return_difference)} />
+            </dl>
+          </section>
+        ))}
       </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
         <h3 id="backtest-equity-curve-heading">Equity curve</h3>
-        <EquityCurveChart points={backtestState.data.equity_curve} />
+        <EquityCurveChart
+          points={backtestState.data.equity_curve}
+          benchmarks={backtestState.data.benchmarks ?? []}
+        />
       </section>
       <section className="holdings-section" aria-labelledby="backtest-parameters-heading">
         <h3 id="backtest-parameters-heading">Parameters</h3>
@@ -241,8 +260,22 @@ function SignalsPanel({ count, offset, setOffset, state }: { count: number; offs
   </section>;
 }
 
-function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_curve"] }) {
+function EquityCurveChart({
+  points,
+  benchmarks
+}: {
+  points: BacktestDetailResponse["equity_curve"];
+  benchmarks: BacktestDetailResponse["benchmarks"];
+}) {
   const chartPoints = normalizeEquityCurvePoints(points);
+  const chartSeries: EquityCurveChartSeries[] = [
+    { key: "strategy", name: "Strategy", points: chartPoints },
+    ...benchmarks.map((benchmark) => ({
+      key: benchmark.key,
+      name: benchmark.name,
+      points: normalizeEquityCurvePoints(benchmark.equity_curve)
+    }))
+  ].filter((series) => series.points.length > 0);
 
   if (chartPoints.length === 0) {
     return <EmptyState>No valid equity curve points are available for this run.</EmptyState>;
@@ -263,7 +296,8 @@ function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_c
     );
   }
 
-  const { highlightCoordinates, linePath, maxNetValue, minNetValue } = computeEquityCurveGeometry(chartPoints);
+  const { maxNetValue, minNetValue, series } = computeMultiEquityCurveGeometry(chartSeries);
+  const legacyGeometry = series.length === 1 ? computeEquityCurveGeometry(chartPoints) : null;
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
   return (
@@ -289,8 +323,16 @@ function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_c
           y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
           y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
         />
-        <path className="equity-curve-line" d={linePath} data-testid="equity-curve-line" />
-        {highlightCoordinates.map((coordinate) => (
+        {series.map((item, index) => (
+          <path
+            className="equity-curve-line"
+            d={item.linePath}
+            data-testid={series.length === 1 ? "equity-curve-line" : `equity-curve-line-${item.key}`}
+            key={item.key}
+            stroke={index === 0 ? "var(--color-acid-lime)" : index === 1 ? "var(--color-signal-teal)" : "var(--color-iris-violet)"}
+          />
+        ))}
+        {legacyGeometry?.highlightCoordinates.map((coordinate) => (
           <circle
             className="equity-curve-highlight"
             cx={coordinate.x}
@@ -301,6 +343,9 @@ function EquityCurveChart({ points }: { points: BacktestDetailResponse["equity_c
           />
         ))}
       </svg>
+      <ul aria-label="Equity curve legend" className="equity-curve-legend">
+        {series.map((item) => <li key={item.key}>{item.name}</li>)}
+      </ul>
       <dl className="equity-curve-summary">
         <DescriptionItem label="Point count" value={formatInteger(chartPoints.length)} />
         <DescriptionItem label="Start point" value={formatEquityCurvePoint(firstPoint)} />

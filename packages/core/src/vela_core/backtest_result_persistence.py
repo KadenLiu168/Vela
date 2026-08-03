@@ -6,7 +6,12 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from vela_core.models import BacktestEquityCurve, BacktestRun
+from vela_core.models import (
+    BacktestBenchmark,
+    BacktestBenchmarkEquityCurve,
+    BacktestEquityCurve,
+    BacktestRun,
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,18 @@ class BacktestEquityCurveInput:
 
 
 @dataclass(frozen=True)
+class BacktestBenchmarkInput:
+    key: str
+    name: str
+    total_return: Decimal | None
+    annualized_return: Decimal | None
+    max_drawdown: Decimal | None
+    sharpe_ratio: Decimal | None
+    volatility: Decimal | None
+    equity_curve: Sequence[tuple[date, Decimal]]
+
+
+@dataclass(frozen=True)
 class BacktestResultPersistenceResult:
     backtest_run: BacktestRun
     equity_curve: list[BacktestEquityCurve]
@@ -49,7 +66,11 @@ def persist_backtest_result(
     *,
     run: BacktestResultRunInput,
     equity_curve: Sequence[BacktestEquityCurveInput],
+    benchmarks: Sequence[BacktestBenchmarkInput] = (),
 ) -> BacktestResultPersistenceResult:
+    keys = [item.key for item in benchmarks]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Backtest benchmark keys must be unique")
     backtest_run = BacktestRun(
         strategy_id=run.strategy_id,
         config_version=run.config_version,
@@ -83,6 +104,25 @@ def persist_backtest_result(
         for row in equity_curve
     ]
     session.add_all(curve_rows)
+    for input_row in benchmarks:
+        benchmark = BacktestBenchmark(
+            backtest_run_id=backtest_run.id,
+            benchmark_key=input_row.key,
+            display_name=input_row.name,
+            total_return=input_row.total_return,
+            annualized_return=input_row.annualized_return,
+            max_drawdown=input_row.max_drawdown,
+            sharpe_ratio=input_row.sharpe_ratio,
+            volatility=input_row.volatility,
+        )
+        session.add(benchmark)
+        session.flush()
+        session.add_all(
+            BacktestBenchmarkEquityCurve(
+                benchmark_id=benchmark.id, trade_date=trade_date, net_value=net_value
+            )
+            for trade_date, net_value in input_row.equity_curve
+        )
     session.flush()
 
     return BacktestResultPersistenceResult(
@@ -94,6 +134,10 @@ def persist_backtest_result(
 def get_backtest_result(session: Session, *, run_id: int) -> BacktestRun | None:
     return session.scalar(
         select(BacktestRun)
-        .options(selectinload(BacktestRun.equity_curve), selectinload(BacktestRun.signals))
+        .options(
+            selectinload(BacktestRun.equity_curve),
+            selectinload(BacktestRun.signals),
+            selectinload(BacktestRun.benchmarks).selectinload(BacktestBenchmark.equity_curve),
+        )
         .where(BacktestRun.id == run_id)
     )

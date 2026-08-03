@@ -10,9 +10,12 @@ import pytest
 import vela_core.backtest_runner as runner
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from vela_core import BacktestRunResult, run_backtest
+from vela_core import BacktestRunResult
+from vela_core import run_backtest as run_core_backtest
 from vela_core.database import managed_session
 from vela_core.models import (
+    BacktestBenchmark,
+    BacktestBenchmarkEquityCurve,
     BacktestEquityCurve,
     BacktestRun,
     Base,
@@ -33,6 +36,10 @@ from vela_core.strategy_equity_curve import (
     StrategyVolatility,
 )
 from vela_core.strategy_signal_generation import GenerateStrategySignalResult
+
+
+def run_backtest(*args: Any, **kwargs: Any) -> BacktestRunResult:
+    return run_core_backtest(*args, calculate_benchmarks=False, **kwargs)
 
 
 def test_run_backtest_persists_metrics_and_normalized_curve_rows(
@@ -539,6 +546,52 @@ def test_run_backtest_rejects_required_price_gap_before_any_persistence(
         assert session.query(StrategySignal).count() == 0
         assert session.query(BacktestRun).count() == 0
         assert session.query(BacktestEquityCurve).count() == 0
+
+
+def test_run_backtest_rejects_missing_csi_price_before_any_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    class ZeroLookbackStrategy:
+        def lookback_days(self) -> int:
+            return 0
+
+    with session_factory() as session:
+        csi = ETFInfo(
+            exchange="SSE",
+            symbol="510300",
+            name="CSI 300 ETF",
+            currency="CNY",
+        )
+        other = ETFInfo(
+            exchange="SSE",
+            symbol="510500",
+            name="CSI 500 ETF",
+            currency="CNY",
+        )
+        session.add_all([csi, other])
+        session.flush()
+        for trade_date in [date(2026, 1, 1), date(2026, 1, 2)]:
+            _add_calendar(session, trade_date)
+            _add_price(session, etf_id=other.id, trade_date=trade_date, close_price=100)
+        _add_price(session, etf_id=csi.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        monkeypatch.setattr(runner, "resolve_strategy", lambda config: ZeroLookbackStrategy())
+
+        with pytest.raises(ValueError, match=r"SSE:510300 on 2026-01-02"):
+            run_core_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 2),
+            )
+
+        assert session.query(StrategySignal).count() == 0
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+        assert session.query(BacktestBenchmark).count() == 0
+        assert session.query(BacktestBenchmarkEquityCurve).count() == 0
 
 
 def test_validate_required_prices_applies_inception_boundary_without_first_price_exemption() -> (

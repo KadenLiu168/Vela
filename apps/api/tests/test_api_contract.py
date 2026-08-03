@@ -106,6 +106,7 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
         "max_drawdown",
         "volatility",
         "sharpe_ratio",
+        "benchmarks",
     }
 
     assert backtest_detail.status_code == 200

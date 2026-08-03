@@ -9,6 +9,19 @@ from vela_core.walk_forward.window_splitter import WalkForwardWindow
 
 
 @dataclass(frozen=True)
+class WalkForwardBenchmarkResult:
+    key: str
+    name: str
+    total_return: float | None
+    annualized_return: float | None
+    max_drawdown: float | None
+    volatility: float | None
+    sharpe_ratio: float | None
+    total_return_difference: float | None
+    annualized_return_difference: float | None
+
+
+@dataclass(frozen=True)
 class WalkForwardWindowResult:
     window: WalkForwardWindow
     best_combo: dict[str, Any]
@@ -17,15 +30,13 @@ class WalkForwardWindowResult:
     oos_annualized_return: float | None
     oos_sharpe: float | None
     oos_max_drawdown: float | None
-    baseline_annualized_return: float | None
-    baseline_sharpe: float | None
+    benchmarks: tuple[WalkForwardBenchmarkResult, ...]
     skipped: list[str]
 
 
 @dataclass
 class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
-    baseline_enabled: bool = False
 
     def aggregate(self) -> dict[str, dict[str, float | None]]:
         return {
@@ -36,24 +47,32 @@ class WalkForwardReport:
             }.items()
         }
 
-    def baseline_differences(self) -> dict[str, float | int | None]:
-        annualized_returns = [
-            item.oos_annualized_return - item.baseline_annualized_return
-            for item in self.windows
-            if item.oos_annualized_return is not None
-            and item.baseline_annualized_return is not None
-        ]
-        sharpes = [
-            item.oos_sharpe - item.baseline_sharpe
-            for item in self.windows
-            if item.oos_sharpe is not None and item.baseline_sharpe is not None
-        ]
-        return {
-            "annualized_return_mean": mean(annualized_returns) if annualized_returns else None,
-            "annualized_return_count": len(annualized_returns),
-            "sharpe_mean": mean(sharpes) if sharpes else None,
-            "sharpe_count": len(sharpes),
-        }
+    def benchmark_differences(self) -> dict[str, dict[str, float | int | None]]:
+        result: dict[str, dict[str, float | int | None]] = {}
+        for key in sorted(
+            {benchmark.key for item in self.windows for benchmark in item.benchmarks}
+        ):
+            total_differences = [
+                benchmark.total_return_difference
+                for item in self.windows
+                for benchmark in item.benchmarks
+                if benchmark.key == key and benchmark.total_return_difference is not None
+            ]
+            annualized_differences = [
+                benchmark.annualized_return_difference
+                for item in self.windows
+                for benchmark in item.benchmarks
+                if benchmark.key == key and benchmark.annualized_return_difference is not None
+            ]
+            result[key] = {
+                "total_return_mean": mean(total_differences) if total_differences else None,
+                "total_return_count": len(total_differences),
+                "annualized_return_mean": (
+                    mean(annualized_differences) if annualized_differences else None
+                ),
+                "annualized_return_count": len(annualized_differences),
+            }
+        return result
 
 
 def _summary(values: list[float]) -> dict[str, float | None]:
@@ -86,11 +105,20 @@ def format_report(report: WalkForwardReport) -> str:
             f"OOS maximum drawdown: {_metric(item.oos_max_drawdown)}",
             f"  Skipped combinations: {len(item.skipped)}",
         ]
-        if report.baseline_enabled:
-            lines.append(
-                "  Baseline annualized return difference: "
-                f"{_difference(item.oos_annualized_return, item.baseline_annualized_return)}; "
-                f"Sharpe difference: {_difference(item.oos_sharpe, item.baseline_sharpe)}"
+        for benchmark in item.benchmarks:
+            lines.extend(
+                [
+                    f"  Benchmark: {benchmark.name} ({benchmark.key})",
+                    f"    Total return: {_metric(benchmark.total_return)}",
+                    f"    Annualized return: {_metric(benchmark.annualized_return)}",
+                    f"    Maximum drawdown: {_metric(benchmark.max_drawdown)}",
+                    f"    Volatility: {_metric(benchmark.volatility)}",
+                    f"    Sharpe ratio: {_metric(benchmark.sharpe_ratio)}",
+                    "    Strategy total return difference: "
+                    f"{_metric(benchmark.total_return_difference)}",
+                    "    Strategy annualized return difference: "
+                    f"{_metric(benchmark.annualized_return_difference)}",
+                ]
             )
         if item.skipped:
             lines.append(f"  Skip summary: {_skip_summary(item.skipped)}")
@@ -101,16 +129,15 @@ def format_report(report: WalkForwardReport) -> str:
             f"min={_metric(stats['min'])}, max={_metric(stats['max'])}, "
             f"std={_metric(stats['std'])}"
         )
-    if report.baseline_enabled:
-        differences = report.baseline_differences()
-        lines += [
-            "Baseline comparison",
-            "  Annualized return difference mean: "
+    for key, differences in report.benchmark_differences().items():
+        lines.append(
+            f"{key} comparison: total return difference mean="
+            f"{_metric(differences['total_return_mean'])} "
+            f"({differences['total_return_count']} windows); "
+            f"annualized return difference mean="
             f"{_metric(differences['annualized_return_mean'])} "
-            f"({differences['annualized_return_count']} windows)",
-            f"  Sharpe difference mean: {_metric(differences['sharpe_mean'])} "
-            f"({differences['sharpe_count']} windows)",
-        ]
+            f"({differences['annualized_return_count']} windows)"
+        )
     lines.append("Parameter stability")
     parameter_names = sorted({name for item in report.windows for name in item.best_combo})
     for name in parameter_names:
@@ -120,10 +147,6 @@ def format_report(report: WalkForwardReport) -> str:
         )
         lines.append(f"  {name}: {values}")
     return "\n".join(lines) + "\n"
-
-
-def _difference(left: float | None, right: float | None) -> str:
-    return "n/a" if left is None or right is None else f"{left - right:.6f}"
 
 
 def _skip_summary(skipped: list[str]) -> str:

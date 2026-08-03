@@ -27,7 +27,3 @@ parameter_space:
     low: 1
     high: 3
     step: 1
-baseline:
-  type: equal_weight
-  strategy_id: walk_forward_equal_weight
-  version: v1

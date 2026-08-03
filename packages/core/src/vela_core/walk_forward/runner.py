@@ -16,14 +16,17 @@ from sqlalchemy.pool import StaticPool
 
 from vela_core.backtest_runner import run_backtest
 from vela_core.models import MarketPrice, TradingCalendar
-from vela_core.strategy_config import validate_strategy_config
 from vela_core.walk_forward.config import WalkForwardConfig
 from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
     canonical_combination,
     generate_combinations,
 )
-from vela_core.walk_forward.report import WalkForwardReport, WalkForwardWindowResult
+from vela_core.walk_forward.report import (
+    WalkForwardBenchmarkResult,
+    WalkForwardReport,
+    WalkForwardWindowResult,
+)
 from vela_core.walk_forward.window_splitter import WalkForwardWindow, generate_windows
 
 logger = logging.getLogger(__name__)
@@ -68,7 +71,7 @@ class WalkForwardRunner:
         combinations = generate_combinations(self.config.parameter_space)
         with _memory_snapshot(session) as memory:
             results = [self._run_window(session, memory, item, combinations) for item in windows]
-        return WalkForwardReport(results, baseline_enabled=self.config.baseline is not None)
+        return WalkForwardReport(results)
 
     def _run_window(
         self,
@@ -93,6 +96,7 @@ class WalkForwardRunner:
                     config=built.config,
                     start_date=window.train_start,
                     end_date=window.train_end,
+                    calculate_benchmarks=False,
                 )
                 if result.status == "success" and result.sharpe_ratio is not None:
                     scored.append(
@@ -125,37 +129,14 @@ class WalkForwardRunner:
         self._version_contents[version] = content
         oos_config = best[3].model_copy(update={"version": version})
         oos = run_backtest(
-            source, config=oos_config, start_date=window.test_start, end_date=window.test_end
+            source,
+            config=oos_config,
+            start_date=window.test_start,
+            end_date=window.test_end,
+            calculate_benchmarks=True,
         )
         if oos.status != "success":
             raise RuntimeError(f"OOS backtest returned {oos.status}")
-        baseline_return: float | None = None
-        baseline_sharpe: float | None = None
-        if self.config.baseline is not None:
-            data = dict(self._base_config)
-            data.update(
-                {
-                    "type": "equal_weight",
-                    "parameters": {},
-                    "strategy_id": self.config.baseline.strategy_id,
-                    "version": self.config.baseline.version,
-                }
-            )
-            baseline = validate_strategy_config(data)
-            if (baseline.strategy_id, baseline.version) == (
-                oos_config.strategy_id,
-                oos_config.version,
-            ):
-                raise ValueError("baseline identity must differ from optimized strategy identity")
-            baseline_result = run_backtest(
-                source, config=baseline, start_date=window.test_start, end_date=window.test_end
-            )
-            if baseline_result.status != "success":
-                raise RuntimeError(f"baseline backtest returned {baseline_result.status}")
-            baseline_return, baseline_sharpe = (
-                _number(baseline_result.annualized_return),
-                _number(baseline_result.sharpe_ratio),
-            )
         return WalkForwardWindowResult(
             window,
             best[2],
@@ -164,8 +145,24 @@ class WalkForwardRunner:
             _number(oos.annualized_return),
             _number(oos.sharpe_ratio),
             _number(oos.max_drawdown),
-            baseline_return,
-            baseline_sharpe,
+            tuple(
+                WalkForwardBenchmarkResult(
+                    key=item.key,
+                    name=item.name,
+                    total_return=_number(item.annualized_return.total_return),
+                    annualized_return=_number(item.annualized_return.annualized_return),
+                    max_drawdown=_number(item.maximum_drawdown.max_drawdown),
+                    volatility=_number(item.volatility.volatility),
+                    sharpe_ratio=_number(item.sharpe_ratio.sharpe_ratio),
+                    total_return_difference=_difference(
+                        oos.total_return, item.annualized_return.total_return
+                    ),
+                    annualized_return_difference=_difference(
+                        oos.annualized_return, item.annualized_return.annualized_return
+                    ),
+                )
+                for item in getattr(oos, "benchmarks", ())
+            ),
             skipped,
         )
 
@@ -207,3 +204,7 @@ def _canonical_config_content(data: dict[str, Any]) -> str:
 
 def _number(value: Decimal | float | None) -> float | None:
     return None if value is None else float(value)
+
+
+def _difference(left: Decimal | float | None, right: Decimal | float | None) -> float | None:
+    return None if left is None or right is None else float(left) - float(right)

@@ -76,14 +76,6 @@ class WindowConfig(BaseModel):
         return self
 
 
-class EqualWeightBaseline(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    type: Literal["equal_weight"]
-    strategy_id: str = Field(min_length=1)
-    version: str = Field(min_length=1)
-
-
 class WalkForwardConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -91,7 +83,6 @@ class WalkForwardConfig(BaseModel):
     window: WindowConfig
     objective: Literal["sharpe_ratio"]
     parameter_space: list[ParameterSpec] = Field(min_length=1)
-    baseline: EqualWeightBaseline | None = None
 
     @model_validator(mode="after")
     def validate_parameter_names(self) -> WalkForwardConfig:

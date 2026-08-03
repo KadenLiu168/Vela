@@ -5,6 +5,13 @@ from pathlib import Path
 import pytest
 from vela_cli import main as cli
 from vela_core import BacktestRunResult
+from vela_core.backtest_benchmarks import BacktestBenchmarkResult
+from vela_core.strategy_equity_curve import (
+    StrategyAnnualizedReturn,
+    StrategyMaximumDrawdown,
+    StrategySharpeRatio,
+    StrategyVolatility,
+)
 
 
 def _sqlite_url(path: Path) -> str:
@@ -105,6 +112,14 @@ def test_run_backtest_prints_core_metric_summary(
     assert "Max drawdown: -0.050000" in captured.out
     assert "Volatility: 0.140000" in captured.out
     assert "Sharpe ratio: 1.100000" in captured.out
+    assert "Benchmark: Equal-weight monthly rebalanced portfolio" in captured.out
+    assert "- Total return: 0.100000" in captured.out
+    assert "- Annualized return: 0.150000" in captured.out
+    assert "- Max drawdown: -0.040000" in captured.out
+    assert "- Volatility: 0.120000" in captured.out
+    assert "- Sharpe ratio: 0.900000" in captured.out
+    assert "- Strategy total return difference: 0.020000" in captured.out
+    assert "- Strategy annualized return difference: 0.030000" in captured.out
     assert captured.err == ""
 
 
@@ -171,4 +186,22 @@ def _result() -> BacktestRunResult:
         max_drawdown=Decimal("-0.050000"),
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
+        benchmarks=(
+            BacktestBenchmarkResult(
+                key="equal_weight_monthly",
+                name="Equal-weight monthly rebalanced portfolio",
+                points=[],
+                annualized_return=StrategyAnnualizedReturn(
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                ),
+                maximum_drawdown=StrategyMaximumDrawdown(
+                    max_drawdown=Decimal("-0.040000"),
+                    peak_date=None,
+                    trough_date=None,
+                ),
+                volatility=StrategyVolatility(volatility=Decimal("0.120000")),
+                sharpe_ratio=StrategySharpeRatio(sharpe_ratio=Decimal("0.900000")),
+            ),
+        ),
     )

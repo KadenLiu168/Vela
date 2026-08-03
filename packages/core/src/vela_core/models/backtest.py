@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    case,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -71,6 +72,17 @@ class BacktestRun(Base):
         back_populates="backtest_run",
         order_by="(StrategySignal.signal_date, StrategySignal.id)",
     )
+    benchmarks: Mapped[list["BacktestBenchmark"]] = relationship(
+        back_populates="backtest_run",
+        order_by=lambda: (
+            case(
+                {"equal_weight_monthly": 0, "csi_300_buy_hold": 1},
+                value=BacktestBenchmark.benchmark_key,
+                else_=2,
+            ),
+            BacktestBenchmark.id,
+        ),
+    )
 
 
 class BacktestEquityCurve(Base):
@@ -98,3 +110,38 @@ class BacktestEquityCurve(Base):
         server_default=func.now(),
     )
     backtest_run: Mapped[BacktestRun] = relationship(back_populates="equity_curve")
+
+
+class BacktestBenchmark(Base):
+    __tablename__ = "backtest_benchmark"
+    __table_args__ = (
+        UniqueConstraint("backtest_run_id", "benchmark_key", name="uq_backtest_benchmark_run_key"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    backtest_run_id: Mapped[int] = mapped_column(ForeignKey("backtest_run.id"), nullable=False)
+    benchmark_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    total_return: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    annualized_return: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    max_drawdown: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    sharpe_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    volatility: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    backtest_run: Mapped[BacktestRun] = relationship(back_populates="benchmarks")
+    equity_curve: Mapped[list["BacktestBenchmarkEquityCurve"]] = relationship(
+        back_populates="benchmark",
+        order_by=lambda: (BacktestBenchmarkEquityCurve.trade_date, BacktestBenchmarkEquityCurve.id),
+    )
+
+
+class BacktestBenchmarkEquityCurve(Base):
+    __tablename__ = "backtest_benchmark_equity_curve"
+    __table_args__ = (
+        UniqueConstraint("benchmark_id", "trade_date", name="uq_backtest_benchmark_curve_date"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_id: Mapped[int] = mapped_column(ForeignKey("backtest_benchmark.id"), nullable=False)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    net_value: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+    benchmark: Mapped[BacktestBenchmark] = relationship(back_populates="equity_curve")

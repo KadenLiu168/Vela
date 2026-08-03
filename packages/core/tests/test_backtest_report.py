@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
+    BacktestBenchmarkInput,
     BacktestEquityCurveInput,
     BacktestReportNotFoundError,
     BacktestResultRunInput,
@@ -25,6 +26,18 @@ def test_export_backtest_report_formats_metrics_and_curve_summary() -> None:
                 _curve_input(date(2026, 1, 1), net_value=Decimal("1.000000")),
                 _curve_input(date(2026, 1, 2), net_value=Decimal("0.950000")),
                 _curve_input(date(2026, 1, 3), net_value=Decimal("1.120000")),
+            ],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="equal_weight_monthly",
+                    name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                )
             ],
         )
         session.commit()
@@ -48,6 +61,14 @@ def test_export_backtest_report_formats_metrics_and_curve_summary() -> None:
     assert "- Last: 2026-01-03 net_value=1.120000" in report
     assert "- Min net value: 2026-01-02 net_value=0.950000" in report
     assert "- Max net value: 2026-01-03 net_value=1.120000" in report
+    assert "Benchmark: Equal-weight monthly rebalanced portfolio" in report
+    assert "- Total return: 0.100000" in report
+    assert "- Annualized return: 0.150000" in report
+    assert "- Max drawdown: -0.040000" in report
+    assert "- Volatility: 0.120000" in report
+    assert "- Sharpe ratio: 0.900000" in report
+    assert "- Strategy total return difference: 0.020000" in report
+    assert "- Strategy annualized return difference: 0.030000" in report
 
 
 def test_export_backtest_report_formats_empty_equity_curve() -> None:

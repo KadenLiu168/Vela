@@ -1,16 +1,25 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
+    BacktestBenchmarkInput,
     BacktestEquityCurveInput,
     BacktestResultPersistenceResult,
     BacktestResultRunInput,
     get_backtest_result,
     persist_backtest_result,
 )
-from vela_core.models import BacktestEquityCurve, BacktestRun, Base, StrategySignal
+from vela_core.models import (
+    BacktestBenchmark,
+    BacktestEquityCurve,
+    BacktestRun,
+    Base,
+    StrategySignal,
+)
 
 
 def test_persist_backtest_result_writes_run_metrics_and_curve_rows() -> None:
@@ -140,6 +149,91 @@ def test_get_backtest_result_loads_run_with_ordered_equity_curve() -> None:
     ]
 
 
+def test_persist_backtest_result_loads_ordered_benchmark_curves_and_legacy_runs() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        legacy = persist_backtest_result(session, run=_run_input(), equity_curve=[])
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(started_at=datetime(2026, 2, 2, 9, 0, tzinfo=UTC)),
+            equity_curve=[],
+            benchmarks=[
+                _benchmark(
+                    "equal_weight_monthly",
+                    [
+                        (date(2026, 1, 3), Decimal("1.020000")),
+                        (date(2026, 1, 2), Decimal("1.000000")),
+                    ],
+                ),
+                _benchmark(
+                    "csi_300_buy_hold",
+                    [
+                        (date(2026, 1, 3), Decimal("1.030000")),
+                        (date(2026, 1, 2), Decimal("1.000000")),
+                    ],
+                ),
+            ],
+        )
+        session.commit()
+        session.expire_all()
+
+        legacy_run = get_backtest_result(session, run_id=legacy.backtest_run.id)
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+
+    assert legacy_run is not None
+    assert legacy_run.benchmarks == []
+    assert run is not None
+    assert [benchmark.benchmark_key for benchmark in run.benchmarks] == [
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    ]
+    assert [point.trade_date for point in run.benchmarks[0].equity_curve] == [
+        date(2026, 1, 2),
+        date(2026, 1, 3),
+    ]
+    assert isinstance(run.benchmarks[0], BacktestBenchmark)
+
+
+def test_persist_backtest_result_rejects_duplicate_benchmark_keys_before_writing() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        with pytest.raises(ValueError, match="keys must be unique"):
+            persist_backtest_result(
+                session,
+                run=_run_input(),
+                equity_curve=[],
+                benchmarks=[
+                    _benchmark("equal_weight_monthly", []),
+                    _benchmark("equal_weight_monthly", []),
+                ],
+            )
+
+        assert session.query(BacktestRun).count() == 0
+
+
+def test_database_rejects_duplicate_benchmark_curve_dates() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        with pytest.raises(IntegrityError):
+            persist_backtest_result(
+                session,
+                run=_run_input(),
+                equity_curve=[],
+                benchmarks=[
+                    _benchmark(
+                        "equal_weight_monthly",
+                        [
+                            (date(2026, 1, 2), Decimal("1.000000")),
+                            (date(2026, 1, 2), Decimal("1.010000")),
+                        ],
+                    )
+                ],
+            )
+
+
 def test_get_backtest_result_returns_none_for_missing_run() -> None:
     session_factory = _create_session_factory()
 
@@ -190,6 +284,19 @@ def _curve_input(
         market_value=Decimal("10000.000000"),
         total_assets=Decimal("10000.000000"),
         positions_json='[{"symbol": "SPY", "weight": 1.0}]',
+    )
+
+
+def _benchmark(key: str, equity_curve: list[tuple[date, Decimal]]) -> BacktestBenchmarkInput:
+    return BacktestBenchmarkInput(
+        key=key,
+        name=key,
+        total_return=Decimal("0.100000"),
+        annualized_return=Decimal("0.120000"),
+        max_drawdown=Decimal("-0.050000"),
+        sharpe_ratio=Decimal("1.100000"),
+        volatility=Decimal("0.140000"),
+        equity_curve=equity_curve,
     )
 
 

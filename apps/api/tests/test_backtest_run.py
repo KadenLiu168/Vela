@@ -94,6 +94,29 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
     assert body["annualized_return"] is not None
     assert body["volatility"] is not None
     assert body["sharpe_ratio"] is not None
+    assert [benchmark["key"] for benchmark in body["benchmarks"]] == [
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    ]
+    for benchmark in body["benchmarks"]:
+        assert set(benchmark) == {
+            "key",
+            "name",
+            "total_return",
+            "annualized_return",
+            "max_drawdown",
+            "volatility",
+            "sharpe_ratio",
+            "total_return_difference",
+            "annualized_return_difference",
+            "equity_curve",
+        }
+        assert Decimal(benchmark["total_return_difference"]) == (
+            Decimal(body["total_return"]) - Decimal(benchmark["total_return"])
+        )
+        assert Decimal(benchmark["annualized_return_difference"]) == (
+            Decimal(body["annualized_return"]) - Decimal(benchmark["annualized_return"])
+        )
 
     with session_factory() as session:
         run = session.query(BacktestRun).one()
@@ -224,6 +247,23 @@ def test_run_backtest_endpoint_updates_backtest_detail(
     assert detail["equity_curve"][-1]["net_value"] == str(curve_rows[-1].net_value)
     assert detail["signal_ids"] == [signal.id for signal in signals]
     assert detail["signal_count"] == len(signals)
+    assert [benchmark["key"] for benchmark in detail["benchmarks"]] == [
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    ]
+    assert all(
+        [point["trade_date"] for point in benchmark["equity_curve"]]
+        == sorted(point["trade_date"] for point in benchmark["equity_curve"])
+        and len(benchmark["equity_curve"]) == run_body["trading_day_count"]
+        for benchmark in detail["benchmarks"]
+    )
+    assert [
+        (benchmark["total_return_difference"], benchmark["annualized_return_difference"])
+        for benchmark in detail["benchmarks"]
+    ] == [
+        (benchmark["total_return_difference"], benchmark["annualized_return_difference"])
+        for benchmark in run_body["benchmarks"]
+    ]
 
 
 def _test_strategy_config() -> StrategyConfig:
@@ -545,6 +585,7 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
         ],
         "signal_ids": [],
         "signal_count": 0,
+        "benchmarks": [],
     }
 
 

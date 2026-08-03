@@ -25,10 +25,6 @@ parameter_space:
     low: 1
     high: 2
     step: 1
-baseline:
-  type: equal_weight
-  strategy_id: walk_forward_equal_weight
-  version: v1
 """
     )
 
@@ -83,6 +79,30 @@ parameter_space:
         load_walk_forward_config(path)
 
 
+def test_load_walk_forward_config_rejects_removed_baseline(tmp_path: Path) -> None:
+    path = tmp_path / "invalid.yaml"
+    path.write_text(
+        """strategy: {base_config: strategy.yaml}
+window: {scheme: anchored_rolling, start_date: 2019-01-01, end_date: 2024-12-31,
+  train_years: 3, test_years: 1, step_years: 1}
+objective: sharpe_ratio
+parameter_space: [{name: parameters.selection.top_n, type: choice, values: [1]}]
+baseline: {type: equal_weight, strategy_id: ignored, version: v1}
+"""
+    )
+
+    with pytest.raises(ConfigError, match="baseline"):
+        load_walk_forward_config(path)
+
+
+def test_repository_walk_forward_config_matches_current_contract() -> None:
+    repository_root = Path(__file__).parents[3]
+
+    config = load_walk_forward_config(repository_root / "config/walk_forward_v1.yaml")
+
+    assert config.objective == "sharpe_ratio"
+
+
 @pytest.mark.parametrize(
     "content",
     [
@@ -98,7 +118,6 @@ window: {scheme: anchored_rolling, start_date: 2019-01-01, end_date: 2024-12-31,
   train_years: 3, test_years: 1, step_years: 1}
 objective: sharpe_ratio
 parameter_space: [{name: parameters.selection.top_n, type: int_range, low: 2, high: 1, step: 1}]
-baseline: {type: equal_weight, strategy_id: '', version: ''}
 """,
     ],
 )

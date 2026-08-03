@@ -1358,10 +1358,18 @@ main {
 
 .equity-curve-line {
   fill: none;
-  stroke: var(--color-acid-lime);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+.equity-curve-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-12);
+  list-style: none;
+  margin: var(--spacing-16) 0;
+  padding: 0;
 }
 
 .equity-curve-highlight {

@@ -217,6 +217,7 @@ class BacktestRunResponse(BacktestMetricsResponse):
     end_date: date
     trading_day_count: int
     signal_count: int
+    benchmarks: list["BacktestBenchmarkResponse"]
 
 
 class BacktestListItemResponse(ResponseModel):
@@ -261,12 +262,26 @@ class EquityCurvePointResponse(ResponseModel):
     positions_json: str
 
 
+class BacktestBenchmarkCurvePointResponse(ResponseModel):
+    trade_date: date
+    net_value: str
+
+
+class BacktestBenchmarkResponse(BacktestMetricsResponse):
+    key: str
+    name: str
+    total_return_difference: str | None
+    annualized_return_difference: str | None
+    equity_curve: list[BacktestBenchmarkCurvePointResponse] = []
+
+
 class BacktestDetailResponse(ResponseModel):
     run: BacktestDetailRunResponse
     metrics: BacktestMetricsResponse
     equity_curve: list[EquityCurvePointResponse]
     signal_ids: list[int]
     signal_count: int
+    benchmarks: list[BacktestBenchmarkResponse]
 
 
 class BacktestSignalSummaryResponse(ResponseModel):

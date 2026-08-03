@@ -18,6 +18,16 @@ export type EquityCurveChartCoordinate = {
   y: number;
 };
 
+export type EquityCurveChartSeries = {
+  key: string;
+  name: string;
+  points: EquityCurveChartPoint[];
+};
+
+export type EquityCurveChartSeriesGeometry = EquityCurveChartSeries & {
+  linePath: string;
+};
+
 type EquityCurveApiPoint = {
   trade_date: string;
   net_value: string | null;
@@ -62,5 +72,37 @@ export function computeEquityCurveGeometry(points: EquityCurveChartPoint[]) {
     linePath,
     maxNetValue,
     minNetValue
+  };
+}
+
+export function computeMultiEquityCurveGeometry(
+  series: EquityCurveChartSeries[]
+): { maxNetValue: number; minNetValue: number; series: EquityCurveChartSeriesGeometry[] } {
+  const validSeries = series.filter((item) => item.points.length > 0);
+  const allPoints = validSeries.flatMap((item) => item.points);
+  const netValues = allPoints.map((point) => point.netValue);
+  const minNetValue = Math.min(...netValues);
+  const maxNetValue = Math.max(...netValues);
+  const netValueRange = maxNetValue - minNetValue;
+  const dates = [...new Set(allPoints.map((point) => point.tradeDate))].sort();
+  const dateIndexes = new Map(dates.map((tradeDate, index) => [tradeDate, index]));
+  const drawableWidth = EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingLeft - EQUITY_CURVE_CHART.paddingRight;
+  const drawableHeight = EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingTop - EQUITY_CURVE_CHART.paddingBottom;
+
+  return {
+    minNetValue,
+    maxNetValue,
+    series: validSeries.map((item) => ({
+      ...item,
+      linePath: item.points
+        .map((point, index) => {
+          const dateIndex = dateIndexes.get(point.tradeDate) ?? 0;
+          const x = EQUITY_CURVE_CHART.paddingLeft + (drawableWidth * dateIndex) / Math.max(dates.length - 1, 1);
+          const normalizedY = netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
+          const y = EQUITY_CURVE_CHART.paddingTop + normalizedY * drawableHeight;
+          return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+        })
+        .join(" ")
+    }))
   };
 }

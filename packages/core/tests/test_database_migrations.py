@@ -193,6 +193,50 @@ def test_data_snapshot_migration_round_trips_and_matches_metadata(tmp_path: Path
         engine.dispose()
 
 
+def test_benchmark_migration_preserves_legacy_runs_and_downgrades_cleanly(tmp_path: Path) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    previous_revision = "20260725_0012"
+    alembic.command.upgrade(config, previous_revision)
+
+    engine = _create_engine(config)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_id, config_version, start_date, end_date, parameters_json, "
+                    "started_at, status) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-31', '{}', "
+                    "'2026-02-01 09:00:00', 'success')"
+                )
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        assert {"backtest_benchmark", "backtest_benchmark_equity_curve"} <= set(
+            inspector.get_table_names()
+        )
+        with engine.connect() as connection:
+            assert connection.execute(text("SELECT COUNT(*) FROM backtest_run")).scalar_one() == 1
+            assert (
+                connection.execute(text("SELECT COUNT(*) FROM backtest_benchmark")).scalar_one()
+                == 0
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.downgrade(config, previous_revision)
+    engine = _create_engine(config)
+    try:
+        assert "backtest_benchmark" not in inspect(engine).get_table_names()
+    finally:
+        engine.dispose()
+
+
 def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
     tmp_path: Path,
 ) -> None:

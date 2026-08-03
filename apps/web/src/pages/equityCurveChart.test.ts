@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   computeEquityCurveGeometry,
+  computeMultiEquityCurveGeometry,
   EQUITY_CURVE_CHART,
   normalizeEquityCurvePoints
 } from "./equityCurveChart";
@@ -40,6 +41,34 @@ it("filters invalid values and computes bounded two-point and multi-point paths"
     expect(coordinate.y).toBeGreaterThanOrEqual(EQUITY_CURVE_CHART.paddingTop);
     expect(coordinate.y).toBeLessThanOrEqual(EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom);
   }
+});
+
+it("uses one shared scale and date axis for multiple ordered series", () => {
+  const geometry = computeMultiEquityCurveGeometry([
+    {
+      key: "strategy",
+      name: "Strategy",
+      points: [
+        { netValue: 1, tradeDate: "2026-01-01" },
+        { netValue: 1.2, tradeDate: "2026-01-03" }
+      ]
+    },
+    {
+      key: "csi_300_buy_hold",
+      name: "CSI 300 buy-and-hold",
+      points: [
+        { netValue: 1, tradeDate: "2026-01-01" },
+        { netValue: 0.9, tradeDate: "2026-01-02" },
+        { netValue: 1.1, tradeDate: "2026-01-03" }
+      ]
+    }
+  ]);
+
+  expect(geometry.minNetValue).toBe(0.9);
+  expect(geometry.maxNetValue).toBe(1.2);
+  expect(geometry.series.map((item) => item.key)).toEqual(["strategy", "csi_300_buy_hold"]);
+  expect(geometry.series[0].linePath).toBe("M 48.00 125.33 L 608.00 24.00");
+  expect(geometry.series[1].linePath).toBe("M 48.00 125.33 L 328.00 176.00 L 608.00 74.67");
 });
 
 it("centers equal values and selects deterministic, deduplicated extrema highlights", () => {

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from vela_core.models import Base, TradingCalendar
-from vela_core.walk_forward.config import EqualWeightBaseline, load_walk_forward_config
+from vela_core.walk_forward.config import load_walk_forward_config
 from vela_core.walk_forward.runner import WalkForwardRunner
 
 
@@ -36,7 +36,6 @@ window:
   train_years: 1, test_years: 1, step_years: 1}
 objective: sharpe_ratio
 parameter_space: [{name: parameters.selection.top_n, type: choice, values: [1, 2]}]
-baseline: null
 """
     )
     return path
@@ -71,27 +70,58 @@ def test_runner_uses_memory_snapshot_for_training_and_source_for_oos(
         session.commit()
         calls = []
 
-        def fake_run_backtest(current_session, *, config, start_date, end_date):
-            calls.append((current_session.bind.url.database, config.version, start_date, end_date))
-            return type(
-                "Result",
-                (),
-                {
-                    "status": "success",
-                    "sharpe_ratio": 1.0,
-                    "annualized_return": 0.2,
-                    "max_drawdown": -0.1,
-                },
-            )()
+        def fake_run_backtest(
+            current_session, *, config, start_date, end_date, calculate_benchmarks
+        ):
+            calls.append(
+                (
+                    current_session.bind.url.database,
+                    config.version,
+                    start_date,
+                    end_date,
+                    calculate_benchmarks,
+                )
+            )
+            benchmarks = (
+                (
+                    SimpleNamespace(
+                        key="equal_weight_monthly",
+                        name="Equal-weight monthly rebalanced portfolio",
+                        annualized_return=SimpleNamespace(total_return=0.1, annualized_return=0.15),
+                        maximum_drawdown=SimpleNamespace(max_drawdown=-0.05),
+                        volatility=SimpleNamespace(volatility=0.12),
+                        sharpe_ratio=SimpleNamespace(sharpe_ratio=0.9),
+                    ),
+                )
+                if calculate_benchmarks
+                else ()
+            )
+            return SimpleNamespace(
+                status="success",
+                total_return=0.3,
+                sharpe_ratio=1.0,
+                annualized_return=0.2,
+                max_drawdown=-0.1,
+                benchmarks=benchmarks,
+            )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
         report = WalkForwardRunner(config).run(session)
 
     assert len(calls) == 3
-    assert calls[0][0] == ":memory:" and calls[1][0] == ":memory:"
-    assert calls[2][0] == str(tmp_path / "source.db")
+    assert calls[0][0] == ":memory:" and calls[0][4] is False
+    assert calls[1][0] == ":memory:" and calls[1][4] is False
+    assert calls[2][0] == str(tmp_path / "source.db") and calls[2][4] is True
     assert report.windows[0].best_combo == {"parameters.selection.top_n": 1}
     assert report.windows[0].oos_version.startswith("wf-")
+    benchmark = report.windows[0].benchmarks[0]
+    assert benchmark.total_return == 0.1
+    assert benchmark.annualized_return == 0.15
+    assert benchmark.max_drawdown == -0.05
+    assert benchmark.volatility == 0.12
+    assert benchmark.sharpe_ratio == 0.9
+    assert benchmark.total_return_difference == pytest.approx(0.2)
+    assert benchmark.annualized_return_difference == pytest.approx(0.05)
 
 
 def test_runner_rejects_non_success_oos_result(
@@ -112,7 +142,9 @@ def test_runner_rejects_non_success_oos_result(
         )
         session.commit()
 
-        def fake_run_backtest(current_session, *, config, start_date, end_date):
+        def fake_run_backtest(
+            current_session, *, config, start_date, end_date, calculate_benchmarks
+        ):
             status = "success" if current_session.bind.url.database == ":memory:" else "partial"
             return SimpleNamespace(
                 status=status,
@@ -124,45 +156,6 @@ def test_runner_rejects_non_success_oos_result(
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
 
         with pytest.raises(RuntimeError, match="OOS backtest returned partial"):
-            WalkForwardRunner(config).run(session)
-
-
-def test_runner_rejects_non_success_baseline_result(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = load_walk_forward_config(_config(tmp_path)).model_copy(
-        update={
-            "baseline": EqualWeightBaseline(
-                type="equal_weight", strategy_id="walk_forward_equal_weight", version="v1"
-            )
-        }
-    )
-    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'source.db'}")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine)
-    with factory() as session:
-        session.add_all(
-            [
-                TradingCalendar(trade_date=date(2020, 1, 2), source="test"),
-                TradingCalendar(trade_date=date(2020, 12, 31), source="test"),
-                TradingCalendar(trade_date=date(2021, 1, 4), source="test"),
-                TradingCalendar(trade_date=date(2021, 12, 31), source="test"),
-            ]
-        )
-        session.commit()
-
-        def fake_run_backtest(current_session, *, config, start_date, end_date):
-            status = "partial" if config.type == "equal_weight" else "success"
-            return SimpleNamespace(
-                status=status,
-                sharpe_ratio=1.0,
-                annualized_return=0.2,
-                max_drawdown=-0.1,
-            )
-
-        monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
-
-        with pytest.raises(RuntimeError, match="baseline backtest returned partial"):
             WalkForwardRunner(config).run(session)
 
 
@@ -185,7 +178,9 @@ def test_failed_search_combination_rolls_back_and_later_combination_runs(
         session.commit()
         calls: list[tuple[str, int]] = []
 
-        def fake_run_backtest(current_session, *, config, start_date, end_date):
+        def fake_run_backtest(
+            current_session, *, config, start_date, end_date, calculate_benchmarks
+        ):
             calls.append((current_session.bind.url.database, config.selection.top_n))
             if current_session.bind.url.database == ":memory:" and config.selection.top_n == 1:
                 current_session.add(TradingCalendar(trade_date=date(2020, 6, 1), source="bad"))
@@ -224,7 +219,9 @@ def test_unscorable_search_combination_rolls_back_before_later_combination(
         session.commit()
         later_combo_saw_unscorable_write: list[bool] = []
 
-        def fake_run_backtest(current_session, *, config, start_date, end_date):
+        def fake_run_backtest(
+            current_session, *, config, start_date, end_date, calculate_benchmarks
+        ):
             if current_session.bind.url.database == ":memory:":
                 if config.selection.top_n == 1:
                     current_session.add(

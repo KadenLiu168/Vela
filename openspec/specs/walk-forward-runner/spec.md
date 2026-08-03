@@ -59,23 +59,16 @@ Before an OOS backtest is persisted, the system SHALL replace the selected confi
 - **WHEN** two windows select different effective parameter values
 - **THEN** their generated config versions differ and the persisted report mapping identifies each version's complete selected parameters.
 
-### Requirement: Baseline comparison
-The system SHALL support an optional `equal_weight` baseline with explicitly configured `strategy_id` and `version`. It SHALL inherit universe, rebalance, costs, and performance from the base strategy, use `parameters: {}`, and have an identity distinct from the optimized strategy. When enabled it SHALL be evaluated on each test window, producing annualized-return difference and Sharpe difference relative to the baseline. Aggregate baseline differences SHALL be the arithmetic mean across windows where both compared values are non-null and SHALL report the contributing-window count.
+### Requirement: OOS dual-benchmark comparison
+For every selected OOS window, the walk-forward report SHALL retain and print metrics and relative total-return/CAGR differences for both fixed benchmarks. Its aggregate comparison section SHALL report the mean and contributing-window count for each benchmark's non-null total-return and annualized-return difference.
 
-#### Scenario: Baseline enabled
-- **WHEN** the walk-forward configuration specifies an equal-weight baseline with a distinct identity
-- **THEN** the system runs it on each test window and reports strategy minus baseline annualized return and Sharpe for each window and in the aggregate when both values are non-null.
-
-#### Scenario: Baseline disabled
-- **WHEN** the walk-forward configuration has baseline set to null
-- **THEN** the system SHALL NOT run any baseline backtests and SHALL NOT include excess metrics in the report.
-
-#### Scenario: Baseline identity collision
-- **WHEN** baseline `strategy_id` and `version` equal the optimized strategy's persisted identity
-- **THEN** configuration or runtime validation rejects the run before persisting the baseline.
+#### Scenario: Multiple OOS windows retain both comparisons
+- **WHEN** a walk-forward run completes multiple OOS windows
+- **THEN** each window identifies both fixed benchmarks and their comparison values
+- **AND** aggregate comparison values exclude only null values for their own metric
 
 ### Requirement: Terminal report output
-The system SHALL produce a terminal-readable text report containing per-window boundaries, generated OOS version, best parameters, train Sharpe, OOS Sharpe, OOS annualized return, OOS maximum drawdown, skipped-combination summary, aggregate OOS statistics, parameter stability analysis, and baseline comparison when enabled.
+The system SHALL produce a terminal-readable text report containing per-window boundaries, generated OOS version, best parameters, train Sharpe, OOS Sharpe, OOS annualized return, OOS maximum drawdown, skipped-combination summary, aggregate OOS statistics, parameter stability analysis, and fixed benchmark comparisons.
 
 #### Scenario: Report includes parameter stability
 - **WHEN** a walk-forward run completes with 3 windows
