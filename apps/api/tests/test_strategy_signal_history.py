@@ -187,6 +187,34 @@ def test_strategy_signal_detail_endpoint_returns_404_for_foreign_strategy(tmp_pa
     assert response.status_code == 404
 
 
+def test_strategy_signal_detail_endpoint_returns_current_strategy_across_versions(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'signal-historical.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        session.add(
+            StrategySignal(
+                signal_date=date(2026, 6, 23),
+                strategy_id="Dual_momentum",
+                config_version="wf-historical",
+                source="backtest",
+                generated_at=datetime(2026, 6, 23, 9, 30, tzinfo=UTC),
+                status="success",
+                result="rebalance",
+                positions=[],
+            )
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get("/api/strategy-signals/1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json()["signal"]["config_version"] == "wf-historical"
+
+
 def test_strategy_signal_detail_endpoint_returns_404_for_unknown_id(tmp_path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'signal-unknown.db'}"
     prepare_sqlite_database(database_url)

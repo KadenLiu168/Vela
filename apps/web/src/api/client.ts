@@ -469,6 +469,187 @@ export type BacktestSignalsResponse = {
   signals: BacktestSignalSummary[];
 };
 
+export type WalkForwardJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | WalkForwardJsonValue[]
+  | { [key: string]: WalkForwardJsonValue };
+
+export type WalkForwardEvidenceStatus = "sufficient" | "insufficient_evidence";
+export type WalkForwardBenchmarkKey = "equal_weight_monthly" | "csi_300_buy_hold";
+export type WalkForwardSkipReason =
+  | "invalid_config"
+  | "training_error"
+  | "training_non_success"
+  | "missing_train_sharpe";
+
+export type WalkForwardMetricSummary = {
+  mean: number | null;
+  median: number | null;
+  min: number | null;
+  max: number | null;
+  std: number | null;
+  window_count: number;
+  valid_count: number;
+  evidence_status: WalkForwardEvidenceStatus;
+};
+
+export type WalkForwardRateSummary = {
+  numerator: number;
+  denominator: number;
+  value: number | null;
+  window_count: number;
+  valid_count: number;
+  evidence_status: WalkForwardEvidenceStatus;
+};
+
+export type WalkForwardBenchmarkEvidence = {
+  total_return_difference: WalkForwardMetricSummary;
+  annualized_return_difference: WalkForwardMetricSummary;
+  tracking_error: WalkForwardMetricSummary;
+  information_ratio: WalkForwardMetricSummary;
+  outperformance_rate: WalkForwardRateSummary;
+};
+
+export type WalkForwardEvidence = {
+  metrics: {
+    total_return: WalkForwardMetricSummary;
+    annualized_return: WalkForwardMetricSummary;
+    sharpe_ratio: WalkForwardMetricSummary;
+    max_drawdown: WalkForwardMetricSummary;
+    volatility: WalkForwardMetricSummary;
+    sortino_ratio: WalkForwardMetricSummary;
+    calmar_ratio: WalkForwardMetricSummary;
+    longest_drawdown_duration_sessions: WalkForwardMetricSummary;
+  };
+  positive_window_rate: WalkForwardRateSummary;
+  generalization_gap: WalkForwardMetricSummary;
+  benchmarks: Record<WalkForwardBenchmarkKey, WalkForwardBenchmarkEvidence>;
+  parameter_stability: Record<
+    string,
+    {
+      value_frequencies: Record<string, number>;
+      transition_count: number;
+      comparison_count: number;
+      transition_rate: number | null;
+    }
+  >;
+};
+
+export type WalkForwardRunSummary = {
+  run_id: number;
+  strategy_id: string;
+  start_date: string;
+  end_date: string;
+  window_count: number;
+  provenance_version: string;
+  evidence_version: string;
+  config_checksum: string;
+  input_data_checksum: string;
+  started_at: string;
+  finished_at: string;
+};
+
+export type WalkForwardPageResponse = {
+  runs: WalkForwardRunSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type WalkForwardInputManifest = {
+  version: "wf_provenance_v1";
+  earliest_required_session: string;
+  configured_end_date: string;
+  following_session: string | null;
+  official_sessions: string[];
+  active_etfs: Array<{
+    etf_id: number;
+    exchange: string;
+    symbol: string;
+    inception_date: string | null;
+    loaded_price_row_count: number;
+    first_loaded_price_date: string | null;
+    last_loaded_price_date: string | null;
+  }>;
+  loaded_price_row_count: number;
+  first_loaded_price_date: string | null;
+  last_loaded_price_date: string | null;
+};
+
+export type WalkForwardBenchmark = {
+  key: WalkForwardBenchmarkKey;
+  name: string;
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+  sortino_ratio: string | null;
+  calmar_ratio: string | null;
+  longest_drawdown_duration_sessions: number | null;
+  longest_drawdown_peak_date: string | null;
+  longest_drawdown_trough_date: string | null;
+  longest_drawdown_recovery_date: string | null;
+  total_return_difference: string | null;
+  annualized_return_difference: string | null;
+  tracking_error: string | null;
+  information_ratio: string | null;
+};
+
+export type WalkForwardOosBacktest = {
+  run_id: number;
+  strategy_id: string;
+  config_version: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  total_return: string | null;
+  annualized_return: string | null;
+  max_drawdown: string | null;
+  volatility: string | null;
+  sharpe_ratio: string | null;
+  sortino_ratio: string | null;
+  calmar_ratio: string | null;
+  longest_drawdown_duration_sessions: number | null;
+  longest_drawdown_peak_date: string | null;
+  longest_drawdown_trough_date: string | null;
+  longest_drawdown_recovery_date: string | null;
+  benchmarks: WalkForwardBenchmark[];
+};
+
+export type WalkForwardDetailResponse = {
+  run: WalkForwardRunSummary & { created_at: string };
+  configuration: {
+    walk_forward: { [key: string]: WalkForwardJsonValue };
+    base_strategy: { [key: string]: WalkForwardJsonValue };
+    config_checksum: string;
+  };
+  input_provenance: {
+    manifest: WalkForwardInputManifest;
+    input_data_checksum: string;
+  };
+  evidence_version: string;
+  evidence: WalkForwardEvidence;
+  windows: Array<{
+    ordinal: number;
+    train_start: string;
+    train_end: string;
+    test_start: string;
+    test_end: string;
+    oos_version: string;
+    selected_parameters: { [key: string]: WalkForwardJsonValue };
+    candidate_count: number;
+    eligible_count: number;
+    skipped_count: number;
+    skip_reason_counts: Partial<Record<WalkForwardSkipReason, number>>;
+    train_sharpe: string | null;
+    oos_backtest: WalkForwardOosBacktest;
+  }>;
+};
+
 export function listBacktestSignals(
   runId: string,
   limit = 20,
@@ -482,6 +663,18 @@ export function listBacktestSignals(
   return apiRequest<BacktestSignalsResponse>(
     `/backtests/${encodeURIComponent(runId)}/signals?${searchParams.toString()}`
   );
+}
+
+export function listWalkForwards(limit = 10, offset = 0): Promise<WalkForwardPageResponse> {
+  const searchParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset)
+  });
+  return apiRequest<WalkForwardPageResponse>(`/walk-forwards?${searchParams.toString()}`);
+}
+
+export function getWalkForwardDetail(runId: string): Promise<WalkForwardDetailResponse> {
+  return apiRequest<WalkForwardDetailResponse>(`/walk-forwards/${encodeURIComponent(runId)}`);
 }
 
 export function getLatestStrategySignal(): Promise<LatestStrategySignalResponse> {

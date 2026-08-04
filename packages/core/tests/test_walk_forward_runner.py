@@ -41,6 +41,29 @@ parameter_space: [{name: parameters.selection.top_n, type: choice, values: [1, 2
     return path
 
 
+def _fixed_benchmarks() -> tuple[SimpleNamespace, SimpleNamespace]:
+    def benchmark(key: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            key=key,
+            name=key,
+            annualized_return=SimpleNamespace(total_return=0.1, annualized_return=0.15),
+            maximum_drawdown=SimpleNamespace(max_drawdown=-0.05),
+            volatility=SimpleNamespace(volatility=0.12),
+            sharpe_ratio=SimpleNamespace(sharpe_ratio=0.9),
+            tracking_error=0.02,
+            information_ratio=0.3,
+        )
+
+    return benchmark("equal_weight_monthly"), benchmark("csi_300_buy_hold")
+
+
+def _stub_persistence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "vela_core.walk_forward.runner.persist_walk_forward_run",
+        lambda *_args, **_kwargs: SimpleNamespace(id=7),
+    )
+
+
 def test_runner_rejects_non_sqlite_before_search(tmp_path: Path) -> None:
     config = load_walk_forward_config(_config(tmp_path))
     session = SimpleNamespace(
@@ -82,21 +105,9 @@ def test_runner_uses_memory_snapshot_for_training_and_source_for_oos(
                     calculate_benchmarks,
                 )
             )
-            benchmarks = (
-                (
-                    SimpleNamespace(
-                        key="equal_weight_monthly",
-                        name="Equal-weight monthly rebalanced portfolio",
-                        annualized_return=SimpleNamespace(total_return=0.1, annualized_return=0.15),
-                        maximum_drawdown=SimpleNamespace(max_drawdown=-0.05),
-                        volatility=SimpleNamespace(volatility=0.12),
-                        sharpe_ratio=SimpleNamespace(sharpe_ratio=0.9),
-                    ),
-                )
-                if calculate_benchmarks
-                else ()
-            )
+            benchmarks = _fixed_benchmarks() if calculate_benchmarks else ()
             return SimpleNamespace(
+                backtest_run_id=1,
                 status="success",
                 total_return=0.3,
                 sharpe_ratio=1.0,
@@ -107,6 +118,7 @@ def test_runner_uses_memory_snapshot_for_training_and_source_for_oos(
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+        _stub_persistence(monkeypatch)
         report = WalkForwardRunner(config).run(session)
 
     assert len(calls) == 3
@@ -189,15 +201,18 @@ def test_failed_search_combination_rolls_back_and_later_combination_runs(
                 current_session.add(TradingCalendar(trade_date=date(2020, 6, 1), source="bad"))
                 raise ValueError("bad combination")
             return SimpleNamespace(
+                backtest_run_id=1,
                 status="success",
                 sharpe_ratio=float(config.selection.top_n),
                 total_return=0.3,
                 annualized_return=0.2,
                 max_drawdown=-0.1,
                 volatility=0.22,
+                benchmarks=_fixed_benchmarks() if calculate_benchmarks else (),
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+        _stub_persistence(monkeypatch)
         report = WalkForwardRunner(config).run(session)
 
     assert calls == [(":memory:", 1), (":memory:", 2), (str(tmp_path / "source.db"), 2)]
@@ -245,15 +260,18 @@ def test_unscorable_search_combination_rolls_back_before_later_combination(
                     is not None
                 )
             return SimpleNamespace(
+                backtest_run_id=1,
                 status="success",
                 sharpe_ratio=float(config.selection.top_n),
                 total_return=0.3,
                 annualized_return=0.2,
                 max_drawdown=-0.1,
                 volatility=0.22,
+                benchmarks=_fixed_benchmarks() if calculate_benchmarks else (),
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+        _stub_persistence(monkeypatch)
         WalkForwardRunner(config).run(session)
 
     assert later_combo_saw_unscorable_write == [False]
@@ -318,18 +336,20 @@ def test_runner_normalizes_selected_parameter_values_from_validated_config(
         )
         session.commit()
 
-        def fake_run_backtest(*_args, **_kwargs):
+        def fake_run_backtest(*_args, **kwargs):
             return SimpleNamespace(
+                backtest_run_id=1,
                 status="success",
                 total_return=0.3,
                 annualized_return=0.2,
                 sharpe_ratio=1.0,
                 max_drawdown=-0.1,
                 volatility=0.22,
-                benchmarks=(),
+                benchmarks=_fixed_benchmarks() if kwargs["calculate_benchmarks"] else (),
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+        _stub_persistence(monkeypatch)
         report = WalkForwardRunner(config).run(session)
 
     assert report.windows[0].best_combo == {"parameters.score_weights.short": 0.4}
@@ -340,3 +360,59 @@ def test_runner_normalizes_selected_parameter_values_from_validated_config(
         "comparison_count": 0,
         "transition_rate": None,
     }
+
+
+def test_runner_rejects_successful_oos_without_persisted_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = load_walk_forward_config(_config(tmp_path))
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'missing-oos-id.db'}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+
+    def benchmark(key: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            key=key,
+            name=key,
+            annualized_return=SimpleNamespace(total_return=0.1, annualized_return=0.1),
+            maximum_drawdown=SimpleNamespace(max_drawdown=-0.05),
+            volatility=SimpleNamespace(volatility=0.1),
+            sharpe_ratio=SimpleNamespace(sharpe_ratio=1.0),
+            tracking_error=0.02,
+            information_ratio=0.3,
+        )
+
+    with factory() as session:
+        session.add_all(
+            [
+                TradingCalendar(trade_date=date(2020, 1, 2), source="test"),
+                TradingCalendar(trade_date=date(2020, 12, 31), source="test"),
+                TradingCalendar(trade_date=date(2021, 1, 4), source="test"),
+                TradingCalendar(trade_date=date(2021, 12, 31), source="test"),
+            ]
+        )
+        session.commit()
+
+        def fake_run_backtest(current_session, **_kwargs):
+            is_training = current_session.bind.url.database == ":memory:"
+            return SimpleNamespace(
+                status="success",
+                total_return=0.1,
+                annualized_return=0.1,
+                sharpe_ratio=1.0,
+                max_drawdown=-0.05,
+                volatility=0.1,
+                benchmarks=(
+                    ()
+                    if is_training
+                    else (
+                        benchmark("equal_weight_monthly"),
+                        benchmark("csi_300_buy_hold"),
+                    )
+                ),
+            )
+
+        monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+
+        with pytest.raises(RuntimeError, match="persisted id"):
+            WalkForwardRunner(config).run(session)

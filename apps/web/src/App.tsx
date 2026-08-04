@@ -35,11 +35,20 @@ const EtfDetailPage = lazy(async () => {
   const module = await import("./pages/EtfDetailPage");
   return { default: module.EtfDetailPage };
 });
+const WalkForwardListPage = lazy(async () => {
+  const module = await import("./pages/WalkForwardListPage");
+  return { default: module.WalkForwardListPage };
+});
+const WalkForwardDetailPage = lazy(async () => {
+  const module = await import("./pages/WalkForwardDetailPage");
+  return { default: module.WalkForwardDetailPage };
+});
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard" },
   { href: "/signals", label: "Signals" },
-  { href: "/backtests", label: "Backtests" }
+  { href: "/backtests", label: "Backtests" },
+  { href: "/walk-forwards", label: "Walk-forwards" }
 ];
 
 const pageRows: PageRow[] = navItems.map((item) => ({
@@ -237,6 +246,16 @@ function renderRoute(
     return <BacktestDetailPage backtestId={backtestMatch[1]} />;
   }
 
+  if (path === "/walk-forwards") {
+    return <WalkForwardListPage />;
+  }
+
+  const walkForwardMatch = path.match(/^\/walk-forwards\/(\d+)$/);
+
+  if (walkForwardMatch) {
+    return <WalkForwardDetailPage runId={walkForwardMatch[1]} />;
+  }
+
   const etfMatch = path.match(/^\/etfs\/(\d+)$/);
 
   if (etfMatch) {
@@ -265,6 +284,10 @@ function getActivePath(path: string): string {
 
   if (path === "/backtests" || path.startsWith("/backtests/")) {
     return "/backtests";
+  }
+
+  if (path === "/walk-forwards" || path.startsWith("/walk-forwards/")) {
+    return "/walk-forwards";
   }
 
   if (path === "/etfs" || path.startsWith("/etfs/")) {

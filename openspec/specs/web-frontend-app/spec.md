@@ -3,6 +3,42 @@
 ## Purpose
 Defines the web frontend's Dashboard setup-bootstrap action and its three-step status display, wired to `POST /api/setup/bootstrap`.
 ## Requirements
+
+### Requirement: Walk-forward history page lists persisted evaluations
+The Web application SHALL add a lazy-loaded `/walk-forwards` page and primary navigation entry, request the current-strategy API with fixed page size 10, render persisted run metadata and compact provenance, and use the exact API total for pagination with loading, error and empty states.
+
+#### Scenario: History rows navigate to detail
+- **WHEN** persisted evaluations are returned
+- **THEN** each row displays identifying metadata and opens `/walk-forwards/{id}` through client-side navigation
+
+### Requirement: Walk-forward detail presents complete structured evidence
+The Web application SHALL add a lazy-loaded `/walk-forwards/{id}` page showing execution/configuration provenance, evidence sufficiency, all eight strategy summaries, separate dual-benchmark comparisons, IS/OOS gaps, parameter stability and chronological independent OOS windows. It SHALL not convert evidence into a score, pass/fail or continuous curve.
+
+#### Scenario: Detail preserves evidence semantics
+- **WHEN** a successful detail response loads
+- **THEN** metric counts/status, benchmark ownership, duration units and recovery semantics remain visible without synthetic aggregation
+
+### Requirement: Walk-forward OOS links preserve the complete evidence chain
+Every window SHALL link its OOS id to `/backtests/{id}`; current-strategy OOS runs and signals SHALL remain navigable when their `config_version` is `wf-*`, while other-strategy ids remain 404.
+
+#### Scenario: OOS detail link opens across versions
+- **WHEN** a user activates a current-strategy `wf-*` OOS link
+- **THEN** the existing Backtest Detail route opens for that exact run id
+
+### Requirement: Walk-forward pages are responsive and keyboard accessible
+History/detail SHALL reuse existing presentation primitives and design tokens, remain keyboard operable, and remain readable at 1440x1000 and 390x844 without page-level horizontal overflow. A dense window table MAY use a labeled local scroll region.
+
+#### Scenario: Narrow evidence view has no page overflow
+- **WHEN** detail renders at 390x844
+- **THEN** the page has no horizontal overflow outside any labeled local table region
+
+### Requirement: Walk-forward presentation does not expand Dashboard
+Walk-forward history and evidence SHALL be available only through the dedicated navigation/list/detail flow; Dashboard SHALL remain unchanged by this Change.
+
+#### Scenario: Dashboard has no WF card
+- **WHEN** successful Walk-forward history exists
+- **THEN** Dashboard does not add a Walk-forward card or score
+
 ### Requirement: Dashboard setup bootstrap action
 The web frontend SHALL expose a Dashboard action that triggers the local setup bootstrap endpoint through the shared frontend API client and renders a three-step status display.
 

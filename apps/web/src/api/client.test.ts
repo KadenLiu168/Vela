@@ -706,3 +706,40 @@ it("calls backtest signals with run id and pagination through the shared client"
     undefined
   );
 });
+
+it("lists Walk-forward history with fixed pagination parameters", async () => {
+  const response = { runs: [], total: 0, limit: 10, offset: 0 };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(response), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  const { listWalkForwards } = await import("./client");
+  await expect(listWalkForwards(10, 20)).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledWith("/api/walk-forwards?limit=10&offset=20", undefined);
+});
+
+it("loads one Walk-forward detail without adding a mutation method", async () => {
+  const response = {
+    run: { run_id: 4 },
+    configuration: { walk_forward: {}, base_strategy: {}, config_checksum: "a" },
+    input_provenance: { manifest: {}, input_data_checksum: "b" },
+    evidence_version: "wf_evidence_v1",
+    evidence: { metrics: {}, positive_window_rate: {}, generalization_gap: {}, benchmarks: {}, parameter_stability: {} },
+    windows: []
+  };
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(response), {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    })
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  const { getWalkForwardDetail } = await import("./client");
+  await expect(getWalkForwardDetail("4")).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledWith("/api/walk-forwards/4", undefined);
+});

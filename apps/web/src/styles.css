@@ -1486,6 +1486,76 @@ main {
   overflow-x: auto;
 }
 
+.walk-forward-window-scroll {
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-md);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.walk-forward-window-scroll .holdings-table {
+  min-width: 1420px;
+}
+
+.walk-forward-window-metrics {
+  display: grid;
+  gap: var(--spacing-4);
+  margin-top: var(--spacing-12);
+  min-width: 190px;
+}
+
+.walk-forward-window-metrics + .walk-forward-window-metrics {
+  border-top: 1px solid var(--color-graphite);
+  margin-top: var(--spacing-16);
+  padding-top: var(--spacing-16);
+}
+
+.walk-forward-json-grid {
+  display: grid;
+  gap: var(--spacing-20);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: var(--spacing-20);
+}
+
+.walk-forward-json {
+  background: var(--surface-obsidian);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-md);
+  color: var(--color-mist);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  margin: 0;
+  max-height: 18rem;
+  min-height: 8rem;
+  overflow: auto;
+  padding: var(--spacing-12);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.walk-forward-subsection {
+  border-top: 1px solid var(--color-graphite);
+  margin-top: var(--spacing-20);
+  padding-top: var(--spacing-20);
+}
+
+.detail-note {
+  color: var(--color-fog);
+  margin: 0 0 var(--spacing-16);
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .signal-detail-page .holdings-table-wrap {
   background: var(--surface-obsidian);
   border-color: var(--color-graphite);

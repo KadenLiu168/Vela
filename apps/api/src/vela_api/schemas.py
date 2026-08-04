@@ -1,12 +1,27 @@
 from datetime import date, datetime
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
+from typing_extensions import TypeAliasType
 from vela_core.config import ETFConfig
 from vela_core.strategy_config import StrategyConfig
 
 
 class ResponseModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+JsonValue = TypeAliasType(  # type: ignore[misc]
+    "JsonValue",
+    None
+    | bool
+    | int
+    | float
+    | str
+    | list["JsonValue"]  # type: ignore[misc]
+    | dict[str, "JsonValue"],  # type: ignore[misc]
+)  # type: ignore[misc]
+JsonObject: TypeAlias = dict[str, JsonValue]  # type: ignore[misc]
 
 
 class HealthResponse(ResponseModel):
@@ -301,3 +316,194 @@ class BacktestSignalSummaryResponse(ResponseModel):
 
 class BacktestSignalsResponse(ResponseModel):
     signals: list[BacktestSignalSummaryResponse]
+
+
+class WalkForwardMetricSummaryResponse(ResponseModel):
+    mean: float | None
+    median: float | None
+    min: float | None
+    max: float | None
+    std: float | None
+    window_count: int
+    valid_count: int
+    evidence_status: Literal["sufficient", "insufficient_evidence"]
+
+
+class WalkForwardRateSummaryResponse(ResponseModel):
+    numerator: int
+    denominator: int
+    value: float | None
+    window_count: int
+    valid_count: int
+    evidence_status: Literal["sufficient", "insufficient_evidence"]
+
+
+class WalkForwardParameterStabilityResponse(ResponseModel):
+    value_frequencies: dict[str, int]
+    transition_count: int
+    comparison_count: int
+    transition_rate: float | None
+
+
+class WalkForwardBenchmarkEvidenceResponse(ResponseModel):
+    total_return_difference: WalkForwardMetricSummaryResponse
+    annualized_return_difference: WalkForwardMetricSummaryResponse
+    tracking_error: WalkForwardMetricSummaryResponse
+    information_ratio: WalkForwardMetricSummaryResponse
+    outperformance_rate: WalkForwardRateSummaryResponse
+
+
+class WalkForwardStrategyMetricsResponse(ResponseModel):
+    total_return: WalkForwardMetricSummaryResponse
+    annualized_return: WalkForwardMetricSummaryResponse
+    sharpe_ratio: WalkForwardMetricSummaryResponse
+    max_drawdown: WalkForwardMetricSummaryResponse
+    volatility: WalkForwardMetricSummaryResponse
+    sortino_ratio: WalkForwardMetricSummaryResponse
+    calmar_ratio: WalkForwardMetricSummaryResponse
+    longest_drawdown_duration_sessions: WalkForwardMetricSummaryResponse
+
+
+class WalkForwardBenchmarkEvidenceMapResponse(ResponseModel):
+    equal_weight_monthly: WalkForwardBenchmarkEvidenceResponse
+    csi_300_buy_hold: WalkForwardBenchmarkEvidenceResponse
+
+
+class WalkForwardEvidenceResponse(ResponseModel):
+    metrics: WalkForwardStrategyMetricsResponse
+    positive_window_rate: WalkForwardRateSummaryResponse
+    generalization_gap: WalkForwardMetricSummaryResponse
+    benchmarks: WalkForwardBenchmarkEvidenceMapResponse
+    parameter_stability: dict[str, WalkForwardParameterStabilityResponse]
+
+
+class WalkForwardRunSummaryResponse(ResponseModel):
+    run_id: int
+    strategy_id: str
+    start_date: date
+    end_date: date
+    window_count: int
+    provenance_version: str
+    evidence_version: str
+    config_checksum: str
+    input_data_checksum: str
+    started_at: datetime
+    finished_at: datetime
+
+
+class WalkForwardRunResponse(WalkForwardRunSummaryResponse):
+    created_at: datetime
+
+
+class WalkForwardPageResponse(ResponseModel):
+    runs: list[WalkForwardRunSummaryResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class WalkForwardConfigurationResponse(ResponseModel):
+    walk_forward: JsonObject
+    base_strategy: JsonObject
+    config_checksum: str
+
+
+class WalkForwardActiveETFManifestResponse(ResponseModel):
+    etf_id: int
+    exchange: str
+    symbol: str
+    inception_date: date | None
+    loaded_price_row_count: int
+    first_loaded_price_date: date | None
+    last_loaded_price_date: date | None
+
+
+class WalkForwardInputManifestResponse(ResponseModel):
+    version: Literal["wf_provenance_v1"]
+    earliest_required_session: date
+    configured_end_date: date
+    following_session: date | None
+    official_sessions: list[date]
+    active_etfs: list[WalkForwardActiveETFManifestResponse]
+    loaded_price_row_count: int
+    first_loaded_price_date: date | None
+    last_loaded_price_date: date | None
+
+
+class WalkForwardInputProvenanceResponse(ResponseModel):
+    manifest: WalkForwardInputManifestResponse
+    input_data_checksum: str
+
+
+class WalkForwardOosBenchmarkResponse(ResponseModel):
+    key: Literal["equal_weight_monthly", "csi_300_buy_hold"]
+    name: str
+    total_return: str | None
+    annualized_return: str | None
+    max_drawdown: str | None
+    volatility: str | None
+    sharpe_ratio: str | None
+    sortino_ratio: str | None
+    calmar_ratio: str | None
+    longest_drawdown_duration_sessions: int | None
+    longest_drawdown_peak_date: date | None
+    longest_drawdown_trough_date: date | None
+    longest_drawdown_recovery_date: date | None
+    total_return_difference: str | None
+    annualized_return_difference: str | None
+    tracking_error: str | None
+    information_ratio: str | None
+
+
+class WalkForwardOosResponse(ResponseModel):
+    run_id: int
+    strategy_id: str
+    config_version: str
+    start_date: date
+    end_date: date
+    status: str
+    total_return: str | None
+    annualized_return: str | None
+    max_drawdown: str | None
+    volatility: str | None
+    sharpe_ratio: str | None
+    sortino_ratio: str | None
+    calmar_ratio: str | None
+    longest_drawdown_duration_sessions: int | None
+    longest_drawdown_peak_date: date | None
+    longest_drawdown_trough_date: date | None
+    longest_drawdown_recovery_date: date | None
+    benchmarks: list[WalkForwardOosBenchmarkResponse]
+
+
+class WalkForwardWindowResponse(ResponseModel):
+    ordinal: int
+    train_start: date
+    train_end: date
+    test_start: date
+    test_end: date
+    oos_version: str
+    selected_parameters: JsonObject
+    candidate_count: int
+    eligible_count: int
+    skipped_count: int
+    skip_reason_counts: dict[
+        Literal[
+            "invalid_config",
+            "training_error",
+            "training_non_success",
+            "missing_train_sharpe",
+        ],
+        int,
+    ]
+    train_sharpe: str | None
+    oos_backtest: WalkForwardOosResponse
+
+
+class WalkForwardDetailResponse(ResponseModel):
+    run: WalkForwardRunResponse
+    configuration: WalkForwardConfigurationResponse
+    input_provenance: WalkForwardInputProvenanceResponse
+    evidence_version: str
+    evidence: WalkForwardEvidenceResponse
+    windows: list[WalkForwardWindowResponse]

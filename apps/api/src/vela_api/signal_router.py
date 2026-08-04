@@ -85,11 +85,7 @@ def strategy_signal_detail(
     signal_id: int, session: DatabaseSession, app_config: AppConfigDependency
 ) -> dict[str, object]:
     report = get_strategy_signal_report(session, signal_id=signal_id)
-    if (
-        report is None
-        or report.strategy_id != app_config.strategy.strategy_id
-        or report.config_version != app_config.strategy.version
-    ):
+    if report is None or report.strategy_id != app_config.strategy.strategy_id:
         raise HTTPException(status_code=404, detail="Strategy signal not found")
     return {
         "signal": _detail_metadata_response(report),

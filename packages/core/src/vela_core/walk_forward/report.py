@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from statistics import mean, median, pstdev
 from typing import Any, Literal, TypedDict
 
+from vela_core.walk_forward.evidence import WalkForwardEvidenceV1
 from vela_core.walk_forward.window_splitter import WalkForwardWindow
 
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
@@ -78,11 +79,38 @@ class WalkForwardWindowResult:
     oos_sortino: float | None = None
     oos_calmar: float | None = None
     oos_longest_drawdown_duration_sessions: int | None = None
+    oos_backtest_id: int | None = None
+    candidate_count: int = 0
+    eligible_count: int = 0
+    skipped_count: int = 0
+    skip_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
 class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
+    walk_forward_run_id: int | None = None
+
+    def evidence_document(self) -> WalkForwardEvidenceV1:
+        benchmark_comparisons = self.benchmark_differences()
+        return WalkForwardEvidenceV1.model_validate(
+            {
+                "metrics": self.aggregate(),
+                "positive_window_rate": self.positive_window_rate(),
+                "generalization_gap": self.generalization_gap(),
+                "benchmarks": {
+                    key: {
+                        "total_return_difference": value["total_return"],
+                        "annualized_return_difference": value["annualized_return"],
+                        "tracking_error": value["tracking_error"],
+                        "information_ratio": value["information_ratio"],
+                        "outperformance_rate": value["outperformance_rate"],
+                    }
+                    for key, value in benchmark_comparisons.items()
+                },
+                "parameter_stability": self.parameter_stability(),
+            }
+        )
 
     def aggregate(self) -> dict[str, WalkForwardMetricSummary]:
         values_by_metric: dict[str, Sequence[float | int | None]] = {

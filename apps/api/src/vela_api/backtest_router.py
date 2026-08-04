@@ -66,11 +66,7 @@ def backtest_detail(
     run_id: int, session: DatabaseSession, app_config: AppConfigDependency
 ) -> dict[str, object]:
     run = get_backtest_result(session, run_id=run_id)
-    if (
-        run is None
-        or run.strategy_id != app_config.strategy.strategy_id
-        or run.config_version != app_config.strategy.version
-    ):
+    if run is None or run.strategy_id != app_config.strategy.strategy_id:
         raise HTTPException(status_code=404, detail="Backtest run not found")
     return {
         "run": _detail_run_response(run),
@@ -94,7 +90,7 @@ def backtest_signals_endpoint(
         session,
         run_id=run_id,
         strategy_id=app_config.strategy.strategy_id,
-        config_version=app_config.strategy.version,
+        config_version=None,
         limit=limit,
         offset=offset,
     )

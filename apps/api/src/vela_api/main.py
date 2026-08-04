@@ -15,6 +15,7 @@ from vela_api.errors import register_exception_handlers
 from vela_api.market_router import router as market_router
 from vela_api.signal_router import router as signal_router
 from vela_api.system_router import router as system_router
+from vela_api.walk_forward_router import router as walk_forward_router
 
 logger = logging.getLogger(__name__)
 _REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}")
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     api.include_router(market_router)
     api.include_router(signal_router)
     api.include_router(backtest_router)
+    api.include_router(walk_forward_router)
     return api
 
 

@@ -40,15 +40,42 @@ The system SHALL, for each window, search the parameter space on the training pe
 - **THEN** the system selects the combination whose canonical JSON sorts first.
 
 ### Requirement: Source writes use the caller transaction
-The walk-forward runner SHALL neither commit nor roll back the caller-provided source session. The CLI SHALL execute the complete run inside the repository's managed-session boundary so all selected OOS runs and their fixed benchmark results commit only after every window succeeds and all writes from the command roll back if any later step or fixed benchmark evaluation fails.
+The walk-forward runner SHALL neither commit nor roll back the caller-provided source session. The CLI SHALL execute the complete run inside the repository's managed-session boundary so all selected OOS runs, fixed benchmark results and the final Walk-forward parent/children commit only after every window, provenance/evidence validation and persistence step succeeds. Any later OOS, fixed benchmark, provenance, evidence or WF persistence failure SHALL roll back all writes from the command.
 
 #### Scenario: Complete run commits source outputs
 - **WHEN** all windows, OOS evaluations, and fixed benchmark evaluations succeed through the CLI
-- **THEN** the managed caller transaction commits all source-side outputs once.
+- **THEN** the managed caller transaction commits all source-side outputs and one complete WF history once.
 
 #### Scenario: Later window failure rolls back source outputs
 - **WHEN** a later OOS or fixed benchmark evaluation fails after an earlier window added source-side rows
-- **THEN** the CLI exits non-zero and the managed caller transaction persists none of this command's source-side rows.
+- **THEN** the CLI exits non-zero and the managed caller transaction persists none of this command's source-side rows or WF history.
+
+#### Scenario: Final WF persistence failure rolls back OOS outputs
+- **WHEN** every OOS window succeeds but final parent or child validation/flush fails
+- **THEN** the managed caller transaction persists neither WF history nor any selected OOS artifact from the command
+
+### Requirement: Runner prepares provenance before source output
+Before starting any source-side OOS backtest, `WalkForwardRunner` SHALL validate every generated candidate, resolve each valid strategy's non-negative lookback, use `TradingCalendar` as the sole window/session axis, generate final windows, and build complete versioned configuration and input provenance. Missing candidates, invalid lookback, incomplete official-session envelope or missing required price SHALL fail before source output is added.
+
+#### Scenario: Preflight failure precedes OOS persistence
+- **WHEN** configuration or input provenance cannot be completed
+- **THEN** the runner raises before invoking a source-side OOS backtest
+- **AND** no source signal, run, curve or benchmark is added
+
+### Requirement: Successful runner execution returns flushed evaluation identity
+After producing valid `wf_evidence_v1`, the runner SHALL persist the parent and ordered window records through the caller-provided session, flush without committing or rolling back, and return the positive Walk-forward parent id with the report/result. No id SHALL be returned for a failed execution.
+
+#### Scenario: Runner returns parent id before caller commit
+- **WHEN** every window and evidence calculation succeeds and parent/children flush
+- **THEN** the runner returns a positive Walk-forward evaluation id
+- **AND** leaves final commit ownership to the caller
+
+### Requirement: Runner records bounded candidate selection evidence
+For each window the runner SHALL persist generated candidate, eligible, skipped and fixed-category reason counts. Candidate count SHALL equal eligible plus skipped count and reason counts SHALL sum to skipped count. Raw exception text, tracebacks, dynamic statuses and candidate payloads MUST NOT be persisted.
+
+#### Scenario: Failure detail remains bounded
+- **WHEN** a candidate raises an exception with dynamic text
+- **THEN** only its fixed reason category is counted and no raw failure text is persisted
 
 ### Requirement: Persisted OOS strategy identity
 Before an OOS backtest is persisted, the system SHALL replace the selected config's version with `wf-` plus the first 12 lowercase hexadecimal characters of SHA-256 over canonical JSON of the complete validated configuration excluding its original version. The report SHALL include that generated version and the complete selected parameter combination. Different effective configurations SHALL NOT reuse the same generated identity within one run.

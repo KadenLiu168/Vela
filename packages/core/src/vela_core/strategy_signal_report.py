@@ -113,9 +113,10 @@ def list_strategy_signals(
             StrategySignal.backtest_run_id,
         )
         .where(StrategySignal.strategy_id == strategy_id)
-        .where(StrategySignal.config_version == config_version)
         .where(StrategySignal.status == "success")
     )
+    if config_version is not None:
+        statement = statement.where(StrategySignal.config_version == config_version)
     if source is not None:
         statement = statement.where(StrategySignal.source == source)
     rows = session.execute(
@@ -193,7 +194,7 @@ def list_backtest_signals(
     *,
     run_id: int,
     strategy_id: str,
-    config_version: str,
+    config_version: str | None,
     limit: int,
     offset: int = 0,
 ) -> list[BacktestSignalSummaryEntry] | None:
@@ -202,12 +203,14 @@ def list_backtest_signals(
     if offset < 0:
         raise ValueError("offset must be non-negative")
 
-    run = session.scalar(
+    run_statement = (
         select(BacktestRun.id)
         .where(BacktestRun.id == run_id)
         .where(BacktestRun.strategy_id == strategy_id)
-        .where(BacktestRun.config_version == config_version)
     )
+    if config_version is not None:
+        run_statement = run_statement.where(BacktestRun.config_version == config_version)
+    run = session.scalar(run_statement)
     if run is None:
         return None
 

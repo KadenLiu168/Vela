@@ -357,6 +357,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         except Exception as exc:
             print(f"Failed to run walk-forward in {args.database_url}: {exc}", file=sys.stderr)
             return 1
+        if report.walk_forward_run_id is not None:
+            print(f"Walk-forward run id: {report.walk_forward_run_id}")
         if args.output is None:
             print(output, end="")
         else:

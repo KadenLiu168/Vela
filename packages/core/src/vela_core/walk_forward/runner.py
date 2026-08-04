@@ -5,29 +5,41 @@ import json
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import yaml
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from vela_core.backtest_runner import run_backtest
-from vela_core.models import MarketPrice, TradingCalendar
+from vela_core.strategy_config import validate_strategy_config
 from vela_core.walk_forward.config import WalkForwardConfig
 from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
     canonical_combination,
     generate_combinations,
 )
+from vela_core.walk_forward.persistence import (
+    WalkForwardPersistenceInput,
+    WalkForwardWindowPersistenceInput,
+    persist_walk_forward_run,
+)
+from vela_core.walk_forward.preflight import prepare_walk_forward_inputs
+from vela_core.walk_forward.provenance import (
+    canonical_provenance_bytes,
+    canonical_provenance_payload,
+    sha256_hex,
+)
 from vela_core.walk_forward.report import (
     WalkForwardBenchmarkResult,
     WalkForwardReport,
     WalkForwardWindowResult,
 )
-from vela_core.walk_forward.window_splitter import WalkForwardWindow, generate_windows
+from vela_core.walk_forward.window_splitter import WalkForwardWindow
 
 logger = logging.getLogger(__name__)
 
@@ -36,42 +48,65 @@ class WalkForwardRunner:
     def __init__(self, config: WalkForwardConfig) -> None:
         self.config = config
         self._base_config = _load_base_config(config.strategy.base_config)
+        self._base_strategy_config = validate_strategy_config(self._base_config)
         self._version_contents: dict[str, str] = {}
 
     def run(self, session: Session) -> WalkForwardReport:
         if session.get_bind().dialect.name != "sqlite":
             raise ValueError("walk-forward only supports SQLite source databases")
-        dates = list(
-            session.scalars(
-                select(MarketPrice.trade_date)
-                .where(MarketPrice.trade_date >= self.config.window.start_date)
-                .where(MarketPrice.trade_date <= self.config.window.end_date)
-                .distinct()
-                .order_by(MarketPrice.trade_date)
-            )
-        )
-        if not dates:
-            dates = list(
-                session.scalars(
-                    select(TradingCalendar.trade_date)
-                    .where(TradingCalendar.trade_date >= self.config.window.start_date)
-                    .where(TradingCalendar.trade_date <= self.config.window.end_date)
-                    .order_by(TradingCalendar.trade_date)
-                )
-            )
-        window_config = self.config.window
-        windows = generate_windows(
-            dates,
-            window_config.start_date,
-            window_config.end_date,
-            window_config.train_years,
-            window_config.test_years,
-            window_config.step_years,
-        )
+        started_at = datetime.now(UTC)
+        prepared = prepare_walk_forward_inputs(session, config=self.config)
+        windows = prepared.windows
         combinations = generate_combinations(self.config.parameter_space)
         with _memory_snapshot(session) as memory:
             results = [self._run_window(session, memory, item, combinations) for item in windows]
-        return WalkForwardReport(results)
+        report = WalkForwardReport(results)
+        oos_ids = [_require_oos_id(item.oos_backtest_id) for item in results]
+        evidence = report.evidence_document()
+        walk_forward_snapshot = self.config.model_dump(mode="json")
+        base_strategy_snapshot = self._base_strategy_config.model_dump(mode="json")
+        provenance_payload = canonical_provenance_payload(
+            walk_forward_snapshot,
+            base_strategy_snapshot,
+        )
+        finished_at = datetime.now(UTC)
+        persistence_result = persist_walk_forward_run(
+            session,
+            run=WalkForwardPersistenceInput(
+                strategy_id=self._base_strategy_config.strategy_id,
+                start_date=self.config.window.start_date,
+                end_date=self.config.window.end_date,
+                window_count=len(results),
+                walk_forward_config=walk_forward_snapshot,
+                base_strategy_config=base_strategy_snapshot,
+                config_checksum=sha256_hex(canonical_provenance_bytes(provenance_payload)),
+                input_data_snapshot=prepared.manifest,
+                input_data_checksum=prepared.input_data_checksum,
+                evidence=evidence.model_dump(mode="json"),
+                started_at=started_at,
+                finished_at=finished_at,
+                windows=tuple(
+                    WalkForwardWindowPersistenceInput(
+                        ordinal=index,
+                        train_start=item.window.train_start,
+                        train_end=item.window.train_end,
+                        test_start=item.window.test_start,
+                        test_end=item.window.test_end,
+                        oos_version=item.oos_version,
+                        selected_parameters=item.best_combo,
+                        candidate_count=item.candidate_count,
+                        eligible_count=item.eligible_count,
+                        skipped_count=item.skipped_count,
+                        skip_reason_counts=item.skip_reason_counts,
+                        train_sharpe=item.train_sharpe,
+                        oos_backtest_run_id=oos_id,
+                    )
+                    for index, (item, oos_id) in enumerate(zip(results, oos_ids, strict=True))
+                ),
+            ),
+        )
+        report.walk_forward_run_id = persistence_result.id
+        return report
 
     def _run_window(
         self,
@@ -82,6 +117,7 @@ class WalkForwardRunner:
     ) -> WalkForwardWindowResult:
         scored: list[tuple[float, str, dict[str, Any], Any]] = []
         skipped: list[str] = []
+        skip_reason_counts: dict[str, int] = {}
         for combo in combinations:
             built = build_strategy_config(self._base_config, combo)
             if built.config is None:
@@ -89,6 +125,9 @@ class WalkForwardRunner:
                 reason = f"{canonical_combination(combo)}: {built.skip_reason}"
                 logger.warning("Walk-forward skipped combination %s", reason)
                 skipped.append(reason)
+                skip_reason_counts["invalid_config"] = (
+                    skip_reason_counts.get("invalid_config", 0) + 1
+                )
                 continue
             try:
                 result = run_backtest(
@@ -113,11 +152,20 @@ class WalkForwardRunner:
                     reason = f"{canonical_combination(combo)}: unscorable result"
                     logger.warning("Walk-forward skipped combination %s", reason)
                     skipped.append(reason)
+                    category = (
+                        "missing_train_sharpe"
+                        if result.status == "success"
+                        else "training_non_success"
+                    )
+                    skip_reason_counts[category] = skip_reason_counts.get(category, 0) + 1
             except Exception as exc:
                 memory.rollback()
                 reason = f"{canonical_combination(combo)}: {exc}"
                 logger.warning("Walk-forward skipped combination %s", reason)
                 skipped.append(reason)
+                skip_reason_counts["training_error"] = (
+                    skip_reason_counts.get("training_error", 0) + 1
+                )
         if not scored:
             raise RuntimeError("no scorable parameter combinations before OOS evaluation")
         best = min(scored, key=lambda item: (-item[0], item[1]))
@@ -174,6 +222,11 @@ class WalkForwardRunner:
                 for item in getattr(oos, "benchmarks", ())
             ),
             skipped=skipped,
+            oos_backtest_id=getattr(oos, "backtest_run_id", None),
+            candidate_count=len(combinations),
+            eligible_count=len(scored),
+            skipped_count=len(combinations) - len(scored),
+            skip_reason_counts=skip_reason_counts,
         )
 
 
@@ -232,3 +285,9 @@ def _number(value: Decimal | float | int | None) -> float | None:
 
 def _difference(left: Decimal | float | None, right: Decimal | float | None) -> float | None:
     return None if left is None or right is None else float(left) - float(right)
+
+
+def _require_oos_id(value: int | None) -> int:
+    if value is None:
+        raise RuntimeError("successful OOS backtest did not return a persisted id")
+    return value

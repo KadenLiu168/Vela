@@ -22,6 +22,8 @@ from vela_core.models import (  # noqa: E402,F401
     MarketPrice,
     StrategySignal,
     StrategySignalPosition,
+    WalkForwardRun,
+    WalkForwardRunWindow,
 )
 
 target_metadata = Base.metadata

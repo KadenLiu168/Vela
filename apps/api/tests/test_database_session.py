@@ -90,4 +90,6 @@ def test_api_production_routes_include_read_only_dashboard_endpoint() -> None:
         ("/api/strategy-signals/{signal_id}", ("GET",)),
         ("/api/strategy-signals/generate", ("POST",)),
         ("/api/strategy-signals/latest", ("GET",)),
+        ("/api/walk-forwards", ("GET",)),
+        ("/api/walk-forwards/{run_id}", ("GET",)),
     }

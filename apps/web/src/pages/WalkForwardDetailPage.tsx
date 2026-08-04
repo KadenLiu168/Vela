@@ -1,0 +1,411 @@
+import { useEffect, useState } from "react";
+import {
+  ApiClientError,
+  type WalkForwardBenchmark,
+  type WalkForwardDetailResponse,
+  type WalkForwardMetricSummary,
+  getWalkForwardDetail
+} from "../api/client";
+import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import {
+  formatDate,
+  formatDecimal,
+  formatInteger,
+  formatNullableInteger,
+  formatNullableText,
+  formatTimestamp
+} from "../utils/formatters";
+
+type WalkForwardDetailPageProps = {
+  runId: string;
+};
+
+type WalkForwardDetailState =
+  | { status: "loading"; data?: never; error?: never; runId?: never }
+  | { status: "ready"; data: WalkForwardDetailResponse; error?: never; runId: string }
+  | { status: "not-found"; data?: never; error?: never; runId: string }
+  | { status: "error"; data?: never; error: string; runId: string };
+
+const metricLabels: Record<string, string> = {
+  total_return: "Total return",
+  annualized_return: "Annualized return",
+  max_drawdown: "Max drawdown",
+  volatility: "Volatility",
+  sharpe_ratio: "Sharpe ratio",
+  sortino_ratio: "Sortino ratio",
+  calmar_ratio: "Calmar ratio",
+  longest_drawdown_duration_sessions: "Longest drawdown duration"
+};
+
+export function WalkForwardDetailPage({ runId }: WalkForwardDetailPageProps) {
+  const [state, setState] = useState<WalkForwardDetailState>({ status: "loading" });
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    getWalkForwardDetail(runId)
+      .then((data) => {
+        if (isCurrent) {
+          setState({ status: "ready", data, runId });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        if (error instanceof ApiClientError && error.status === 404) {
+          setState({ status: "not-found", runId });
+          return;
+        }
+
+        setState({
+          status: "error",
+          error: error instanceof ApiClientError ? error.kind : "unavailable",
+          runId
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [runId]);
+
+  const currentState = state.status === "loading" || state.runId === runId ? state : { status: "loading" as const };
+
+  return (
+    <section className="page detail-page walk-forward-detail-page">
+      <div className="page-heading">
+        <p>Walk-forward research workspace</p>
+        <h1>Walk-forward #{runId}</h1>
+      </div>
+      {renderDetail(currentState, runId)}
+    </section>
+  );
+}
+
+function renderDetail(state: WalkForwardDetailState, runId: string) {
+  if (state.status === "loading") {
+    return <FeedbackMessage variant="loading">Loading Walk-forward detail.</FeedbackMessage>;
+  }
+
+  if (state.status === "not-found") {
+    return <EmptyState>Walk-forward run {runId} was not found.</EmptyState>;
+  }
+
+  if (state.status === "error") {
+    return (
+      <FeedbackMessage className="dashboard-alert" variant="error">
+        Walk-forward detail API unavailable: {state.error}
+      </FeedbackMessage>
+    );
+  }
+
+  const { data } = state;
+  return (
+    <article className="dashboard-panel">
+      <strong className="panel-primary">Persisted evaluation evidence</strong>
+      <RunSummary data={data} />
+      <EvidenceSection data={data} />
+      <ProvenanceSection data={data} />
+      <WindowSection data={data} />
+    </article>
+  );
+}
+
+function RunSummary({ data }: { data: WalkForwardDetailResponse }) {
+  const { run } = data;
+  return (
+    <section className="holdings-section" aria-labelledby="walk-forward-run-heading">
+      <h2 id="walk-forward-run-heading">Execution</h2>
+      <dl className="compact-list">
+        <DescriptionItem label="Strategy" value={run.strategy_id} />
+        <DescriptionItem label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
+        <DescriptionItem label="Windows" value={formatInteger(run.window_count)} />
+        <DescriptionItem label="Provenance version" value={run.provenance_version} />
+        <DescriptionItem label="Evidence version" value={run.evidence_version} />
+        <DescriptionItem label="Started at" value={formatTimestamp(run.started_at)} />
+        <DescriptionItem label="Finished at" value={formatTimestamp(run.finished_at)} />
+        <DescriptionItem label="Created at" value={formatTimestamp(run.created_at)} />
+        <DescriptionItem label="Config checksum" value={<code className="mono-compact">{run.config_checksum}</code>} />
+        <DescriptionItem label="Input checksum" value={<code className="mono-compact">{run.input_data_checksum}</code>} />
+      </dl>
+    </section>
+  );
+}
+
+function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
+  const metrics = Object.entries(data.evidence.metrics);
+  return (
+    <section className="holdings-section" aria-labelledby="walk-forward-evidence-heading">
+      <h2 id="walk-forward-evidence-heading">Aggregated evidence</h2>
+      <p className="detail-note">
+        Evidence status uses a minimum-valid-count threshold; values below that threshold remain explicitly unavailable.
+      </p>
+      <div className="metric-card-grid">
+        {metrics.map(([key, value]) => (
+          <MetricCard key={key} label={metricLabels[key] ?? key} metric={value} />
+        ))}
+      </div>
+      <dl className="compact-list">
+        <DescriptionItem label="Positive-window rate" value={formatRate(data.evidence.positive_window_rate)} />
+        <DescriptionItem label="Generalization gap" value={formatMetricSummary(data.evidence.generalization_gap)} />
+      </dl>
+      <BenchmarkEvidence data={data} />
+      <ParameterStability data={data} />
+    </section>
+  );
+}
+
+function MetricCard({ label, metric }: { label: string; metric: WalkForwardMetricSummary }) {
+  return (
+    <div aria-label={`${label} summary`} className="metric-card">
+      <span className="metric-card-label">{label}</span>
+      <strong>Mean: {formatMetricValue(metric.mean)}</strong>
+      <span>Median: {formatMetricValue(metric.median)}</span>
+      <span>Range: {formatMetricValue(metric.min)} to {formatMetricValue(metric.max)}</span>
+      <span>Population std: {formatMetricValue(metric.std)}</span>
+      <span className="metric-card-meta">
+        {metric.evidence_status} · {metric.valid_count}/{metric.window_count} valid
+      </span>
+    </div>
+  );
+}
+
+function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
+  return (
+    <div className="walk-forward-subsection">
+      <h3>Benchmark evidence</h3>
+      {Object.entries(data.evidence.benchmarks).map(([key, benchmark]) => (
+        <section aria-label={`Benchmark ${key}`} className="benchmark-metrics" key={key}>
+          <h4>{key}</h4>
+          <dl className="compact-list">
+            <DescriptionItem label="Total-return difference" value={formatMetricSummary(benchmark.total_return_difference)} />
+            <DescriptionItem label="Annualized-return difference" value={formatMetricSummary(benchmark.annualized_return_difference)} />
+            <DescriptionItem label="Tracking error" value={formatMetricSummary(benchmark.tracking_error)} />
+            <DescriptionItem label="Information ratio" value={formatMetricSummary(benchmark.information_ratio)} />
+            <DescriptionItem label="Outperformance rate" value={formatRate(benchmark.outperformance_rate)} />
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ParameterStability({ data }: { data: WalkForwardDetailResponse }) {
+  return (
+    <div className="walk-forward-subsection">
+      <h3>Parameter stability</h3>
+      {Object.entries(data.evidence.parameter_stability).map(([key, value]) => (
+        <dl className="compact-list" key={key}>
+          <DescriptionItem label={key} value={JSON.stringify(value.value_frequencies)} />
+          <DescriptionItem label="Transition rate" value={formatDecimal(value.transition_rate === null ? null : String(value.transition_rate), 4)} />
+          <DescriptionItem label="Transitions" value={`${formatInteger(value.transition_count)}/${formatInteger(value.comparison_count)}`} />
+          <DescriptionItem label="Comparisons" value={formatInteger(value.comparison_count)} />
+        </dl>
+      ))}
+    </div>
+  );
+}
+
+function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
+  const manifest = data.input_provenance.manifest;
+  return (
+    <section className="holdings-section" aria-labelledby="walk-forward-provenance-heading">
+      <h2 id="walk-forward-provenance-heading">Configuration and input provenance</h2>
+      <p className="detail-note">
+        Configuration paths are display metadata; checksum identity uses validated effective content.
+      </p>
+      <dl className="compact-list">
+        <DescriptionItem label="Config checksum" value={<code className="mono-compact">{data.configuration.config_checksum}</code>} />
+        <DescriptionItem label="Input checksum" value={<code className="mono-compact">{data.input_provenance.input_data_checksum}</code>} />
+        <DescriptionItem label="First loaded price date" value={manifestString(manifest, "first_loaded_price_date")} />
+        <DescriptionItem label="Last loaded price date" value={manifestString(manifest, "last_loaded_price_date")} />
+        <DescriptionItem label="Following-session sentinel" value={manifestString(manifest, "following_session")} />
+      </dl>
+      <div className="walk-forward-json-grid">
+        <JsonBlock label="Walk-forward configuration" value={data.configuration.walk_forward} />
+        <JsonBlock label="Base strategy configuration" value={data.configuration.base_strategy} />
+        <JsonBlock label="Input manifest" value={manifest} />
+      </div>
+    </section>
+  );
+}
+
+function JsonBlock({ label, value }: { label: string; value: object }) {
+  return (
+    <div>
+      <h3>{label}</h3>
+      <pre className="walk-forward-json">{JSON.stringify(value, null, 2)}</pre>
+    </div>
+  );
+}
+
+function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
+  return (
+    <section className="holdings-section" aria-labelledby="walk-forward-windows-heading">
+      <h2 id="walk-forward-windows-heading">Window evidence</h2>
+      <p className="detail-note">
+        Each row is independent OOS evidence; no continuous performance curve is constructed across windows.
+      </p>
+      <div aria-label="Walk-forward window evidence" className="walk-forward-window-scroll" tabIndex={0}>
+        <table className="holdings-table">
+          <caption className="sr-only">Persisted train, candidate, and OOS evidence by window</caption>
+          <thead>
+            <tr>
+              <th scope="col">Window</th>
+              <th scope="col">Train / test</th>
+              <th scope="col">Candidates</th>
+              <th scope="col">Selected parameters</th>
+              <th scope="col">Train Sharpe</th>
+              <th scope="col">OOS strategy</th>
+              <th scope="col">Fixed benchmarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.windows.map((window) => (
+              <tr key={window.ordinal}>
+                <td>{window.ordinal}</td>
+                <td>{`${formatDate(window.train_start)} to ${formatDate(window.train_end)} / ${formatDate(window.test_start)} to ${formatDate(window.test_end)}`}</td>
+                <td>
+                  <div>Candidates: {formatInteger(window.candidate_count)}</div>
+                  <div>Eligible: {formatInteger(window.eligible_count)}</div>
+                  <div>Skipped: {formatInteger(window.skipped_count)}</div>
+                  <div>{formatSkipReasons(window.skip_reason_counts)}</div>
+                </td>
+                <td><code className="mono-compact">{JSON.stringify(window.selected_parameters)}</code></td>
+                <td>{formatNullableText(window.train_sharpe)}</td>
+                <td>
+                  <a className="operation-link" href={`/backtests/${window.oos_backtest.run_id}`}>
+                    Backtest #{window.oos_backtest.run_id}
+                  </a>
+                  <div>{window.oos_version} · {window.oos_backtest.status}</div>
+                  <OosStrategyMetrics backtest={window.oos_backtest} ordinal={window.ordinal} />
+                </td>
+                <td>
+                  {window.oos_backtest.benchmarks.map((benchmark) => (
+                    <BenchmarkMetrics benchmark={benchmark} key={benchmark.key} ordinal={window.ordinal} />
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function OosStrategyMetrics({
+  backtest,
+  ordinal
+}: {
+  backtest: WalkForwardDetailResponse["windows"][number]["oos_backtest"];
+  ordinal: number;
+}) {
+  return (
+    <div aria-label={`OOS strategy metrics for window ${ordinal}`} className="walk-forward-window-metrics">
+      <div>Total return: {formatDecimal(backtest.total_return, 4)}</div>
+      <div>Annualized return: {formatDecimal(backtest.annualized_return, 4)}</div>
+      <div>Max drawdown: {formatDecimal(backtest.max_drawdown, 4)}</div>
+      <div>Volatility: {formatDecimal(backtest.volatility, 4)}</div>
+      <div>Sharpe: {formatDecimal(backtest.sharpe_ratio, 4)}</div>
+      <div>Sortino: {formatDecimal(backtest.sortino_ratio, 4)}</div>
+      <div>Calmar: {formatDecimal(backtest.calmar_ratio, 4)}</div>
+      <DrawdownDuration value={backtest} />
+    </div>
+  );
+}
+
+function BenchmarkMetrics({
+  benchmark,
+  ordinal
+}: {
+  benchmark: WalkForwardBenchmark;
+  ordinal: number;
+}) {
+  return (
+    <section
+      aria-label={`${benchmark.name} metrics for window ${ordinal}`}
+      className="walk-forward-window-metrics"
+    >
+      <strong>{benchmark.name}</strong>
+      <div>Total return: {formatDecimal(benchmark.total_return, 4)}</div>
+      <div>Annualized return: {formatDecimal(benchmark.annualized_return, 4)}</div>
+      <div>Max drawdown: {formatDecimal(benchmark.max_drawdown, 4)}</div>
+      <div>Volatility: {formatDecimal(benchmark.volatility, 4)}</div>
+      <div>Sharpe: {formatDecimal(benchmark.sharpe_ratio, 4)}</div>
+      <div>Sortino: {formatDecimal(benchmark.sortino_ratio, 4)}</div>
+      <div>Calmar: {formatDecimal(benchmark.calmar_ratio, 4)}</div>
+      <DrawdownDuration value={benchmark} />
+      <div>Total-return difference: {formatDecimal(benchmark.total_return_difference, 4)}</div>
+      <div>Annualized-return difference: {formatDecimal(benchmark.annualized_return_difference, 4)}</div>
+      <div>Tracking error: {formatDecimal(benchmark.tracking_error, 4)}</div>
+      <div>Information ratio: {formatDecimal(benchmark.information_ratio, 4)}</div>
+    </section>
+  );
+}
+
+type DrawdownDurationValue = Pick<
+  WalkForwardBenchmark,
+  | "longest_drawdown_duration_sessions"
+  | "longest_drawdown_peak_date"
+  | "longest_drawdown_trough_date"
+  | "longest_drawdown_recovery_date"
+>;
+
+function DrawdownDuration({ value }: { value: DrawdownDurationValue }) {
+  return (
+    <>
+      <div>Longest drawdown: {formatNullableInteger(value.longest_drawdown_duration_sessions)} sessions</div>
+      <div>Peak: {formatDate(value.longest_drawdown_peak_date)}</div>
+      <div>Trough: {formatDate(value.longest_drawdown_trough_date)}</div>
+      <div>Recovery: {formatDrawdownRecovery(value)}</div>
+    </>
+  );
+}
+
+function formatMetricValue(value: number | null): string {
+  return formatDecimal(value === null ? null : String(value), 4);
+}
+
+function formatMetricSummary(metric: WalkForwardMetricSummary): string {
+  return `mean ${formatMetricValue(metric.mean)}; median ${formatMetricValue(metric.median)}; range ${formatMetricValue(metric.min)} to ${formatMetricValue(metric.max)}; std ${formatMetricValue(metric.std)}; ${metric.valid_count}/${metric.window_count} valid; ${metric.evidence_status}`;
+}
+
+function formatRate(rate: {
+  value: number | null;
+  numerator: number;
+  denominator: number;
+  window_count: number;
+  valid_count: number;
+  evidence_status: string;
+}): string {
+  const value = rate.value === null ? "n/a" : `${(rate.value * 100).toFixed(2)}%`;
+  return `${value} (${rate.numerator}/${rate.denominator}); ${rate.valid_count}/${rate.window_count} valid; ${rate.evidence_status}`;
+}
+
+function formatSkipReasons(reasons: Record<string, number>): string {
+  const entries = Object.entries(reasons);
+  return entries.length === 0 ? "No skip reasons" : `Skip reasons: ${entries.map(([key, value]) => `${key}: ${value}`).join(", ")}`;
+}
+
+function manifestString(manifest: Record<string, unknown>, key: string): string {
+  const value = manifest[key];
+  return typeof value === "string" ? value : formatNullableText(undefined);
+}
+
+function formatDrawdownRecovery(
+  backtest: DrawdownDurationValue
+): string {
+  if (backtest.longest_drawdown_recovery_date) {
+    return formatDate(backtest.longest_drawdown_recovery_date);
+  }
+
+  return backtest.longest_drawdown_duration_sessions !== null &&
+    backtest.longest_drawdown_duration_sessions > 0 &&
+    backtest.longest_drawdown_peak_date !== null &&
+    backtest.longest_drawdown_trough_date !== null
+    ? "ongoing"
+    : "n/a";
+}

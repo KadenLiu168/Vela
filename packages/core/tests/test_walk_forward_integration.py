@@ -19,6 +19,7 @@ from vela_core.models import (
     StrategySignal,
     StrategySignalPosition,
     TradingCalendar,
+    WalkForwardRun,
 )
 from vela_core.walk_forward.config import load_walk_forward_config
 from vela_core.walk_forward.runner import WalkForwardRunner
@@ -40,6 +41,7 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
         report = WalkForwardRunner(load_walk_forward_config(config_path)).run(session)
 
     assert len(report.windows) == 3
+    assert report.walk_forward_run_id is not None
     assert [item.window.test_start.year for item in report.windows] == [2019, 2020, 2021]
     assert [
         (
@@ -166,6 +168,10 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
             .count()
             == 6
         )
+        history = session.get(WalkForwardRun, report.walk_forward_run_id)
+        assert history is not None
+        assert history.window_count == 3
+        assert [item.ordinal for item in history.windows] == [0, 1, 2]
 
 
 def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_db(
@@ -221,6 +227,69 @@ def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_
         assert session.query(StrategySignal).count() == 0
         assert session.query(StrategySignalPosition).count() == 0
     assert _file_identity(default_database) == before_default
+
+
+def test_real_walk_forward_persistence_failure_rolls_back_flushed_history_and_oos_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'walk-forward-persist-failure.db'}"
+    config_path = _write_walk_forward_config(tmp_path)
+    run_alembic_upgrade(database_url, REPOSITORY_ROOT / "alembic")
+    engine = create_engine(database_url)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    _seed_walk_forward_fixture(factory)
+
+    from vela_core.walk_forward import runner as runner_module
+
+    original_persist = runner_module.persist_walk_forward_run
+
+    def flush_then_fail(current_session, *, run):
+        original_persist(current_session, run=run)
+        raise RuntimeError("caller commit failure")
+
+    monkeypatch.setattr(runner_module, "persist_walk_forward_run", flush_then_fail)
+    with pytest.raises(RuntimeError, match="caller commit failure"):
+        with managed_session(factory) as session:
+            WalkForwardRunner(load_walk_forward_config(config_path)).run(session)
+
+    with factory() as session:
+        assert session.query(WalkForwardRun).count() == 0
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestBenchmark).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+        assert session.query(BacktestBenchmarkEquityCurve).count() == 0
+        assert session.query(StrategySignal).count() == 0
+
+
+def test_real_walk_forward_repeat_runs_keep_distinct_oos_ownership_and_equal_checksums(
+    tmp_path: Path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'walk-forward-repeat.db'}"
+    config_path = _write_walk_forward_config(tmp_path)
+    run_alembic_upgrade(database_url, REPOSITORY_ROOT / "alembic")
+    engine = create_engine(database_url)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    _seed_walk_forward_fixture(factory)
+
+    reports = []
+    for _ in range(2):
+        with managed_session(factory) as session:
+            reports.append(WalkForwardRunner(load_walk_forward_config(config_path)).run(session))
+
+    assert all(report.walk_forward_run_id is not None for report in reports)
+    with factory() as session:
+        histories = session.query(WalkForwardRun).order_by(WalkForwardRun.id).all()
+        assert len(histories) == 2
+        assert [history.id for history in histories] == [
+            reports[0].walk_forward_run_id,
+            reports[1].walk_forward_run_id,
+        ]
+        assert histories[0].config_checksum == histories[1].config_checksum
+        assert histories[0].input_data_checksum == histories[1].input_data_checksum
+        oos_ids = [
+            window.oos_backtest_run_id for history in histories for window in history.windows
+        ]
+        assert len(oos_ids) == len(set(oos_ids)) == 6
 
 
 def _write_walk_forward_config(tmp_path: Path) -> Path:

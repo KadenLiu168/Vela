@@ -677,6 +677,35 @@ def test_backtest_detail_endpoint_returns_404_for_foreign_strategy(tmp_path) -> 
     assert response.status_code == 404
 
 
+def test_backtest_detail_endpoint_returns_current_strategy_across_versions(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'historical-backtest-detail.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        session.add(
+            BacktestRun(
+                strategy_id="Dual_momentum",
+                config_version="wf-historical",
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 31),
+                parameters_json='{"top_n": 2}',
+                started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+                finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+                status="success",
+                total_return=Decimal("0.120000"),
+            )
+        )
+        session.commit()
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get("/api/backtests/1")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    assert response.json()["run"]["config_version"] == "wf-historical"
+
+
 def _add_price_history(
     session: Session,
     *,
@@ -895,7 +924,9 @@ def test_backtest_signals_endpoint_returns_404_for_foreign_strategy(tmp_path) ->
     assert foreign_response.json() == unknown_response.json()
 
 
-def test_backtest_signals_endpoint_returns_404_for_foreign_config(tmp_path) -> None:
+def test_backtest_signals_endpoint_returns_current_strategy_run_across_config_versions(
+    tmp_path,
+) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-signals-foreign-config.db'}"
     session_factory = prepare_sqlite_database(database_url)
     foreign_run_id = _seed_backtest_run_with_signals(
@@ -914,9 +945,8 @@ def test_backtest_signals_endpoint_returns_404_for_foreign_config(tmp_path) -> N
     finally:
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
-    assert foreign_response.status_code == 404
+    assert foreign_response.status_code == 200
     assert unknown_response.status_code == 404
-    assert foreign_response.json() == unknown_response.json()
 
 
 @pytest.mark.parametrize("query_string", ["limit=0", "limit=101", "offset=-1"])

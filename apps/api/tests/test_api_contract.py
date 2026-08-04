@@ -46,6 +46,8 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
         generated_signal = client.post("/api/strategy-signals/generate")
         latest_signal = client.get("/api/strategy-signals/latest")
         backtest_list = client.get("/api/backtests")
+        walk_forward_list = client.get("/api/walk-forwards")
+        walk_forward_detail = client.get("/api/walk-forwards/999")
         backtest_run = client.post("/api/backtests/run?startDate=2026-01-01&endDate=2026-01-10")
         backtest_detail = client.get(f"/api/backtests/{dataset.backtest_run_id}")
 
@@ -92,6 +94,15 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
 
     assert backtest_list.status_code == 200
     assert "runs" in backtest_list.json()
+    assert walk_forward_list.status_code == 200
+    assert walk_forward_list.json() == {
+        "runs": [],
+        "total": 0,
+        "limit": 10,
+        "offset": 0,
+    }
+    assert walk_forward_detail.status_code == 404
+    assert walk_forward_detail.json()["error"]["code"] == "not_found"
 
     assert backtest_run.status_code == 200
     assert set(backtest_run.json()) == {
@@ -256,6 +267,39 @@ class FailingMarketDataProvider:
 
 def test_openapi_declares_concrete_success_schemas_for_every_api_route() -> None:
     openapi = app.openapi()
+    schemas = openapi["components"]["schemas"]
+
+    assert set(openapi["paths"]["/api/walk-forwards"]) == {"get"}
+    assert set(openapi["paths"]["/api/walk-forwards/{run_id}"]) == {"get"}
+    assert all(
+        parameter["name"] != "strategyId"
+        for parameter in openapi["paths"]["/api/walk-forwards"]["get"]["parameters"]
+    )
+    assert set(schemas["WalkForwardStrategyMetricsResponse"]["properties"]) == {
+        "total_return",
+        "annualized_return",
+        "sharpe_ratio",
+        "max_drawdown",
+        "volatility",
+        "sortino_ratio",
+        "calmar_ratio",
+        "longest_drawdown_duration_sessions",
+    }
+    assert set(schemas["WalkForwardBenchmarkEvidenceMapResponse"]["properties"]) == {
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    }
+    assert set(schemas["WalkForwardInputManifestResponse"]["properties"]) == {
+        "version",
+        "earliest_required_session",
+        "configured_end_date",
+        "following_session",
+        "official_sessions",
+        "active_etfs",
+        "loaded_price_row_count",
+        "first_loaded_price_date",
+        "last_loaded_price_date",
+    }
 
     for operations in openapi["paths"].values():
         for operation in operations.values():

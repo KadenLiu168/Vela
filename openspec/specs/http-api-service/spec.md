@@ -4,6 +4,28 @@
 Defines the FastAPI service surface, including the local-development `POST /api/setup/bootstrap` endpoint.
 ## Requirements
 
+### Requirement: API lists current-strategy Walk-forward evaluations
+The API SHALL expose `GET /api/walk-forwards` scoped to the configured `strategy_id`, with `limit` 1..100 (default 10), non-negative `offset` (default 0), exact total, and stable `finished_at DESC, run_id DESC` ordering. It SHALL expose no `strategyId` filter and MUST NOT start or mutate a Walk-forward execution.
+
+#### Scenario: History returns a stable page and total
+- **WHEN** a client requests `GET /api/walk-forwards?limit=10&offset=10`
+- **THEN** the response contains at most ten current-strategy summaries and the exact current-strategy total
+
+### Requirement: API returns one typed Walk-forward evaluation detail
+The API SHALL expose `GET /api/walk-forwards/{run_id}` with typed ISO dates/timestamps, persisted decimal strings, provenance/evidence versions and checksums, manifest, aggregate evidence, ordered windows, OOS links and fixed benchmark data. Unknown and other-strategy ids SHALL use the standard 404 contract; corrupt persisted documents SHALL use the standard unexpected-error contract without partial data.
+
+#### Scenario: Detail preserves ordered ownership
+- **WHEN** a current-strategy persisted evaluation is requested
+- **THEN** each window exposes its selected OOS run and both fixed benchmarks in chronological order
+
+### Requirement: Walk-forward API is read-only
+The HTTP service MUST expose only `GET /api/walk-forwards` and `GET /api/walk-forwards/{run_id}` for this history and MUST NOT add an endpoint that starts, retries, edits or deletes a Walk-forward execution.
+
+#### Scenario: OpenAPI exposes only history reads
+- **WHEN** a client inspects Walk-forward paths in OpenAPI
+- **THEN** only the two GET history/detail paths are present
+
+
 ### Requirement: Expected API failures use typed domain mapping
 
 The API service SHALL map expected domain failures by exception type through a
@@ -130,7 +152,7 @@ The API service SHALL expose `GET /api/strategy-signals` returning a paginated l
 - **THEN** the response body's `signals` array is empty
 
 ### Requirement: API strategy signal detail endpoint
-The API service SHALL expose `GET /api/strategy-signals/{signal_id}` returning the metadata and target positions of one strategy signal by id, scoped to the current `strategy_id` and `config_version`.
+The API service SHALL expose `GET /api/strategy-signals/{signal_id}` returning the metadata and target positions of one strategy signal by id, scoped to the current `strategy_id` regardless of `config_version`. Signal list/latest endpoints SHALL retain their current version-filtered behavior.
 
 #### Scenario: Endpoint returns signal detail
 - **WHEN** a client requests `GET /api/strategy-signals/{signal_id}` for an existing id that belongs to the current strategy and version
@@ -170,7 +192,7 @@ The API service SHALL expose `GET /api/backtests` returning a paginated list of 
 - **THEN** only runs matching both values are included
 
 ### Requirement: API backtest detail endpoint
-The API service SHALL expose `GET /api/backtests/{run_id}` returning the detail of one backtest run by id, scoped to the current `strategy_id` and `config_version`.
+The API service SHALL expose `GET /api/backtests/{run_id}` returning the detail of one backtest run by id, scoped to the current `strategy_id` regardless of `config_version`. Backtest list defaults and explicit version filters SHALL remain unchanged.
 
 #### Scenario: Endpoint returns run detail
 - **WHEN** a client requests `GET /api/backtests/{run_id}` for an existing id that belongs to the current strategy and version
@@ -286,7 +308,7 @@ strategy signal summary, metadata, and target positions scoped to the exact, cas
 - **AND** top-level `signal_count` is `0`
 
 ### Requirement: API backtest signals pagination endpoint
-The API service SHALL expose `GET /api/backtests/{run_id}/signals` returning `{ "signals": [...] }` for signals linked to the given backtest run and scoped to the current `strategy_id` and `config_version`. Each summary SHALL include `signal_id`, `signal_date`, `result`, and `backtest_run_id`. The endpoint SHALL return every signal linked to the run without a status filter, so for a stable run the collection across pages matches the `signal_count` returned by `GET /api/backtests/{run_id}`. Results SHALL be ordered by `signal_date` ascending then `id` ascending. The endpoint SHALL accept `limit` from 1 through 100 (default 20) and `offset >= 0`. Unknown runs and runs outside the current strategy or config version SHALL return the same stable 404 shape.
+The API service SHALL expose `GET /api/backtests/{run_id}/signals` returning `{ "signals": [...] }` for signals linked to the given backtest run and scoped to the current `strategy_id` regardless of `config_version`. Each summary SHALL include `signal_id`, `signal_date`, `result`, and `backtest_run_id`; ordering and pagination semantics remain unchanged. Unknown runs and runs outside the current strategy SHALL return the same stable 404 shape.
 
 #### Scenario: Endpoint returns paginated signal summaries
 - **WHEN** a client requests `GET /api/backtests/{run_id}/signals?limit=20&offset=0` for an in-scope run with linked signals

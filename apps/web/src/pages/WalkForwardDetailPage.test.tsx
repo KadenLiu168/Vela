@@ -1,0 +1,282 @@
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { ApiClientError, getWalkForwardDetail, type WalkForwardDetailResponse } from "../api/client";
+import { WalkForwardDetailPage } from "./WalkForwardDetailPage";
+
+vi.mock("../api/client", async () => {
+  const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
+  return { ...actual, getWalkForwardDetail: vi.fn() };
+});
+
+const detailMock = vi.mocked(getWalkForwardDetail);
+
+afterEach(() => vi.clearAllMocks());
+
+function metric(value: number | null = 0.12) {
+  return {
+    mean: value,
+    median: value,
+    min: value,
+    max: value,
+    std: 0.01,
+    window_count: 2,
+    valid_count: value === null ? 0 : 2,
+    evidence_status: "insufficient_evidence" as const
+  };
+}
+
+const detail: WalkForwardDetailResponse = {
+  run: {
+    run_id: 42,
+    strategy_id: "dual_momentum",
+    start_date: "2026-01-01",
+    end_date: "2026-12-31",
+    window_count: 2,
+    provenance_version: "wf_provenance_v1",
+    evidence_version: "wf_evidence_v1",
+    config_checksum: "a".repeat(64),
+    input_data_checksum: "b".repeat(64),
+    started_at: "2026-12-01T00:00:00",
+    finished_at: "2026-12-02T00:00:00",
+    created_at: "2026-12-02T00:00:00"
+  },
+  configuration: {
+    walk_forward: { train_window_days: 120, test_window_days: 20 },
+    base_strategy: { strategy_id: "dual_momentum", version: "v1" },
+    config_checksum: "a".repeat(64)
+  },
+  input_provenance: {
+    manifest: {
+      version: "wf_provenance_v1",
+      earliest_required_session: "2025-09-01",
+      configured_end_date: "2026-12-31",
+      first_loaded_price_date: "2025-09-01",
+      last_loaded_price_date: "2026-12-31",
+      following_session: "2027-01-04",
+      official_sessions: ["2025-09-01", "2026-12-31"],
+      loaded_price_row_count: 2,
+      active_etfs: [
+        {
+          etf_id: 7,
+          exchange: "SSE",
+          symbol: "510300",
+          inception_date: "2012-05-28",
+          loaded_price_row_count: 2,
+          first_loaded_price_date: "2025-09-01",
+          last_loaded_price_date: "2026-12-31"
+        }
+      ]
+    },
+    input_data_checksum: "b".repeat(64)
+  },
+  evidence_version: "wf_evidence_v1",
+  evidence: {
+    metrics: {
+      total_return: metric(),
+      annualized_return: metric(0.08),
+      max_drawdown: metric(-0.2),
+      volatility: metric(0.15),
+      sharpe_ratio: metric(1.1),
+      sortino_ratio: metric(1.4),
+      calmar_ratio: metric(0.5),
+      longest_drawdown_duration_sessions: metric(8)
+    },
+    positive_window_rate: {
+      numerator: 2,
+      denominator: 2,
+      value: 1,
+      window_count: 2,
+      valid_count: 2,
+      evidence_status: "insufficient_evidence"
+    },
+    generalization_gap: metric(0.03),
+    benchmarks: {
+      equal_weight_monthly: {
+        total_return_difference: metric(0.01),
+        annualized_return_difference: metric(0.02),
+        tracking_error: metric(0.04),
+        information_ratio: metric(0.6),
+        outperformance_rate: {
+          numerator: 1,
+          denominator: 2,
+          value: 0.5,
+          window_count: 2,
+          valid_count: 2,
+          evidence_status: "insufficient_evidence"
+        }
+      },
+      csi_300_buy_hold: {
+        total_return_difference: metric(0.02),
+        annualized_return_difference: metric(0.03),
+        tracking_error: metric(0.05),
+        information_ratio: metric(0.7),
+        outperformance_rate: {
+          numerator: 1,
+          denominator: 2,
+          value: 0.5,
+          window_count: 2,
+          valid_count: 2,
+          evidence_status: "insufficient_evidence"
+        }
+      }
+    },
+    parameter_stability: {
+      lookback_days: {
+        value_frequencies: { "120": 2 },
+        transition_count: 0,
+        comparison_count: 1,
+        transition_rate: 0
+      }
+    }
+  },
+  windows: [
+    {
+      ordinal: 0,
+      train_start: "2025-01-01",
+      train_end: "2025-05-31",
+      test_start: "2025-06-01",
+      test_end: "2025-06-30",
+      oos_version: "v1",
+      selected_parameters: { lookback_days: 120 },
+      candidate_count: 3,
+      eligible_count: 2,
+      skipped_count: 1,
+      skip_reason_counts: { invalid_config: 1 },
+      train_sharpe: "1.10",
+      oos_backtest: {
+        run_id: 100,
+        strategy_id: "dual_momentum",
+        config_version: "wf-000000000001",
+        start_date: "2025-06-01",
+        end_date: "2025-06-30",
+        status: "success",
+        total_return: "0.10",
+        annualized_return: "0.20",
+        max_drawdown: "-0.05",
+        volatility: "0.12",
+        sharpe_ratio: "1.2",
+        sortino_ratio: "1.3",
+        calmar_ratio: "2.0",
+        longest_drawdown_duration_sessions: 3,
+        longest_drawdown_peak_date: "2025-06-10",
+        longest_drawdown_trough_date: "2025-06-12",
+            longest_drawdown_recovery_date: null,
+        benchmarks: [
+          {
+            key: "equal_weight_monthly",
+            name: "Equal weight monthly",
+            total_return: "0.08",
+            annualized_return: "0.16",
+            max_drawdown: "-0.04",
+            volatility: "0.11",
+            sharpe_ratio: "1.0",
+            sortino_ratio: "1.1",
+            calmar_ratio: "1.8",
+            longest_drawdown_duration_sessions: 2,
+            longest_drawdown_peak_date: "2025-06-10",
+            longest_drawdown_trough_date: "2025-06-11",
+            longest_drawdown_recovery_date: "2025-06-14",
+            total_return_difference: "0.02",
+            annualized_return_difference: "0.04",
+            tracking_error: "0.03",
+            information_ratio: "0.7"
+          },
+          {
+            key: "csi_300_buy_hold",
+            name: "CSI 300 buy and hold",
+            total_return: "0.07",
+            annualized_return: "0.15",
+            max_drawdown: "-0.03",
+            volatility: "0.10",
+            sharpe_ratio: "0.9",
+            sortino_ratio: "1.0",
+            calmar_ratio: "1.7",
+            longest_drawdown_duration_sessions: 4,
+            longest_drawdown_peak_date: "2025-06-09",
+            longest_drawdown_trough_date: "2025-06-12",
+            longest_drawdown_recovery_date: null,
+            total_return_difference: "0.03",
+            annualized_return_difference: "0.05",
+            tracking_error: "0.04",
+            information_ratio: "0.8"
+          }
+        ]
+      }
+    }
+  ]
+};
+
+it("presents persisted evidence, provenance, candidates, and OOS links without a curve", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
+  expect(screen.getByText("Total return")).toBeInTheDocument();
+  expect(screen.getByText("Annualized return")).toBeInTheDocument();
+  expect(screen.getByText("Max drawdown")).toBeInTheDocument();
+  expect(screen.getByText("Volatility")).toBeInTheDocument();
+  expect(screen.getByText("Sharpe ratio")).toBeInTheDocument();
+  expect(screen.getByText("Sortino ratio")).toBeInTheDocument();
+  expect(screen.getByText("Calmar ratio")).toBeInTheDocument();
+  expect(screen.getByText("Longest drawdown duration")).toBeInTheDocument();
+  expect(screen.getByText(/minimum-valid-count threshold/)).toBeInTheDocument();
+  expect(screen.getByText(/configuration paths are display metadata/i)).toBeInTheDocument();
+  expect(screen.getByText("wf_provenance_v1")).toBeInTheDocument();
+  expect(screen.getByText("2027-01-04")).toBeInTheDocument();
+  expect(screen.getByText(/Candidates: 3/)).toBeInTheDocument();
+  expect(screen.getByText(/invalid_config: 1/)).toBeInTheDocument();
+  expect(screen.getByText("Transitions").nextElementSibling).toHaveTextContent("0/1");
+  const totalReturn = screen.getByLabelText("Total return summary");
+  expect(within(totalReturn).getByText("Median: 0.12")).toBeInTheDocument();
+  expect(within(totalReturn).getByText("Population std: 0.01")).toBeInTheDocument();
+  expect(screen.getByText("100.00% (2/2); 2/2 valid; insufficient_evidence")).toBeInTheDocument();
+  expect(screen.getByText("Generalization gap").nextElementSibling).toHaveTextContent(
+    "mean 0.03; median 0.03; range 0.03 to 0.03"
+  );
+  const oosMetrics = screen.getByLabelText("OOS strategy metrics for window 0");
+  expect(within(oosMetrics).getByText("Sortino: 1.3")).toBeInTheDocument();
+  expect(within(oosMetrics).getByText("Calmar: 2")).toBeInTheDocument();
+  const equalWeight = screen.getByLabelText("Equal weight monthly metrics for window 0");
+  expect(within(equalWeight).getByText("Tracking error: 0.03")).toBeInTheDocument();
+  expect(within(equalWeight).getByText("Recovery: 2025-06-14")).toBeInTheDocument();
+  const csi300 = screen.getByLabelText("CSI 300 buy and hold metrics for window 0");
+  expect(within(csi300).getByText("Information ratio: 0.8")).toBeInTheDocument();
+  expect(within(csi300).getByText("Recovery: ongoing")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
+  expect(screen.queryByText(/equity curve|continuous chart|score|pass|fail/i)).not.toBeInTheDocument();
+});
+
+it("renders explicit not-found and unexpected-error states", async () => {
+  detailMock.mockRejectedValueOnce(new ApiClientError("not found", { kind: "http", status: 404, category: "not_found" }));
+  const { unmount } = render(<WalkForwardDetailPage runId="404" />);
+  expect(await screen.findByText("Walk-forward run 404 was not found.")).toBeInTheDocument();
+  unmount();
+
+  detailMock.mockRejectedValueOnce(new ApiClientError("network", { kind: "network" }));
+  render(<WalkForwardDetailPage runId="500" />);
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("network"));
+});
+
+it("ignores a stale detail response when the route id changes", async () => {
+  let resolveOld!: (value: WalkForwardDetailResponse) => void;
+  detailMock.mockImplementation((runId) => {
+    if (runId === "1") {
+      return new Promise((resolve) => {
+        resolveOld = resolve;
+      });
+    }
+    return Promise.resolve({
+      ...detail,
+      run: { ...detail.run, run_id: Number(runId) }
+    });
+  });
+
+  const { rerender } = render(<WalkForwardDetailPage runId="1" />);
+  rerender(<WalkForwardDetailPage runId="2" />);
+  expect(await screen.findByText("Walk-forward #2")).toBeInTheDocument();
+
+  resolveOld(detail);
+  await waitFor(() => expect(screen.queryByText("Walk-forward #1")).not.toBeInTheDocument());
+  expect(screen.getByText("Walk-forward #2")).toBeInTheDocument();
+});
