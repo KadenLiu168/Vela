@@ -116,6 +116,12 @@ def _run_response(result: BacktestRunResult) -> dict[str, object]:
         "max_drawdown": _decimal(result.max_drawdown),
         "volatility": _decimal(result.volatility),
         "sharpe_ratio": _decimal(result.sharpe_ratio),
+        "sortino_ratio": _decimal(result.sortino_ratio),
+        "calmar_ratio": _decimal(result.calmar_ratio),
+        "longest_drawdown_duration_sessions": result.longest_drawdown_duration_sessions,
+        "longest_drawdown_peak_date": _optional_date(result.longest_drawdown_peak_date),
+        "longest_drawdown_trough_date": _optional_date(result.longest_drawdown_trough_date),
+        "longest_drawdown_recovery_date": _optional_date(result.longest_drawdown_recovery_date),
         "benchmarks": _benchmark_result_responses(result),
     }
 
@@ -130,7 +136,11 @@ def _list_item_response(run: BacktestRun) -> dict[str, object]:
         "status": run.status,
         "started_at": _datetime(run.started_at),
         "finished_at": _optional_datetime(run.finished_at),
-        **_metrics_response(run),
+        "total_return": _decimal(run.total_return),
+        "annualized_return": _decimal(run.annualized_return),
+        "max_drawdown": _decimal(run.max_drawdown),
+        "volatility": _decimal(run.volatility),
+        "sharpe_ratio": _decimal(run.sharpe_ratio),
     }
 
 
@@ -156,6 +166,12 @@ def _metrics_response(run: BacktestRun) -> dict[str, object]:
         "max_drawdown": _decimal(run.max_drawdown),
         "volatility": _decimal(run.volatility),
         "sharpe_ratio": _decimal(run.sharpe_ratio),
+        "sortino_ratio": _decimal(run.sortino_ratio),
+        "calmar_ratio": _decimal(run.calmar_ratio),
+        "longest_drawdown_duration_sessions": run.longest_drawdown_duration_sessions,
+        "longest_drawdown_peak_date": run.longest_drawdown_peak_date,
+        "longest_drawdown_trough_date": run.longest_drawdown_trough_date,
+        "longest_drawdown_recovery_date": run.longest_drawdown_recovery_date,
     }
 
 
@@ -186,6 +202,22 @@ def _benchmark_result_responses(result: BacktestRunResult) -> list[dict[str, obj
             "max_drawdown": _decimal(benchmark.maximum_drawdown.max_drawdown),
             "volatility": _decimal(benchmark.volatility.volatility),
             "sharpe_ratio": _decimal(benchmark.sharpe_ratio.sharpe_ratio),
+            "sortino_ratio": _decimal(benchmark.sortino_ratio.sortino_ratio),
+            "calmar_ratio": _decimal(benchmark.calmar_ratio.calmar_ratio),
+            "longest_drawdown_duration_sessions": (
+                benchmark.longest_drawdown_duration.longest_drawdown_duration_sessions
+            ),
+            "longest_drawdown_peak_date": _optional_date(
+                benchmark.longest_drawdown_duration.peak_date
+            ),
+            "longest_drawdown_trough_date": _optional_date(
+                benchmark.longest_drawdown_duration.trough_date
+            ),
+            "longest_drawdown_recovery_date": _optional_date(
+                benchmark.longest_drawdown_duration.recovery_date
+            ),
+            "tracking_error": _decimal(benchmark.tracking_error),
+            "information_ratio": _decimal(benchmark.information_ratio),
             "total_return_difference": _difference(
                 result.total_return, benchmark.annualized_return.total_return
             ),
@@ -211,6 +243,14 @@ def _benchmark_response(
         "max_drawdown": _decimal(benchmark.max_drawdown),
         "volatility": _decimal(benchmark.volatility),
         "sharpe_ratio": _decimal(benchmark.sharpe_ratio),
+        "sortino_ratio": _decimal(benchmark.sortino_ratio),
+        "calmar_ratio": _decimal(benchmark.calmar_ratio),
+        "longest_drawdown_duration_sessions": benchmark.longest_drawdown_duration_sessions,
+        "longest_drawdown_peak_date": _optional_date(benchmark.longest_drawdown_peak_date),
+        "longest_drawdown_trough_date": _optional_date(benchmark.longest_drawdown_trough_date),
+        "longest_drawdown_recovery_date": _optional_date(benchmark.longest_drawdown_recovery_date),
+        "tracking_error": _decimal(benchmark.tracking_error),
+        "information_ratio": _decimal(benchmark.information_ratio),
         "total_return_difference": _difference(strategy_total_return, benchmark.total_return),
         "annualized_return_difference": _difference(
             strategy_annualized_return, benchmark.annualized_return
@@ -237,6 +277,10 @@ def _signal_summary_response(entry: BacktestSignalSummaryEntry) -> dict[str, obj
 
 def _decimal(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _optional_date(value: date | None) -> str | None:
+    return None if value is None else value.isoformat()
 
 
 def _optional_datetime(value: datetime | None) -> str | None:

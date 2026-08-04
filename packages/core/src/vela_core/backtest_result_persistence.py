@@ -31,6 +31,12 @@ class BacktestResultRunInput:
     sharpe_ratio: Decimal | None = None
     volatility: Decimal | None = None
     data_snapshot_json: dict[str, object] | None = None
+    sortino_ratio: Decimal | None = None
+    calmar_ratio: Decimal | None = None
+    longest_drawdown_duration_sessions: int | None = None
+    longest_drawdown_peak_date: date | None = None
+    longest_drawdown_trough_date: date | None = None
+    longest_drawdown_recovery_date: date | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +59,14 @@ class BacktestBenchmarkInput:
     sharpe_ratio: Decimal | None
     volatility: Decimal | None
     equity_curve: Sequence[tuple[date, Decimal]]
+    sortino_ratio: Decimal | None = None
+    calmar_ratio: Decimal | None = None
+    longest_drawdown_duration_sessions: int | None = None
+    longest_drawdown_peak_date: date | None = None
+    longest_drawdown_trough_date: date | None = None
+    longest_drawdown_recovery_date: date | None = None
+    tracking_error: Decimal | None = None
+    information_ratio: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -87,6 +101,12 @@ def persist_backtest_result(
         max_drawdown=run.max_drawdown,
         sharpe_ratio=run.sharpe_ratio,
         volatility=run.volatility,
+        sortino_ratio=run.sortino_ratio,
+        calmar_ratio=run.calmar_ratio,
+        longest_drawdown_duration_sessions=run.longest_drawdown_duration_sessions,
+        longest_drawdown_peak_date=run.longest_drawdown_peak_date,
+        longest_drawdown_trough_date=run.longest_drawdown_trough_date,
+        longest_drawdown_recovery_date=run.longest_drawdown_recovery_date,
     )
     session.add(backtest_run)
     session.flush()
@@ -114,6 +134,14 @@ def persist_backtest_result(
             max_drawdown=input_row.max_drawdown,
             sharpe_ratio=input_row.sharpe_ratio,
             volatility=input_row.volatility,
+            sortino_ratio=input_row.sortino_ratio,
+            calmar_ratio=input_row.calmar_ratio,
+            longest_drawdown_duration_sessions=input_row.longest_drawdown_duration_sessions,
+            longest_drawdown_peak_date=input_row.longest_drawdown_peak_date,
+            longest_drawdown_trough_date=input_row.longest_drawdown_trough_date,
+            longest_drawdown_recovery_date=input_row.longest_drawdown_recovery_date,
+            tracking_error=input_row.tracking_error,
+            information_ratio=input_row.information_ratio,
         )
         session.add(benchmark)
         session.flush()

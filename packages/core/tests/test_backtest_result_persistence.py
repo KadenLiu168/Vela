@@ -195,6 +195,67 @@ def test_persist_backtest_result_loads_ordered_benchmark_curves_and_legacy_runs(
     assert isinstance(run.benchmarks[0], BacktestBenchmark)
 
 
+def test_persist_backtest_result_round_trips_expanded_metrics_and_isolates_reruns() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        first = persist_backtest_result(
+            session,
+            run=_run_input(
+                sortino_ratio=Decimal("2.100000"),
+                calmar_ratio=Decimal("3.200000"),
+                longest_drawdown_duration_sessions=4,
+                longest_drawdown_peak_date=date(2026, 1, 4),
+                longest_drawdown_trough_date=date(2026, 1, 6),
+                longest_drawdown_recovery_date=None,
+            ),
+            equity_curve=[],
+            benchmarks=[
+                _benchmark(
+                    "equal_weight_monthly",
+                    [],
+                    sortino_ratio=Decimal("1.100000"),
+                    calmar_ratio=Decimal("1.200000"),
+                    longest_drawdown_duration_sessions=2,
+                    tracking_error=Decimal("0.038884"),
+                    information_ratio=Decimal("12.961481"),
+                ),
+                _benchmark("csi_300_buy_hold", []),
+            ],
+        )
+        second = persist_backtest_result(
+            session,
+            run=_run_input(
+                started_at=datetime(2026, 2, 2, 9, 0, tzinfo=UTC),
+                sortino_ratio=Decimal("9.900000"),
+                longest_drawdown_duration_sessions=0,
+            ),
+            equity_curve=[],
+        )
+        session.commit()
+        session.expire_all()
+
+        first_run = get_backtest_result(session, run_id=first.backtest_run.id)
+        second_run = get_backtest_result(session, run_id=second.backtest_run.id)
+
+    assert first_run is not None
+    assert first_run.sortino_ratio == Decimal("2.100000")
+    assert first_run.calmar_ratio == Decimal("3.200000")
+    assert first_run.longest_drawdown_duration_sessions == 4
+    assert first_run.longest_drawdown_peak_date == date(2026, 1, 4)
+    assert first_run.longest_drawdown_trough_date == date(2026, 1, 6)
+    assert first_run.longest_drawdown_recovery_date is None
+    assert [benchmark.benchmark_key for benchmark in first_run.benchmarks] == [
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    ]
+    assert first_run.benchmarks[0].tracking_error == Decimal("0.038884")
+    assert first_run.benchmarks[0].information_ratio == Decimal("12.961481")
+    assert second_run is not None
+    assert second_run.sortino_ratio == Decimal("9.900000")
+    assert second_run.benchmarks == []
+
+
 def test_persist_backtest_result_rejects_duplicate_benchmark_keys_before_writing() -> None:
     session_factory = _create_session_factory()
 
@@ -253,6 +314,12 @@ def _run_input(
     *,
     started_at: datetime = datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
     data_snapshot_json: dict[str, object] | None = None,
+    sortino_ratio: Decimal | None = None,
+    calmar_ratio: Decimal | None = None,
+    longest_drawdown_duration_sessions: int | None = None,
+    longest_drawdown_peak_date: date | None = None,
+    longest_drawdown_trough_date: date | None = None,
+    longest_drawdown_recovery_date: date | None = None,
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
         strategy_id="dual_momentum",
@@ -269,6 +336,12 @@ def _run_input(
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
         data_snapshot_json=data_snapshot_json,
+        sortino_ratio=sortino_ratio,
+        calmar_ratio=calmar_ratio,
+        longest_drawdown_duration_sessions=longest_drawdown_duration_sessions,
+        longest_drawdown_peak_date=longest_drawdown_peak_date,
+        longest_drawdown_trough_date=longest_drawdown_trough_date,
+        longest_drawdown_recovery_date=longest_drawdown_recovery_date,
     )
 
 
@@ -287,7 +360,16 @@ def _curve_input(
     )
 
 
-def _benchmark(key: str, equity_curve: list[tuple[date, Decimal]]) -> BacktestBenchmarkInput:
+def _benchmark(
+    key: str,
+    equity_curve: list[tuple[date, Decimal]],
+    *,
+    sortino_ratio: Decimal | None = None,
+    calmar_ratio: Decimal | None = None,
+    longest_drawdown_duration_sessions: int | None = None,
+    tracking_error: Decimal | None = None,
+    information_ratio: Decimal | None = None,
+) -> BacktestBenchmarkInput:
     return BacktestBenchmarkInput(
         key=key,
         name=key,
@@ -297,6 +379,11 @@ def _benchmark(key: str, equity_curve: list[tuple[date, Decimal]]) -> BacktestBe
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
         equity_curve=equity_curve,
+        sortino_ratio=sortino_ratio,
+        calmar_ratio=calmar_ratio,
+        longest_drawdown_duration_sessions=longest_drawdown_duration_sessions,
+        tracking_error=tracking_error,
+        information_ratio=information_ratio,
     )
 
 

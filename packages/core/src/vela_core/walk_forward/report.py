@@ -35,6 +35,8 @@ class WalkForwardRateSummary(TypedDict):
 class WalkForwardBenchmarkComparison(TypedDict):
     total_return: WalkForwardMetricSummary
     annualized_return: WalkForwardMetricSummary
+    tracking_error: WalkForwardMetricSummary
+    information_ratio: WalkForwardMetricSummary
     outperformance_rate: WalkForwardRateSummary
 
 
@@ -56,6 +58,8 @@ class WalkForwardBenchmarkResult:
     sharpe_ratio: float | None
     total_return_difference: float | None
     annualized_return_difference: float | None
+    tracking_error: float | None = None
+    information_ratio: float | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,9 @@ class WalkForwardWindowResult:
     oos_volatility: float | None
     benchmarks: tuple[WalkForwardBenchmarkResult, ...]
     skipped: list[str]
+    oos_sortino: float | None = None
+    oos_calmar: float | None = None
+    oos_longest_drawdown_duration_sessions: int | None = None
 
 
 @dataclass
@@ -78,12 +85,17 @@ class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
 
     def aggregate(self) -> dict[str, WalkForwardMetricSummary]:
-        values_by_metric = {
+        values_by_metric: dict[str, Sequence[float | int | None]] = {
             "total_return": [item.oos_total_return for item in self.windows],
             "annualized_return": [item.oos_annualized_return for item in self.windows],
             "sharpe_ratio": [item.oos_sharpe for item in self.windows],
             "max_drawdown": [item.oos_max_drawdown for item in self.windows],
             "volatility": [item.oos_volatility for item in self.windows],
+            "sortino_ratio": [item.oos_sortino for item in self.windows],
+            "calmar_ratio": [item.oos_calmar for item in self.windows],
+            "longest_drawdown_duration_sessions": [
+                item.oos_longest_drawdown_duration_sessions for item in self.windows
+            ],
         }
         return {
             name: _summary(values, window_count=len(self.windows))
@@ -119,6 +131,18 @@ class WalkForwardReport:
                 for benchmark in item.benchmarks
                 if benchmark.key == key
             ]
+            tracking_errors = [
+                benchmark.tracking_error
+                for item in self.windows
+                for benchmark in item.benchmarks
+                if benchmark.key == key
+            ]
+            information_ratios = [
+                benchmark.information_ratio
+                for item in self.windows
+                for benchmark in item.benchmarks
+                if benchmark.key == key
+            ]
             result[key] = {
                 "total_return": _summary(
                     total_differences,
@@ -126,6 +150,14 @@ class WalkForwardReport:
                 ),
                 "annualized_return": _summary(
                     annualized_differences,
+                    window_count=len(self.windows),
+                ),
+                "tracking_error": _summary(
+                    tracking_errors,
+                    window_count=len(self.windows),
+                ),
+                "information_ratio": _summary(
+                    information_ratios,
                     window_count=len(self.windows),
                 ),
                 "outperformance_rate": _rate(
@@ -169,7 +201,7 @@ class WalkForwardReport:
 
 
 def _summary(
-    values: Sequence[float | None],
+    values: Sequence[float | int | None],
     *,
     window_count: int,
 ) -> WalkForwardMetricSummary:
@@ -262,7 +294,11 @@ def format_report(report: WalkForwardReport) -> str:
             f"OOS annualized return: {_metric(item.oos_annualized_return)}; "
             f"OOS Sharpe: {_metric(item.oos_sharpe)}; "
             f"OOS maximum drawdown: {_metric(item.oos_max_drawdown)}; "
-            f"OOS volatility: {_metric(item.oos_volatility)}",
+            f"OOS volatility: {_metric(item.oos_volatility)}; "
+            f"OOS Sortino: {_metric(item.oos_sortino)}; "
+            f"OOS Calmar: {_metric(item.oos_calmar)}; "
+            "OOS longest drawdown duration: "
+            f"{_metric(item.oos_longest_drawdown_duration_sessions)}",
             f"  Skipped combinations: {len(item.skipped)}",
         ]
         for benchmark in item.benchmarks:
@@ -274,6 +310,8 @@ def format_report(report: WalkForwardReport) -> str:
                     f"    Maximum drawdown: {_metric(benchmark.max_drawdown)}",
                     f"    Volatility: {_metric(benchmark.volatility)}",
                     f"    Sharpe ratio: {_metric(benchmark.sharpe_ratio)}",
+                    f"    Tracking error (252D): {_metric(benchmark.tracking_error)}",
+                    f"    Information ratio (252D): {_metric(benchmark.information_ratio)}",
                     "    Strategy total return difference: "
                     f"{_metric(benchmark.total_return_difference)}",
                     "    Strategy annualized return difference: "
@@ -301,6 +339,10 @@ def format_report(report: WalkForwardReport) -> str:
         lines.append(
             "  annualized return difference: "
             f"{_format_summary(comparison['annualized_return'], minimum_label='worst')}"
+        )
+        lines.append(f"  tracking error (252D): {_format_summary(comparison['tracking_error'])}")
+        lines.append(
+            f"  information ratio (252D): {_format_summary(comparison['information_ratio'])}"
         )
         lines.append(f"  outperformance rate: {_format_rate(comparison['outperformance_rate'])}")
 

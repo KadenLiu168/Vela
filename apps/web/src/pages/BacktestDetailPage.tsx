@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ApiClientError,
   type BacktestDetailResponse,
+  type BacktestDetailMetrics,
   type BacktestSignalSummary,
   getBacktestDetail,
   listBacktestSignals
@@ -11,6 +12,7 @@ import {
   formatDate,
   formatDecimal,
   formatInteger,
+  formatNullableInteger,
   formatNullableText,
   formatNetValue,
   formatRatioAsPercent,
@@ -219,6 +221,18 @@ function renderBacktestDetail(
           <MetricCard label="Max drawdown" value={formatRatioAsPercent(metrics.max_drawdown)} />
           <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(metrics.volatility)} />
           <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
+          <MetricCard label="Sortino (rf MAR, 252D)" value={formatDecimal(metrics.sortino_ratio, 6, false)} />
+          <MetricCard label="Calmar (calendar CAGR / |MaxDD|)" value={formatDecimal(metrics.calmar_ratio, 6, false)} />
+          <MetricCard
+            label="Longest drawdown duration (official sessions)"
+            value={formatNullableInteger(metrics.longest_drawdown_duration_sessions)}
+          />
+          <MetricCard label="Longest drawdown peak" value={formatDate(metrics.longest_drawdown_peak_date)} />
+          <MetricCard label="Longest drawdown trough" value={formatDate(metrics.longest_drawdown_trough_date)} />
+          <MetricCard
+            label="Longest drawdown recovery"
+            value={formatDrawdownRecovery(metrics)}
+          />
         </dl>
         {(backtestState.data.benchmarks ?? []).map((benchmark) => (
           <section aria-label={benchmark.name} className="benchmark-metrics" key={benchmark.key}>
@@ -229,6 +243,20 @@ function renderBacktestDetail(
               <MetricCard label="Max drawdown" value={formatRatioAsPercent(benchmark.max_drawdown)} />
               <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(benchmark.volatility)} />
               <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(benchmark.sharpe_ratio, 2, false)} />
+              <MetricCard label="Sortino (rf MAR, 252D)" value={formatDecimal(benchmark.sortino_ratio, 6, false)} />
+              <MetricCard label="Calmar (calendar CAGR / |MaxDD|)" value={formatDecimal(benchmark.calmar_ratio, 6, false)} />
+              <MetricCard
+                label="Longest drawdown duration (official sessions)"
+                value={formatNullableInteger(benchmark.longest_drawdown_duration_sessions)}
+              />
+              <MetricCard label="Longest drawdown peak" value={formatDate(benchmark.longest_drawdown_peak_date)} />
+              <MetricCard label="Longest drawdown trough" value={formatDate(benchmark.longest_drawdown_trough_date)} />
+              <MetricCard
+                label="Longest drawdown recovery"
+                value={formatDrawdownRecovery(benchmark)}
+              />
+              <MetricCard label="Tracking error (252D)" value={formatDecimal(benchmark.tracking_error, 6, false)} />
+              <MetricCard label="Information ratio (252D)" value={formatDecimal(benchmark.information_ratio, 6, false)} />
               <MetricCard label="Strategy total return difference" value={formatRatioAsPercent(benchmark.total_return_difference)} />
               <MetricCard label="Strategy CAGR difference" value={formatRatioAsPercent(benchmark.annualized_return_difference)} />
             </dl>
@@ -364,4 +392,19 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+function formatDrawdownRecovery(
+  metrics: Pick<BacktestDetailMetrics, "longest_drawdown_duration_sessions" | "longest_drawdown_peak_date" | "longest_drawdown_trough_date" | "longest_drawdown_recovery_date">
+): string {
+  if (metrics.longest_drawdown_recovery_date) {
+    return formatDate(metrics.longest_drawdown_recovery_date);
+  }
+
+  return metrics.longest_drawdown_duration_sessions !== null &&
+    metrics.longest_drawdown_duration_sessions > 0 &&
+    metrics.longest_drawdown_peak_date !== null &&
+    metrics.longest_drawdown_trough_date !== null
+    ? "ongoing"
+    : "n/a";
 }

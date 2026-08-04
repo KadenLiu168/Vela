@@ -14,7 +14,19 @@ const signalsMock = vi.mocked(listBacktestSignals);
 const detail = (signalCount: number, runId = 7) => ({
   benchmarks: [],
   equity_curve: [],
-  metrics: { annualized_return: null, max_drawdown: null, sharpe_ratio: null, total_return: null, volatility: null },
+  metrics: {
+    annualized_return: null,
+    calmar_ratio: null,
+    longest_drawdown_duration_sessions: null,
+    longest_drawdown_peak_date: null,
+    longest_drawdown_recovery_date: null,
+    longest_drawdown_trough_date: null,
+    max_drawdown: null,
+    sharpe_ratio: null,
+    sortino_ratio: null,
+    total_return: null,
+    volatility: null
+  },
   run: { config_version: "v1", end_date: "2026-01-02", error_message: null, finished_at: null, parameters_json: null, run_id: runId, start_date: "2026-01-01", started_at: "2026-01-01T00:00:00", status: "success", strategy_id: "s" },
   signal_count: signalCount,
   signal_ids: []
@@ -48,6 +60,9 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         key: "equal_weight_monthly",
         name: "Equal-weight monthly rebalanced portfolio",
         total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+        sortino_ratio: "0.7", calmar_ratio: "1.3", longest_drawdown_duration_sessions: 2,
+        longest_drawdown_peak_date: "2026-01-12", longest_drawdown_trough_date: "2026-01-18", longest_drawdown_recovery_date: null,
+        tracking_error: "0.038884", information_ratio: "12.961481",
         total_return_difference: "0.02", annualized_return_difference: "0.02",
         equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.1" }]
       },
@@ -55,6 +70,9 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         key: "csi_300_buy_hold",
         name: "CSI 300 buy-and-hold",
         total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.08", sharpe_ratio: "0.8",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
         total_return_difference: "0.04", annualized_return_difference: "0.04",
         equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.08" }]
       }
@@ -75,6 +93,61 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
   expect(screen.getByTestId("equity-curve-line-strategy")).toBeInTheDocument();
   expect(screen.getByTestId("equity-curve-line-equal_weight_monthly")).toBeInTheDocument();
   expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toBeInTheDocument();
+});
+
+it("renders expanded strategy and relative benchmark metrics with ongoing and unavailable values", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: {
+      ...detail(0).metrics,
+      sortino_ratio: "1.234567",
+      calmar_ratio: "2.345678",
+      longest_drawdown_duration_sessions: 3,
+      longest_drawdown_peak_date: "2026-01-10",
+      longest_drawdown_trough_date: "2026-01-20",
+      longest_drawdown_recovery_date: null
+    },
+    benchmarks: [
+      {
+        key: "equal_weight_monthly",
+        name: "Equal-weight monthly rebalanced portfolio",
+        total_return: null,
+        annualized_return: null,
+        max_drawdown: null,
+        volatility: null,
+        sharpe_ratio: null,
+        sortino_ratio: null,
+        calmar_ratio: null,
+        longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null,
+        longest_drawdown_trough_date: null,
+        longest_drawdown_recovery_date: null,
+        tracking_error: "0.038884",
+        information_ratio: "12.961481",
+        total_return_difference: null,
+        annualized_return_difference: null,
+        equity_curve: []
+      }
+    ]
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByText("Backtest #7");
+  expect(screen.getAllByText("Sortino (rf MAR, 252D)").length).toBe(2);
+  expect(screen.getByText("1.234567")).toBeInTheDocument();
+  expect(screen.getAllByText("Calmar (calendar CAGR / |MaxDD|)").length).toBe(2);
+  expect(screen.getByText("2.345678")).toBeInTheDocument();
+  expect(screen.getAllByText("Longest drawdown duration (official sessions)").length).toBe(2);
+  expect(screen.getByText("3")).toBeInTheDocument();
+  expect(screen.getByText("2026-01-10")).toBeInTheDocument();
+  expect(screen.getByText("2026-01-20")).toBeInTheDocument();
+  expect(screen.getByText("ongoing")).toBeInTheDocument();
+  expect(screen.getByText("Tracking error (252D)")).toBeInTheDocument();
+  expect(screen.getByText("0.038884")).toBeInTheDocument();
+  expect(screen.getByText("Information ratio (252D)")).toBeInTheDocument();
+  expect(screen.getByText("12.961481")).toBeInTheDocument();
+  expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
 });
 
 it("wraps ArrowLeft and ArrowRight and supports Home and End", async () => {

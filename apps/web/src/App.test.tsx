@@ -90,6 +90,8 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
   expect(backtest.getByText("1.100000")).toBeInTheDocument();
+  expect(backtest.queryByText("Sortino (rf MAR, 252D)")).not.toBeInTheDocument();
+  expect(backtest.queryByText("Tracking error (252D)")).not.toBeInTheDocument();
   expect(backtest.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
     "/backtests/7"
@@ -1862,7 +1864,13 @@ it("renders n/a for nullable backtest metric cards", async () => {
           annualized_return: null,
           max_drawdown: null,
           volatility: null,
-          sharpe_ratio: null
+          sharpe_ratio: null,
+          sortino_ratio: null,
+          calmar_ratio: null,
+          longest_drawdown_duration_sessions: null,
+          longest_drawdown_peak_date: null,
+          longest_drawdown_trough_date: null,
+          longest_drawdown_recovery_date: null
         }
       })
     )
@@ -1874,7 +1882,7 @@ it("renders n/a for nullable backtest metric cards", async () => {
     "section"
   );
   expect(metricsSection).not.toBeNull();
-  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(5);
+  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(11);
   expect(screen.getByText("Backtest #8")).toBeInTheDocument();
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });

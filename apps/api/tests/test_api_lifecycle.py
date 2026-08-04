@@ -3,11 +3,14 @@ from pathlib import Path
 import pytest
 import vela_api.main as api_main
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from vela_api.database import initialize_database
 from vela_api.dependencies import get_app_config
 from vela_core import ConfigError, load_app_config
+from vela_core.models import Base
 
 
-def test_routine_requests_reuse_one_lifespan_config(monkeypatch) -> None:
+def test_routine_requests_reuse_one_lifespan_config(monkeypatch, tmp_path: Path) -> None:
     config = load_app_config("config/strategy_v1.yaml")
     loaded_paths: list[Path] = []
 
@@ -17,6 +20,9 @@ def test_routine_requests_reuse_one_lifespan_config(monkeypatch) -> None:
 
     monkeypatch.setattr(api_main, "load_app_config", load_config)
     test_app = api_main.create_app()
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'lifecycle.db'}"
+    Base.metadata.create_all(create_engine(database_url))
+    initialize_database(test_app, database_url)
 
     with TestClient(test_app) as client:
         assert client.get("/api/config").status_code == 200

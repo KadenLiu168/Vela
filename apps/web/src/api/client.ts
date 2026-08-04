@@ -164,6 +164,12 @@ export type BacktestRunResponse = {
   max_drawdown: string | null;
   volatility: string | null;
   sharpe_ratio: string | null;
+  sortino_ratio: string | null;
+  calmar_ratio: string | null;
+  longest_drawdown_duration_sessions: number | null;
+  longest_drawdown_peak_date: string | null;
+  longest_drawdown_trough_date: string | null;
+  longest_drawdown_recovery_date: string | null;
   benchmarks: BacktestBenchmark[];
 };
 
@@ -184,8 +190,16 @@ export type BacktestBenchmark = {
   max_drawdown: string | null;
   volatility: string | null;
   sharpe_ratio: string | null;
+  sortino_ratio: string | null;
+  calmar_ratio: string | null;
+  longest_drawdown_duration_sessions: number | null;
+  longest_drawdown_peak_date: string | null;
+  longest_drawdown_trough_date: string | null;
+  longest_drawdown_recovery_date: string | null;
   total_return_difference: string | null;
   annualized_return_difference: string | null;
+  tracking_error: string | null;
+  information_ratio: string | null;
   equity_curve: Array<{ trade_date: string; net_value: string }>;
 };
 
@@ -208,6 +222,12 @@ export type BacktestDetailMetrics = {
   max_drawdown: string | null;
   volatility: string | null;
   sharpe_ratio: string | null;
+  sortino_ratio: string | null;
+  calmar_ratio: string | null;
+  longest_drawdown_duration_sessions: number | null;
+  longest_drawdown_peak_date: string | null;
+  longest_drawdown_trough_date: string | null;
+  longest_drawdown_recovery_date: string | null;
 };
 
 export type BacktestEquityCurvePoint = {

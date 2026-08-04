@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
@@ -7,14 +7,22 @@ from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.errors import BacktestDataError
 from vela_core.models import ETFInfo, MarketPrice
 from vela_core.strategy_equity_curve import (
+    ActiveRiskMetrics,
     StrategyAnnualizedReturn,
+    StrategyCalmarRatio,
     StrategyEquityCurvePoint,
+    StrategyLongestDrawdownDuration,
     StrategyMaximumDrawdown,
     StrategySharpeRatio,
+    StrategySortinoRatio,
     StrategyVolatility,
+    calculate_active_risk_metrics,
     calculate_strategy_annualized_return,
+    calculate_strategy_calmar_ratio,
+    calculate_strategy_longest_drawdown_duration,
     calculate_strategy_maximum_drawdown,
     calculate_strategy_sharpe_ratio,
+    calculate_strategy_sortino_ratio,
     calculate_strategy_volatility,
 )
 
@@ -31,6 +39,16 @@ class BacktestBenchmarkResult:
     maximum_drawdown: StrategyMaximumDrawdown
     volatility: StrategyVolatility
     sharpe_ratio: StrategySharpeRatio
+    sortino_ratio: StrategySortinoRatio = StrategySortinoRatio(sortino_ratio=None)
+    calmar_ratio: StrategyCalmarRatio = StrategyCalmarRatio(calmar_ratio=None)
+    longest_drawdown_duration: StrategyLongestDrawdownDuration = StrategyLongestDrawdownDuration(
+        longest_drawdown_duration_sessions=0,
+        peak_date=None,
+        trough_date=None,
+        recovery_date=None,
+    )
+    tracking_error: Decimal | None = None
+    information_ratio: Decimal | None = None
 
 
 def calculate_backtest_benchmarks(
@@ -66,6 +84,21 @@ def calculate_backtest_benchmarks(
             risk_free_rate=risk_free_rate,
         ),
     ]
+
+
+def calculate_backtest_benchmark_active_risk_metrics(
+    strategy_points: Sequence[StrategyEquityCurvePoint],
+    benchmark: BacktestBenchmarkResult,
+) -> BacktestBenchmarkResult:
+    active_metrics: ActiveRiskMetrics = calculate_active_risk_metrics(
+        strategy_points,
+        benchmark.points,
+    )
+    return replace(
+        benchmark,
+        tracking_error=active_metrics.tracking_error,
+        information_ratio=active_metrics.information_ratio,
+    )
 
 
 def _resolve_csi_300(active_etfs: Sequence[ETFInfo], *, first_date: date) -> ETFInfo:
@@ -202,12 +235,20 @@ def _eligible_etfs(active_etfs: Sequence[ETFInfo], trade_date: date) -> list[ETF
 def _result(
     *, key: str, name: str, points: list[StrategyEquityCurvePoint], risk_free_rate: Decimal
 ) -> BacktestBenchmarkResult:
+    annualized_return = calculate_strategy_annualized_return(points)
+    maximum_drawdown = calculate_strategy_maximum_drawdown(points)
     return BacktestBenchmarkResult(
         key=key,
         name=name,
         points=points,
-        annualized_return=calculate_strategy_annualized_return(points),
-        maximum_drawdown=calculate_strategy_maximum_drawdown(points),
+        annualized_return=annualized_return,
+        maximum_drawdown=maximum_drawdown,
         volatility=calculate_strategy_volatility(points),
         sharpe_ratio=calculate_strategy_sharpe_ratio(points, risk_free_rate=risk_free_rate),
+        sortino_ratio=calculate_strategy_sortino_ratio(points, risk_free_rate=risk_free_rate),
+        calmar_ratio=calculate_strategy_calmar_ratio(
+            annualized_return.annualized_return,
+            maximum_drawdown.max_drawdown,
+        ),
+        longest_drawdown_duration=calculate_strategy_longest_drawdown_duration(points),
     )

@@ -94,6 +94,9 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
     assert body["annualized_return"] is not None
     assert body["volatility"] is not None
     assert body["sharpe_ratio"] is not None
+    assert body["sortino_ratio"] is not None
+    assert body["calmar_ratio"] is not None
+    assert isinstance(body["longest_drawdown_duration_sessions"], int)
     assert [benchmark["key"] for benchmark in body["benchmarks"]] == [
         "equal_weight_monthly",
         "csi_300_buy_hold",
@@ -107,6 +110,14 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
             "max_drawdown",
             "volatility",
             "sharpe_ratio",
+            "sortino_ratio",
+            "calmar_ratio",
+            "longest_drawdown_duration_sessions",
+            "longest_drawdown_peak_date",
+            "longest_drawdown_trough_date",
+            "longest_drawdown_recovery_date",
+            "tracking_error",
+            "information_ratio",
             "total_return_difference",
             "annualized_return_difference",
             "equity_curve",
@@ -136,8 +147,18 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
         "max_drawdown",
         "volatility",
         "sharpe_ratio",
+        "sortino_ratio",
+        "calmar_ratio",
+        "longest_drawdown_duration_sessions",
     ):
         assert Decimal(body[metric]) == getattr(run, metric)
+    for metric in (
+        "longest_drawdown_peak_date",
+        "longest_drawdown_trough_date",
+        "longest_drawdown_recovery_date",
+    ):
+        expected = getattr(run, metric)
+        assert body[metric] == (None if expected is None else expected.isoformat())
     assert Decimal("-1") < Decimal(body["max_drawdown"]) <= Decimal("0")
 
 
@@ -240,6 +261,12 @@ def test_run_backtest_endpoint_updates_backtest_detail(
         "max_drawdown": run_body["max_drawdown"],
         "volatility": run_body["volatility"],
         "sharpe_ratio": run_body["sharpe_ratio"],
+        "sortino_ratio": run_body["sortino_ratio"],
+        "calmar_ratio": run_body["calmar_ratio"],
+        "longest_drawdown_duration_sessions": run_body["longest_drawdown_duration_sessions"],
+        "longest_drawdown_peak_date": run_body["longest_drawdown_peak_date"],
+        "longest_drawdown_trough_date": run_body["longest_drawdown_trough_date"],
+        "longest_drawdown_recovery_date": run_body["longest_drawdown_recovery_date"],
     }
     assert len(detail["equity_curve"]) == len(curve_rows)
     assert detail["equity_curve"][0]["trade_date"] == curve_rows[0].trade_date.isoformat()
@@ -560,6 +587,12 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
             "max_drawdown": "-0.050000",
             "volatility": "0.200000",
             "sharpe_ratio": "1.100000",
+            "sortino_ratio": None,
+            "calmar_ratio": None,
+            "longest_drawdown_duration_sessions": None,
+            "longest_drawdown_peak_date": None,
+            "longest_drawdown_trough_date": None,
+            "longest_drawdown_recovery_date": None,
         },
         "equity_curve": [
             {

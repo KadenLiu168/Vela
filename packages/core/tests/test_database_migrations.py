@@ -237,6 +237,132 @@ def test_benchmark_migration_preserves_legacy_runs_and_downgrades_cleanly(tmp_pa
         engine.dispose()
 
 
+def test_expanded_metric_migration_preserves_legacy_values_and_downgrades_cleanly(
+    tmp_path: Path,
+) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    previous_revision = "20260803_0013"
+    alembic.command.upgrade(config, previous_revision)
+
+    engine = _create_engine(config)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_id, config_version, start_date, end_date, parameters_json, "
+                    "started_at, status, total_return, annualized_return, max_drawdown, "
+                    "sharpe_ratio, volatility) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-03', '{}', "
+                    "'2026-02-01 09:00:00', 'success', 0.12, 0.18, -0.05, 1.1, 0.14)"
+                )
+            )
+            run_id = connection.execute(text("SELECT id FROM backtest_run")).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_benchmark "
+                    "(backtest_run_id, benchmark_key, display_name, total_return, "
+                    "annualized_return, max_drawdown, sharpe_ratio, volatility) "
+                    "VALUES (:run_id, 'equal_weight_monthly', 'Equal weight', "
+                    "0.1, 0.12, -0.04, 0.9, 0.1)"
+                ),
+                {"run_id": run_id},
+            )
+            benchmark_id = connection.execute(
+                text("SELECT id FROM backtest_benchmark")
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_equity_curve "
+                    "(backtest_run_id, trade_date, net_value, cash, market_value, "
+                    "total_assets, positions_json) "
+                    "VALUES (:run_id, '2026-01-02', 1.01, 0.01, 1.0, 1.01, '[]')"
+                ),
+                {"run_id": run_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_benchmark_equity_curve "
+                    "(benchmark_id, trade_date, net_value) "
+                    "VALUES (:benchmark_id, '2026-01-02', 1.02)"
+                ),
+                {"benchmark_id": benchmark_id},
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        expected_strategy = {
+            "sortino_ratio",
+            "calmar_ratio",
+            "longest_drawdown_duration_sessions",
+            "longest_drawdown_peak_date",
+            "longest_drawdown_trough_date",
+            "longest_drawdown_recovery_date",
+        }
+        expected_benchmark = expected_strategy | {"tracking_error", "information_ratio"}
+        assert expected_strategy <= {
+            column["name"] for column in inspector.get_columns("backtest_run")
+        }
+        assert expected_benchmark <= {
+            column["name"] for column in inspector.get_columns("backtest_benchmark")
+        }
+        with engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT total_return, annualized_return, max_drawdown, sharpe_ratio, "
+                    "volatility, sortino_ratio, calmar_ratio, "
+                    "longest_drawdown_duration_sessions "
+                    "FROM backtest_run"
+                )
+            ).one() == (0.12, 0.18, -0.05, 1.1, 0.14, None, None, None)
+            assert connection.execute(
+                text(
+                    "SELECT tracking_error, information_ratio, "
+                    "longest_drawdown_duration_sessions FROM backtest_benchmark"
+                )
+            ).one() == (None, None, None)
+            assert connection.execute(
+                text(
+                    "SELECT trade_date, net_value, cash, market_value, total_assets, "
+                    "positions_json FROM backtest_equity_curve"
+                )
+            ).one() == ("2026-01-02", 1.01, 0.01, 1, 1.01, "[]")
+            assert connection.execute(
+                text("SELECT trade_date, net_value FROM backtest_benchmark_equity_curve")
+            ).one() == ("2026-01-02", 1.02)
+    finally:
+        engine.dispose()
+
+    alembic.command.downgrade(config, previous_revision)
+    engine = _create_engine(config)
+    try:
+        assert "sortino_ratio" not in {
+            column["name"] for column in inspect(engine).get_columns("backtest_run")
+        }
+        assert "tracking_error" not in {
+            column["name"] for column in inspect(engine).get_columns("backtest_benchmark")
+        }
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT total_return, annualized_return, max_drawdown FROM backtest_run")
+            ).one() == (0.12, 0.18, -0.05)
+            assert connection.execute(
+                text(
+                    "SELECT trade_date, net_value, cash, market_value, total_assets, "
+                    "positions_json FROM backtest_equity_curve"
+                )
+            ).one() == ("2026-01-02", 1.01, 0.01, 1, 1.01, "[]")
+            assert connection.execute(
+                text("SELECT trade_date, net_value FROM backtest_benchmark_equity_curve")
+            ).one() == ("2026-01-02", 1.02)
+    finally:
+        engine.dispose()
+
+
 def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
     tmp_path: Path,
 ) -> None:

@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import BacktestRunResult
 from vela_core import run_backtest as run_core_backtest
+from vela_core.backtest_benchmarks import calculate_backtest_benchmarks
 from vela_core.database import managed_session
 from vela_core.models import (
     BacktestBenchmark,
@@ -82,12 +83,15 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
         max_drawdown=Decimal("-0.050000"),
         sharpe_ratio=Decimal("1.000000"),
         volatility=Decimal("0.180000"),
+        calmar_ratio=Decimal("4.000000"),
+        longest_drawdown_duration_sessions=0,
     )
     assert run is not None
     assert run.strategy_id == "dual_momentum"
     assert run.parameters_json == (
         '{"config_version": "v1", "end_date": "2026-01-03", '
         '"equity_model_version": "drift_v1", '
+        '"performance_metric_version": "performance_metrics_v1", '
         '"risk_free_rate": 0.02, "start_date": "2026-01-01", '
         '"strategy_id": "dual_momentum", "type": "dual_momentum"}'
     )
@@ -138,13 +142,127 @@ def test_run_backtest_links_failed_generated_signals(
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 1),
         )
+        run = session.get(BacktestRun, result.backtest_run_id)
         session.commit()
         signal = session.query(StrategySignal).one()
 
     assert result.status == "partial"
+    assert result.sortino_ratio is None
+    assert result.calmar_ratio == Decimal("4.000000")
+    assert result.longest_drawdown_duration_sessions == 0
+    assert run is not None
+    assert run.sortino_ratio is None
+    assert run.calmar_ratio == Decimal("4.000000")
+    assert run.longest_drawdown_duration_sessions == 0
     assert signal.status == "failed"
     assert signal.source == "backtest"
     assert signal.backtest_run_id == result.backtest_run_id
+
+
+def test_run_backtest_versions_and_persists_expanded_metrics_after_pre_signal_benchmarks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    benchmark_signal_counts: list[int] = []
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        def calculate_benchmarks_before_signals(**kwargs: Any) -> Any:
+            benchmark_signal_counts.append(session.query(StrategySignal).count())
+            return calculate_backtest_benchmarks(**kwargs)
+
+        monkeypatch.setattr(
+            runner, "calculate_backtest_benchmarks", calculate_benchmarks_before_signals
+        )
+        result = run_core_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        benchmarks = (
+            session.query(BacktestBenchmark).order_by(BacktestBenchmark.benchmark_key).all()
+        )
+
+    assert benchmark_signal_counts == [0]
+    assert run is not None
+    assert json.loads(run.parameters_json)["performance_metric_version"] == "performance_metrics_v1"
+    assert result.calmar_ratio == Decimal("4.000000")
+    assert result.longest_drawdown_duration_sessions == 0
+    assert run.calmar_ratio == Decimal("4.000000")
+    assert run.longest_drawdown_duration_sessions == 0
+    assert [benchmark.calmar_ratio for benchmark in benchmarks] == [None, None]
+    assert [benchmark.longest_drawdown_duration_sessions for benchmark in benchmarks] == [0, 0]
+    assert [benchmark.tracking_error for benchmark in benchmarks] == [None, None]
+    assert [benchmark.information_ratio for benchmark in benchmarks] == [None, None]
+
+
+def test_pre_signal_benchmark_failure_does_not_persist_signals_or_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        def fail_benchmark_calculation(**_kwargs: Any) -> Any:
+            raise ValueError("benchmark construction failed")
+
+        monkeypatch.setattr(runner, "calculate_backtest_benchmarks", fail_benchmark_calculation)
+        with pytest.raises(ValueError, match="benchmark construction failed"):
+            run_core_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 1),
+            )
+
+        assert session.query(StrategySignal).count() == 0
+        assert session.query(BacktestRun).count() == 0
+
+
+def test_late_active_metric_failure_leaves_rollback_to_the_caller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        def fail_active_metrics(*_args: Any, **_kwargs: Any) -> Any:
+            raise ValueError("active metric alignment failed")
+
+        monkeypatch.setattr(
+            runner, "calculate_backtest_benchmark_active_risk_metrics", fail_active_metrics
+        )
+        with pytest.raises(ValueError, match="active metric alignment failed"):
+            run_core_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 3),
+            )
+
+        assert session.query(StrategySignal).count() == 1
+        assert session.query(BacktestRun).count() == 0
+        session.rollback()
+        assert session.query(StrategySignal).count() == 0
 
 
 def test_to_curve_inputs_persists_calculated_drifted_state_and_rejects_missing_state() -> None:

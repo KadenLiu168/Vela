@@ -8,8 +8,11 @@ from vela_core import BacktestRunResult
 from vela_core.backtest_benchmarks import BacktestBenchmarkResult
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
+    StrategyCalmarRatio,
+    StrategyLongestDrawdownDuration,
     StrategyMaximumDrawdown,
     StrategySharpeRatio,
+    StrategySortinoRatio,
     StrategyVolatility,
 )
 
@@ -112,12 +115,21 @@ def test_run_backtest_prints_core_metric_summary(
     assert "Max drawdown: -0.050000" in captured.out
     assert "Volatility: 0.140000" in captured.out
     assert "Sharpe ratio: 1.100000" in captured.out
+    assert "Sortino (rf MAR, 252D): 1.200000" in captured.out
+    assert "Calmar (calendar CAGR / |MaxDD|): 2.400000" in captured.out
+    assert "Longest drawdown duration (official sessions): 3" in captured.out
+    assert "recovery: ongoing" in captured.out
     assert "Benchmark: Equal-weight monthly rebalanced portfolio" in captured.out
     assert "- Total return: 0.100000" in captured.out
     assert "- Annualized return: 0.150000" in captured.out
     assert "- Max drawdown: -0.040000" in captured.out
     assert "- Volatility: 0.120000" in captured.out
     assert "- Sharpe ratio: 0.900000" in captured.out
+    assert "- Sortino (rf MAR, 252D): 0.700000" in captured.out
+    assert "- Calmar (calendar CAGR / |MaxDD|): 1.300000" in captured.out
+    assert "- Longest drawdown duration (official sessions): 2" in captured.out
+    assert "- Tracking error (252D): 0.038884" in captured.out
+    assert "- Information ratio (252D): 12.961481" in captured.out
     assert "- Strategy total return difference: 0.020000" in captured.out
     assert "- Strategy annualized return difference: 0.030000" in captured.out
     assert captured.err == ""
@@ -186,6 +198,12 @@ def _result() -> BacktestRunResult:
         max_drawdown=Decimal("-0.050000"),
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
+        sortino_ratio=Decimal("1.200000"),
+        calmar_ratio=Decimal("2.400000"),
+        longest_drawdown_duration_sessions=3,
+        longest_drawdown_peak_date=date(2026, 1, 10),
+        longest_drawdown_trough_date=date(2026, 1, 20),
+        longest_drawdown_recovery_date=None,
         benchmarks=(
             BacktestBenchmarkResult(
                 key="equal_weight_monthly",
@@ -202,6 +220,16 @@ def _result() -> BacktestRunResult:
                 ),
                 volatility=StrategyVolatility(volatility=Decimal("0.120000")),
                 sharpe_ratio=StrategySharpeRatio(sharpe_ratio=Decimal("0.900000")),
+                sortino_ratio=StrategySortinoRatio(sortino_ratio=Decimal("0.700000")),
+                calmar_ratio=StrategyCalmarRatio(calmar_ratio=Decimal("1.300000")),
+                longest_drawdown_duration=StrategyLongestDrawdownDuration(
+                    longest_drawdown_duration_sessions=2,
+                    peak_date=date(2026, 1, 12),
+                    trough_date=date(2026, 1, 18),
+                    recovery_date=None,
+                ),
+                tracking_error=Decimal("0.038884"),
+                information_ratio=Decimal("12.961481"),
             ),
         ),
     )

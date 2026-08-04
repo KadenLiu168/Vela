@@ -532,6 +532,15 @@ def _print_backtest_summary(result: BacktestRunResult) -> None:
     print(f"Max drawdown: {result.max_drawdown}")
     print(f"Volatility: {_format_optional_decimal(result.volatility)}")
     print(f"Sharpe ratio: {_format_optional_decimal(result.sharpe_ratio)}")
+    print(f"Sortino (rf MAR, 252D): {_format_optional_decimal(result.sortino_ratio)}")
+    print(f"Calmar (calendar CAGR / |MaxDD|): {_format_optional_decimal(result.calmar_ratio)}")
+    _print_drawdown_summary(
+        "Longest drawdown",
+        duration=result.longest_drawdown_duration_sessions,
+        peak_date=result.longest_drawdown_peak_date,
+        trough_date=result.longest_drawdown_trough_date,
+        recovery_date=result.longest_drawdown_recovery_date,
+    )
     for benchmark in result.benchmarks:
         total_return_difference = _difference(
             result.total_return, benchmark.annualized_return.total_return
@@ -551,6 +560,25 @@ def _print_backtest_summary(result: BacktestRunResult) -> None:
         print(f"- Volatility: {_format_optional_decimal(benchmark.volatility.volatility)}")
         print(f"- Sharpe ratio: {_format_optional_decimal(benchmark.sharpe_ratio.sharpe_ratio)}")
         print(
+            f"- Sortino (rf MAR, 252D): "
+            f"{_format_optional_decimal(benchmark.sortino_ratio.sortino_ratio)}"
+        )
+        print(
+            f"- Calmar (calendar CAGR / |MaxDD|): "
+            f"{_format_optional_decimal(benchmark.calmar_ratio.calmar_ratio)}"
+        )
+        _print_drawdown_summary(
+            "- Longest drawdown",
+            duration=benchmark.longest_drawdown_duration.longest_drawdown_duration_sessions,
+            peak_date=benchmark.longest_drawdown_duration.peak_date,
+            trough_date=benchmark.longest_drawdown_duration.trough_date,
+            recovery_date=benchmark.longest_drawdown_duration.recovery_date,
+        )
+        print(f"- Tracking error (252D): {_format_optional_decimal(benchmark.tracking_error)}")
+        print(
+            f"- Information ratio (252D): {_format_optional_decimal(benchmark.information_ratio)}"
+        )
+        print(
             "- Strategy total return difference: "
             f"{_format_optional_decimal(total_return_difference)}"
         )
@@ -562,6 +590,36 @@ def _print_backtest_summary(result: BacktestRunResult) -> None:
 
 def _format_optional_decimal(value: object | None) -> str:
     return "n/a" if value is None else str(value)
+
+
+def _print_drawdown_summary(
+    label: str,
+    *,
+    duration: int | None,
+    peak_date: date | None,
+    trough_date: date | None,
+    recovery_date: date | None,
+) -> None:
+    print(f"{label} duration (official sessions): {_format_optional_decimal(duration)}")
+    print(f"{label} peak: {_format_optional_decimal(peak_date)}")
+    print(f"{label} trough: {_format_optional_decimal(trough_date)}")
+    print(
+        f"{label} recovery: "
+        f"{_format_drawdown_recovery(recovery_date, duration, peak_date, trough_date)}"
+    )
+
+
+def _format_drawdown_recovery(
+    value: date | None,
+    duration: int | None,
+    peak_date: date | None,
+    trough_date: date | None,
+) -> str:
+    if value is not None:
+        return value.isoformat()
+    if duration is not None and duration > 0 and peak_date is not None and trough_date is not None:
+        return "ongoing"
+    return "n/a"
 
 
 def _difference(left: Decimal | None, right: Decimal | None) -> Decimal | None:

@@ -53,6 +53,12 @@ class BacktestRun(Base):
     max_drawdown: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     sharpe_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     volatility: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    sortino_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    calmar_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    longest_drawdown_duration_sessions: Mapped[int | None] = mapped_column()
+    longest_drawdown_peak_date: Mapped[date | None] = mapped_column(Date)
+    longest_drawdown_trough_date: Mapped[date | None] = mapped_column(Date)
+    longest_drawdown_recovery_date: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -127,6 +133,14 @@ class BacktestBenchmark(Base):
     max_drawdown: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     sharpe_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     volatility: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    sortino_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    calmar_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    longest_drawdown_duration_sessions: Mapped[int | None] = mapped_column()
+    longest_drawdown_peak_date: Mapped[date | None] = mapped_column(Date)
+    longest_drawdown_trough_date: Mapped[date | None] = mapped_column(Date)
+    longest_drawdown_recovery_date: Mapped[date | None] = mapped_column(Date)
+    tracking_error: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    information_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     backtest_run: Mapped[BacktestRun] = relationship(back_populates="benchmarks")
     equity_curve: Mapped[list["BacktestBenchmarkEquityCurve"]] = relationship(
         back_populates="benchmark",

@@ -148,6 +148,11 @@ class WalkForwardRunner:
             oos_sharpe=_number(oos.sharpe_ratio),
             oos_max_drawdown=_number(oos.max_drawdown),
             oos_volatility=_number(oos.volatility),
+            oos_sortino=_number(getattr(oos, "sortino_ratio", None)),
+            oos_calmar=_number(getattr(oos, "calmar_ratio", None)),
+            oos_longest_drawdown_duration_sessions=getattr(
+                oos, "longest_drawdown_duration_sessions", None
+            ),
             benchmarks=tuple(
                 WalkForwardBenchmarkResult(
                     key=item.key,
@@ -163,6 +168,8 @@ class WalkForwardRunner:
                     annualized_return_difference=_difference(
                         oos.annualized_return, item.annualized_return.annualized_return
                     ),
+                    tracking_error=_number(getattr(item, "tracking_error", None)),
+                    information_ratio=_number(getattr(item, "information_ratio", None)),
                 )
                 for item in getattr(oos, "benchmarks", ())
             ),
@@ -219,7 +226,7 @@ def _validated_combination(
     return result
 
 
-def _number(value: Decimal | float | None) -> float | None:
+def _number(value: Decimal | float | int | None) -> float | None:
     return None if value is None else float(value)
 
 

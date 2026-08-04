@@ -210,6 +210,62 @@ def test_report_aggregates_five_metrics_with_local_evidence() -> None:
     assert "worst=-0.300000" in format_report(report)
 
 
+def test_report_aggregates_expanded_metrics_with_metric_local_evidence() -> None:
+    report = WalkForwardReport(
+        windows=[
+            _result(
+                1,
+                best_combo={"parameters.selection.top_n": 1},
+                oos_sortino=1.0,
+                oos_calmar=2.0,
+                oos_longest_drawdown_duration_sessions=3,
+                benchmark_active_metrics={
+                    "equal_weight_monthly": (0.03, 1.1),
+                    "csi_300_buy_hold": (None, None),
+                },
+            ),
+            _result(
+                2,
+                best_combo={"parameters.selection.top_n": 1},
+                oos_sortino=0.5,
+                oos_calmar=None,
+                oos_longest_drawdown_duration_sessions=0,
+                benchmark_active_metrics={
+                    "equal_weight_monthly": (0.04, 1.2),
+                    "csi_300_buy_hold": (0.05, 0.8),
+                },
+            ),
+            _result(
+                3,
+                best_combo={"parameters.selection.top_n": 2},
+                oos_sortino=0.2,
+                oos_calmar=1.0,
+                oos_longest_drawdown_duration_sessions=None,
+                benchmark_active_metrics={
+                    "equal_weight_monthly": (0.05, 1.3),
+                    "csi_300_buy_hold": (0.06, 0.9),
+                },
+            ),
+        ]
+    )
+
+    aggregate = report.aggregate()
+
+    assert aggregate["sortino_ratio"]["valid_count"] == 3
+    assert aggregate["calmar_ratio"]["valid_count"] == 2
+    assert aggregate["longest_drawdown_duration_sessions"]["valid_count"] == 2
+    comparisons = report.benchmark_differences()
+    assert comparisons["equal_weight_monthly"]["tracking_error"]["valid_count"] == 3
+    assert comparisons["equal_weight_monthly"]["information_ratio"]["mean"] == pytest.approx(1.2)
+    assert comparisons["csi_300_buy_hold"]["tracking_error"]["valid_count"] == 2
+    assert comparisons["csi_300_buy_hold"]["information_ratio"]["valid_count"] == 2
+    text = format_report(report)
+    assert "OOS Sortino" in text
+    assert "OOS longest drawdown duration" in text
+    assert "Tracking error" in text
+    assert "Information ratio" in text
+
+
 def test_report_keeps_zero_valid_observations_explicit_and_undefined_rates_null() -> None:
     report = WalkForwardReport(
         windows=[
@@ -409,6 +465,8 @@ def _benchmark(
     annualized_return: float | None,
     total_return_difference: float | None,
     annualized_return_difference: float | None,
+    tracking_error: float | None = None,
+    information_ratio: float | None = None,
 ) -> WalkForwardBenchmarkResult:
     return WalkForwardBenchmarkResult(
         key=key,
@@ -420,6 +478,8 @@ def _benchmark(
         sharpe_ratio=0.9,
         total_return_difference=total_return_difference,
         annualized_return_difference=annualized_return_difference,
+        tracking_error=tracking_error,
+        information_ratio=information_ratio,
     )
 
 
@@ -434,6 +494,10 @@ def _result(
     oos_max_drawdown: float | None = -0.1,
     oos_volatility: float | None = 0.2,
     benchmark_differences: dict[str, tuple[float | None, float | None]] | None = None,
+    oos_sortino: float | None = None,
+    oos_calmar: float | None = None,
+    oos_longest_drawdown_duration_sessions: int | None = None,
+    benchmark_active_metrics: dict[str, tuple[float | None, float | None]] | None = None,
 ) -> WalkForwardWindowResult:
     return WalkForwardWindowResult(
         window=WalkForwardWindow(
@@ -453,14 +517,22 @@ def _result(
         benchmarks=tuple(
             _benchmark(
                 key,
-                total_return=0.1,
-                annualized_return=0.1,
+                total_return=0.1 if key in (benchmark_differences or {}) else None,
+                annualized_return=0.1 if key in (benchmark_differences or {}) else None,
                 total_return_difference=total_difference,
                 annualized_return_difference=annualized_difference,
+                tracking_error=(benchmark_active_metrics or {}).get(key, (None, None))[0],
+                information_ratio=(benchmark_active_metrics or {}).get(key, (None, None))[1],
             )
-            for key, (total_difference, annualized_difference) in (
-                benchmark_differences or {}
-            ).items()
+            for key in sorted(
+                set(benchmark_differences or {}) | set(benchmark_active_metrics or {})
+            )
+            for total_difference, annualized_difference in [
+                (benchmark_differences or {}).get(key, (None, None))
+            ]
         ),
         skipped=[],
+        oos_sortino=oos_sortino,
+        oos_calmar=oos_calmar,
+        oos_longest_drawdown_duration_sessions=oos_longest_drawdown_duration_sessions,
     )

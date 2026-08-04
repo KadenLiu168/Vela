@@ -106,6 +106,12 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
         "max_drawdown",
         "volatility",
         "sharpe_ratio",
+        "sortino_ratio",
+        "calmar_ratio",
+        "longest_drawdown_duration_sessions",
+        "longest_drawdown_peak_date",
+        "longest_drawdown_trough_date",
+        "longest_drawdown_recovery_date",
         "benchmarks",
     }
 

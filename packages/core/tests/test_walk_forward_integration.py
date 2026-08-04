@@ -48,13 +48,17 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
             item.oos_sharpe,
             item.oos_max_drawdown,
             item.oos_volatility,
+            item.oos_sortino,
+            item.oos_calmar,
+            item.oos_longest_drawdown_duration_sessions,
         )
         for item in report.windows
     ] == [
-        (0.138485, 0.138891, 34.363878, -0.0005, 0.003077),
-        (0.122404, 0.122404, 33.971917, -0.0005, 0.002694),
-        (0.106688, 0.107932, 31.442503, -0.0005, 0.002502),
+        (0.138485, 0.138891, 34.363878, -0.0005, 0.003077, 181.471483, 277.782, 2),
+        (0.122404, 0.122404, 33.971917, -0.0005, 0.002694, 157.252321, 244.808, 2),
+        (0.106688, 0.107932, 31.442503, -0.0005, 0.002502, 129.605827, 215.864, 3),
     ]
+    assert all(type(item.oos_longest_drawdown_duration_sessions) is int for item in report.windows)
     assert all(item.oos_version.startswith("wf-") for item in report.windows)
     assert len({item.oos_version for item in report.windows}) == 1
     assert all(
@@ -82,11 +86,19 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
     assert aggregate["sharpe_ratio"]["mean"] == pytest.approx(33.25943266666667)
     assert aggregate["max_drawdown"]["min"] == -0.0005
     assert aggregate["volatility"]["std"] == pytest.approx(0.0002390206871567582)
+    assert aggregate["sortino_ratio"]["valid_count"] == 3
+    assert aggregate["calmar_ratio"]["valid_count"] == 3
+    assert aggregate["longest_drawdown_duration_sessions"]["valid_count"] == 3
     comparisons = report.benchmark_differences()
     assert set(comparisons) == {
         "equal_weight_monthly",
         "csi_300_buy_hold",
     }
+    assert all(
+        comparisons[key][metric]["valid_count"] == 3
+        for key in comparisons
+        for metric in ("tracking_error", "information_ratio")
+    )
     assert report.positive_window_rate() == {
         "numerator": 3,
         "denominator": 3,
@@ -143,7 +155,17 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
             (item.window.test_start, item.window.test_end) for item in report.windows
         ]
         assert all(run.config_version.startswith("wf-") for run in runs)
+        assert all(
+            run.parameters_json.find('"performance_metric_version": "performance_metrics_v1"') >= 0
+            for run in runs
+        )
         assert session.query(BacktestBenchmark).count() == 6
+        assert (
+            session.query(BacktestBenchmark)
+            .filter(BacktestBenchmark.tracking_error.is_not(None))
+            .count()
+            == 6
+        )
 
 
 def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_db(

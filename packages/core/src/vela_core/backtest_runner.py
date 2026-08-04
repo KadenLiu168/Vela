@@ -9,7 +9,11 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from vela_core.backtest_benchmarks import BacktestBenchmarkResult, calculate_backtest_benchmarks
+from vela_core.backtest_benchmarks import (
+    BacktestBenchmarkResult,
+    calculate_backtest_benchmark_active_risk_metrics,
+    calculate_backtest_benchmarks,
+)
 from vela_core.backtest_result_persistence import (
     BacktestBenchmarkInput,
     BacktestEquityCurveInput,
@@ -24,14 +28,20 @@ from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_equity_curve import (
     StrategyAnnualizedReturn,
+    StrategyCalmarRatio,
     StrategyEquityCurvePoint,
+    StrategyLongestDrawdownDuration,
     StrategyMaximumDrawdown,
     StrategySharpeRatio,
+    StrategySortinoRatio,
     StrategyVolatility,
     calculate_strategy_annualized_return,
+    calculate_strategy_calmar_ratio,
     calculate_strategy_equity_curve,
+    calculate_strategy_longest_drawdown_duration,
     calculate_strategy_maximum_drawdown,
     calculate_strategy_sharpe_ratio,
+    calculate_strategy_sortino_ratio,
     calculate_strategy_volatility,
 )
 from vela_core.strategy_signal_generation import (
@@ -62,6 +72,12 @@ class BacktestRunResult:
     sharpe_ratio: Decimal | None
     volatility: Decimal | None
     benchmarks: tuple[BacktestBenchmarkResult, ...] = ()
+    sortino_ratio: Decimal | None = None
+    calmar_ratio: Decimal | None = None
+    longest_drawdown_duration_sessions: int | None = None
+    longest_drawdown_peak_date: date | None = None
+    longest_drawdown_trough_date: date | None = None
+    longest_drawdown_recovery_date: date | None = None
 
 
 def run_backtest(
@@ -183,13 +199,24 @@ def run_backtest(
         signal_ids=signal_ids,
         price_panel=price_panel,
     )
+    risk_free_rate = Decimal(str(config.performance.risk_free_rate))
     annualized_return = calculate_strategy_annualized_return(points)
     maximum_drawdown = calculate_strategy_maximum_drawdown(points)
     volatility = calculate_strategy_volatility(points)
     sharpe_ratio = calculate_strategy_sharpe_ratio(
         points,
-        risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
+        risk_free_rate=risk_free_rate,
     )
+    sortino_ratio = calculate_strategy_sortino_ratio(points, risk_free_rate=risk_free_rate)
+    calmar_ratio = calculate_strategy_calmar_ratio(
+        annualized_return.annualized_return,
+        maximum_drawdown.max_drawdown,
+    )
+    longest_drawdown_duration = calculate_strategy_longest_drawdown_duration(points)
+    benchmarks = [
+        calculate_backtest_benchmark_active_risk_metrics(points, benchmark)
+        for benchmark in benchmarks
+    ]
     status = (
         "success" if all(result.status == "success" for result in signal_results) else "partial"
     )
@@ -210,6 +237,14 @@ def run_backtest(
             max_drawdown=maximum_drawdown.max_drawdown,
             sharpe_ratio=sharpe_ratio.sharpe_ratio,
             volatility=volatility.volatility,
+            sortino_ratio=sortino_ratio.sortino_ratio,
+            calmar_ratio=calmar_ratio.calmar_ratio,
+            longest_drawdown_duration_sessions=(
+                longest_drawdown_duration.longest_drawdown_duration_sessions
+            ),
+            longest_drawdown_peak_date=longest_drawdown_duration.peak_date,
+            longest_drawdown_trough_date=longest_drawdown_duration.trough_date,
+            longest_drawdown_recovery_date=longest_drawdown_duration.recovery_date,
             data_snapshot_json=data_snapshot_json,
         ),
         equity_curve=_to_curve_inputs(points),
@@ -232,6 +267,9 @@ def run_backtest(
         maximum_drawdown=maximum_drawdown,
         volatility=volatility,
         sharpe_ratio=sharpe_ratio,
+        sortino_ratio=sortino_ratio,
+        calmar_ratio=calmar_ratio,
+        longest_drawdown_duration=longest_drawdown_duration,
         benchmarks=benchmarks,
     )
     logger.info(
@@ -404,6 +442,16 @@ def _to_benchmark_inputs(
             max_drawdown=benchmark.maximum_drawdown.max_drawdown,
             sharpe_ratio=benchmark.sharpe_ratio.sharpe_ratio,
             volatility=benchmark.volatility.volatility,
+            sortino_ratio=benchmark.sortino_ratio.sortino_ratio,
+            calmar_ratio=benchmark.calmar_ratio.calmar_ratio,
+            longest_drawdown_duration_sessions=(
+                benchmark.longest_drawdown_duration.longest_drawdown_duration_sessions
+            ),
+            longest_drawdown_peak_date=benchmark.longest_drawdown_duration.peak_date,
+            longest_drawdown_trough_date=benchmark.longest_drawdown_duration.trough_date,
+            longest_drawdown_recovery_date=benchmark.longest_drawdown_duration.recovery_date,
+            tracking_error=benchmark.tracking_error,
+            information_ratio=benchmark.information_ratio,
             equity_curve=[(point.trade_date, point.net_value) for point in benchmark.points],
         )
         for benchmark in benchmarks
@@ -419,6 +467,7 @@ def _parameters_json(config: StrategyConfig, *, start_date: date, end_date: date
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "risk_free_rate": config.performance.risk_free_rate,
+            "performance_metric_version": "performance_metrics_v1",
             "equity_model_version": "drift_v1",
         },
         sort_keys=True,
@@ -437,6 +486,9 @@ def _to_result(
     maximum_drawdown: StrategyMaximumDrawdown,
     volatility: StrategyVolatility,
     sharpe_ratio: StrategySharpeRatio,
+    sortino_ratio: StrategySortinoRatio,
+    calmar_ratio: StrategyCalmarRatio,
+    longest_drawdown_duration: StrategyLongestDrawdownDuration,
     benchmarks: list[BacktestBenchmarkResult],
 ) -> BacktestRunResult:
     return BacktestRunResult(
@@ -451,5 +503,13 @@ def _to_result(
         max_drawdown=maximum_drawdown.max_drawdown,
         sharpe_ratio=sharpe_ratio.sharpe_ratio,
         volatility=volatility.volatility,
+        sortino_ratio=sortino_ratio.sortino_ratio,
+        calmar_ratio=calmar_ratio.calmar_ratio,
+        longest_drawdown_duration_sessions=(
+            longest_drawdown_duration.longest_drawdown_duration_sessions
+        ),
+        longest_drawdown_peak_date=longest_drawdown_duration.peak_date,
+        longest_drawdown_trough_date=longest_drawdown_duration.trough_date,
+        longest_drawdown_recovery_date=longest_drawdown_duration.recovery_date,
         benchmarks=tuple(benchmarks),
     )

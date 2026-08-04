@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from math import sqrt
 from typing import TypeAlias
 
 from sqlalchemy import select
@@ -61,6 +62,30 @@ class StrategyVolatility:
 @dataclass(frozen=True)
 class StrategySharpeRatio:
     sharpe_ratio: Decimal | None
+
+
+@dataclass(frozen=True)
+class StrategySortinoRatio:
+    sortino_ratio: Decimal | None
+
+
+@dataclass(frozen=True)
+class StrategyCalmarRatio:
+    calmar_ratio: Decimal | None
+
+
+@dataclass(frozen=True)
+class StrategyLongestDrawdownDuration:
+    longest_drawdown_duration_sessions: int
+    peak_date: date | None
+    trough_date: date | None
+    recovery_date: date | None
+
+
+@dataclass(frozen=True)
+class ActiveRiskMetrics:
+    tracking_error: Decimal | None
+    information_ratio: Decimal | None
 
 
 def calculate_strategy_equity_curve(
@@ -227,6 +252,143 @@ def calculate_strategy_sharpe_ratio(
     return StrategySharpeRatio(sharpe_ratio=sharpe_ratio)
 
 
+def calculate_strategy_sortino_ratio(
+    points: Sequence[StrategyEquityCurvePoint],
+    *,
+    risk_free_rate: Decimal,
+) -> StrategySortinoRatio:
+    effective_returns = [point.daily_return for point in points[1:]]
+    if len(effective_returns) < 2:
+        return StrategySortinoRatio(sortino_ratio=None)
+
+    daily_mar = risk_free_rate / Decimal("252")
+    excess_returns = [daily_return - daily_mar for daily_return in effective_returns]
+    downside_returns = [min(excess_return, Decimal("0")) for excess_return in excess_returns]
+    downside_variance = sum(
+        (downside * downside for downside in downside_returns), Decimal("0")
+    ) / Decimal(len(downside_returns))
+    if downside_variance == 0:
+        return StrategySortinoRatio(sortino_ratio=None)
+
+    annualized_downside_deviation = Decimal(str(sqrt(float(downside_variance)) * sqrt(252)))
+    sortino_ratio = (
+        sum(excess_returns, Decimal("0"))
+        / Decimal(len(excess_returns))
+        * Decimal("252")
+        / annualized_downside_deviation
+    ).quantize(_SIX_PLACES)
+    return StrategySortinoRatio(sortino_ratio=sortino_ratio)
+
+
+def calculate_strategy_calmar_ratio(
+    annualized_return: Decimal | None,
+    maximum_drawdown: Decimal,
+) -> StrategyCalmarRatio:
+    if annualized_return is None or maximum_drawdown == 0:
+        return StrategyCalmarRatio(calmar_ratio=None)
+    return StrategyCalmarRatio(
+        calmar_ratio=(annualized_return / abs(maximum_drawdown)).quantize(_SIX_PLACES)
+    )
+
+
+def calculate_strategy_longest_drawdown_duration(
+    points: Sequence[StrategyEquityCurvePoint],
+) -> StrategyLongestDrawdownDuration:
+    if len(points) < 2:
+        return _zero_longest_drawdown_duration()
+
+    peak_index = 0
+    peak_value = points[0].net_value
+    active_peak_index: int | None = None
+    trough_index: int | None = None
+    candidates: list[tuple[int, int, int, int | None]] = []
+
+    for index, point in enumerate(points):
+        if active_peak_index is None:
+            if point.net_value >= peak_value:
+                peak_index = index
+                peak_value = point.net_value
+            else:
+                active_peak_index = peak_index
+                trough_index = index
+            continue
+
+        if point.net_value < peak_value:
+            assert trough_index is not None
+            if point.net_value < points[trough_index].net_value:
+                trough_index = index
+            continue
+
+        assert trough_index is not None
+        candidates.append((index - active_peak_index, active_peak_index, trough_index, index))
+        peak_index = index
+        peak_value = point.net_value
+        active_peak_index = None
+        trough_index = None
+
+    if active_peak_index is not None:
+        assert trough_index is not None
+        candidates.append(
+            (len(points) - 1 - active_peak_index, active_peak_index, trough_index, None)
+        )
+
+    if not candidates:
+        return _zero_longest_drawdown_duration()
+
+    _, selected_peak, selected_trough, selected_recovery = max(
+        candidates,
+        key=lambda candidate: (candidate[0], -candidate[1], -candidate[2]),
+    )
+    return StrategyLongestDrawdownDuration(
+        longest_drawdown_duration_sessions=next(
+            candidate[0]
+            for candidate in candidates
+            if candidate[1] == selected_peak
+            and candidate[2] == selected_trough
+            and candidate[3] == selected_recovery
+        ),
+        peak_date=points[selected_peak].trade_date,
+        trough_date=points[selected_trough].trade_date,
+        recovery_date=(None if selected_recovery is None else points[selected_recovery].trade_date),
+    )
+
+
+def calculate_active_risk_metrics(
+    strategy_points: Sequence[StrategyEquityCurvePoint],
+    benchmark_points: Sequence[StrategyEquityCurvePoint],
+) -> ActiveRiskMetrics:
+    strategy_effective = list(strategy_points[1:])
+    benchmark_effective = list(benchmark_points[1:])
+    strategy_dates = [point.trade_date for point in strategy_effective]
+    benchmark_dates = [point.trade_date for point in benchmark_effective]
+    if strategy_dates != benchmark_dates:
+        raise ValueError("Strategy and benchmark effective dates must match exactly")
+
+    active_returns = [
+        strategy.daily_return - benchmark.daily_return
+        for strategy, benchmark in zip(strategy_effective, benchmark_effective, strict=True)
+    ]
+    if len(active_returns) < 2:
+        return ActiveRiskMetrics(tracking_error=None, information_ratio=None)
+
+    mean_active_return = sum(active_returns, Decimal("0")) / Decimal(len(active_returns))
+    variance = sum(
+        (active_return - mean_active_return) ** 2 for active_return in active_returns
+    ) / Decimal(len(active_returns))
+    raw_tracking_error = Decimal(str(sqrt(float(variance)) * sqrt(252)))
+    tracking_error = raw_tracking_error.quantize(_SIX_PLACES)
+    if tracking_error == 0 or raw_tracking_error == 0:
+        return ActiveRiskMetrics(tracking_error=tracking_error, information_ratio=None)
+
+    information_ratio = (mean_active_return * Decimal("252") / raw_tracking_error).quantize(
+        _SIX_PLACES
+    )
+    return ActiveRiskMetrics(
+        tracking_error=tracking_error,
+        information_ratio=information_ratio,
+    )
+
+
 def _load_prices_by_key(
     session: Session,
     holding_snapshots: list[PortfolioHoldingSnapshot],
@@ -372,4 +534,13 @@ def _zero_maximum_drawdown() -> StrategyMaximumDrawdown:
         max_drawdown=Decimal("0.000000"),
         peak_date=None,
         trough_date=None,
+    )
+
+
+def _zero_longest_drawdown_duration() -> StrategyLongestDrawdownDuration:
+    return StrategyLongestDrawdownDuration(
+        longest_drawdown_duration_sessions=0,
+        peak_date=None,
+        trough_date=None,
+        recovery_date=None,
     )

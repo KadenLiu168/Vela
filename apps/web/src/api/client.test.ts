@@ -463,7 +463,14 @@ it("calls run backtest through the shared client", async () => {
     annualized_return: "1.440000",
     max_drawdown: "-0.050000",
     volatility: "0.200000",
-    sharpe_ratio: "1.100000"
+    sharpe_ratio: "1.100000",
+    sortino_ratio: "1.200000",
+    calmar_ratio: "2.400000",
+    longest_drawdown_duration_sessions: 3,
+    longest_drawdown_peak_date: "2026-01-10",
+    longest_drawdown_trough_date: "2026-01-20",
+    longest_drawdown_recovery_date: null,
+    benchmarks: []
   };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(backtestResult), {
@@ -501,7 +508,13 @@ it("calls backtest detail through the shared client", async () => {
       annualized_return: "1.440000",
       max_drawdown: "-0.050000",
       volatility: "0.200000",
-      sharpe_ratio: "1.100000"
+      sharpe_ratio: "1.100000",
+      sortino_ratio: null,
+      calmar_ratio: null,
+      longest_drawdown_duration_sessions: null,
+      longest_drawdown_peak_date: null,
+      longest_drawdown_trough_date: null,
+      longest_drawdown_recovery_date: null
     },
     equity_curve: [
       {
@@ -512,7 +525,10 @@ it("calls backtest detail through the shared client", async () => {
         total_assets: "10000.000000",
         positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
       }
-    ]
+    ],
+    signal_ids: [],
+    signal_count: 0,
+    benchmarks: []
   };
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(detail), {

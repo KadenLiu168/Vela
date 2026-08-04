@@ -208,6 +208,12 @@ class BacktestMetricsResponse(ResponseModel):
     max_drawdown: str | None
     volatility: str | None
     sharpe_ratio: str | None
+    sortino_ratio: str | None
+    calmar_ratio: str | None
+    longest_drawdown_duration_sessions: int | None
+    longest_drawdown_peak_date: date | None
+    longest_drawdown_trough_date: date | None
+    longest_drawdown_recovery_date: date | None
 
 
 class BacktestRunResponse(BacktestMetricsResponse):
@@ -272,6 +278,8 @@ class BacktestBenchmarkResponse(BacktestMetricsResponse):
     name: str
     total_return_difference: str | None
     annualized_return_difference: str | None
+    tracking_error: str | None
+    information_ratio: str | None
     equity_curve: list[BacktestBenchmarkCurvePointResponse] = []
 
 

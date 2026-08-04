@@ -37,6 +37,14 @@ def test_export_backtest_report_formats_metrics_and_curve_summary() -> None:
                     sharpe_ratio=Decimal("0.900000"),
                     volatility=Decimal("0.120000"),
                     equity_curve=[],
+                    sortino_ratio=Decimal("0.700000"),
+                    calmar_ratio=Decimal("1.300000"),
+                    longest_drawdown_duration_sessions=2,
+                    longest_drawdown_peak_date=date(2026, 1, 12),
+                    longest_drawdown_trough_date=date(2026, 1, 18),
+                    longest_drawdown_recovery_date=None,
+                    tracking_error=Decimal("0.038884"),
+                    information_ratio=Decimal("12.961481"),
                 )
             ],
         )
@@ -56,6 +64,12 @@ def test_export_backtest_report_formats_metrics_and_curve_summary() -> None:
     assert "- Max drawdown: -0.050000" in report
     assert "- Volatility: 0.140000" in report
     assert "- Sharpe ratio: 1.100000" in report
+    assert "- Sortino (rf MAR, 252D): 1.200000" in report
+    assert "- Calmar (calendar CAGR / |MaxDD|): 2.400000" in report
+    assert "- Longest drawdown duration (official sessions): 3" in report
+    assert "- Longest drawdown peak: 2026-01-10" in report
+    assert "- Longest drawdown trough: 2026-01-20" in report
+    assert "- Longest drawdown recovery: ongoing" in report
     assert "- Points: 3" in report
     assert "- First: 2026-01-01 net_value=1.000000" in report
     assert "- Last: 2026-01-03 net_value=1.120000" in report
@@ -67,6 +81,14 @@ def test_export_backtest_report_formats_metrics_and_curve_summary() -> None:
     assert "- Max drawdown: -0.040000" in report
     assert "- Volatility: 0.120000" in report
     assert "- Sharpe ratio: 0.900000" in report
+    assert "- Sortino (rf MAR, 252D): 0.700000" in report
+    assert "- Calmar (calendar CAGR / |MaxDD|): 1.300000" in report
+    assert "- Longest drawdown duration (official sessions): 2" in report
+    assert "- Longest drawdown peak: 2026-01-12" in report
+    assert "- Longest drawdown trough: 2026-01-18" in report
+    assert "- Longest drawdown recovery: ongoing" in report
+    assert "- Tracking error (252D): 0.038884" in report
+    assert "- Information ratio (252D): 12.961481" in report
     assert "- Strategy total return difference: 0.020000" in report
     assert "- Strategy annualized return difference: 0.030000" in report
 
@@ -90,6 +112,39 @@ def test_export_backtest_report_formats_empty_equity_curve() -> None:
     assert "- Rows: none" in report
 
 
+def test_export_backtest_report_keeps_legacy_expanded_metrics_unavailable() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(expanded_metrics=False),
+            equity_curve=[],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="equal_weight_monthly",
+                    name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                )
+            ],
+        )
+        session.commit()
+
+        report = export_backtest_report(session, run_id=persisted.backtest_run.id)
+
+    assert "- Sortino (rf MAR, 252D): n/a" in report
+    assert "- Calmar (calendar CAGR / |MaxDD|): n/a" in report
+    assert "- Longest drawdown duration (official sessions): n/a" in report
+    assert "- Longest drawdown recovery: n/a" in report
+    assert "- Tracking error (252D): n/a" in report
+    assert "- Information ratio (252D): n/a" in report
+
+
 def test_export_backtest_report_raises_for_missing_run() -> None:
     session_factory = _create_session_factory()
 
@@ -108,6 +163,7 @@ def _run_input(
     *,
     status: str = "success",
     error_message: str | None = None,
+    expanded_metrics: bool = True,
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
         strategy_id="dual_momentum",
@@ -124,6 +180,12 @@ def _run_input(
         max_drawdown=Decimal("-0.050000"),
         sharpe_ratio=Decimal("1.100000"),
         volatility=Decimal("0.140000"),
+        sortino_ratio=Decimal("1.200000") if expanded_metrics else None,
+        calmar_ratio=Decimal("2.400000") if expanded_metrics else None,
+        longest_drawdown_duration_sessions=3 if expanded_metrics else None,
+        longest_drawdown_peak_date=date(2026, 1, 10) if expanded_metrics else None,
+        longest_drawdown_trough_date=date(2026, 1, 20) if expanded_metrics else None,
+        longest_drawdown_recovery_date=None,
     )
 
 
