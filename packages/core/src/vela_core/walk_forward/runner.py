@@ -122,6 +122,7 @@ class WalkForwardRunner:
             raise RuntimeError("no scorable parameter combinations before OOS evaluation")
         best = min(scored, key=lambda item: (-item[0], item[1]))
         validated_data = best[3].model_dump(mode="json")
+        selected_parameters = _validated_combination(validated_data, best[2])
         version = _version_for_config(validated_data)
         content = _canonical_config_content(validated_data)
         if self._version_contents.get(version) not in (None, content):
@@ -138,14 +139,16 @@ class WalkForwardRunner:
         if oos.status != "success":
             raise RuntimeError(f"OOS backtest returned {oos.status}")
         return WalkForwardWindowResult(
-            window,
-            best[2],
-            version,
-            best[0],
-            _number(oos.annualized_return),
-            _number(oos.sharpe_ratio),
-            _number(oos.max_drawdown),
-            tuple(
+            window=window,
+            best_combo=selected_parameters,
+            oos_version=version,
+            train_sharpe=best[0],
+            oos_total_return=_number(oos.total_return),
+            oos_annualized_return=_number(oos.annualized_return),
+            oos_sharpe=_number(oos.sharpe_ratio),
+            oos_max_drawdown=_number(oos.max_drawdown),
+            oos_volatility=_number(oos.volatility),
+            benchmarks=tuple(
                 WalkForwardBenchmarkResult(
                     key=item.key,
                     name=item.name,
@@ -163,7 +166,7 @@ class WalkForwardRunner:
                 )
                 for item in getattr(oos, "benchmarks", ())
             ),
-            skipped,
+            skipped=skipped,
         )
 
 
@@ -200,6 +203,20 @@ def _canonical_config_content(data: dict[str, Any]) -> str:
     content = dict(data)
     content.pop("version", None)
     return json.dumps(content, sort_keys=True, separators=(",", ":"))
+
+
+def _validated_combination(
+    validated_config: dict[str, Any], combination: dict[str, Any]
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for path in combination:
+        value: Any = validated_config
+        for part in path.split("."):
+            if not isinstance(value, dict) or part not in value:
+                raise RuntimeError(f"validated strategy configuration is missing {path}")
+            value = value[part]
+        result[path] = value
+    return result
 
 
 def _number(value: Decimal | float | None) -> float | None:

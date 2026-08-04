@@ -102,6 +102,7 @@ def test_runner_uses_memory_snapshot_for_training_and_source_for_oos(
                 sharpe_ratio=1.0,
                 annualized_return=0.2,
                 max_drawdown=-0.1,
+                volatility=0.22,
                 benchmarks=benchmarks,
             )
 
@@ -114,6 +115,8 @@ def test_runner_uses_memory_snapshot_for_training_and_source_for_oos(
     assert calls[2][0] == str(tmp_path / "source.db") and calls[2][4] is True
     assert report.windows[0].best_combo == {"parameters.selection.top_n": 1}
     assert report.windows[0].oos_version.startswith("wf-")
+    assert report.windows[0].oos_total_return == 0.3
+    assert report.windows[0].oos_volatility == 0.22
     benchmark = report.windows[0].benchmarks[0]
     assert benchmark.total_return == 0.1
     assert benchmark.annualized_return == 0.15
@@ -188,8 +191,10 @@ def test_failed_search_combination_rolls_back_and_later_combination_runs(
             return SimpleNamespace(
                 status="success",
                 sharpe_ratio=float(config.selection.top_n),
+                total_return=0.3,
                 annualized_return=0.2,
                 max_drawdown=-0.1,
+                volatility=0.22,
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
@@ -242,8 +247,10 @@ def test_unscorable_search_combination_rolls_back_before_later_combination(
             return SimpleNamespace(
                 status="success",
                 sharpe_ratio=float(config.selection.top_n),
+                total_return=0.3,
                 annualized_return=0.2,
                 max_drawdown=-0.1,
+                volatility=0.22,
             )
 
         monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
@@ -282,3 +289,54 @@ def test_all_unscorable_combinations_prevent_oos(
             WalkForwardRunner(config).run(session)
 
     assert calls == [":memory:", ":memory:"]
+
+
+def test_runner_normalizes_selected_parameter_values_from_validated_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = _config(tmp_path)
+    config_path.write_text(
+        config_path.read_text().replace(
+            "parameter_space: [{name: parameters.selection.top_n, type: choice, values: [1, 2]}]",
+            "parameter_space: [{name: parameters.score_weights.short, type: float_range, "
+            "low: 0.4, high: 0.4, step: 0.1}]",
+        )
+    )
+    config = load_walk_forward_config(config_path)
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'source.db'}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+
+    with factory() as session:
+        session.add_all(
+            [
+                TradingCalendar(trade_date=date(2020, 1, 2), source="test"),
+                TradingCalendar(trade_date=date(2020, 12, 31), source="test"),
+                TradingCalendar(trade_date=date(2021, 1, 4), source="test"),
+                TradingCalendar(trade_date=date(2021, 12, 31), source="test"),
+            ]
+        )
+        session.commit()
+
+        def fake_run_backtest(*_args, **_kwargs):
+            return SimpleNamespace(
+                status="success",
+                total_return=0.3,
+                annualized_return=0.2,
+                sharpe_ratio=1.0,
+                max_drawdown=-0.1,
+                volatility=0.22,
+                benchmarks=(),
+            )
+
+        monkeypatch.setattr("vela_core.walk_forward.runner.run_backtest", fake_run_backtest)
+        report = WalkForwardRunner(config).run(session)
+
+    assert report.windows[0].best_combo == {"parameters.score_weights.short": 0.4}
+    assert type(report.windows[0].best_combo["parameters.score_weights.short"]) is float
+    assert report.parameter_stability()["parameters.score_weights.short"] == {
+        "value_frequencies": {"0.4": 1},
+        "transition_count": 0,
+        "comparison_count": 0,
+        "transition_rate": None,
+    }

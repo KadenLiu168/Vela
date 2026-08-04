@@ -1,11 +1,48 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import mean, median, pstdev
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from vela_core.walk_forward.window_splitter import WalkForwardWindow
+
+EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
+
+
+class WalkForwardMetricSummary(TypedDict):
+    mean: float | None
+    median: float | None
+    min: float | None
+    max: float | None
+    std: float | None
+    window_count: int
+    valid_count: int
+    evidence_status: EvidenceStatus
+
+
+class WalkForwardRateSummary(TypedDict):
+    numerator: int
+    denominator: int
+    value: float | None
+    window_count: int
+    valid_count: int
+    evidence_status: EvidenceStatus
+
+
+class WalkForwardBenchmarkComparison(TypedDict):
+    total_return: WalkForwardMetricSummary
+    annualized_return: WalkForwardMetricSummary
+    outperformance_rate: WalkForwardRateSummary
+
+
+class WalkForwardParameterStability(TypedDict):
+    value_frequencies: dict[str, int]
+    transition_count: int
+    comparison_count: int
+    transition_rate: float | None
 
 
 @dataclass(frozen=True)
@@ -27,9 +64,11 @@ class WalkForwardWindowResult:
     best_combo: dict[str, Any]
     oos_version: str
     train_sharpe: float | None
+    oos_total_return: float | None
     oos_annualized_return: float | None
     oos_sharpe: float | None
     oos_max_drawdown: float | None
+    oos_volatility: float | None
     benchmarks: tuple[WalkForwardBenchmarkResult, ...]
     skipped: list[str]
 
@@ -38,17 +77,33 @@ class WalkForwardWindowResult:
 class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
 
-    def aggregate(self) -> dict[str, dict[str, float | None]]:
+    def aggregate(self) -> dict[str, WalkForwardMetricSummary]:
+        values_by_metric = {
+            "total_return": [item.oos_total_return for item in self.windows],
+            "annualized_return": [item.oos_annualized_return for item in self.windows],
+            "sharpe_ratio": [item.oos_sharpe for item in self.windows],
+            "max_drawdown": [item.oos_max_drawdown for item in self.windows],
+            "volatility": [item.oos_volatility for item in self.windows],
+        }
         return {
-            name: _summary([value for value in values if value is not None])
-            for name, values in {
-                "annualized_return": [item.oos_annualized_return for item in self.windows],
-                "sharpe_ratio": [item.oos_sharpe for item in self.windows],
-            }.items()
+            name: _summary(values, window_count=len(self.windows))
+            for name, values in values_by_metric.items()
         }
 
-    def benchmark_differences(self) -> dict[str, dict[str, float | int | None]]:
-        result: dict[str, dict[str, float | int | None]] = {}
+    def positive_window_rate(self) -> WalkForwardRateSummary:
+        values = [item.oos_total_return for item in self.windows]
+        return _rate(values, window_count=len(self.windows))
+
+    def generalization_gap(self) -> WalkForwardMetricSummary:
+        gaps = [
+            item.train_sharpe - item.oos_sharpe
+            for item in self.windows
+            if item.train_sharpe is not None and item.oos_sharpe is not None
+        ]
+        return _summary(gaps, window_count=len(self.windows))
+
+    def benchmark_differences(self) -> dict[str, WalkForwardBenchmarkComparison]:
+        result: dict[str, WalkForwardBenchmarkComparison] = {}
         for key in sorted(
             {benchmark.key for item in self.windows for benchmark in item.benchmarks}
         ):
@@ -56,39 +111,142 @@ class WalkForwardReport:
                 benchmark.total_return_difference
                 for item in self.windows
                 for benchmark in item.benchmarks
-                if benchmark.key == key and benchmark.total_return_difference is not None
+                if benchmark.key == key
             ]
             annualized_differences = [
                 benchmark.annualized_return_difference
                 for item in self.windows
                 for benchmark in item.benchmarks
-                if benchmark.key == key and benchmark.annualized_return_difference is not None
+                if benchmark.key == key
             ]
             result[key] = {
-                "total_return_mean": mean(total_differences) if total_differences else None,
-                "total_return_count": len(total_differences),
-                "annualized_return_mean": (
-                    mean(annualized_differences) if annualized_differences else None
+                "total_return": _summary(
+                    total_differences,
+                    window_count=len(self.windows),
                 ),
-                "annualized_return_count": len(annualized_differences),
+                "annualized_return": _summary(
+                    annualized_differences,
+                    window_count=len(self.windows),
+                ),
+                "outperformance_rate": _rate(
+                    total_differences,
+                    window_count=len(self.windows),
+                ),
+            }
+        return result
+
+    def parameter_stability(self) -> dict[str, WalkForwardParameterStability]:
+        result: dict[str, WalkForwardParameterStability] = {}
+        parameter_names = sorted({name for item in self.windows for name in item.best_combo})
+        for name in parameter_names:
+            canonical_values = [
+                _canonical_value(item.best_combo[name])
+                for item in self.windows
+                if name in item.best_combo
+            ]
+            transition_count = 0
+            comparison_count = 0
+            previous: str | None = None
+            for item in self.windows:
+                if name not in item.best_combo:
+                    previous = None
+                    continue
+                current = _canonical_value(item.best_combo[name])
+                if previous is not None:
+                    comparison_count += 1
+                    if current != previous:
+                        transition_count += 1
+                previous = current
+            result[name] = {
+                "value_frequencies": dict(Counter(canonical_values)),
+                "transition_count": transition_count,
+                "comparison_count": comparison_count,
+                "transition_rate": (
+                    transition_count / comparison_count if comparison_count else None
+                ),
             }
         return result
 
 
-def _summary(values: list[float]) -> dict[str, float | None]:
-    if not values:
-        return {"mean": None, "median": None, "min": None, "max": None, "std": None}
+def _summary(
+    values: Sequence[float | None],
+    *,
+    window_count: int,
+) -> WalkForwardMetricSummary:
+    valid_values = [value for value in values if value is not None]
+    if not valid_values:
+        return {
+            "mean": None,
+            "median": None,
+            "min": None,
+            "max": None,
+            "std": None,
+            "window_count": window_count,
+            "valid_count": 0,
+            "evidence_status": "insufficient_evidence",
+        }
     return {
-        "mean": mean(values),
-        "median": median(values),
-        "min": min(values),
-        "max": max(values),
-        "std": pstdev(values),
+        "mean": mean(valid_values),
+        "median": median(valid_values),
+        "min": min(valid_values),
+        "max": max(valid_values),
+        "std": pstdev(valid_values),
+        "window_count": window_count,
+        "valid_count": len(valid_values),
+        "evidence_status": _evidence_status(len(valid_values)),
     }
+
+
+def _rate(
+    values: Sequence[float | None],
+    *,
+    window_count: int,
+) -> WalkForwardRateSummary:
+    valid_values = [value for value in values if value is not None]
+    numerator = sum(value > 0 for value in valid_values)
+    denominator = len(valid_values)
+    return {
+        "numerator": numerator,
+        "denominator": denominator,
+        "value": numerator / denominator if denominator else None,
+        "window_count": window_count,
+        "valid_count": denominator,
+        "evidence_status": _evidence_status(denominator),
+    }
+
+
+def _evidence_status(valid_count: int) -> EvidenceStatus:
+    return "sufficient" if valid_count >= 3 else "insufficient_evidence"
+
+
+def _canonical_value(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
 
 
 def _metric(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.6f}"
+
+
+def _format_summary(
+    stats: WalkForwardMetricSummary,
+    *,
+    minimum_label: str = "min",
+) -> str:
+    return (
+        f"mean={_metric(stats['mean'])}, median={_metric(stats['median'])}, "
+        f"{minimum_label}={_metric(stats['min'])}, max={_metric(stats['max'])}, "
+        f"std={_metric(stats['std'])}, "
+        f"valid={stats['valid_count']}/{stats['window_count']}, "
+        f"evidence={stats['evidence_status']}"
+    )
+
+
+def _format_rate(rate: WalkForwardRateSummary) -> str:
+    return (
+        f"{rate['numerator']}/{rate['denominator']}="
+        f"{_metric(rate['value'])}, valid={rate['valid_count']}/{rate['window_count']}, "
+        f"evidence={rate['evidence_status']}"
+    )
 
 
 def format_report(report: WalkForwardReport) -> str:
@@ -100,9 +258,11 @@ def format_report(report: WalkForwardReport) -> str:
             f"  Best parameters: {item.best_combo}",
             f"  OOS version: {item.oos_version}",
             f"  Train Sharpe: {_metric(item.train_sharpe)}; "
+            f"OOS total return: {_metric(item.oos_total_return)}; "
             f"OOS annualized return: {_metric(item.oos_annualized_return)}; "
             f"OOS Sharpe: {_metric(item.oos_sharpe)}; "
-            f"OOS maximum drawdown: {_metric(item.oos_max_drawdown)}",
+            f"OOS maximum drawdown: {_metric(item.oos_max_drawdown)}; "
+            f"OOS volatility: {_metric(item.oos_volatility)}",
             f"  Skipped combinations: {len(item.skipped)}",
         ]
         for benchmark in item.benchmarks:
@@ -122,30 +282,43 @@ def format_report(report: WalkForwardReport) -> str:
             )
         if item.skipped:
             lines.append(f"  Skip summary: {_skip_summary(item.skipped)}")
+
     lines += ["", "OOS aggregate statistics"]
     for name, stats in report.aggregate().items():
+        minimum_label = "worst" if name == "max_drawdown" else "min"
+        lines.append(f"  {name}: {_format_summary(stats, minimum_label=minimum_label)}")
+
+    lines.append(f"OOS positive-window rate: {_format_rate(report.positive_window_rate())}")
+    lines.append(
+        f"IS/OOS Sharpe generalization gap: {_format_summary(report.generalization_gap())}"
+    )
+    for key, comparison in report.benchmark_differences().items():
+        lines.append(f"{key} comparison:")
         lines.append(
-            f"  {name}: mean={_metric(stats['mean'])}, median={_metric(stats['median'])}, "
-            f"min={_metric(stats['min'])}, max={_metric(stats['max'])}, "
-            f"std={_metric(stats['std'])}"
+            "  total return difference: "
+            f"{_format_summary(comparison['total_return'], minimum_label='worst')}"
         )
-    for key, differences in report.benchmark_differences().items():
         lines.append(
-            f"{key} comparison: total return difference mean="
-            f"{_metric(differences['total_return_mean'])} "
-            f"({differences['total_return_count']} windows); "
-            f"annualized return difference mean="
-            f"{_metric(differences['annualized_return_mean'])} "
-            f"({differences['annualized_return_count']} windows)"
+            "  annualized return difference: "
+            f"{_format_summary(comparison['annualized_return'], minimum_label='worst')}"
         )
+        lines.append(f"  outperformance rate: {_format_rate(comparison['outperformance_rate'])}")
+
     lines.append("Parameter stability")
-    parameter_names = sorted({name for item in report.windows for name in item.best_combo})
+    stability = report.parameter_stability()
+    parameter_names = sorted(stability)
     for name in parameter_names:
         values = ", ".join(
             f"window {index}={item.best_combo.get(name, 'n/a')}"
             for index, item in enumerate(report.windows, start=1)
         )
-        lines.append(f"  {name}: {values}")
+        stability_stats = stability[name]
+        lines.append(
+            f"  {name}: {values}; frequencies={stability_stats['value_frequencies']}; "
+            f"transitions={stability_stats['transition_count']}/"
+            f"{stability_stats['comparison_count']}; "
+            f"transition_rate={_metric(stability_stats['transition_rate'])}"
+        )
     return "\n".join(lines) + "\n"
 
 
