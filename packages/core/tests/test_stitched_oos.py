@@ -1,6 +1,6 @@
 # ruff: noqa: E501
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -96,6 +96,29 @@ def test_stitched_oos_defers_rounding_until_after_all_segments() -> None:
     assert result.ending_net_value == Decimal("1.000001")
     assert result.total_return == Decimal("0.000001")
     assert all(point.net_value.as_tuple().exponent == -6 for point in result.points)
+
+
+def test_stitched_oos_preserves_six_place_outputs_when_compounded_capital_exceeds_default_decimal_precision() -> (
+    None
+):
+    sessions = tuple(date(2026, 1, 1) + timedelta(days=index) for index in range(60))
+    windows = tuple(
+        _window(
+            ordinal,
+            sessions[ordinal * 2],
+            sessions[ordinal * 2 + 1],
+            [
+                (sessions[ordinal * 2], "1.000000"),
+                (sessions[ordinal * 2 + 1], "10.000000"),
+            ],
+        )
+        for ordinal in range(30)
+    )
+
+    result = derive_stitched_oos(windows=windows, official_sessions=sessions)
+
+    assert result.ending_net_value == Decimal("1000000000000000000000000000000.000000")
+    assert result.total_return == Decimal("999999999999999999999999999999.000000")
 
 
 @pytest.mark.parametrize(

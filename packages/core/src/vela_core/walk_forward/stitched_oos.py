@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Literal
 
 from vela_core.walk_forward.evidence import PersistedDataContractError
@@ -57,30 +57,46 @@ def derive_stitched_oos(
             points=(),
         )
 
-    capital = Decimal("1")
-    points: list[StitchedOosPoint] = []
-    for window in windows:
-        _validate_curve(window)
-        local_start = window.points[0].net_value
-        for index, source in enumerate(window.points):
-            scaled_value = capital * source.net_value / local_start
-            points.append(
-                StitchedOosPoint(
-                    trade_date=source.trade_date,
-                    net_value=scaled_value.quantize(_SIX_PLACES),
-                    window_ordinal=window.ordinal,
-                    is_window_start=index == 0,
+    with localcontext() as context:
+        context.prec = _arithmetic_precision(windows)
+        capital = Decimal("1")
+        points: list[StitchedOosPoint] = []
+        for window in windows:
+            _validate_curve(window)
+            local_start = window.points[0].net_value
+            for index, source in enumerate(window.points):
+                scaled_value = capital * source.net_value / local_start
+                points.append(
+                    StitchedOosPoint(
+                        trade_date=source.trade_date,
+                        net_value=scaled_value.quantize(_SIX_PLACES),
+                        window_ordinal=window.ordinal,
+                        is_window_start=index == 0,
+                    )
                 )
-            )
-        capital = capital * window.points[-1].net_value / local_start
+            capital = capital * window.points[-1].net_value / local_start
 
-    return StitchedOosResult(
-        status="available",
-        initial_net_value=Decimal("1.000000"),
-        ending_net_value=capital.quantize(_SIX_PLACES),
-        total_return=(capital - Decimal("1")).quantize(_SIX_PLACES),
-        points=tuple(points),
+        return StitchedOosResult(
+            status="available",
+            initial_net_value=Decimal("1.000000"),
+            ending_net_value=capital.quantize(_SIX_PLACES),
+            total_return=(capital - Decimal("1")).quantize(_SIX_PLACES),
+            points=tuple(points),
+        )
+
+
+def _arithmetic_precision(windows: Sequence[StitchedOosWindow]) -> int:
+    endpoint_digits = sum(
+        len(window.points[0].net_value.as_tuple().digits)
+        + len(window.points[-1].net_value.as_tuple().digits)
+        for window in windows
+        if window.points
     )
+    largest_point_digits = max(
+        (len(point.net_value.as_tuple().digits) for window in windows for point in window.points),
+        default=1,
+    )
+    return max(28, endpoint_digits + largest_point_digits + 12)
 
 
 def _validate_window_bounds(
