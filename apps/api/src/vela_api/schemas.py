@@ -500,6 +500,21 @@ class WalkForwardWindowResponse(ResponseModel):
     oos_backtest: WalkForwardOosResponse
 
 
+class StitchedOosPointResponse(ResponseModel):
+    trade_date: date
+    net_value: str
+    window_ordinal: int
+    is_window_start: bool
+
+
+class StitchedOosResponse(ResponseModel):
+    status: Literal["available", "unavailable_non_contiguous_windows"]
+    initial_net_value: str | None
+    ending_net_value: str | None
+    total_return: str | None
+    points: list[StitchedOosPointResponse]
+
+
 class WalkForwardDetailResponse(ResponseModel):
     run: WalkForwardRunResponse
     configuration: WalkForwardConfigurationResponse
@@ -507,3 +522,4 @@ class WalkForwardDetailResponse(ResponseModel):
     evidence_version: str
     evidence: WalkForwardEvidenceResponse
     windows: list[WalkForwardWindowResponse]
+    stitched_oos: StitchedOosResponse

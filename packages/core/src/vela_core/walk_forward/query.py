@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -9,7 +11,12 @@ from vela_core.walk_forward.evidence import (
     PersistedDataContractError,
     validate_wf_evidence,
 )
-from vela_core.walk_forward.provenance import validate_input_manifest
+from vela_core.walk_forward.provenance import WalkForwardInputManifestModel, validate_input_manifest
+from vela_core.walk_forward.stitched_oos import (
+    StitchedOosSourcePoint,
+    StitchedOosWindow,
+    derive_stitched_oos,
+)
 
 
 def list_walk_forward_runs(
@@ -43,23 +50,49 @@ def get_walk_forward_run(
         .options(
             selectinload(WalkForwardRun.windows)
             .selectinload(WalkForwardRunWindow.oos_backtest_run)
-            .selectinload(BacktestRun.benchmarks)
+            .selectinload(BacktestRun.equity_curve),
+            selectinload(WalkForwardRun.windows)
+            .selectinload(WalkForwardRunWindow.oos_backtest_run)
+            .selectinload(BacktestRun.benchmarks),
         )
         .where(WalkForwardRun.id == run_id)
         .where(WalkForwardRun.strategy_id == strategy_id)
     )
     if row is None:
         return None
-    validate_walk_forward_run(row)
+    manifest = validate_walk_forward_run(row)
+    setattr(  # noqa: B010
+        row,
+        "stitched_oos",
+        derive_stitched_oos(
+            windows=tuple(
+                StitchedOosWindow(
+                    ordinal=window.ordinal,
+                    test_start=window.test_start,
+                    test_end=window.test_end,
+                    points=tuple(
+                        StitchedOosSourcePoint(
+                            trade_date=point.trade_date, net_value=point.net_value
+                        )
+                        for point in window.oos_backtest_run.equity_curve
+                    ),
+                )
+                for window in row.windows
+            ),
+            official_sessions=tuple(
+                date.fromisoformat(value) for value in manifest.official_sessions
+            ),
+        ),
+    )
     return row
 
 
-def validate_walk_forward_run(row: WalkForwardRun) -> None:
+def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestModel:
     if row.provenance_version != "wf_provenance_v1":
         raise PersistedDataContractError(
             f"unsupported Walk-forward provenance version: {row.provenance_version}"
         )
-    validate_input_manifest(row.provenance_version, row.input_data_snapshot_json)
+    manifest = validate_input_manifest(row.provenance_version, row.input_data_snapshot_json)
     validate_wf_evidence(row.evidence_version, row.evidence_json)
     if row.window_count != len(row.windows):
         raise PersistedDataContractError("Walk-forward window count does not match children")
@@ -98,6 +131,7 @@ def validate_walk_forward_run(row: WalkForwardRun) -> None:
             raise PersistedDataContractError("invalid Walk-forward candidate audit") from exc
         if audit["skipped_count"] != child.skipped_count:
             raise PersistedDataContractError("Walk-forward candidate audit is unreconciled")
+    return manifest
 
 
 def _validate_pagination(limit: int, offset: int) -> None:

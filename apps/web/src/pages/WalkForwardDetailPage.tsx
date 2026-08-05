@@ -15,6 +15,7 @@ import {
   formatNullableText,
   formatTimestamp
 } from "../utils/formatters";
+import { computeEquityCurveGeometry, EQUITY_CURVE_CHART, normalizeEquityCurvePoints } from "./equityCurveChart";
 
 type WalkForwardDetailPageProps = {
   runId: string;
@@ -107,10 +108,28 @@ function renderDetail(state: WalkForwardDetailState, runId: string) {
       <strong className="panel-primary">Persisted evaluation evidence</strong>
       <RunSummary data={data} />
       <EvidenceSection data={data} />
+      <StitchedOosSection data={data} />
       <ProvenanceSection data={data} />
       <WindowSection data={data} />
     </article>
   );
+}
+
+function StitchedOosSection({ data }: { data: WalkForwardDetailResponse }) {
+  const stitched = data.stitched_oos;
+  if (stitched.status === "unavailable_non_contiguous_windows") {
+    return <section className="holdings-section" aria-labelledby="stitched-oos-heading"><h2 id="stitched-oos-heading">Stitched OOS capital path</h2><p className="detail-note">Gap or overlap windows cannot form one chronological capital path. Independent OOS evidence remains available below.</p></section>;
+  }
+  const chartPoints = normalizeEquityCurvePoints(stitched.points);
+  const geometry = chartPoints.length > 1 ? computeEquityCurveGeometry(chartPoints) : null;
+  const resets = stitched.points.filter((point) => point.is_window_start);
+  return <section className="holdings-section" aria-labelledby="stitched-oos-heading">
+    <h2 id="stitched-oos-heading">Stitched OOS capital path</h2>
+    <p className="detail-note">Compounds separately initialized OOS segments. No seam return, holdings carry, turnover, or transaction cost is synthesized.</p>
+    <dl className="compact-list"><DescriptionItem label="Ending net value" value={stitched.ending_net_value ?? "n/a"} /><DescriptionItem label="Cumulative total return" value={stitched.total_return ?? "n/a"} /></dl>
+    {geometry ? <svg aria-label="Stitched OOS equity curve" className="equity-curve-chart" role="img" viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}><path className="equity-curve-line" d={geometry.linePath} fill="none" /></svg> : <EmptyState>No valid stitched OOS curve points are available for this run.</EmptyState>}
+    <ul aria-label="Stitched OOS window resets">{resets.map((point) => <li key={`${point.window_ordinal}-${point.trade_date}`}>Window {point.window_ordinal + 1} reset: {formatDate(point.trade_date)}</li>)}</ul>
+  </section>;
 }
 
 function RunSummary({ data }: { data: WalkForwardDetailResponse }) {
@@ -246,7 +265,8 @@ function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
     <section className="holdings-section" aria-labelledby="walk-forward-windows-heading">
       <h2 id="walk-forward-windows-heading">Window evidence</h2>
       <p className="detail-note">
-        Each row is independent OOS evidence; no continuous performance curve is constructed across windows.
+        Each row is independent OOS evidence; the stitched capital path above compounds these
+        segments under per-window reset semantics.
       </p>
       <div aria-label="Walk-forward window evidence" className="walk-forward-window-scroll" tabIndex={0}>
         <table className="holdings-table">

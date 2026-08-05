@@ -633,6 +633,18 @@ export type WalkForwardDetailResponse = {
   };
   evidence_version: string;
   evidence: WalkForwardEvidence;
+  stitched_oos: {
+    status: "available" | "unavailable_non_contiguous_windows";
+    initial_net_value: string | null;
+    ending_net_value: string | null;
+    total_return: string | null;
+    points: Array<{
+      trade_date: string;
+      net_value: string;
+      window_ordinal: number;
+      is_window_start: boolean;
+    }>;
+  };
   windows: Array<{
     ordinal: number;
     train_start: string;

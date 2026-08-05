@@ -129,6 +129,18 @@ const detail: WalkForwardDetailResponse = {
       }
     }
   },
+  stitched_oos: {
+    status: "available",
+    initial_net_value: "1.000000",
+    ending_net_value: "0.990000",
+    total_return: "-0.010000",
+    points: [
+      { trade_date: "2025-06-01", net_value: "1.000000", window_ordinal: 0, is_window_start: true },
+      { trade_date: "2025-06-30", net_value: "1.100000", window_ordinal: 0, is_window_start: false },
+      { trade_date: "2025-07-01", net_value: "1.100000", window_ordinal: 1, is_window_start: true },
+      { trade_date: "2025-07-31", net_value: "0.990000", window_ordinal: 1, is_window_start: false }
+    ]
+  },
   windows: [
     {
       ordinal: 0,
@@ -206,7 +218,7 @@ const detail: WalkForwardDetailResponse = {
   ]
 };
 
-it("presents persisted evidence, provenance, candidates, and OOS links without a curve", async () => {
+it("presents persisted evidence, provenance, candidates, and stitched OOS reset semantics", async () => {
   detailMock.mockResolvedValue(detail);
 
   render(<WalkForwardDetailPage runId="42" />);
@@ -244,7 +256,12 @@ it("presents persisted evidence, provenance, candidates, and OOS links without a
   expect(within(csi300).getByText("Information ratio: 0.8")).toBeInTheDocument();
   expect(within(csi300).getByText("Recovery: ongoing")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
-  expect(screen.queryByText(/equity curve|continuous chart|score|pass|fail/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
+  expect(screen.getByText("0.990000")).toBeInTheDocument();
+  expect(screen.getByText("-0.010000")).toBeInTheDocument();
+  expect(screen.getByText(/Window 2 reset: 2025-07-01/)).toBeInTheDocument();
+  expect(screen.getByText(/No seam return, holdings carry, turnover, or transaction cost/)).toBeInTheDocument();
+  expect(screen.queryByText(/score|pass|fail/i)).not.toBeInTheDocument();
 });
 
 it("renders explicit not-found and unexpected-error states", async () => {
@@ -279,4 +296,55 @@ it("ignores a stale detail response when the route id changes", async () => {
   resolveOld(detail);
   await waitFor(() => expect(screen.queryByText("Walk-forward #1")).not.toBeInTheDocument());
   expect(screen.getByText("Walk-forward #2")).toBeInTheDocument();
+});
+
+it("preserves complete evidence when stitched OOS is unavailable for non-contiguous windows", async () => {
+  detailMock.mockResolvedValue({
+    ...detail,
+    stitched_oos: {
+      status: "unavailable_non_contiguous_windows",
+      initial_net_value: null,
+      ending_net_value: null,
+      total_return: null,
+      points: []
+    }
+  });
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
+  const section = screen.getByRole("heading", { name: "Stitched OOS capital path" }).closest("section");
+  expect(section).not.toBeNull();
+  expect(within(section as HTMLElement).getByText(/Gap or overlap windows cannot form one chronological capital path/)).toBeInTheDocument();
+  expect(within(section as HTMLElement).queryByRole("img", { name: /stitched OOS equity curve/i })).not.toBeInTheDocument();
+  expect(within(section as HTMLElement).queryByText("0.990000")).not.toBeInTheDocument();
+  expect(within(section as HTMLElement).queryByText("-0.010000")).not.toBeInTheDocument();
+  expect(screen.getByText("Total return")).toBeInTheDocument();
+  expect(screen.getByText("Sharpe ratio")).toBeInTheDocument();
+  expect(screen.getByText(/Candidates: 3/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
+  expect(screen.queryByText(/Window 2 reset/)).not.toBeInTheDocument();
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("renders the stitched OOS section without page-level overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  expect(await screen.findByRole("heading", { name: "Stitched OOS capital path" })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Stitched OOS window resets" })).toBeInTheDocument();
+  expect(screen.getByText("0.990000")).toBeInTheDocument();
+  expect(screen.getByText("-0.010000")).toBeInTheDocument();
+  expect(screen.getByText("Total return")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
+  const scrollRegion = document.querySelector(".walk-forward-window-scroll");
+  expect(scrollRegion).not.toBeNull();
+  expect((scrollRegion as HTMLElement).querySelector(".holdings-table")).not.toBeNull();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
 });

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from vela_core.models import BacktestBenchmark, BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.evidence import WalkForwardEvidenceV1
 from vela_core.walk_forward.query import get_walk_forward_run, list_walk_forward_runs
+from vela_core.walk_forward.stitched_oos import StitchedOosResult
 
 from vela_api.dependencies import AppConfigDependency, DatabaseSession
 from vela_api.schemas import (
@@ -67,6 +68,9 @@ def walk_forward_detail(
         "evidence_version": row.evidence_version,
         "evidence": evidence.model_dump(mode="json"),
         "windows": [_window_response(window) for window in row.windows],
+        "stitched_oos": _stitched_oos_response(
+            cast(StitchedOosResult, getattr(row, "stitched_oos"))  # noqa: B009
+        ),
     }
 
 
@@ -103,6 +107,24 @@ def _window_response(row: WalkForwardRunWindow) -> dict[str, object]:
         "skip_reason_counts": row.skip_reason_counts_json,
         "train_sharpe": _decimal(row.train_sharpe),
         "oos_backtest": _oos_response(row.oos_backtest_run),
+    }
+
+
+def _stitched_oos_response(result: StitchedOosResult) -> dict[str, object]:
+    return {
+        "status": result.status,
+        "initial_net_value": _decimal(result.initial_net_value),
+        "ending_net_value": _decimal(result.ending_net_value),
+        "total_return": _decimal(result.total_return),
+        "points": [
+            {
+                "trade_date": point.trade_date,
+                "net_value": _decimal(point.net_value),
+                "window_ordinal": point.window_ordinal,
+                "is_window_start": point.is_window_start,
+            }
+            for point in result.points
+        ],
     }
 
 
