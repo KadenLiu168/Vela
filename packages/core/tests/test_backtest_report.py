@@ -153,6 +153,99 @@ def test_export_backtest_report_raises_for_missing_run() -> None:
             export_backtest_report(session, run_id=999)
 
 
+def test_export_backtest_report_formats_benchmark_regime_metrics() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(),
+            equity_curve=[],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="equal_weight_monthly",
+                    name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                ),
+                BacktestBenchmarkInput(
+                    key="csi_300_buy_hold",
+                    name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                    capm_alpha=Decimal("11.274002"),
+                    capm_beta=Decimal("2.000000"),
+                    capm_r_squared=Decimal("0.958580"),
+                    capm_observation_count=4,
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                ),
+            ],
+        )
+        session.commit()
+
+        report = export_backtest_report(session, run_id=persisted.backtest_run.id)
+
+    assert "- CSI 300 ETF proxy Alpha (252D compounded): 11.274002" in report
+    assert "- CSI 300 ETF proxy Beta: 2.000000" in report
+    assert "- CSI 300 ETF proxy R-squared: 0.958580" in report
+    assert "- CAPM observation count (daily sessions): 4" in report
+    assert report.count("- Monthly Up Capture ratio (benchmark up months): 1.995274") == 2
+    assert report.count("- Up capture selected months: 2") == 2
+    assert report.count("- Monthly Down Capture ratio (benchmark down months): 0.500000") == 2
+    assert report.count("- Down capture selected months: 1") == 2
+    assert "- CSI 300 ETF proxy Alpha (252D compounded):" in report
+
+
+def test_export_backtest_report_keeps_legacy_regime_metrics_null() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(expanded_metrics=False),
+            equity_curve=[],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="csi_300_buy_hold",
+                    name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                )
+            ],
+        )
+        session.commit()
+
+        report = export_backtest_report(session, run_id=persisted.backtest_run.id)
+
+    assert "- CSI 300 ETF proxy Alpha (252D compounded): n/a" in report
+    assert "- CSI 300 ETF proxy Beta: n/a" in report
+    assert "- CSI 300 ETF proxy R-squared: n/a" in report
+    assert "- CAPM observation count (daily sessions): n/a" in report
+    assert "- Monthly Up Capture ratio (benchmark up months): n/a" in report
+    assert "- Up capture selected months: n/a" in report
+    assert "- Monthly Down Capture ratio (benchmark down months): n/a" in report
+    assert "- Down capture selected months: n/a" in report
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

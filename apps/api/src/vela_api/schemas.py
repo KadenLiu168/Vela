@@ -295,6 +295,14 @@ class BacktestBenchmarkResponse(BacktestMetricsResponse):
     annualized_return_difference: str | None
     tracking_error: str | None
     information_ratio: str | None
+    capm_alpha: str | None
+    capm_beta: str | None
+    capm_r_squared: str | None
+    capm_observation_count: int | None
+    up_capture_ratio: str | None
+    up_capture_observation_count: int | None
+    down_capture_ratio: str | None
+    down_capture_observation_count: int | None
     equity_curve: list[BacktestBenchmarkCurvePointResponse] = []
 
 
@@ -353,6 +361,14 @@ class WalkForwardBenchmarkEvidenceResponse(ResponseModel):
     outperformance_rate: WalkForwardRateSummaryResponse
 
 
+class WalkForwardBenchmarkEvidenceV2Response(WalkForwardBenchmarkEvidenceResponse):
+    capm_alpha: WalkForwardMetricSummaryResponse
+    capm_beta: WalkForwardMetricSummaryResponse
+    capm_r_squared: WalkForwardMetricSummaryResponse
+    up_capture_ratio: WalkForwardMetricSummaryResponse
+    down_capture_ratio: WalkForwardMetricSummaryResponse
+
+
 class WalkForwardStrategyMetricsResponse(ResponseModel):
     total_return: WalkForwardMetricSummaryResponse
     annualized_return: WalkForwardMetricSummaryResponse
@@ -375,6 +391,15 @@ class WalkForwardEvidenceResponse(ResponseModel):
     generalization_gap: WalkForwardMetricSummaryResponse
     benchmarks: WalkForwardBenchmarkEvidenceMapResponse
     parameter_stability: dict[str, WalkForwardParameterStabilityResponse]
+
+
+class WalkForwardBenchmarkEvidenceV2MapResponse(ResponseModel):
+    equal_weight_monthly: WalkForwardBenchmarkEvidenceV2Response
+    csi_300_buy_hold: WalkForwardBenchmarkEvidenceV2Response
+
+
+class WalkForwardEvidenceV2Response(WalkForwardEvidenceResponse):
+    benchmarks: WalkForwardBenchmarkEvidenceV2MapResponse  # type: ignore[assignment]
 
 
 class WalkForwardRunSummaryResponse(ResponseModel):
@@ -453,6 +478,14 @@ class WalkForwardOosBenchmarkResponse(ResponseModel):
     annualized_return_difference: str | None
     tracking_error: str | None
     information_ratio: str | None
+    capm_alpha: str | None
+    capm_beta: str | None
+    capm_r_squared: str | None
+    capm_observation_count: int | None
+    up_capture_ratio: str | None
+    up_capture_observation_count: int | None
+    down_capture_ratio: str | None
+    down_capture_observation_count: int | None
 
 
 class WalkForwardOosResponse(ResponseModel):
@@ -520,6 +553,6 @@ class WalkForwardDetailResponse(ResponseModel):
     configuration: WalkForwardConfigurationResponse
     input_provenance: WalkForwardInputProvenanceResponse
     evidence_version: str
-    evidence: WalkForwardEvidenceResponse
+    evidence: WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response
     windows: list[WalkForwardWindowResponse]
     stitched_oos: StitchedOosResponse

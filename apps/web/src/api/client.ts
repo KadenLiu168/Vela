@@ -200,6 +200,14 @@ export type BacktestBenchmark = {
   annualized_return_difference: string | null;
   tracking_error: string | null;
   information_ratio: string | null;
+  capm_alpha: string | null;
+  capm_beta: string | null;
+  capm_r_squared: string | null;
+  capm_observation_count: number | null;
+  up_capture_ratio: string | null;
+  up_capture_observation_count: number | null;
+  down_capture_ratio: string | null;
+  down_capture_observation_count: number | null;
   equity_curve: Array<{ trade_date: string; net_value: string }>;
 };
 
@@ -511,6 +519,11 @@ export type WalkForwardBenchmarkEvidence = {
   tracking_error: WalkForwardMetricSummary;
   information_ratio: WalkForwardMetricSummary;
   outperformance_rate: WalkForwardRateSummary;
+  capm_alpha?: WalkForwardMetricSummary;
+  capm_beta?: WalkForwardMetricSummary;
+  capm_r_squared?: WalkForwardMetricSummary;
+  up_capture_ratio?: WalkForwardMetricSummary;
+  down_capture_ratio?: WalkForwardMetricSummary;
 };
 
 export type WalkForwardEvidence = {
@@ -597,6 +610,14 @@ export type WalkForwardBenchmark = {
   annualized_return_difference: string | null;
   tracking_error: string | null;
   information_ratio: string | null;
+  capm_alpha: string | null;
+  capm_beta: string | null;
+  capm_r_squared: string | null;
+  capm_observation_count: number | null;
+  up_capture_ratio: string | null;
+  up_capture_observation_count: number | null;
+  down_capture_ratio: string | null;
+  down_capture_observation_count: number | null;
 };
 
 export type WalkForwardOosBacktest = {

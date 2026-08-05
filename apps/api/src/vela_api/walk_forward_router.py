@@ -5,13 +5,19 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from vela_core.models import BacktestBenchmark, BacktestRun, WalkForwardRun, WalkForwardRunWindow
-from vela_core.walk_forward.evidence import WalkForwardEvidenceV1
+from vela_core.walk_forward.evidence import (
+    EVIDENCE_VERSION_V2,
+    WalkForwardEvidenceV1,
+    WalkForwardEvidenceV2,
+)
 from vela_core.walk_forward.query import get_walk_forward_run, list_walk_forward_runs
 from vela_core.walk_forward.stitched_oos import StitchedOosResult
 
 from vela_api.dependencies import AppConfigDependency, DatabaseSession
 from vela_api.schemas import (
     WalkForwardDetailResponse,
+    WalkForwardEvidenceResponse,
+    WalkForwardEvidenceV2Response,
     WalkForwardPageResponse,
 )
 
@@ -50,7 +56,18 @@ def walk_forward_detail(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Walk-forward run not found")
-    evidence = WalkForwardEvidenceV1.model_validate(row.evidence_json)
+    if row.evidence_version == EVIDENCE_VERSION_V2:
+        evidence: WalkForwardEvidenceV1 | WalkForwardEvidenceV2 = (
+            WalkForwardEvidenceV2.model_validate(row.evidence_json)
+        )
+        evidence_response: WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response = (
+            WalkForwardEvidenceV2Response.model_validate(evidence.model_dump(mode="json"))
+        )
+    else:
+        evidence = WalkForwardEvidenceV1.model_validate(row.evidence_json)
+        evidence_response = WalkForwardEvidenceResponse.model_validate(
+            evidence.model_dump(mode="json")
+        )
     return {
         "run": {
             **_summary(row),
@@ -66,7 +83,7 @@ def walk_forward_detail(
             "input_data_checksum": row.input_data_checksum,
         },
         "evidence_version": row.evidence_version,
-        "evidence": evidence.model_dump(mode="json"),
+        "evidence": evidence_response,
         "windows": [_window_response(window) for window in row.windows],
         "stitched_oos": _stitched_oos_response(
             cast(StitchedOosResult, getattr(row, "stitched_oos"))  # noqa: B009
@@ -172,6 +189,14 @@ def _benchmark_response(row: BacktestBenchmark, strategy: BacktestRun) -> dict[s
         ),
         "tracking_error": _decimal(row.tracking_error),
         "information_ratio": _decimal(row.information_ratio),
+        "capm_alpha": _decimal(row.capm_alpha),
+        "capm_beta": _decimal(row.capm_beta),
+        "capm_r_squared": _decimal(row.capm_r_squared),
+        "capm_observation_count": row.capm_observation_count,
+        "up_capture_ratio": _decimal(row.up_capture_ratio),
+        "up_capture_observation_count": row.up_capture_observation_count,
+        "down_capture_ratio": _decimal(row.down_capture_ratio),
+        "down_capture_observation_count": row.down_capture_observation_count,
     }
 
 

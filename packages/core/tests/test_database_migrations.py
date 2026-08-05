@@ -363,6 +363,98 @@ def test_expanded_metric_migration_preserves_legacy_values_and_downgrades_cleanl
         engine.dispose()
 
 
+def test_benchmark_regime_metric_migration_preserves_legacy_values_and_downgrades_cleanly(
+    tmp_path: Path,
+) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    previous_revision = "20260804_0015"
+    alembic.command.upgrade(config, previous_revision)
+
+    engine = _create_engine(config)
+    try:
+        with engine.begin() as connection:
+            run_id = connection.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_id, config_version, start_date, end_date, parameters_json, "
+                    "started_at, finished_at, status, total_return, annualized_return, "
+                    "max_drawdown, sharpe_ratio, volatility) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-31', '{}', "
+                    "'2026-02-01 09:00:00', '2026-02-01 09:05:00', 'success', "
+                    "0.12, 0.18, -0.05, 1.10, 0.20) RETURNING id"
+                )
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_benchmark "
+                    "(backtest_run_id, benchmark_key, display_name, total_return, "
+                    "annualized_return, max_drawdown, sharpe_ratio, volatility, "
+                    "tracking_error, information_ratio) "
+                    "VALUES (:run_id, 'csi_300_buy_hold', 'CSI 300 buy-and-hold', "
+                    "0.1, 0.12, -0.04, 0.9, 0.1, 0.03, 0.5)"
+                ),
+                {"run_id": run_id},
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        expected = {
+            "capm_alpha",
+            "capm_beta",
+            "capm_r_squared",
+            "capm_observation_count",
+            "up_capture_ratio",
+            "up_capture_observation_count",
+            "down_capture_ratio",
+            "down_capture_observation_count",
+        }
+        columns = {column["name"] for column in inspector.get_columns("backtest_benchmark")}
+        assert expected <= columns
+        with engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT total_return, annualized_return, max_drawdown, sharpe_ratio, "
+                    "volatility, tracking_error, information_ratio "
+                    "FROM backtest_benchmark"
+                )
+            ).one() == (0.1, 0.12, -0.04, 0.9, 0.1, 0.03, 0.5)
+            assert connection.execute(
+                text(
+                    "SELECT capm_alpha, capm_beta, capm_r_squared, capm_observation_count, "
+                    "up_capture_ratio, up_capture_observation_count, "
+                    "down_capture_ratio, down_capture_observation_count "
+                    "FROM backtest_benchmark"
+                )
+            ).one() == (None, None, None, None, None, None, None, None)
+    finally:
+        engine.dispose()
+
+    alembic.command.downgrade(config, previous_revision)
+    engine = _create_engine(config)
+    try:
+        columns = {column["name"] for column in inspect(engine).get_columns("backtest_benchmark")}
+        assert expected.isdisjoint(columns)
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT benchmark_key, tracking_error FROM backtest_benchmark")
+            ).one() == ("csi_300_buy_hold", 0.03)
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        with engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        engine.dispose()
+
+
 def test_migration_adds_strategy_id_and_renames_backtest_strategy_column(
     tmp_path: Path,
 ) -> None:

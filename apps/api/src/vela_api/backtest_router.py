@@ -214,6 +214,14 @@ def _benchmark_result_responses(result: BacktestRunResult) -> list[dict[str, obj
             ),
             "tracking_error": _decimal(benchmark.tracking_error),
             "information_ratio": _decimal(benchmark.information_ratio),
+            "capm_alpha": _decimal(benchmark.capm_alpha),
+            "capm_beta": _decimal(benchmark.capm_beta),
+            "capm_r_squared": _decimal(benchmark.capm_r_squared),
+            "capm_observation_count": benchmark.capm_observation_count,
+            "up_capture_ratio": _decimal(benchmark.up_capture_ratio),
+            "up_capture_observation_count": benchmark.up_capture_observation_count,
+            "down_capture_ratio": _decimal(benchmark.down_capture_ratio),
+            "down_capture_observation_count": benchmark.down_capture_observation_count,
             "total_return_difference": _difference(
                 result.total_return, benchmark.annualized_return.total_return
             ),
@@ -247,6 +255,14 @@ def _benchmark_response(
         "longest_drawdown_recovery_date": _optional_date(benchmark.longest_drawdown_recovery_date),
         "tracking_error": _decimal(benchmark.tracking_error),
         "information_ratio": _decimal(benchmark.information_ratio),
+        "capm_alpha": _decimal(benchmark.capm_alpha),
+        "capm_beta": _decimal(benchmark.capm_beta),
+        "capm_r_squared": _decimal(benchmark.capm_r_squared),
+        "capm_observation_count": benchmark.capm_observation_count,
+        "up_capture_ratio": _decimal(benchmark.up_capture_ratio),
+        "up_capture_observation_count": benchmark.up_capture_observation_count,
+        "down_capture_ratio": _decimal(benchmark.down_capture_ratio),
+        "down_capture_observation_count": benchmark.down_capture_observation_count,
         "total_return_difference": _difference(strategy_total_return, benchmark.total_return),
         "annualized_return_difference": _difference(
             strategy_annualized_return, benchmark.annualized_return

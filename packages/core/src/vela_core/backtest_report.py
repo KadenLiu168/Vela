@@ -113,6 +113,29 @@ def _format_report(run: BacktestRun) -> str:
                 f"{_difference(run.annualized_return, benchmark.annualized_return)}",
             ]
         )
+        if benchmark.benchmark_key == "csi_300_buy_hold":
+            lines.extend(
+                [
+                    "- CSI 300 ETF proxy Alpha (252D compounded): "
+                    f"{_format_optional(benchmark.capm_alpha)}",
+                    f"- CSI 300 ETF proxy Beta: {_format_optional(benchmark.capm_beta)}",
+                    f"- CSI 300 ETF proxy R-squared: {_format_optional(benchmark.capm_r_squared)}",
+                    "- CAPM observation count (daily sessions): "
+                    f"{_format_optional(benchmark.capm_observation_count)}",
+                ]
+            )
+        lines.extend(
+            [
+                "- Monthly Up Capture ratio (benchmark up months): "
+                f"{_format_optional(benchmark.up_capture_ratio)}",
+                "- Up capture selected months: "
+                f"{_format_optional(benchmark.up_capture_observation_count)}",
+                "- Monthly Down Capture ratio (benchmark down months): "
+                f"{_format_optional(benchmark.down_capture_ratio)}",
+                "- Down capture selected months: "
+                f"{_format_optional(benchmark.down_capture_observation_count)}",
+            ]
+        )
 
     return "\n".join(lines) + "\n"
 

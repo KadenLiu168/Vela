@@ -218,6 +218,18 @@ class WalkForwardRunner:
                     ),
                     tracking_error=_number(getattr(item, "tracking_error", None)),
                     information_ratio=_number(getattr(item, "information_ratio", None)),
+                    capm_alpha=_number(getattr(item, "capm_alpha", None)),
+                    capm_beta=_number(getattr(item, "capm_beta", None)),
+                    capm_r_squared=_number(getattr(item, "capm_r_squared", None)),
+                    capm_observation_count=getattr(item, "capm_observation_count", None),
+                    up_capture_ratio=_number(getattr(item, "up_capture_ratio", None)),
+                    up_capture_observation_count=getattr(
+                        item, "up_capture_observation_count", None
+                    ),
+                    down_capture_ratio=_number(getattr(item, "down_capture_ratio", None)),
+                    down_capture_observation_count=getattr(
+                        item, "down_capture_observation_count", None
+                    ),
                 )
                 for item in getattr(oos, "benchmarks", ())
             ),

@@ -22,6 +22,8 @@ from vela_core.models import (
     WalkForwardRun,
 )
 from vela_core.walk_forward.config import load_walk_forward_config
+from vela_core.walk_forward.evidence import EVIDENCE_VERSION_V2, WalkForwardEvidenceV2
+from vela_core.walk_forward.query import get_walk_forward_run
 from vela_core.walk_forward.runner import WalkForwardRunner
 
 REPOSITORY_ROOT = Path(__file__).parents[3]
@@ -172,6 +174,32 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
         assert history is not None
         assert history.window_count == 3
         assert [item.ordinal for item in history.windows] == [0, 1, 2]
+        assert history.evidence_version == EVIDENCE_VERSION_V2
+        assert isinstance(
+            WalkForwardEvidenceV2.model_validate(history.evidence_json),
+            WalkForwardEvidenceV2,
+        )
+        assert all(
+            benchmark.capm_observation_count is not None
+            and benchmark.up_capture_observation_count is not None
+            and benchmark.down_capture_observation_count is not None
+            for benchmark in session.query(BacktestBenchmark)
+            .filter(BacktestBenchmark.benchmark_key == "csi_300_buy_hold")
+            .all()
+        )
+        assert all(
+            benchmark.capm_alpha is None and benchmark.up_capture_observation_count is not None
+            for benchmark in session.query(BacktestBenchmark)
+            .filter(BacktestBenchmark.benchmark_key == "equal_weight_monthly")
+            .all()
+        )
+
+    with factory() as session:
+        loaded = get_walk_forward_run(
+            session, run_id=report.walk_forward_run_id, strategy_id="integration_dual_momentum"
+        )
+        assert loaded is not None
+        assert loaded.evidence_version == EVIDENCE_VERSION_V2
 
 
 def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_db(

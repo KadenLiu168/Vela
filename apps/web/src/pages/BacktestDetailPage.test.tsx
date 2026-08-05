@@ -64,6 +64,9 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         longest_drawdown_peak_date: "2026-01-12", longest_drawdown_trough_date: "2026-01-18", longest_drawdown_recovery_date: null,
         tracking_error: "0.038884", information_ratio: "12.961481",
         total_return_difference: "0.02", annualized_return_difference: "0.02",
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: null, up_capture_observation_count: null,
+        down_capture_ratio: null, down_capture_observation_count: null,
         equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.1" }]
       },
       {
@@ -74,6 +77,9 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
         tracking_error: null, information_ratio: null,
         total_return_difference: "0.04", annualized_return_difference: "0.04",
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: null, up_capture_observation_count: null,
+        down_capture_ratio: null, down_capture_observation_count: null,
         equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.08" }]
       }
     ],
@@ -126,6 +132,9 @@ it("renders expanded strategy and relative benchmark metrics with ongoing and un
         information_ratio: "12.961481",
         total_return_difference: null,
         annualized_return_difference: null,
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: null, up_capture_observation_count: null,
+        down_capture_ratio: null, down_capture_observation_count: null,
         equity_curve: []
       }
     ]
@@ -148,6 +157,139 @@ it("renders expanded strategy and relative benchmark metrics with ongoing and un
   expect(screen.getByText("Information ratio (252D)")).toBeInTheDocument();
   expect(screen.getByText("12.961481")).toBeInTheDocument();
   expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
+});
+
+it("renders proxy-qualified CAPM and monthly capture evidence with count units", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    benchmarks: [
+      {
+        key: "equal_weight_monthly",
+        name: "Equal-weight monthly rebalanced portfolio",
+        total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: null, annualized_return_difference: null,
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: "1.995274", up_capture_observation_count: 2,
+        down_capture_ratio: "0.5", down_capture_observation_count: 1,
+        equity_curve: []
+      },
+      {
+        key: "csi_300_buy_hold",
+        name: "CSI 300 buy-and-hold",
+        total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.08", sharpe_ratio: "0.8",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: null, annualized_return_difference: null,
+        capm_alpha: "11.274002", capm_beta: "2.000000", capm_r_squared: "0.958580", capm_observation_count: 4,
+        up_capture_ratio: "1.995274", up_capture_observation_count: 2,
+        down_capture_ratio: "0.5", down_capture_observation_count: 1,
+        equity_curve: []
+      }
+    ]
+  });
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
+  expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+  expect(screen.getByText("1127.40%")).toBeInTheDocument();
+  expect(screen.getByText("Beta (CSI 300 ETF proxy)")).toBeInTheDocument();
+  expect(screen.getByText("2.000000")).toBeInTheDocument();
+  expect(screen.getByText("R-squared (CSI 300 ETF proxy)")).toBeInTheDocument();
+  expect(screen.getByText("0.958580")).toBeInTheDocument();
+  expect(screen.getByText("CAPM observations (daily sessions)")).toBeInTheDocument();
+  expect(screen.getByText("4")).toBeInTheDocument();
+  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText("199.53%").length).toBe(2);
+  expect(screen.getAllByText("Up selected months").length).toBe(2);
+  expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText("50.00%").length).toBe(2);
+  expect(screen.getAllByText("Down selected months").length).toBe(2);
+  // CAPM lines appear only once (the CSI 300 group); the equal-weight group
+  // never presents equal-weight results as CAPM.
+  expect(screen.getAllByText("Beta (CSI 300 ETF proxy)").length).toBe(1);
+  expect(screen.getAllByText("CSI 300 ETF proxy Alpha (252D compounded)").length).toBe(1);
+});
+
+it("renders unavailable placeholders for legacy or undefined regime values", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    benchmarks: [
+      {
+        key: "csi_300_buy_hold",
+        name: "CSI 300 buy-and-hold",
+        total_return: null, annualized_return: null, max_drawdown: null, volatility: null, sharpe_ratio: null,
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: null, annualized_return_difference: null,
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: null, up_capture_observation_count: null,
+        down_capture_ratio: null, down_capture_observation_count: null,
+        equity_curve: []
+      }
+    ]
+  });
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
+  expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
+  expect(screen.queryByText("NaN")).not.toBeInTheDocument();
+  expect(screen.queryByText("Infinity")).not.toBeInTheDocument();
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("renders benchmark regime groups, labels, counts, and tabs without overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue({
+    ...detail(1),
+    benchmarks: [
+      {
+        key: "equal_weight_monthly",
+        name: "Equal-weight monthly rebalanced portfolio",
+        total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: null, annualized_return_difference: null,
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: "1.2", up_capture_observation_count: 8,
+        down_capture_ratio: "0.7", down_capture_observation_count: 3,
+        equity_curve: []
+      },
+      {
+        key: "csi_300_buy_hold",
+        name: "CSI 300 buy-and-hold",
+        total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.08", sharpe_ratio: "0.8",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: null, annualized_return_difference: null,
+        capm_alpha: "0.5", capm_beta: "1.1", capm_r_squared: "0.8", capm_observation_count: 240,
+        up_capture_ratio: "1.2", up_capture_observation_count: 8,
+        down_capture_ratio: "0.7", down_capture_observation_count: 3,
+        equity_curve: []
+      }
+    ]
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
+  expect(screen.getByRole("heading", { name: "Equal-weight monthly rebalanced portfolio" })).toBeInTheDocument();
+  expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText("Up selected months").length).toBe(2);
+  expect(screen.getAllByText("Down selected months").length).toBe(2);
+  expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Signals (1)" })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
 });
 
 it("wraps ArrowLeft and ArrowRight and supports Home and End", async () => {

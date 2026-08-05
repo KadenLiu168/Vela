@@ -1043,6 +1043,120 @@ def test_run_backtest_snapshots_full_panel_without_future_signal_input(
     assert captured_curve_panels == captured_panels
 
 
+def test_run_backtest_persists_benchmark_regime_metrics_and_version_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        result = run_core_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            calculate_benchmarks=True,
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        benchmarks = (
+            session.query(BacktestBenchmark).order_by(BacktestBenchmark.benchmark_key).all()
+        )
+
+    assert run is not None
+    parameters = json.loads(run.parameters_json)
+    assert parameters["benchmark_regime_metric_version"] == "benchmark_regime_metrics_v1"
+    assert parameters["risk_free_rate"] == 0.02
+    csi_300, equal_weight = benchmarks
+    assert equal_weight.benchmark_key == "equal_weight_monthly"
+    assert equal_weight.capm_alpha is None
+    assert equal_weight.capm_beta is None
+    assert equal_weight.capm_r_squared is None
+    assert equal_weight.capm_observation_count is None
+    assert equal_weight.up_capture_ratio == Decimal("1.000000")
+    assert equal_weight.up_capture_observation_count == 1
+    assert equal_weight.down_capture_observation_count == 0
+    assert csi_300.benchmark_key == "csi_300_buy_hold"
+    assert csi_300.capm_alpha is None
+    assert csi_300.capm_beta is None
+    assert csi_300.capm_r_squared is None
+    assert csi_300.capm_observation_count == 1
+    assert csi_300.up_capture_ratio == Decimal("1.000000")
+    assert csi_300.up_capture_observation_count == 1
+    assert csi_300.down_capture_observation_count == 0
+
+
+def test_run_backtest_training_trial_skips_regime_metrics_and_version_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        result = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        benchmark_count = session.query(BacktestBenchmark).count()
+
+    assert run is not None
+    assert benchmark_count == 0
+    assert "benchmark_regime_metric_version" not in json.loads(run.parameters_json)
+
+
+def test_late_regime_metric_failure_rolls_back_all_artifacts_together(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        def fail_regime_metrics(*_args: Any, **_kwargs: Any) -> Any:
+            raise ValueError("regime metric alignment failed")
+
+        monkeypatch.setattr(
+            runner,
+            "calculate_backtest_benchmark_regime_metrics",
+            fail_regime_metrics,
+        )
+        with pytest.raises(ValueError, match="regime metric alignment failed"):
+            run_core_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 3),
+                calculate_benchmarks=True,
+            )
+
+        assert session.query(StrategySignal).count() == 1
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestBenchmark).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+        assert session.query(BacktestBenchmarkEquityCurve).count() == 0
+        session.rollback()
+        assert session.query(StrategySignal).count() == 0
+
+
 def _price_row(
     *, etf_id: int, trade_date: date, close_price: Decimal, factor_hfq: Decimal
 ) -> MarketPrice:

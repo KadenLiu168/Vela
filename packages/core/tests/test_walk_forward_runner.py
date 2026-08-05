@@ -52,6 +52,14 @@ def _fixed_benchmarks() -> tuple[SimpleNamespace, SimpleNamespace]:
             sharpe_ratio=SimpleNamespace(sharpe_ratio=0.9),
             tracking_error=0.02,
             information_ratio=0.3,
+            capm_alpha=0.5 if key == "csi_300_buy_hold" else None,
+            capm_beta=1.1 if key == "csi_300_buy_hold" else None,
+            capm_r_squared=0.8 if key == "csi_300_buy_hold" else None,
+            capm_observation_count=240 if key == "csi_300_buy_hold" else None,
+            up_capture_ratio=1.2,
+            up_capture_observation_count=9,
+            down_capture_ratio=0.7,
+            down_capture_observation_count=4,
         )
 
     return benchmark("equal_weight_monthly"), benchmark("csi_300_buy_hold")

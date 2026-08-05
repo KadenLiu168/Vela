@@ -141,6 +141,14 @@ class BacktestBenchmark(Base):
     longest_drawdown_recovery_date: Mapped[date | None] = mapped_column(Date)
     tracking_error: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     information_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    capm_alpha: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    capm_beta: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    capm_r_squared: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    capm_observation_count: Mapped[int | None] = mapped_column()
+    up_capture_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    up_capture_observation_count: Mapped[int | None] = mapped_column()
+    down_capture_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    down_capture_observation_count: Mapped[int | None] = mapped_column()
     backtest_run: Mapped[BacktestRun] = relationship(back_populates="benchmarks")
     equity_curve: Mapped[list["BacktestBenchmarkEquityCurve"]] = relationship(
         back_populates="benchmark",

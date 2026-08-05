@@ -311,6 +311,23 @@ def test_openapi_declares_concrete_success_schemas_for_every_api_route() -> None
         assert not _has_unconstrained_object(schema)
 
 
+def test_openapi_requires_nullable_benchmark_regime_response_fields() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    expected_fields = {
+        "capm_alpha",
+        "capm_beta",
+        "capm_r_squared",
+        "capm_observation_count",
+        "up_capture_ratio",
+        "up_capture_observation_count",
+        "down_capture_ratio",
+        "down_capture_observation_count",
+    }
+
+    assert expected_fields <= set(schemas["BacktestBenchmarkResponse"]["required"])
+    assert expected_fields <= set(schemas["WalkForwardOosBenchmarkResponse"]["required"])
+
+
 def _has_unconstrained_object(value: object) -> bool:
     if isinstance(value, dict):
         if value.get("additionalProperties") is True:

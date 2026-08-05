@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from vela_core.adjusted_price_projection import forward_adjusted_prices
+from vela_core.benchmark_regime_metrics import calculate_benchmark_regime_metrics
 from vela_core.errors import BacktestDataError
 from vela_core.models import ETFInfo, MarketPrice
 from vela_core.strategy_equity_curve import (
@@ -49,6 +50,14 @@ class BacktestBenchmarkResult:
     )
     tracking_error: Decimal | None = None
     information_ratio: Decimal | None = None
+    capm_alpha: Decimal | None = None
+    capm_beta: Decimal | None = None
+    capm_r_squared: Decimal | None = None
+    capm_observation_count: int | None = None
+    up_capture_ratio: Decimal | None = None
+    up_capture_observation_count: int | None = None
+    down_capture_ratio: Decimal | None = None
+    down_capture_observation_count: int | None = None
 
 
 def calculate_backtest_benchmarks(
@@ -98,6 +107,31 @@ def calculate_backtest_benchmark_active_risk_metrics(
         benchmark,
         tracking_error=active_metrics.tracking_error,
         information_ratio=active_metrics.information_ratio,
+    )
+
+
+def calculate_backtest_benchmark_regime_metrics(
+    strategy_points: Sequence[StrategyEquityCurvePoint],
+    benchmark: BacktestBenchmarkResult,
+    *,
+    risk_free_rate: Decimal,
+) -> BacktestBenchmarkResult:
+    regime_metrics = calculate_benchmark_regime_metrics(
+        strategy_points,
+        benchmark.points,
+        risk_free_rate=risk_free_rate,
+        benchmark_key=benchmark.key,
+    )
+    return replace(
+        benchmark,
+        capm_alpha=regime_metrics.capm_alpha,
+        capm_beta=regime_metrics.capm_beta,
+        capm_r_squared=regime_metrics.capm_r_squared,
+        capm_observation_count=regime_metrics.capm_observation_count,
+        up_capture_ratio=regime_metrics.up_capture_ratio,
+        up_capture_observation_count=regime_metrics.up_capture_observation_count,
+        down_capture_ratio=regime_metrics.down_capture_ratio,
+        down_capture_observation_count=regime_metrics.down_capture_observation_count,
     )
 
 

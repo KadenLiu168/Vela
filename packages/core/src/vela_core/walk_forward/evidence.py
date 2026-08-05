@@ -8,6 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
 MINIMUM_EVIDENCE_COUNT = 3
 EVIDENCE_VERSION = "wf_evidence_v1"
+EVIDENCE_VERSION_V2 = "wf_evidence_v2"
+SUPPORTED_EVIDENCE_VERSIONS = (EVIDENCE_VERSION, EVIDENCE_VERSION_V2)
 BenchmarkKey = Literal["equal_weight_monthly", "csi_300_buy_hold"]
 
 
@@ -162,11 +164,29 @@ class WalkForwardEvidenceV1(BaseModel):
         return self
 
 
-def validate_wf_evidence(version: str, document: object) -> WalkForwardEvidenceV1:
-    if version != EVIDENCE_VERSION:
+class WalkForwardBenchmarkEvidenceV2Model(WalkForwardBenchmarkEvidenceModel):
+    capm_alpha: WalkForwardMetricSummaryModel
+    capm_beta: WalkForwardMetricSummaryModel
+    capm_r_squared: WalkForwardMetricSummaryModel
+    up_capture_ratio: WalkForwardMetricSummaryModel
+    down_capture_ratio: WalkForwardMetricSummaryModel
+
+
+class WalkForwardEvidenceV2(WalkForwardEvidenceV1):
+    benchmarks: dict[BenchmarkKey, WalkForwardBenchmarkEvidenceV2Model]  # type: ignore[assignment]
+
+
+def validate_wf_evidence(
+    version: str, document: object
+) -> WalkForwardEvidenceV1 | WalkForwardEvidenceV2:
+    if version == EVIDENCE_VERSION:
+        model_type: type[WalkForwardEvidenceV1] = WalkForwardEvidenceV1
+    elif version == EVIDENCE_VERSION_V2:
+        model_type = WalkForwardEvidenceV2
+    else:
         raise PersistedDataContractError(f"unsupported Walk-forward evidence version: {version}")
     try:
-        return WalkForwardEvidenceV1.model_validate(document)
+        return model_type.model_validate(document)
     except Exception as exc:
         raise PersistedDataContractError(
             "invalid persisted Walk-forward evidence document"
@@ -178,4 +198,5 @@ WalkForwardMetricSummary = WalkForwardMetricSummaryModel
 WalkForwardRateSummary = WalkForwardRateSummaryModel
 WalkForwardParameterStability = WalkForwardParameterStabilityModel
 WalkForwardBenchmarkEvidence = WalkForwardBenchmarkEvidenceModel
+WalkForwardBenchmarkEvidenceV2 = WalkForwardBenchmarkEvidenceV2Model
 WalkForwardEvidence = WalkForwardEvidenceV1

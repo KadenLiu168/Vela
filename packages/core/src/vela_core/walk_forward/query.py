@@ -8,10 +8,15 @@ from sqlalchemy.orm import Session, selectinload
 from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.candidate_audit import build_candidate_audit
 from vela_core.walk_forward.evidence import (
+    EVIDENCE_VERSION_V2,
     PersistedDataContractError,
+    WalkForwardEvidenceV2,
     validate_wf_evidence,
 )
 from vela_core.walk_forward.provenance import WalkForwardInputManifestModel, validate_input_manifest
+from vela_core.walk_forward.regime_evidence_validation import (
+    validate_v2_regime_source_evidence,
+)
 from vela_core.walk_forward.stitched_oos import (
     StitchedOosSourcePoint,
     StitchedOosWindow,
@@ -93,7 +98,7 @@ def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestMo
             f"unsupported Walk-forward provenance version: {row.provenance_version}"
         )
     manifest = validate_input_manifest(row.provenance_version, row.input_data_snapshot_json)
-    validate_wf_evidence(row.evidence_version, row.evidence_json)
+    evidence = validate_wf_evidence(row.evidence_version, row.evidence_json)
     if row.window_count != len(row.windows):
         raise PersistedDataContractError("Walk-forward window count does not match children")
     seen_oos: set[int] = set()
@@ -131,6 +136,12 @@ def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestMo
             raise PersistedDataContractError("invalid Walk-forward candidate audit") from exc
         if audit["skipped_count"] != child.skipped_count:
             raise PersistedDataContractError("Walk-forward candidate audit is unreconciled")
+    if row.evidence_version == EVIDENCE_VERSION_V2:
+        assert isinstance(evidence, WalkForwardEvidenceV2)
+        validate_v2_regime_source_evidence(
+            [child.oos_backtest_run for child in row.windows if child.oos_backtest_run is not None],
+            evidence,
+        )
     return manifest
 
 

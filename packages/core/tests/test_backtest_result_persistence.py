@@ -256,6 +256,68 @@ def test_persist_backtest_result_round_trips_expanded_metrics_and_isolates_rerun
     assert second_run.benchmarks == []
 
 
+def test_persist_backtest_result_round_trips_benchmark_regime_metrics() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(),
+            equity_curve=[],
+            benchmarks=[
+                _benchmark(
+                    "equal_weight_monthly",
+                    [],
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                ),
+                _benchmark(
+                    "csi_300_buy_hold",
+                    [],
+                    capm_alpha=Decimal("11.274002"),
+                    capm_beta=Decimal("2.000000"),
+                    capm_r_squared=Decimal("1.000000"),
+                    capm_observation_count=3,
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                    tracking_error=Decimal("0.038884"),
+                    information_ratio=Decimal("12.961481"),
+                ),
+            ],
+        )
+        session.commit()
+        session.expire_all()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+
+    assert run is not None
+    equal_weight, csi_300 = run.benchmarks
+    assert equal_weight.benchmark_key == "equal_weight_monthly"
+    assert equal_weight.capm_alpha is None
+    assert equal_weight.capm_beta is None
+    assert equal_weight.capm_r_squared is None
+    assert equal_weight.capm_observation_count is None
+    assert equal_weight.up_capture_ratio == Decimal("1.995274")
+    assert equal_weight.up_capture_observation_count == 2
+    assert equal_weight.down_capture_ratio == Decimal("0.500000")
+    assert equal_weight.down_capture_observation_count == 1
+    assert csi_300.benchmark_key == "csi_300_buy_hold"
+    assert csi_300.capm_alpha == Decimal("11.274002")
+    assert csi_300.capm_beta == Decimal("2.000000")
+    assert csi_300.capm_r_squared == Decimal("1.000000")
+    assert csi_300.capm_observation_count == 3
+    assert csi_300.up_capture_ratio == Decimal("1.995274")
+    assert csi_300.up_capture_observation_count == 2
+    assert csi_300.down_capture_ratio == Decimal("0.500000")
+    assert csi_300.down_capture_observation_count == 1
+    assert csi_300.tracking_error == Decimal("0.038884")
+    assert csi_300.information_ratio == Decimal("12.961481")
+
+
 def test_persist_backtest_result_rejects_duplicate_benchmark_keys_before_writing() -> None:
     session_factory = _create_session_factory()
 
@@ -369,6 +431,14 @@ def _benchmark(
     longest_drawdown_duration_sessions: int | None = None,
     tracking_error: Decimal | None = None,
     information_ratio: Decimal | None = None,
+    capm_alpha: Decimal | None = None,
+    capm_beta: Decimal | None = None,
+    capm_r_squared: Decimal | None = None,
+    capm_observation_count: int | None = None,
+    up_capture_ratio: Decimal | None = None,
+    up_capture_observation_count: int | None = None,
+    down_capture_ratio: Decimal | None = None,
+    down_capture_observation_count: int | None = None,
 ) -> BacktestBenchmarkInput:
     return BacktestBenchmarkInput(
         key=key,
@@ -384,6 +454,14 @@ def _benchmark(
         longest_drawdown_duration_sessions=longest_drawdown_duration_sessions,
         tracking_error=tracking_error,
         information_ratio=information_ratio,
+        capm_alpha=capm_alpha,
+        capm_beta=capm_beta,
+        capm_r_squared=capm_r_squared,
+        capm_observation_count=capm_observation_count,
+        up_capture_ratio=up_capture_ratio,
+        up_capture_observation_count=up_capture_observation_count,
+        down_capture_ratio=down_capture_ratio,
+        down_capture_observation_count=down_capture_observation_count,
     )
 
 

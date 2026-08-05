@@ -9,6 +9,10 @@ from vela_core.backtest_result_persistence import (
     persist_backtest_result,
 )
 from vela_core.backtest_runner import BacktestRunResult, run_backtest
+from vela_core.benchmark_regime_metrics import (
+    BenchmarkRegimeMetrics,
+    calculate_benchmark_regime_metrics,
+)
 from vela_core.bootstrap import (
     BootstrapResult,
     BootstrapStepResult,
@@ -158,6 +162,7 @@ __all__ = [
     "BacktestReportNotFoundError",
     "BacktestRunResult",
     "BacktestSignalSummaryEntry",
+    "BenchmarkRegimeMetrics",
     "BootstrapResult",
     "BootstrapStepResult",
     "ConfigError",
@@ -221,6 +226,7 @@ __all__ = [
     "calculate_market_price_returns",
     "calculate_momentum_score",
     "calculate_active_risk_metrics",
+    "calculate_benchmark_regime_metrics",
     "calculate_portfolio_holdings",
     "calculate_strategy_annualized_return",
     "calculate_strategy_calmar_ratio",

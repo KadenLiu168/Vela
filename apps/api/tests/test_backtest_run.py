@@ -10,6 +10,7 @@ from vela_api.main import app
 from vela_core import load_app_config
 from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.models import (
+    BacktestBenchmark,
     BacktestEquityCurve,
     BacktestRun,
     MarketPrice,
@@ -118,6 +119,14 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
             "longest_drawdown_recovery_date",
             "tracking_error",
             "information_ratio",
+            "capm_alpha",
+            "capm_beta",
+            "capm_r_squared",
+            "capm_observation_count",
+            "up_capture_ratio",
+            "up_capture_observation_count",
+            "down_capture_ratio",
+            "down_capture_observation_count",
             "total_return_difference",
             "annualized_return_difference",
             "equity_curve",
@@ -704,6 +713,134 @@ def test_backtest_detail_endpoint_returns_current_strategy_across_versions(tmp_p
 
     assert response.status_code == 200
     assert response.json()["run"]["config_version"] == "wf-historical"
+
+
+def test_backtest_detail_endpoint_returns_stored_benchmark_regime_metrics(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-regime-detail.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        run = backtest_run(
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+        )
+        session.add(run)
+        session.flush()
+        session.add_all(
+            [
+                BacktestBenchmark(
+                    backtest_run_id=run.id,
+                    benchmark_key="equal_weight_monthly",
+                    display_name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                ),
+                BacktestBenchmark(
+                    backtest_run_id=run.id,
+                    benchmark_key="csi_300_buy_hold",
+                    display_name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    capm_alpha=Decimal("11.274002"),
+                    capm_beta=Decimal("2.000000"),
+                    capm_r_squared=Decimal("0.958580"),
+                    capm_observation_count=4,
+                    up_capture_ratio=Decimal("1.995274"),
+                    up_capture_observation_count=2,
+                    down_capture_ratio=Decimal("0.500000"),
+                    down_capture_observation_count=1,
+                ),
+            ]
+        )
+        session.commit()
+        run_id = run.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    benchmarks = {benchmark["key"]: benchmark for benchmark in response.json()["benchmarks"]}
+    equal_weight = benchmarks["equal_weight_monthly"]
+    assert equal_weight["capm_alpha"] is None
+    assert equal_weight["capm_beta"] is None
+    assert equal_weight["capm_r_squared"] is None
+    assert equal_weight["capm_observation_count"] is None
+    assert equal_weight["up_capture_ratio"] == "1.995274"
+    assert equal_weight["up_capture_observation_count"] == 2
+    assert equal_weight["down_capture_ratio"] == "0.500000"
+    assert equal_weight["down_capture_observation_count"] == 1
+    csi_300 = benchmarks["csi_300_buy_hold"]
+    assert csi_300["capm_alpha"] == "11.274002"
+    assert csi_300["capm_beta"] == "2.000000"
+    assert csi_300["capm_r_squared"] == "0.958580"
+    assert csi_300["capm_observation_count"] == 4
+    assert csi_300["up_capture_ratio"] == "1.995274"
+    assert csi_300["up_capture_observation_count"] == 2
+    assert csi_300["down_capture_ratio"] == "0.500000"
+    assert csi_300["down_capture_observation_count"] == 1
+
+
+def test_backtest_detail_endpoint_keeps_legacy_regime_fields_null(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-regime-legacy.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        run = backtest_run(
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+        )
+        session.add(run)
+        session.flush()
+        session.add_all(
+            [
+                BacktestBenchmark(
+                    backtest_run_id=run.id,
+                    benchmark_key=key,
+                    display_name=key,
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                )
+                for key in ("equal_weight_monthly", "csi_300_buy_hold")
+            ]
+        )
+        session.commit()
+        run_id = run.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+
+        response = TestClient(app).get(f"/api/backtests/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    benchmark = response.json()["benchmarks"][0]
+    assert benchmark["capm_alpha"] is None
+    assert benchmark["capm_beta"] is None
+    assert benchmark["capm_r_squared"] is None
+    assert benchmark["capm_observation_count"] is None
+    assert benchmark["up_capture_ratio"] is None
+    assert benchmark["up_capture_observation_count"] is None
+    assert benchmark["down_capture_ratio"] is None
+    assert benchmark["down_capture_observation_count"] is None
 
 
 def _add_price_history(

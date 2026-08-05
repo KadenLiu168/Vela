@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from vela_core.backtest_benchmarks import (
     calculate_backtest_benchmark_active_risk_metrics,
+    calculate_backtest_benchmark_regime_metrics,
     calculate_backtest_benchmarks,
 )
 from vela_core.errors import BacktestDataError
@@ -237,6 +238,76 @@ def test_benchmark_active_metrics_are_added_after_strategy_curve_exists() -> Non
     assert all(result.tracking_error == Decimal("0.038884") for result in updated)
     assert all(result.information_ratio == Decimal("12.961481") for result in updated)
     assert [result.points for result in updated] == [result.points for result in results]
+
+
+def test_benchmark_regime_metrics_keep_ownership_and_preserve_existing_fields() -> None:
+    dates = [
+        date(2026, 1, 5),
+        date(2026, 2, 5),
+        date(2026, 3, 5),
+        date(2026, 4, 5),
+    ]
+    results = calculate_backtest_benchmarks(
+        trading_dates=dates,
+        active_etfs=[_etf(1, "SSE", "510300")],
+        price_panel={
+            1: [
+                _price(1, dates[0], 100, 1),
+                _price(1, dates[1], 102, 1),
+                _price(1, dates[2], 101, 1),
+                _price(1, dates[3], 105, 1),
+            ]
+        },
+        transaction_cost_bps=0,
+        risk_free_rate=Decimal("0"),
+    )
+    strategy_points = [
+        StrategyEquityCurvePoint(
+            trade_date=trade_date,
+            net_value=Decimal("1.000000"),
+            daily_return=Decimal(daily_return),
+        )
+        for trade_date, daily_return in zip(
+            dates,
+            ["0.000000", "0.020000", "-0.010000", "0.010000"],
+            strict=True,
+        )
+    ]
+    active_updated = [
+        calculate_backtest_benchmark_active_risk_metrics(strategy_points, result)
+        for result in results
+    ]
+    updated = [
+        calculate_backtest_benchmark_regime_metrics(
+            strategy_points,
+            result,
+            risk_free_rate=Decimal("0"),
+        )
+        for result in active_updated
+    ]
+
+    equal_weight, csi_300 = updated
+    assert equal_weight.key == "equal_weight_monthly"
+    assert equal_weight.capm_alpha is None
+    assert equal_weight.capm_beta is None
+    assert equal_weight.capm_r_squared is None
+    assert equal_weight.capm_observation_count is None
+    assert equal_weight.up_capture_ratio is not None
+    assert equal_weight.down_capture_ratio is not None
+    assert csi_300.key == "csi_300_buy_hold"
+    assert csi_300.capm_alpha is not None
+    assert csi_300.capm_beta is not None
+    assert csi_300.capm_r_squared is not None
+    assert csi_300.capm_observation_count == 3
+    assert csi_300.up_capture_ratio is not None
+    assert csi_300.down_capture_ratio is not None
+    # Existing active-risk and shared metrics remain unchanged.
+    assert all(result.tracking_error is not None for result in updated)
+    assert all(result.information_ratio is not None for result in updated)
+    assert [result.points for result in updated] == [result.points for result in results]
+    assert [result.annualized_return for result in updated] == [
+        result.annualized_return for result in results
+    ]
 
 
 def _etf(identifier: int, exchange: str, symbol: str) -> ETFInfo:

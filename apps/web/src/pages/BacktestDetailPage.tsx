@@ -257,6 +257,42 @@ function renderBacktestDetail(
               />
               <MetricCard label="Tracking error (252D)" value={formatDecimal(benchmark.tracking_error, 6, false)} />
               <MetricCard label="Information ratio (252D)" value={formatDecimal(benchmark.information_ratio, 6, false)} />
+              {benchmark.key === "csi_300_buy_hold" ? (
+                <>
+                  <MetricCard
+                    label="CSI 300 ETF proxy Alpha (252D compounded)"
+                    value={formatRatioAsPercent(benchmark.capm_alpha)}
+                  />
+                  <MetricCard
+                    label="Beta (CSI 300 ETF proxy)"
+                    value={formatDecimal(benchmark.capm_beta, 6, false)}
+                  />
+                  <MetricCard
+                    label="R-squared (CSI 300 ETF proxy)"
+                    value={formatDecimal(benchmark.capm_r_squared, 6, false)}
+                  />
+                  <MetricCard
+                    label="CAPM observations (daily sessions)"
+                    value={formatNullableInteger(benchmark.capm_observation_count)}
+                  />
+                </>
+              ) : null}
+              <MetricCard
+                label="Monthly Up Capture (selected months)"
+                value={formatRatioAsPercent(benchmark.up_capture_ratio)}
+              />
+              <MetricCard
+                label="Up selected months"
+                value={formatNullableInteger(benchmark.up_capture_observation_count)}
+              />
+              <MetricCard
+                label="Monthly Down Capture (selected months)"
+                value={formatRatioAsPercent(benchmark.down_capture_ratio)}
+              />
+              <MetricCard
+                label="Down selected months"
+                value={formatNullableInteger(benchmark.down_capture_observation_count)}
+              />
               <MetricCard label="Strategy total return difference" value={formatRatioAsPercent(benchmark.total_return_difference)} />
               <MetricCard label="Strategy CAGR difference" value={formatRatioAsPercent(benchmark.annualized_return_difference)} />
             </dl>

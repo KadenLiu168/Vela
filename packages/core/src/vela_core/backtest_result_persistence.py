@@ -67,6 +67,14 @@ class BacktestBenchmarkInput:
     longest_drawdown_recovery_date: date | None = None
     tracking_error: Decimal | None = None
     information_ratio: Decimal | None = None
+    capm_alpha: Decimal | None = None
+    capm_beta: Decimal | None = None
+    capm_r_squared: Decimal | None = None
+    capm_observation_count: int | None = None
+    up_capture_ratio: Decimal | None = None
+    up_capture_observation_count: int | None = None
+    down_capture_ratio: Decimal | None = None
+    down_capture_observation_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -142,6 +150,14 @@ def persist_backtest_result(
             longest_drawdown_recovery_date=input_row.longest_drawdown_recovery_date,
             tracking_error=input_row.tracking_error,
             information_ratio=input_row.information_ratio,
+            capm_alpha=input_row.capm_alpha,
+            capm_beta=input_row.capm_beta,
+            capm_r_squared=input_row.capm_r_squared,
+            capm_observation_count=input_row.capm_observation_count,
+            up_capture_ratio=input_row.up_capture_ratio,
+            up_capture_observation_count=input_row.up_capture_observation_count,
+            down_capture_ratio=input_row.down_capture_ratio,
+            down_capture_observation_count=input_row.down_capture_observation_count,
         )
         session.add(benchmark)
         session.flush()

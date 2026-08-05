@@ -21,16 +21,81 @@ from vela_core.models import (
 from tests.integration_data import prepare_sqlite_database
 
 
-def _summary() -> dict[str, object]:
+def _summary(value: float = 0.1) -> dict[str, object]:
     return {
-        "mean": 0.1,
-        "median": 0.1,
-        "min": 0.1,
-        "max": 0.1,
+        "mean": value,
+        "median": value,
+        "min": value,
+        "max": value,
         "std": 0.0,
         "window_count": 1,
         "valid_count": 1,
         "evidence_status": "insufficient_evidence",
+    }
+
+
+def _empty_summary() -> dict[str, object]:
+    return {
+        "mean": None,
+        "median": None,
+        "min": None,
+        "max": None,
+        "std": None,
+        "window_count": 1,
+        "valid_count": 0,
+        "evidence_status": "insufficient_evidence",
+    }
+
+
+def _v2_evidence() -> dict[str, object]:
+    summary = _summary()
+    rate = {
+        "numerator": 1,
+        "denominator": 1,
+        "value": 1.0,
+        "window_count": 1,
+        "valid_count": 1,
+        "evidence_status": "insufficient_evidence",
+    }
+    csi_benchmark = {
+        "total_return_difference": summary,
+        "annualized_return_difference": summary,
+        "tracking_error": summary,
+        "information_ratio": summary,
+        "outperformance_rate": rate,
+        "capm_alpha": _summary(0.5),
+        "capm_beta": _summary(1.1),
+        "capm_r_squared": _summary(0.8),
+        "up_capture_ratio": _summary(1.2),
+        "down_capture_ratio": _summary(0.7),
+    }
+    equal_weight_benchmark = {
+        **csi_benchmark,
+        "capm_alpha": _empty_summary(),
+        "capm_beta": _empty_summary(),
+        "capm_r_squared": _empty_summary(),
+    }
+    return {
+        "metrics": {
+            key: summary
+            for key in (
+                "total_return",
+                "annualized_return",
+                "sharpe_ratio",
+                "max_drawdown",
+                "volatility",
+                "sortino_ratio",
+                "calmar_ratio",
+                "longest_drawdown_duration_sessions",
+            )
+        },
+        "positive_window_rate": rate,
+        "generalization_gap": summary,
+        "benchmarks": {
+            "equal_weight_monthly": equal_weight_benchmark,
+            "csi_300_buy_hold": csi_benchmark,
+        },
+        "parameter_stability": {},
     }
 
 
@@ -152,6 +217,119 @@ def _add_history(session, *, strategy_id: str, finished_at: datetime) -> WalkFor
         input_data_checksum="b" * 64,
         evidence_version="wf_evidence_v1",
         evidence_json=_evidence(),
+        started_at=finished_at,
+        finished_at=finished_at,
+    )
+    parent.windows.append(
+        WalkForwardRunWindow(
+            ordinal=0,
+            train_start=date(2025, 1, 1),
+            train_end=date(2025, 12, 31),
+            test_start=date(2026, 1, 1),
+            test_end=date(2026, 12, 31),
+            oos_version="wf-000000000001",
+            selected_parameters_json={"parameters.selection.top_n": 1},
+            candidate_count=1,
+            eligible_count=1,
+            skipped_count=0,
+            skip_reason_counts_json={},
+            train_sharpe=Decimal("1.100000"),
+            oos_backtest_run=oos,
+        )
+    )
+    session.add(parent)
+    session.flush()
+    return parent
+
+
+def _add_v2_history(session, *, strategy_id: str, finished_at: datetime) -> WalkForwardRun:
+    oos = BacktestRun(
+        strategy_id=strategy_id,
+        config_version="wf-000000000001",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        parameters_json='{"benchmark_regime_metric_version":"benchmark_regime_metrics_v1"}',
+        started_at=finished_at,
+        finished_at=finished_at,
+        status="success",
+        total_return=Decimal("0.100000"),
+        annualized_return=Decimal("0.100000"),
+        max_drawdown=Decimal("-0.050000"),
+        volatility=Decimal("0.100000"),
+        sharpe_ratio=Decimal("1.000000"),
+    )
+    oos.benchmarks.extend(
+        [
+            BacktestBenchmark(
+                benchmark_key="equal_weight_monthly",
+                display_name="Equal-weight monthly rebalanced portfolio",
+                total_return=Decimal("0.080000"),
+                annualized_return=Decimal("0.080000"),
+                max_drawdown=Decimal("-0.040000"),
+                volatility=Decimal("0.090000"),
+                sharpe_ratio=Decimal("0.900000"),
+                tracking_error=Decimal("0.020000"),
+                information_ratio=Decimal("0.300000"),
+                up_capture_ratio=Decimal("1.200000"),
+                up_capture_observation_count=8,
+                down_capture_ratio=Decimal("0.700000"),
+                down_capture_observation_count=3,
+            ),
+            BacktestBenchmark(
+                benchmark_key="csi_300_buy_hold",
+                display_name="CSI 300 buy-and-hold",
+                total_return=Decimal("0.080000"),
+                annualized_return=Decimal("0.080000"),
+                max_drawdown=Decimal("-0.040000"),
+                volatility=Decimal("0.090000"),
+                sharpe_ratio=Decimal("0.900000"),
+                tracking_error=Decimal("0.020000"),
+                information_ratio=Decimal("0.300000"),
+                capm_alpha=Decimal("0.500000"),
+                capm_beta=Decimal("1.100000"),
+                capm_r_squared=Decimal("0.800000"),
+                capm_observation_count=240,
+                up_capture_ratio=Decimal("1.200000"),
+                up_capture_observation_count=8,
+                down_capture_ratio=Decimal("0.700000"),
+                down_capture_observation_count=3,
+            ),
+        ]
+    )
+    oos.equity_curve.extend(
+        BacktestEquityCurve(
+            trade_date=trade_date,
+            net_value=Decimal("1.000000"),
+            cash=Decimal("0"),
+            market_value=Decimal("1"),
+            total_assets=Decimal("1"),
+            positions_json="[]",
+        )
+        for trade_date in (date(2026, 1, 1), date(2026, 12, 31))
+    )
+    parent = WalkForwardRun(
+        strategy_id=strategy_id,
+        start_date=date(2025, 1, 1),
+        end_date=date(2026, 12, 31),
+        window_count=1,
+        walk_forward_config_json={"strategy": {"base_config": "strategy.yaml"}},
+        base_strategy_config_json={"strategy_id": strategy_id},
+        provenance_version="wf_provenance_v1",
+        config_checksum="a" * 64,
+        input_data_snapshot_json={
+            "version": "wf_provenance_v1",
+            "earliest_required_session": "2025-01-01",
+            "configured_end_date": "2026-12-31",
+            "following_session": None,
+            "official_sessions": ["2025-01-01", "2026-01-01", "2026-12-31"],
+            "active_etfs": [],
+            "loaded_price_row_count": 0,
+            "first_loaded_price_date": None,
+            "last_loaded_price_date": None,
+        },
+        input_data_checksum="b" * 64,
+        evidence_version="wf_evidence_v2",
+        evidence_json=_v2_evidence(),
         started_at=finished_at,
         finished_at=finished_at,
     )
@@ -474,6 +652,105 @@ def test_walk_forward_detail_fails_closed_on_corrupt_eligible_curve(tmp_path) ->
 
     assert response.status_code == 500
     assert response.json()["error"]["category"] == "unexpected"
+
+
+def test_walk_forward_detail_returns_v2_regime_evidence_and_per_window_values(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'walk-forward-v2.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        parent = _add_v2_history(
+            session,
+            strategy_id="Dual_momentum",
+            finished_at=datetime(2026, 2, 2, tzinfo=UTC),
+        )
+        session.commit()
+        run_id = parent.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get(f"/api/walk-forwards/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["evidence_version"] == "wf_evidence_v2"
+    csi_evidence = body["evidence"]["benchmarks"]["csi_300_buy_hold"]
+    assert csi_evidence["capm_alpha"]["valid_count"] == 1
+    assert csi_evidence["capm_beta"]["valid_count"] == 1
+    assert csi_evidence["capm_r_squared"]["valid_count"] == 1
+    assert csi_evidence["up_capture_ratio"]["valid_count"] == 1
+    assert csi_evidence["down_capture_ratio"]["valid_count"] == 1
+    equal_weight_evidence = body["evidence"]["benchmarks"]["equal_weight_monthly"]
+    assert equal_weight_evidence["capm_alpha"]["valid_count"] == 0
+    assert equal_weight_evidence["up_capture_ratio"]["valid_count"] == 1
+    window_benchmarks = body["windows"][0]["oos_backtest"]["benchmarks"]
+    by_key = {benchmark["key"]: benchmark for benchmark in window_benchmarks}
+    assert by_key["csi_300_buy_hold"]["capm_alpha"] == "0.500000"
+    assert by_key["csi_300_buy_hold"]["capm_beta"] == "1.100000"
+    assert by_key["csi_300_buy_hold"]["capm_r_squared"] == "0.800000"
+    assert by_key["csi_300_buy_hold"]["capm_observation_count"] == 240
+    assert by_key["csi_300_buy_hold"]["up_capture_ratio"] == "1.200000"
+    assert by_key["csi_300_buy_hold"]["up_capture_observation_count"] == 8
+    assert by_key["csi_300_buy_hold"]["down_capture_ratio"] == "0.700000"
+    assert by_key["csi_300_buy_hold"]["down_capture_observation_count"] == 3
+    assert by_key["equal_weight_monthly"]["capm_alpha"] is None
+    assert by_key["equal_weight_monthly"]["up_capture_ratio"] == "1.200000"
+
+
+def test_walk_forward_detail_keeps_legacy_v1_evidence_without_fabricated_regime(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'walk-forward-v1-legacy.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        parent = _add_history(
+            session,
+            strategy_id="Dual_momentum",
+            finished_at=datetime(2026, 2, 2, tzinfo=UTC),
+        )
+        session.commit()
+        run_id = parent.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get(f"/api/walk-forwards/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["evidence_version"] == "wf_evidence_v1"
+    assert "capm_alpha" not in body["evidence"]["benchmarks"]["csi_300_buy_hold"]
+    assert body["evidence"]["benchmarks"]["csi_300_buy_hold"]["tracking_error"]["valid_count"] == 1
+
+
+def test_walk_forward_detail_fails_closed_on_corrupt_v2_evidence(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'walk-forward-v2-corrupt.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        parent = _add_v2_history(
+            session,
+            strategy_id="Dual_momentum",
+            finished_at=datetime(2026, 2, 2, tzinfo=UTC),
+        )
+        # Break the source-row ownership contract: the v2 document claims one
+        # valid CAPM window while the OOS benchmark row no longer carries it.
+        for benchmark in parent.windows[0].oos_backtest_run.benchmarks:
+            if benchmark.benchmark_key == "csi_300_buy_hold":
+                benchmark.capm_alpha = None
+        session.commit()
+        run_id = parent.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app, raise_server_exceptions=False).get(
+            f"/api/walk-forwards/{run_id}"
+        )
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 500
+    assert response.json()["error"]["category"] == "unexpected"
+    assert "windows" not in response.json()
 
 
 def test_walk_forward_detail_stitches_adjacent_windows_with_compounding(tmp_path) -> None:

@@ -127,7 +127,7 @@ function StitchedOosSection({ data }: { data: WalkForwardDetailResponse }) {
     <h2 id="stitched-oos-heading">Stitched OOS capital path</h2>
     <p className="detail-note">Compounds separately initialized OOS segments. No seam return, holdings carry, turnover, or transaction cost is synthesized.</p>
     <dl className="compact-list"><DescriptionItem label="Ending net value" value={stitched.ending_net_value ?? "n/a"} /><DescriptionItem label="Cumulative total return" value={stitched.total_return ?? "n/a"} /></dl>
-    {geometry ? <svg aria-label="Stitched OOS equity curve" className="equity-curve-chart" role="img" viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}><path className="equity-curve-line" d={geometry.linePath} fill="none" /></svg> : <EmptyState>No valid stitched OOS curve points are available for this run.</EmptyState>}
+    {geometry ? <svg aria-label="Stitched OOS equity curve" className="equity-curve-chart" role="img" viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}><path className="equity-curve-line" d={geometry.linePath} fill="none" stroke="var(--color-acid-lime)" /></svg> : <EmptyState>No valid stitched OOS curve points are available for this run.</EmptyState>}
     <ul aria-label="Stitched OOS window resets">{resets.map((point) => <li key={`${point.window_ordinal}-${point.trade_date}`}>Window {point.window_ordinal + 1} reset: {formatDate(point.trade_date)}</li>)}</ul>
   </section>;
 }
@@ -204,6 +204,22 @@ function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
             <DescriptionItem label="Tracking error" value={formatMetricSummary(benchmark.tracking_error)} />
             <DescriptionItem label="Information ratio" value={formatMetricSummary(benchmark.information_ratio)} />
             <DescriptionItem label="Outperformance rate" value={formatRate(benchmark.outperformance_rate)} />
+            {key === "csi_300_buy_hold" &&
+            benchmark.capm_alpha &&
+            benchmark.capm_beta &&
+            benchmark.capm_r_squared ? (
+              <>
+                <DescriptionItem label="CSI 300 ETF proxy Alpha (252D compounded)" value={formatMetricSummary(benchmark.capm_alpha)} />
+                <DescriptionItem label="Beta (CSI 300 ETF proxy)" value={formatMetricSummary(benchmark.capm_beta)} />
+                <DescriptionItem label="R-squared (CSI 300 ETF proxy)" value={formatMetricSummary(benchmark.capm_r_squared)} />
+              </>
+            ) : null}
+            {benchmark.up_capture_ratio ? (
+              <DescriptionItem label="Monthly Up Capture (selected months)" value={formatMetricSummary(benchmark.up_capture_ratio)} />
+            ) : null}
+            {benchmark.down_capture_ratio ? (
+              <DescriptionItem label="Monthly Down Capture (selected months)" value={formatMetricSummary(benchmark.down_capture_ratio)} />
+            ) : null}
           </dl>
         </section>
       ))}
@@ -362,6 +378,18 @@ function BenchmarkMetrics({
       <div>Annualized-return difference: {formatDecimal(benchmark.annualized_return_difference, 4)}</div>
       <div>Tracking error: {formatDecimal(benchmark.tracking_error, 4)}</div>
       <div>Information ratio: {formatDecimal(benchmark.information_ratio, 4)}</div>
+      {benchmark.key === "csi_300_buy_hold" ? (
+        <>
+          <div>CSI 300 ETF proxy Alpha (252D compounded): {formatDecimal(benchmark.capm_alpha, 4)}</div>
+          <div>Beta (CSI 300 ETF proxy): {formatDecimal(benchmark.capm_beta, 4)}</div>
+          <div>R-squared (CSI 300 ETF proxy): {formatDecimal(benchmark.capm_r_squared, 4)}</div>
+          <div>CAPM observations (daily sessions): {formatNullableInteger(benchmark.capm_observation_count)}</div>
+        </>
+      ) : null}
+      <div>Monthly Up Capture (selected months): {formatDecimal(benchmark.up_capture_ratio, 4)}</div>
+      <div>Up selected months: {formatNullableInteger(benchmark.up_capture_observation_count)}</div>
+      <div>Monthly Down Capture (selected months): {formatDecimal(benchmark.down_capture_ratio, 4)}</div>
+      <div>Down selected months: {formatNullableInteger(benchmark.down_capture_observation_count)}</div>
     </section>
   );
 }

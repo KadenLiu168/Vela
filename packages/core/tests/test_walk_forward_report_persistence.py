@@ -33,6 +33,14 @@ def test_report_serializes_the_prerequisite_evidence_and_window_audit() -> None:
                 annualized_return_difference=0.01,
                 tracking_error=0.03,
                 information_ratio=0.4,
+                capm_alpha=0.5 if key == "csi_300_buy_hold" else None,
+                capm_beta=1.1 if key == "csi_300_buy_hold" else None,
+                capm_r_squared=0.8 if key == "csi_300_buy_hold" else None,
+                capm_observation_count=240 if key == "csi_300_buy_hold" else None,
+                up_capture_ratio=1.2,
+                up_capture_observation_count=9,
+                down_capture_ratio=0.7,
+                down_capture_observation_count=4,
             )
             for key in ("equal_weight_monthly", "csi_300_buy_hold")
         )

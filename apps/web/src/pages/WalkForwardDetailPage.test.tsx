@@ -191,7 +191,10 @@ const detail: WalkForwardDetailResponse = {
             total_return_difference: "0.02",
             annualized_return_difference: "0.04",
             tracking_error: "0.03",
-            information_ratio: "0.7"
+            information_ratio: "0.7",
+            capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+            up_capture_ratio: null, up_capture_observation_count: null,
+            down_capture_ratio: null, down_capture_observation_count: null
           },
           {
             key: "csi_300_buy_hold",
@@ -210,7 +213,10 @@ const detail: WalkForwardDetailResponse = {
             total_return_difference: "0.03",
             annualized_return_difference: "0.05",
             tracking_error: "0.04",
-            information_ratio: "0.8"
+            information_ratio: "0.8",
+            capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+            up_capture_ratio: null, up_capture_observation_count: null,
+            down_capture_ratio: null, down_capture_observation_count: null
           }
         ]
       }
@@ -256,12 +262,123 @@ it("presents persisted evidence, provenance, candidates, and stitched OOS reset 
   expect(within(csi300).getByText("Information ratio: 0.8")).toBeInTheDocument();
   expect(within(csi300).getByText("Recovery: ongoing")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
-  expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
+  const stitchedChart = screen.getByRole("img", { name: /stitched OOS equity curve/i });
+  expect(stitchedChart).toBeInTheDocument();
+  expect(stitchedChart.querySelector("path")).toHaveAttribute("stroke", "var(--color-acid-lime)");
   expect(screen.getByText("0.990000")).toBeInTheDocument();
   expect(screen.getByText("-0.010000")).toBeInTheDocument();
   expect(screen.getByText(/Window 2 reset: 2025-07-01/)).toBeInTheDocument();
   expect(screen.getByText(/No seam return, holdings carry, turnover, or transaction cost/)).toBeInTheDocument();
   expect(screen.queryByText(/score|pass|fail/i)).not.toBeInTheDocument();
+});
+
+const v2Detail: WalkForwardDetailResponse = {
+  ...detail,
+  run: { ...detail.run, evidence_version: "wf_evidence_v2" },
+  evidence_version: "wf_evidence_v2",
+  evidence: {
+    ...detail.evidence,
+    benchmarks: {
+      equal_weight_monthly: {
+        ...detail.evidence.benchmarks.equal_weight_monthly,
+        up_capture_ratio: metric(1.2),
+        down_capture_ratio: metric(0.7)
+      },
+      csi_300_buy_hold: {
+        ...detail.evidence.benchmarks.csi_300_buy_hold,
+        capm_alpha: metric(0.5),
+        capm_beta: metric(1.1),
+        capm_r_squared: metric(0.8),
+        up_capture_ratio: metric(1.2),
+        down_capture_ratio: metric(0.7)
+      }
+    }
+  },
+  windows: [
+    {
+      ...detail.windows[0],
+      oos_backtest: {
+        ...detail.windows[0].oos_backtest,
+        benchmarks: [
+          {
+            ...detail.windows[0].oos_backtest.benchmarks[0],
+            up_capture_ratio: "1.2",
+            up_capture_observation_count: 8,
+            down_capture_ratio: "0.7",
+            down_capture_observation_count: 3
+          },
+          {
+            ...detail.windows[0].oos_backtest.benchmarks[1],
+            capm_alpha: "0.5",
+            capm_beta: "1.1",
+            capm_r_squared: "0.8",
+            capm_observation_count: 240,
+            up_capture_ratio: "1.2",
+            up_capture_observation_count: 8,
+            down_capture_ratio: "0.7",
+            down_capture_observation_count: 3
+          }
+        ]
+      }
+    }
+  ]
+};
+
+it("presents v2 benchmark-regime aggregates and per-window evidence with count units", async () => {
+  detailMock.mockResolvedValue(v2Detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByText("Walk-forward #42");
+  expect(screen.getByText("wf_evidence_v2")).toBeInTheDocument();
+  expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+  expect(screen.getByText("Beta (CSI 300 ETF proxy)")).toBeInTheDocument();
+  expect(screen.getByText("R-squared (CSI 300 ETF proxy)")).toBeInTheDocument();
+  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
+  const csiWindow = screen.getByLabelText("CSI 300 buy and hold metrics for window 0");
+  expect(within(csiWindow).getByText("CSI 300 ETF proxy Alpha (252D compounded): 0.5")).toBeInTheDocument();
+  expect(within(csiWindow).getByText("CAPM observations (daily sessions): 240")).toBeInTheDocument();
+  expect(within(csiWindow).getByText("Up selected months: 8")).toBeInTheDocument();
+  expect(within(csiWindow).getByText("Down selected months: 3")).toBeInTheDocument();
+  const equalWeightWindow = screen.getByLabelText("Equal weight monthly metrics for window 0");
+  expect(within(equalWeightWindow).queryByText(/Alpha/)).not.toBeInTheDocument();
+  expect(within(equalWeightWindow).getByText("Monthly Up Capture (selected months): 1.2")).toBeInTheDocument();
+  // Existing evidence and navigation remain available.
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
+  expect(screen.queryByText(/score|pass|fail/i)).not.toBeInTheDocument();
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("renders v2 regime groups, labels, counts, and navigation without overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue(v2Detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  expect(await screen.findByText("wf_evidence_v2")).toBeInTheDocument();
+  expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
+  expect(screen.getAllByText(/Up selected months: 8/).length).toBe(2);
+  expect(screen.getAllByText(/Down selected months: 3/).length).toBe(2);
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
+  expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+it("keeps legacy v1 evidence without fabricated regime values", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByText("Walk-forward #42");
+  expect(screen.getByText("wf_evidence_v1")).toBeInTheDocument();
+  expect(screen.queryByText("CSI 300 ETF proxy Alpha (252D compounded)")).not.toBeInTheDocument();
+  expect(screen.queryByText("Monthly Up Capture (selected months)")).not.toBeInTheDocument();
 });
 
 it("renders explicit not-found and unexpected-error states", async () => {

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from statistics import mean, median, pstdev
 from typing import Any, Literal, TypedDict
 
-from vela_core.walk_forward.evidence import WalkForwardEvidenceV1
+from vela_core.walk_forward.evidence import WalkForwardEvidenceV2
 from vela_core.walk_forward.window_splitter import WalkForwardWindow
 
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
@@ -61,6 +61,14 @@ class WalkForwardBenchmarkResult:
     annualized_return_difference: float | None
     tracking_error: float | None = None
     information_ratio: float | None = None
+    capm_alpha: float | None = None
+    capm_beta: float | None = None
+    capm_r_squared: float | None = None
+    capm_observation_count: int | None = None
+    up_capture_ratio: float | None = None
+    up_capture_observation_count: int | None = None
+    down_capture_ratio: float | None = None
+    down_capture_observation_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -91,9 +99,10 @@ class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
     walk_forward_run_id: int | None = None
 
-    def evidence_document(self) -> WalkForwardEvidenceV1:
+    def evidence_document(self) -> WalkForwardEvidenceV2:
         benchmark_comparisons = self.benchmark_differences()
-        return WalkForwardEvidenceV1.model_validate(
+        benchmark_regime = self.benchmark_regime_evidence()
+        return WalkForwardEvidenceV2.model_validate(
             {
                 "metrics": self.aggregate(),
                 "positive_window_rate": self.positive_window_rate(),
@@ -105,6 +114,7 @@ class WalkForwardReport:
                         "tracking_error": value["tracking_error"],
                         "information_ratio": value["information_ratio"],
                         "outperformance_rate": value["outperformance_rate"],
+                        **benchmark_regime[key],
                     }
                     for key, value in benchmark_comparisons.items()
                 },
@@ -192,6 +202,33 @@ class WalkForwardReport:
                     total_differences,
                     window_count=len(self.windows),
                 ),
+            }
+        return result
+
+    def benchmark_regime_evidence(self) -> dict[str, dict[str, WalkForwardMetricSummary]]:
+        regime_metrics = (
+            "capm_alpha",
+            "capm_beta",
+            "capm_r_squared",
+            "up_capture_ratio",
+            "down_capture_ratio",
+        )
+        result: dict[str, dict[str, WalkForwardMetricSummary]] = {}
+        for key in sorted(
+            {benchmark.key for item in self.windows for benchmark in item.benchmarks}
+        ):
+            values_by_metric = {
+                metric: [
+                    getattr(benchmark, metric)
+                    for item in self.windows
+                    for benchmark in item.benchmarks
+                    if benchmark.key == key
+                ]
+                for metric in regime_metrics
+            }
+            result[key] = {
+                metric: _summary(values, window_count=len(self.windows))
+                for metric, values in values_by_metric.items()
             }
         return result
 
@@ -346,6 +383,29 @@ def format_report(report: WalkForwardReport) -> str:
                     f"{_metric(benchmark.annualized_return_difference)}",
                 ]
             )
+            if benchmark.key == "csi_300_buy_hold":
+                lines.extend(
+                    [
+                        "    CSI 300 ETF proxy Alpha (252D compounded): "
+                        f"{_metric(benchmark.capm_alpha)}",
+                        f"    CSI 300 ETF proxy Beta: {_metric(benchmark.capm_beta)}",
+                        f"    CSI 300 ETF proxy R-squared: {_metric(benchmark.capm_r_squared)}",
+                        "    CAPM observation count (daily sessions): "
+                        f"{_metric(benchmark.capm_observation_count)}",
+                    ]
+                )
+            lines.extend(
+                [
+                    "    Monthly Up Capture ratio (benchmark up months): "
+                    f"{_metric(benchmark.up_capture_ratio)}",
+                    "    Up capture selected months: "
+                    f"{_metric(benchmark.up_capture_observation_count)}",
+                    "    Monthly Down Capture ratio (benchmark down months): "
+                    f"{_metric(benchmark.down_capture_ratio)}",
+                    "    Down capture selected months: "
+                    f"{_metric(benchmark.down_capture_observation_count)}",
+                ]
+            )
         if item.skipped:
             lines.append(f"  Skip summary: {_skip_summary(item.skipped)}")
 
@@ -373,6 +433,10 @@ def format_report(report: WalkForwardReport) -> str:
             f"  information ratio (252D): {_format_summary(comparison['information_ratio'])}"
         )
         lines.append(f"  outperformance rate: {_format_rate(comparison['outperformance_rate'])}")
+    for key, regime in report.benchmark_regime_evidence().items():
+        lines.append(f"{key} benchmark-regime evidence:")
+        for metric, stats in regime.items():
+            lines.append(f"  {metric}: {_format_summary(stats)}")
 
     lines.append("Parameter stability")
     stability = report.parameter_stability()

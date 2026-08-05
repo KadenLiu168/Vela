@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -7,6 +8,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from vela_core.models import BacktestBenchmark, BacktestRun, Base, WalkForwardRun
+from vela_core.walk_forward.evidence import PersistedDataContractError
 from vela_core.walk_forward.persistence import (
     WalkForwardPersistenceInput,
     WalkForwardWindowPersistenceInput,
@@ -24,6 +26,19 @@ def _summary() -> dict[str, object]:
         "window_count": 3,
         "valid_count": 3,
         "evidence_status": "sufficient",
+    }
+
+
+def _regime_summary(value: float | None) -> dict[str, object]:
+    return {
+        "mean": value,
+        "median": value,
+        "min": value,
+        "max": value,
+        "std": 0.0 if value is not None else None,
+        "window_count": 1,
+        "valid_count": 1 if value is not None else 0,
+        "evidence_status": "insufficient_evidence",
     }
 
 
@@ -49,18 +64,32 @@ def _evidence() -> dict[str, object]:
         "valid_count": 3,
         "evidence_status": "sufficient",
     }
-    comparison = {
+    csi_comparison = {
         "total_return_difference": _summary(),
         "annualized_return_difference": _summary(),
         "tracking_error": _summary(),
         "information_ratio": _summary(),
         "outperformance_rate": rate,
+        "capm_alpha": _regime_summary(0.1),
+        "capm_beta": _regime_summary(0.1),
+        "capm_r_squared": _regime_summary(0.1),
+        "up_capture_ratio": _regime_summary(0.1),
+        "down_capture_ratio": _regime_summary(0.1),
+    }
+    equal_weight_comparison = {
+        **csi_comparison,
+        "capm_alpha": _regime_summary(None),
+        "capm_beta": _regime_summary(None),
+        "capm_r_squared": _regime_summary(None),
     }
     return {
         "metrics": metrics,
         "positive_window_rate": rate,
         "generalization_gap": _summary(),
-        "benchmarks": {"equal_weight_monthly": comparison, "csi_300_buy_hold": comparison},
+        "benchmarks": {
+            "equal_weight_monthly": equal_weight_comparison,
+            "csi_300_buy_hold": csi_comparison,
+        },
         "parameter_stability": {},
     }
 
@@ -121,12 +150,26 @@ def _seed_valid_oos(
         config_version="wf-000000000000",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
-        parameters_json="{}",
+        parameters_json='{"benchmark_regime_metric_version":"benchmark_regime_metrics_v1"}',
         started_at=datetime(2026, 1, 1),
         status="success",
     )
     run.benchmarks.extend(
-        [BacktestBenchmark(benchmark_key=key, display_name=key) for key in benchmark_keys]
+        [
+            BacktestBenchmark(
+                benchmark_key=key,
+                display_name=key,
+                capm_alpha=Decimal("0.1") if key == "csi_300_buy_hold" else None,
+                capm_beta=Decimal("0.1") if key == "csi_300_buy_hold" else None,
+                capm_r_squared=Decimal("0.1") if key == "csi_300_buy_hold" else None,
+                capm_observation_count=2 if key == "csi_300_buy_hold" else None,
+                up_capture_ratio=Decimal("0.1"),
+                up_capture_observation_count=1,
+                down_capture_ratio=Decimal("0.1"),
+                down_capture_observation_count=1,
+            )
+            for key in benchmark_keys
+        ]
     )
     session.add(run)
     session.flush()
@@ -149,6 +192,22 @@ def test_persistence_helper_validates_and_flushes_parent_and_children_without_co
 
     with factory() as session:
         assert session.scalar(select(WalkForwardRun)) is None
+
+
+def test_persistence_helper_rejects_regime_evidence_that_mismatches_source_rows() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as session:
+        _seed_valid_oos(session)
+        value = _input()
+        evidence = deepcopy(value.evidence)
+        evidence["benchmarks"]["csi_300_buy_hold"]["capm_alpha"].update(
+            {"mean": 999.0, "median": 999.0, "min": 999.0, "max": 999.0, "std": 0.0}
+        )
+        corrupt = value.__class__(**{**value.__dict__, "evidence": evidence})
+
+        with pytest.raises(PersistedDataContractError, match="source OOS rows"):
+            persist_walk_forward_run(session, run=corrupt)
 
 
 @pytest.mark.parametrize(

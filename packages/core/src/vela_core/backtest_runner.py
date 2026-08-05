@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from vela_core.backtest_benchmarks import (
     BacktestBenchmarkResult,
     calculate_backtest_benchmark_active_risk_metrics,
+    calculate_backtest_benchmark_regime_metrics,
     calculate_backtest_benchmarks,
 )
 from vela_core.backtest_result_persistence import (
@@ -217,6 +218,15 @@ def run_backtest(
         calculate_backtest_benchmark_active_risk_metrics(points, benchmark)
         for benchmark in benchmarks
     ]
+    if calculate_benchmarks:
+        benchmarks = [
+            calculate_backtest_benchmark_regime_metrics(
+                points,
+                benchmark,
+                risk_free_rate=risk_free_rate,
+            )
+            for benchmark in benchmarks
+        ]
     status = (
         "success" if all(result.status == "success" for result in signal_results) else "partial"
     )
@@ -228,7 +238,12 @@ def run_backtest(
             config_version=config.version,
             start_date=start_date,
             end_date=end_date,
-            parameters_json=_parameters_json(config, start_date=start_date, end_date=end_date),
+            parameters_json=_parameters_json(
+                config,
+                start_date=start_date,
+                end_date=end_date,
+                calculate_benchmarks=calculate_benchmarks,
+            ),
             started_at=started_at,
             finished_at=datetime.now(UTC),
             status=status,
@@ -452,26 +467,40 @@ def _to_benchmark_inputs(
             longest_drawdown_recovery_date=benchmark.longest_drawdown_duration.recovery_date,
             tracking_error=benchmark.tracking_error,
             information_ratio=benchmark.information_ratio,
+            capm_alpha=benchmark.capm_alpha,
+            capm_beta=benchmark.capm_beta,
+            capm_r_squared=benchmark.capm_r_squared,
+            capm_observation_count=benchmark.capm_observation_count,
+            up_capture_ratio=benchmark.up_capture_ratio,
+            up_capture_observation_count=benchmark.up_capture_observation_count,
+            down_capture_ratio=benchmark.down_capture_ratio,
+            down_capture_observation_count=benchmark.down_capture_observation_count,
             equity_curve=[(point.trade_date, point.net_value) for point in benchmark.points],
         )
         for benchmark in benchmarks
     ]
 
 
-def _parameters_json(config: StrategyConfig, *, start_date: date, end_date: date) -> str:
-    return json.dumps(
-        {
-            "strategy_id": config.strategy_id,
-            "config_version": config.version,
-            "type": config.type,
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-            "risk_free_rate": config.performance.risk_free_rate,
-            "performance_metric_version": "performance_metrics_v1",
-            "equity_model_version": "drift_v1",
-        },
-        sort_keys=True,
-    )
+def _parameters_json(
+    config: StrategyConfig,
+    *,
+    start_date: date,
+    end_date: date,
+    calculate_benchmarks: bool = False,
+) -> str:
+    parameters = {
+        "strategy_id": config.strategy_id,
+        "config_version": config.version,
+        "type": config.type,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "risk_free_rate": config.performance.risk_free_rate,
+        "performance_metric_version": "performance_metrics_v1",
+        "equity_model_version": "drift_v1",
+    }
+    if calculate_benchmarks:
+        parameters["benchmark_regime_metric_version"] = "benchmark_regime_metrics_v1"
+    return json.dumps(parameters, sort_keys=True)
 
 
 def _to_result(
