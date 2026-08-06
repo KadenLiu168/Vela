@@ -306,6 +306,44 @@ class BacktestBenchmarkResponse(BacktestMetricsResponse):
     equity_curve: list[BacktestBenchmarkCurvePointResponse] = []
 
 
+class ReturnStabilityRollingPointResponse(ResponseModel):
+    window_start_date: date
+    trade_date: date
+    total_return: str
+    volatility: str
+    sharpe_ratio: str | None
+
+
+class ReturnStabilityCalendarBucketResponse(ResponseModel):
+    period: str
+    first_date: date
+    last_date: date
+    observation_count: int
+    total_return: str
+    is_partial: bool
+
+
+class ReturnStabilityEntityResponse(ResponseModel):
+    window_sessions: int
+    rolling_status: str
+    sharpe_status: str
+    source_point_count: int
+    effective_return_count: int
+    rolling: list[ReturnStabilityRollingPointResponse]
+    monthly: list[ReturnStabilityCalendarBucketResponse]
+    yearly: list[ReturnStabilityCalendarBucketResponse]
+
+
+class ReturnStabilityBenchmarkResponse(ReturnStabilityEntityResponse):
+    key: str
+    name: str
+
+
+class ReturnStabilityResponse(ResponseModel):
+    strategy: ReturnStabilityEntityResponse
+    benchmarks: list[ReturnStabilityBenchmarkResponse]
+
+
 class BacktestDetailResponse(ResponseModel):
     run: BacktestDetailRunResponse
     metrics: BacktestMetricsResponse
@@ -313,6 +351,7 @@ class BacktestDetailResponse(ResponseModel):
     signal_ids: list[int]
     signal_count: int
     benchmarks: list[BacktestBenchmarkResponse]
+    return_stability: ReturnStabilityResponse
 
 
 class BacktestSignalSummaryResponse(ResponseModel):

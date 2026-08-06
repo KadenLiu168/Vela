@@ -628,6 +628,37 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
         "signal_ids": [],
         "signal_count": 0,
         "benchmarks": [],
+        "return_stability": {
+            "strategy": {
+                "window_sessions": 63,
+                "rolling_status": "insufficient_observations",
+                "sharpe_status": "insufficient_observations",
+                "source_point_count": 2,
+                "effective_return_count": 1,
+                "rolling": [],
+                "monthly": [
+                    {
+                        "period": "2026-01",
+                        "first_date": "2026-01-03",
+                        "last_date": "2026-01-03",
+                        "observation_count": 1,
+                        "total_return": "0.019802",
+                        "is_partial": False,
+                    }
+                ],
+                "yearly": [
+                    {
+                        "period": "2026",
+                        "first_date": "2026-01-03",
+                        "last_date": "2026-01-03",
+                        "observation_count": 1,
+                        "total_return": "0.019802",
+                        "is_partial": True,
+                    }
+                ],
+            },
+            "benchmarks": [],
+        },
     }
 
 

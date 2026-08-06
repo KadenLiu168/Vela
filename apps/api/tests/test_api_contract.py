@@ -328,6 +328,59 @@ def test_openapi_requires_nullable_benchmark_regime_response_fields() -> None:
     assert expected_fields <= set(schemas["WalkForwardOosBenchmarkResponse"]["required"])
 
 
+def test_openapi_declares_return_stability_detail_schemas() -> None:
+    openapi = app.openapi()
+    schemas = openapi["components"]["schemas"]
+
+    detail_schema = schemas["BacktestDetailResponse"]
+    assert "return_stability" in detail_schema["required"]
+    assert detail_schema["properties"]["return_stability"]["$ref"].endswith(
+        "ReturnStabilityResponse"
+    )
+
+    stability = schemas["ReturnStabilityResponse"]
+    assert set(stability["properties"]) == {"strategy", "benchmarks"}
+    assert set(stability["required"]) == {"strategy", "benchmarks"}
+    assert stability["properties"]["strategy"]["$ref"].endswith("ReturnStabilityEntityResponse")
+
+    entity = schemas["ReturnStabilityEntityResponse"]
+    assert set(entity["required"]) == {
+        "window_sessions",
+        "rolling_status",
+        "sharpe_status",
+        "source_point_count",
+        "effective_return_count",
+        "rolling",
+        "monthly",
+        "yearly",
+    }
+    rolling_point = schemas["ReturnStabilityRollingPointResponse"]
+    assert set(rolling_point["required"]) == {
+        "window_start_date",
+        "trade_date",
+        "total_return",
+        "volatility",
+        "sharpe_ratio",
+    }
+    assert rolling_point["properties"]["sharpe_ratio"]["anyOf"][0]["type"] == "string"
+    assert rolling_point["properties"]["sharpe_ratio"]["anyOf"][1]["type"] == "null"
+    bucket = schemas["ReturnStabilityCalendarBucketResponse"]
+    assert set(bucket["required"]) == {
+        "period",
+        "first_date",
+        "last_date",
+        "observation_count",
+        "total_return",
+        "is_partial",
+    }
+    benchmark = schemas["ReturnStabilityBenchmarkResponse"]
+    assert {"key", "name"} <= set(benchmark["required"])
+
+    # List and run-creation payloads must not carry the stability object.
+    assert "return_stability" not in schemas["BacktestListItemResponse"]["properties"]
+    assert "return_stability" not in schemas["BacktestRunResponse"]["properties"]
+
+
 def _has_unconstrained_object(value: object) -> bool:
     if isinstance(value, dict):
         if value.get("additionalProperties") is True:

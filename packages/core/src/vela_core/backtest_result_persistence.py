@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -11,6 +12,12 @@ from vela_core.models import (
     BacktestBenchmarkEquityCurve,
     BacktestEquityCurve,
     BacktestRun,
+)
+from vela_core.return_stability import (
+    BacktestReturnStability,
+    BacktestReturnStabilityBenchmark,
+    ReturnStabilitySourcePoint,
+    derive_return_stability,
 )
 
 
@@ -185,3 +192,60 @@ def get_backtest_result(session: Session, *, run_id: int) -> BacktestRun | None:
         )
         .where(BacktestRun.id == run_id)
     )
+
+
+def derive_backtest_return_stability(run: BacktestRun) -> BacktestReturnStability:
+    """Derive rolling/calendar stability for a run's strategy and fixed benchmarks.
+
+    The run must already own its equity curves (e.g. via ``get_backtest_result``).
+    The historical risk-free rate is parsed explicitly from ``parameters_json``;
+    missing or malformed evidence yields ``None`` so legacy runs keep readable
+    rolling return/volatility with an explicit unavailable Sharpe status.
+    """
+    risk_free_rate = _parse_risk_free_rate(run.parameters_json)
+    strategy = derive_return_stability(
+        points=tuple(
+            ReturnStabilitySourcePoint(trade_date=point.trade_date, net_value=point.net_value)
+            for point in run.equity_curve
+        ),
+        requested_start_date=run.start_date,
+        requested_end_date=run.end_date,
+        risk_free_rate=risk_free_rate,
+    )
+    benchmarks = tuple(
+        BacktestReturnStabilityBenchmark(
+            key=benchmark.benchmark_key,
+            name=benchmark.display_name,
+            result=derive_return_stability(
+                points=tuple(
+                    ReturnStabilitySourcePoint(
+                        trade_date=point.trade_date, net_value=point.net_value
+                    )
+                    for point in benchmark.equity_curve
+                ),
+                requested_start_date=run.start_date,
+                requested_end_date=run.end_date,
+                risk_free_rate=risk_free_rate,
+            ),
+        )
+        for benchmark in run.benchmarks
+    )
+    return BacktestReturnStability(strategy=strategy, benchmarks=benchmarks)
+
+
+def _parse_risk_free_rate(parameters_json: str) -> Decimal | None:
+    try:
+        parameters = json.loads(parameters_json)
+    except (ValueError, TypeError):
+        return None
+    # Persisted parameters may be null/array/scalar on corrupt evidence; treat
+    # anything that is not a JSON object as missing risk-free-rate evidence.
+    if not isinstance(parameters, dict):
+        return None
+    value = parameters.get("risk_free_rate")
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (ValueError, TypeError, ArithmeticError):
+        return None

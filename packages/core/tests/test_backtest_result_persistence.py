@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -10,9 +10,11 @@ from vela_core import (
     BacktestEquityCurveInput,
     BacktestResultPersistenceResult,
     BacktestResultRunInput,
+    derive_backtest_return_stability,
     get_backtest_result,
     persist_backtest_result,
 )
+from vela_core.errors import PersistedDataContractError
 from vela_core.models import (
     BacktestBenchmark,
     BacktestEquityCurve,
@@ -366,6 +368,149 @@ def test_get_backtest_result_returns_none_for_missing_run() -> None:
     assert run is None
 
 
+def test_derive_backtest_return_stability_uses_owned_curves_and_parses_risk_free_rate() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(parameters_json='{"risk_free_rate": 0.02}'),
+            equity_curve=[
+                _curve_input(date(2026, 1, 2), net_value=Decimal("1.000000")),
+                _curve_input(date(2026, 1, 3), net_value=Decimal("1.010000")),
+                _curve_input(date(2026, 1, 6), net_value=Decimal("1.020100")),
+            ],
+            benchmarks=[
+                _benchmark(
+                    "equal_weight_monthly",
+                    [
+                        (date(2026, 1, 2), Decimal("1.000000")),
+                        (date(2026, 1, 3), Decimal("1.005000")),
+                        (date(2026, 1, 6), Decimal("1.010025")),
+                    ],
+                ),
+                _benchmark(
+                    "csi_300_buy_hold",
+                    [
+                        (date(2026, 1, 2), Decimal("1.000000")),
+                        (date(2026, 1, 3), Decimal("1.000500")),
+                        (date(2026, 1, 6), Decimal("1.001000")),
+                    ],
+                ),
+            ],
+        )
+        session.commit()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+        assert run is not None
+        stability = derive_backtest_return_stability(run)
+
+    assert stability.strategy.window_sessions == 63
+    assert stability.strategy.rolling_status == "insufficient_observations"
+    assert stability.strategy.sharpe_status == "insufficient_observations"
+    assert stability.strategy.source_point_count == 3
+    assert stability.strategy.effective_return_count == 2
+    assert [bucket.period for bucket in stability.strategy.monthly] == ["2026-01"]
+    assert [benchmark.key for benchmark in stability.benchmarks] == [
+        "equal_weight_monthly",
+        "csi_300_buy_hold",
+    ]
+    assert [benchmark.result.source_point_count for benchmark in stability.benchmarks] == [
+        3,
+        3,
+    ]
+    # Strategy and each benchmark derive independently from their own curves.
+    assert stability.strategy.monthly[0].total_return == Decimal("0.020100")
+    assert stability.benchmarks[0].result.monthly[0].total_return == Decimal("0.010025")
+    assert stability.benchmarks[1].result.monthly[0].total_return == Decimal("0.001000")
+
+
+def test_derive_backtest_return_stability_missing_rf_yields_unavailable_sharpe() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(parameters_json='{"top_n": 2}'),
+            equity_curve=[
+                _curve_input(
+                    date(2026, 1, 2) + timedelta(days=index),
+                    net_value=Decimal("1.000000") + Decimal(index) / Decimal(100),
+                )
+                for index in range(65)
+            ],
+        )
+        session.commit()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+        assert run is not None
+        stability = derive_backtest_return_stability(run)
+
+    # A sufficient curve (>= 64 points) without parseable risk-free evidence
+    # keeps rolling return/volatility available but marks Sharpe unavailable.
+    assert stability.strategy.rolling_status == "available"
+    assert stability.strategy.sharpe_status == "unavailable_missing_risk_free_rate"
+    assert len(stability.strategy.rolling) == 2
+    assert all(point.sharpe_ratio is None for point in stability.strategy.rolling)
+    assert all(point.total_return is not None for point in stability.strategy.rolling)
+    assert stability.benchmarks == ()
+
+
+def test_derive_backtest_return_stability_non_object_parameters_yields_unavailable_sharpe() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(parameters_json="null"),
+            equity_curve=[
+                _curve_input(
+                    date(2026, 1, 2) + timedelta(days=index),
+                    net_value=Decimal("1.000000") + Decimal(index) / Decimal(100),
+                )
+                for index in range(65)
+            ],
+        )
+        session.commit()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+        assert run is not None
+        stability = derive_backtest_return_stability(run)
+
+    # A parseable but non-object parameters payload is treated as missing
+    # risk-free evidence rather than raising AttributeError. With a sufficient
+    # curve this surfaces as the explicit unavailable Sharpe status.
+    assert stability.strategy.rolling_status == "available"
+    assert stability.strategy.sharpe_status == "unavailable_missing_risk_free_rate"
+    assert all(point.sharpe_ratio is None for point in stability.strategy.rolling)
+
+
+def test_derive_backtest_return_stability_rejects_malformed_curve_without_mutation() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(),
+            equity_curve=[
+                _curve_input(date(2026, 1, 2), net_value=Decimal("1.000000")),
+                _curve_input(date(2026, 1, 3), net_value=Decimal("0.000000")),
+            ],
+        )
+        session.commit()
+        run_id = persisted.backtest_run.id
+
+        run = get_backtest_result(session, run_id=run_id)
+        assert run is not None
+        with pytest.raises(PersistedDataContractError):
+            derive_backtest_return_stability(run)
+        # The persisted row is untouched after the failed derivation.
+        session.expire_all()
+        reloaded = get_backtest_result(session, run_id=run_id)
+        assert reloaded is not None
+        assert len(reloaded.equity_curve) == 2
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -382,13 +527,14 @@ def _run_input(
     longest_drawdown_peak_date: date | None = None,
     longest_drawdown_trough_date: date | None = None,
     longest_drawdown_recovery_date: date | None = None,
+    parameters_json: str = '{"top_n": 2}',
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
         strategy_id="dual_momentum",
         config_version="v1",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 1, 31),
-        parameters_json='{"top_n": 2}',
+        parameters_json=parameters_json,
         started_at=started_at,
         finished_at=datetime(2026, 2, 1, 9, 1, tzinfo=UTC),
         status="success",

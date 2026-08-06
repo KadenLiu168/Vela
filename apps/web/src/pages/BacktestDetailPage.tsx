@@ -19,6 +19,7 @@ import {
   formatTimestamp
 } from "../utils/formatters";
 import { formatEquityCurvePoint, formatParameterSummary } from "./backtestFormatters";
+import { ReturnStabilitySection } from "./ReturnStabilitySection";
 import {
   computeEquityCurveGeometry,
   computeMultiEquityCurveGeometry,
@@ -306,6 +307,7 @@ function renderBacktestDetail(
           benchmarks={backtestState.data.benchmarks ?? []}
         />
       </section>
+      <ReturnStabilitySection stability={backtestState.data.return_stability} />
       <section className="holdings-section" aria-labelledby="backtest-parameters-heading">
         <h3 id="backtest-parameters-heading">Parameters</h3>
         <pre className="parameter-summary">{formatParameterSummary(run.parameters_json)}</pre>

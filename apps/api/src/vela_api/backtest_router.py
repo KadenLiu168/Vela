@@ -5,8 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from vela_core import (
+    BacktestReturnStability,
     BacktestRunResult,
     BacktestSignalSummaryEntry,
+    CalendarReturnBucket,
+    ReturnStabilityResult,
+    derive_backtest_return_stability,
     get_backtest_result,
     list_backtest_signals,
     run_backtest,
@@ -75,6 +79,7 @@ def backtest_detail(
         "signal_ids": [signal.id for signal in run.signals],
         "signal_count": len(run.signals),
         "benchmarks": _benchmark_responses(run),
+        "return_stability": _return_stability_response(derive_backtest_return_stability(run)),
     }
 
 
@@ -276,6 +281,55 @@ def _benchmark_response(
 
 def _difference(left: Decimal | None, right: Decimal | None) -> str | None:
     return _decimal(None if left is None or right is None else left - right)
+
+
+def _return_stability_response(result: BacktestReturnStability) -> dict[str, object]:
+    return {
+        "strategy": _stability_entity_response(result.strategy),
+        "benchmarks": [
+            {
+                **_stability_entity_response(benchmark.result),
+                "key": benchmark.key,
+                "name": benchmark.name,
+            }
+            for benchmark in result.benchmarks
+        ],
+    }
+
+
+def _stability_entity_response(result: ReturnStabilityResult) -> dict[str, object]:
+    return {
+        "window_sessions": result.window_sessions,
+        "rolling_status": result.rolling_status,
+        "sharpe_status": result.sharpe_status,
+        "source_point_count": result.source_point_count,
+        "effective_return_count": result.effective_return_count,
+        "rolling": [
+            {
+                "window_start_date": point.window_start_date.isoformat(),
+                "trade_date": point.trade_date.isoformat(),
+                "total_return": _decimal(point.total_return),
+                "volatility": _decimal(point.volatility),
+                "sharpe_ratio": _decimal(point.sharpe_ratio),
+            }
+            for point in result.rolling
+        ],
+        "monthly": [_calendar_bucket_response(bucket) for bucket in result.monthly],
+        "yearly": [_calendar_bucket_response(bucket) for bucket in result.yearly],
+    }
+
+
+def _calendar_bucket_response(
+    bucket: CalendarReturnBucket,
+) -> dict[str, object]:
+    return {
+        "period": bucket.period,
+        "first_date": bucket.first_date.isoformat(),
+        "last_date": bucket.last_date.isoformat(),
+        "observation_count": bucket.observation_count,
+        "total_return": _decimal(bucket.total_return),
+        "is_partial": bucket.is_partial,
+    }
 
 
 def _signal_summary_response(entry: BacktestSignalSummaryEntry) -> dict[str, object]:

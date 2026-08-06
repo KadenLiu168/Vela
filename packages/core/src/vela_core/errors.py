@@ -2,6 +2,10 @@ class VelaError(ValueError):
     """Base class for expected domain failures."""
 
 
+class PersistedDataContractError(VelaError):
+    """Persisted data does not match its versioned contract."""
+
+
 class MissingMarketDataError(VelaError):
     """Raised when a caller-facing operation has no local market prices."""
 

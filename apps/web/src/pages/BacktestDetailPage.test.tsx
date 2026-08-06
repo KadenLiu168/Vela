@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { ApiClientError, getBacktestDetail, listBacktestSignals } from "../api/client";
+import {
+  ApiClientError,
+  type BacktestDetailResponse,
+  type ReturnStability,
+  getBacktestDetail,
+  listBacktestSignals
+} from "../api/client";
 import { BacktestDetailPage } from "./BacktestDetailPage";
 
 vi.mock("../api/client", async () => {
@@ -11,7 +17,21 @@ vi.mock("../api/client", async () => {
 const detailMock = vi.mocked(getBacktestDetail);
 const signalsMock = vi.mocked(listBacktestSignals);
 
-const detail = (signalCount: number, runId = 7) => ({
+const emptyStability = (): ReturnStability => ({
+  strategy: {
+    window_sessions: 63,
+    rolling_status: "insufficient_observations",
+    sharpe_status: "insufficient_observations",
+    source_point_count: 0,
+    effective_return_count: 0,
+    rolling: [],
+    monthly: [],
+    yearly: []
+  },
+  benchmarks: []
+});
+
+const detail = (signalCount: number, runId = 7): BacktestDetailResponse => ({
   benchmarks: [],
   equity_curve: [],
   metrics: {
@@ -27,6 +47,7 @@ const detail = (signalCount: number, runId = 7) => ({
     total_return: null,
     volatility: null
   },
+  return_stability: emptyStability(),
   run: { config_version: "v1", end_date: "2026-01-02", error_message: null, finished_at: null, parameters_json: null, run_id: runId, start_date: "2026-01-01", started_at: "2026-01-01T00:00:00", status: "success", strategy_id: "s" },
   signal_count: signalCount,
   signal_ids: []
@@ -441,4 +462,62 @@ it("does not revive cached state during a rapid A to B to A route change", async
 
   expect(screen.getByText("Loading backtest detail.")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Signal #7" })).not.toBeInTheDocument();
+});
+
+const stabilityDetail = (overrides: Partial<ReturnStability> = {}): BacktestDetailResponse => ({
+  ...detail(0),
+  return_stability: {
+    strategy: {
+      window_sessions: 63,
+      rolling_status: "available",
+      sharpe_status: "available",
+      source_point_count: 66,
+      effective_return_count: 65,
+      rolling: [
+        { window_start_date: "2026-01-01", trade_date: "2026-03-31", total_return: "0.123456", volatility: "0.182345", sharpe_ratio: "0.871234" },
+        { window_start_date: "2026-01-02", trade_date: "2026-04-01", total_return: "0.130000", volatility: "0.190000", sharpe_ratio: "0.900000" }
+      ],
+      monthly: [
+        { period: "2026-01", first_date: "2026-01-02", last_date: "2026-01-30", observation_count: 21, total_return: "0.030000", is_partial: false },
+        { period: "2026-02", first_date: "2026-02-02", last_date: "2026-02-27", observation_count: 20, total_return: "-0.010000", is_partial: true }
+      ],
+      yearly: [
+        { period: "2026", first_date: "2026-01-02", last_date: "2026-04-01", observation_count: 65, total_return: "0.130000", is_partial: true }
+      ]
+    },
+    benchmarks: [],
+    ...overrides
+  }
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("renders stability selectors, charts, exact values, and partial markers without page overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue(stabilityDetail());
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByText("Backtest #7");
+  expect(screen.getByRole("heading", { name: "Return stability" })).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "Rolling metric selector" })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Rolling Return legend" })).toBeInTheDocument();
+  expect(screen.getAllByText("0.123456").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("partial").length).toBeGreaterThan(0);
+  expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Signals (0)" })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+it("keeps existing Overview tabs and actions when stability is present", async () => {
+  detailMock.mockResolvedValue(stabilityDetail({ strategy: { ...stabilityDetail().return_stability.strategy, rolling_status: "insufficient_observations", rolling: [] } }));
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByText("Backtest #7");
+  expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Signals (0)" })).toBeInTheDocument();
+  expect(screen.getByText(/Fewer than 64 persisted points/)).toBeInTheDocument();
 });

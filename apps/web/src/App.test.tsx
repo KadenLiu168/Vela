@@ -1774,7 +1774,7 @@ it("loads backtest detail data through the shared client", async () => {
   expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
   expect(equityCurve.getByText("1.0300")).toBeInTheDocument();
   expect(screen.getByText(/"top_n": 2/)).toBeInTheDocument();
-  expect(screen.queryByText(/drawdown curve|monthly returns|return distribution/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/drawdown curve|return distribution/i)).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledWith("/api/backtests/8", undefined);
 });
 
@@ -2541,7 +2541,38 @@ function createBacktestDetailResponse() {
       }
     ],
     signal_ids: [7, 9],
-    signal_count: 2
+    signal_count: 2,
+    return_stability: {
+      strategy: {
+        window_sessions: 63,
+        rolling_status: "insufficient_observations",
+        sharpe_status: "insufficient_observations",
+        source_point_count: 2,
+        effective_return_count: 1,
+        rolling: [],
+        monthly: [
+          {
+            period: "2026-01",
+            first_date: "2026-01-05",
+            last_date: "2026-01-05",
+            observation_count: 1,
+            total_return: "0.019802",
+            is_partial: false
+          }
+        ],
+        yearly: [
+          {
+            period: "2026",
+            first_date: "2026-01-05",
+            last_date: "2026-01-05",
+            observation_count: 1,
+            total_return: "0.019802",
+            is_partial: true
+          }
+        ]
+      },
+      benchmarks: []
+    }
   };
 }
 

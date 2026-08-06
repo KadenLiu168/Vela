@@ -5,16 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from vela_core.errors import PersistedDataContractError
+
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
 MINIMUM_EVIDENCE_COUNT = 3
 EVIDENCE_VERSION = "wf_evidence_v1"
 EVIDENCE_VERSION_V2 = "wf_evidence_v2"
 SUPPORTED_EVIDENCE_VERSIONS = (EVIDENCE_VERSION, EVIDENCE_VERSION_V2)
 BenchmarkKey = Literal["equal_weight_monthly", "csi_300_buy_hold"]
-
-
-class PersistedDataContractError(ValueError):
-    """Persisted Walk-forward data does not match its versioned contract."""
 
 
 class WalkForwardMetricSummaryModel(BaseModel):

@@ -5,6 +5,7 @@ from vela_core.backtest_result_persistence import (
     BacktestEquityCurveInput,
     BacktestResultPersistenceResult,
     BacktestResultRunInput,
+    derive_backtest_return_stability,
     get_backtest_result,
     persist_backtest_result,
 )
@@ -93,6 +94,15 @@ from vela_core.rebalance_dates import (
     generate_rebalance_dates,
     generate_weekly_rebalance_dates,
 )
+from vela_core.return_stability import (
+    BacktestReturnStability,
+    BacktestReturnStabilityBenchmark,
+    CalendarReturnBucket,
+    ReturnStabilityResult,
+    ReturnStabilitySourcePoint,
+    RollingStabilityPoint,
+    derive_return_stability,
+)
 from vela_core.strategy_equity_curve import (
     ActiveRiskMetrics,
     StrategyAnnualizedReturn,
@@ -160,6 +170,8 @@ __all__ = [
     "BacktestResultPersistenceResult",
     "BacktestResultRunInput",
     "BacktestReportNotFoundError",
+    "BacktestReturnStability",
+    "BacktestReturnStabilityBenchmark",
     "BacktestRunResult",
     "BacktestSignalSummaryEntry",
     "BenchmarkRegimeMetrics",
@@ -194,6 +206,10 @@ __all__ = [
     "PortfolioHoldingSnapshot",
     "PriceTrendRange",
     "RebalanceFrequency",
+    "ReturnStabilityResult",
+    "ReturnStabilitySourcePoint",
+    "RollingStabilityPoint",
+    "CalendarReturnBucket",
     "LatestStrategySignalReportNotFoundError",
     "StrategyEquityCurvePoint",
     "StrategyPortfolioPosition",
@@ -240,6 +256,8 @@ __all__ = [
     "detect_duplicate_trade_dates",
     "detect_etf_trading_day_gaps",
     "detect_systematic_trading_day_gaps",
+    "derive_backtest_return_stability",
+    "derive_return_stability",
     "fetch_full_market_prices",
     "fetch_incremental_market_prices",
     "get_backtest_result",

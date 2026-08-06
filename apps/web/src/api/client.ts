@@ -173,6 +173,47 @@ export type BacktestRunResponse = {
   benchmarks: BacktestBenchmark[];
 };
 
+export type ReturnStabilityRollingPoint = {
+  window_start_date: string;
+  trade_date: string;
+  total_return: string;
+  volatility: string;
+  sharpe_ratio: string | null;
+};
+
+export type ReturnStabilityCalendarBucket = {
+  period: string;
+  first_date: string;
+  last_date: string;
+  observation_count: number;
+  total_return: string;
+  is_partial: boolean;
+};
+
+export type ReturnStabilityEntity = {
+  window_sessions: number;
+  rolling_status: "available" | "insufficient_observations";
+  sharpe_status:
+    | "available"
+    | "insufficient_observations"
+    | "unavailable_missing_risk_free_rate";
+  source_point_count: number;
+  effective_return_count: number;
+  rolling: ReturnStabilityRollingPoint[];
+  monthly: ReturnStabilityCalendarBucket[];
+  yearly: ReturnStabilityCalendarBucket[];
+};
+
+export type ReturnStabilityBenchmark = ReturnStabilityEntity & {
+  key: string;
+  name: string;
+};
+
+export type ReturnStability = {
+  strategy: ReturnStabilityEntity;
+  benchmarks: ReturnStabilityBenchmark[];
+};
+
 export type BacktestDetailResponse = {
   run: BacktestDetailRun;
   metrics: BacktestDetailMetrics;
@@ -180,6 +221,7 @@ export type BacktestDetailResponse = {
   signal_ids: number[];
   signal_count: number;
   benchmarks: BacktestBenchmark[];
+  return_stability: ReturnStability;
 };
 
 export type BacktestBenchmark = {

@@ -465,3 +465,39 @@ it.each([
   expect((scrollRegion as HTMLElement).querySelector(".holdings-table")).not.toBeNull();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
 });
+
+it("never renders rolling or calendar stability metrics on the Walk-forward parent", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByText("Walk-forward #42");
+  expect(screen.queryByText("Return stability")).not.toBeInTheDocument();
+  expect(screen.queryByText("Rolling Return")).not.toBeInTheDocument();
+  expect(screen.queryByText("Rolling Volatility")).not.toBeInTheDocument();
+  expect(screen.queryByText("Rolling Sharpe")).not.toBeInTheDocument();
+  expect(screen.queryByText("Monthly and yearly returns")).not.toBeInTheDocument();
+  expect(screen.queryByText("63-session trailing window")).not.toBeInTheDocument();
+  // Stitched reset semantics remain, and independent OOS links stay navigable.
+  expect(screen.getByText(/No seam return, holdings carry/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
+});
+
+it("keeps OOS detail links navigable when the stitched curve is unavailable", async () => {
+  detailMock.mockResolvedValue({
+    ...detail,
+    stitched_oos: {
+      status: "unavailable_non_contiguous_windows",
+      initial_net_value: null,
+      ending_net_value: null,
+      total_return: null,
+      points: []
+    }
+  });
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByText(/Gap or overlap windows/);
+  expect(screen.queryByText("Return stability")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
+});
