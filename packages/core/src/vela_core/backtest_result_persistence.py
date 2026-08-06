@@ -44,6 +44,12 @@ class BacktestResultRunInput:
     longest_drawdown_peak_date: date | None = None
     longest_drawdown_trough_date: date | None = None
     longest_drawdown_recovery_date: date | None = None
+    historical_var_95: Decimal | None = None
+    historical_cvar_95: Decimal | None = None
+    return_skewness: Decimal | None = None
+    return_excess_kurtosis: Decimal | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +78,12 @@ class BacktestBenchmarkInput:
     longest_drawdown_peak_date: date | None = None
     longest_drawdown_trough_date: date | None = None
     longest_drawdown_recovery_date: date | None = None
+    historical_var_95: Decimal | None = None
+    historical_cvar_95: Decimal | None = None
+    return_skewness: Decimal | None = None
+    return_excess_kurtosis: Decimal | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
     tracking_error: Decimal | None = None
     information_ratio: Decimal | None = None
     capm_alpha: Decimal | None = None
@@ -122,6 +134,12 @@ def persist_backtest_result(
         longest_drawdown_peak_date=run.longest_drawdown_peak_date,
         longest_drawdown_trough_date=run.longest_drawdown_trough_date,
         longest_drawdown_recovery_date=run.longest_drawdown_recovery_date,
+        historical_var_95=run.historical_var_95,
+        historical_cvar_95=run.historical_cvar_95,
+        return_skewness=run.return_skewness,
+        return_excess_kurtosis=run.return_excess_kurtosis,
+        distribution_observation_count=run.distribution_observation_count,
+        tail_observation_count=run.tail_observation_count,
     )
     session.add(backtest_run)
     session.flush()
@@ -165,6 +183,12 @@ def persist_backtest_result(
             up_capture_observation_count=input_row.up_capture_observation_count,
             down_capture_ratio=input_row.down_capture_ratio,
             down_capture_observation_count=input_row.down_capture_observation_count,
+            historical_var_95=input_row.historical_var_95,
+            historical_cvar_95=input_row.historical_cvar_95,
+            return_skewness=input_row.return_skewness,
+            return_excess_kurtosis=input_row.return_excess_kurtosis,
+            distribution_observation_count=input_row.distribution_observation_count,
+            tail_observation_count=input_row.tail_observation_count,
         )
         session.add(benchmark)
         session.flush()

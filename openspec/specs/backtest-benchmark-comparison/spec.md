@@ -2,9 +2,7 @@
 
 ## Purpose
 Defines the fixed benchmark calculations and comparison semantics for benchmark-enabled backtests.
-
 ## Requirements
-
 ### Requirement: Fixed benchmark definitions
 The system SHALL calculate exactly two fixed reference benchmarks for each benchmark-enabled backtest: `equal_weight_monthly` named "Equal-weight monthly rebalanced portfolio" and `csi_300_buy_hold` named "CSI 300 buy-and-hold". The former SHALL use the run's dated active ETF universe with equal target weights; the latter SHALL use active `SSE:510300` as its investable CSI 300 proxy.
 
@@ -56,6 +54,7 @@ The system SHALL calculate total return, calendar-time annualized return, maximu
 #### Scenario: Relative return values are exposed
 - **WHEN** a benchmark-enabled backtest completes
 - **THEN** the result contains one total-return difference and one annualized-return difference for each fixed benchmark
+
 ### Requirement: Benchmark downside and active-risk comparison
 Each fixed benchmark SHALL calculate Sortino, Calmar and longest drawdown duration from its own curve using the same definitions and risk-free-rate input as the strategy. Each benchmark result SHALL additionally retain strategy-relative Tracking Error and Information Ratio calculated from the strategy and that benchmark's exactly aligned daily returns.
 
@@ -96,3 +95,16 @@ Backtest Detail stability derivation SHALL process each persisted fixed benchmar
 - **WHEN** a legacy backtest has no benchmark children
 - **THEN** strategy stability remains available when its curve is valid
 - **AND** the benchmark stability collection is empty
+
+### Requirement: Fixed benchmarks retain absolute distribution-risk metrics
+Each newly calculated fixed benchmark SHALL retain its own Historical VaR 95%, Historical CVaR 95%, Skewness, Excess Kurtosis, effective observation count, and tail observation count using exactly the same effective-return, threshold, rank, sign, correction, precision, and version semantics as the strategy.
+
+#### Scenario: Identical strategy and benchmark returns produce identical metrics
+- **WHEN** the strategy and one fixed benchmark have identical effective return sequences
+- **THEN** their distribution metrics and counts are identical
+- **AND** remain persisted on their separate curve owners
+
+#### Scenario: Existing relative metrics remain unchanged
+- **WHEN** distribution-risk metrics are calculated for fixed benchmarks
+- **THEN** return, drawdown, Volatility, Sharpe, Sortino, Calmar, duration, TE/IR, CAPM/capture, cost, curve, and identity semantics remain unchanged
+

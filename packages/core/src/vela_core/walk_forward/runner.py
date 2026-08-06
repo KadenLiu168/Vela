@@ -201,6 +201,12 @@ class WalkForwardRunner:
             oos_longest_drawdown_duration_sessions=getattr(
                 oos, "longest_drawdown_duration_sessions", None
             ),
+            historical_var_95=_number(getattr(oos, "historical_var_95", None)),
+            historical_cvar_95=_number(getattr(oos, "historical_cvar_95", None)),
+            return_skewness=_number(getattr(oos, "return_skewness", None)),
+            return_excess_kurtosis=_number(getattr(oos, "return_excess_kurtosis", None)),
+            distribution_observation_count=getattr(oos, "distribution_observation_count", None),
+            tail_observation_count=getattr(oos, "tail_observation_count", None),
             benchmarks=tuple(
                 WalkForwardBenchmarkResult(
                     key=item.key,
@@ -230,6 +236,14 @@ class WalkForwardRunner:
                     down_capture_observation_count=getattr(
                         item, "down_capture_observation_count", None
                     ),
+                    historical_var_95=_number(getattr(item, "historical_var_95", None)),
+                    historical_cvar_95=_number(getattr(item, "historical_cvar_95", None)),
+                    return_skewness=_number(getattr(item, "return_skewness", None)),
+                    return_excess_kurtosis=_number(getattr(item, "return_excess_kurtosis", None)),
+                    distribution_observation_count=getattr(
+                        item, "distribution_observation_count", None
+                    ),
+                    tail_observation_count=getattr(item, "tail_observation_count", None),
                 )
                 for item in getattr(oos, "benchmarks", ())
             ),

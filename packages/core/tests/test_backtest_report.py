@@ -246,6 +246,109 @@ def test_export_backtest_report_keeps_legacy_regime_metrics_null() -> None:
     assert "- Down capture selected months: n/a" in report
 
 
+def test_export_backtest_report_formats_tail_distribution_metrics() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(
+                historical_var_95=Decimal("0.020000"),
+                historical_cvar_95=Decimal("0.060000"),
+                return_skewness=Decimal("0.123456"),
+                return_excess_kurtosis=Decimal("0.654321"),
+                distribution_observation_count=100,
+                tail_observation_count=5,
+            ),
+            equity_curve=[],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="equal_weight_monthly",
+                    name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                    historical_var_95=Decimal("0.010000"),
+                    historical_cvar_95=Decimal("0.030000"),
+                    return_skewness=Decimal("-0.500000"),
+                    return_excess_kurtosis=Decimal("2.000000"),
+                    distribution_observation_count=100,
+                    tail_observation_count=5,
+                ),
+                BacktestBenchmarkInput(
+                    key="csi_300_buy_hold",
+                    name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                    historical_var_95=None,
+                    historical_cvar_95=None,
+                    return_skewness=None,
+                    return_excess_kurtosis=None,
+                    distribution_observation_count=99,
+                    tail_observation_count=5,
+                ),
+            ],
+        )
+        session.commit()
+
+        report = export_backtest_report(session, run_id=persisted.backtest_run.id)
+
+    assert "- Historical VaR 95% (1D loss): 0.020000" in report
+    assert "- Historical CVaR 95% (1D loss): 0.060000" in report
+    assert "- Skewness: 0.123456" in report
+    assert "- Excess kurtosis (normal = 0): 0.654321" in report
+    assert "- Distribution observation count: 100" in report
+    assert "- Tail observation count: 5" in report
+    assert "- Distribution evidence: sufficient" in report
+    assert report.count("- Historical VaR 95% (1D loss): 0.010000") == 1
+    assert report.count("- Skewness: -0.500000") == 1
+    assert (
+        "- Distribution evidence: insufficient_evidence (99 effective observations; "
+        "tail count 5 is the fixed-rank tail cardinality; publication requires at "
+        "least 100)" in report
+    )
+    assert report.count("- Historical VaR 95% (1D loss): n/a") == 1
+
+
+def test_export_backtest_report_keeps_legacy_tail_evidence_unavailable() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(expanded_metrics=False),
+            equity_curve=[],
+            benchmarks=[
+                BacktestBenchmarkInput(
+                    key="csi_300_buy_hold",
+                    name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.150000"),
+                    max_drawdown=Decimal("-0.040000"),
+                    sharpe_ratio=Decimal("0.900000"),
+                    volatility=Decimal("0.120000"),
+                    equity_curve=[],
+                )
+            ],
+        )
+        session.commit()
+
+        report = export_backtest_report(session, run_id=persisted.backtest_run.id)
+
+    assert "- Historical VaR 95% (1D loss): n/a" in report
+    assert "- Historical CVaR 95% (1D loss): n/a" in report
+    assert "- Skewness: n/a" in report
+    assert "- Excess kurtosis (normal = 0): n/a" in report
+    assert "- Distribution evidence: unavailable (legacy history)" in report
+
+
 def _create_session_factory() -> sessionmaker[Session]:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -257,6 +360,12 @@ def _run_input(
     status: str = "success",
     error_message: str | None = None,
     expanded_metrics: bool = True,
+    historical_var_95: Decimal | None = None,
+    historical_cvar_95: Decimal | None = None,
+    return_skewness: Decimal | None = None,
+    return_excess_kurtosis: Decimal | None = None,
+    distribution_observation_count: int | None = None,
+    tail_observation_count: int | None = None,
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
         strategy_id="dual_momentum",
@@ -279,6 +388,12 @@ def _run_input(
         longest_drawdown_peak_date=date(2026, 1, 10) if expanded_metrics else None,
         longest_drawdown_trough_date=date(2026, 1, 20) if expanded_metrics else None,
         longest_drawdown_recovery_date=None,
+        historical_var_95=historical_var_95,
+        historical_cvar_95=historical_cvar_95,
+        return_skewness=return_skewness,
+        return_excess_kurtosis=return_excess_kurtosis,
+        distribution_observation_count=distribution_observation_count,
+        tail_observation_count=tail_observation_count,
     )
 
 

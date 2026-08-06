@@ -1882,7 +1882,7 @@ it("renders n/a for nullable backtest metric cards", async () => {
     "section"
   );
   expect(metricsSection).not.toBeNull();
-  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(11);
+  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(17);
   expect(screen.getByText("Backtest #8")).toBeInTheDocument();
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });

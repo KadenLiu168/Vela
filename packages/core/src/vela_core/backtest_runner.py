@@ -54,6 +54,10 @@ from vela_core.strategy_signal_persistence import (
     link_signals_to_backtest_run,
     persist_strategy_signal,
 )
+from vela_core.tail_distribution_risk_metrics import (
+    TAIL_DISTRIBUTION_METRIC_VERSION,
+    calculate_tail_distribution_risk_metrics,
+)
 
 _SIX_PLACES = Decimal("0.000001")
 logger = logging.getLogger(__name__)
@@ -79,6 +83,12 @@ class BacktestRunResult:
     longest_drawdown_peak_date: date | None = None
     longest_drawdown_trough_date: date | None = None
     longest_drawdown_recovery_date: date | None = None
+    historical_var_95: Decimal | None = None
+    historical_cvar_95: Decimal | None = None
+    return_skewness: Decimal | None = None
+    return_excess_kurtosis: Decimal | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
 
 
 def run_backtest(
@@ -214,6 +224,7 @@ def run_backtest(
         maximum_drawdown.max_drawdown,
     )
     longest_drawdown_duration = calculate_strategy_longest_drawdown_duration(points)
+    tail_metrics = calculate_tail_distribution_risk_metrics(points)
     benchmarks = [
         calculate_backtest_benchmark_active_risk_metrics(points, benchmark)
         for benchmark in benchmarks
@@ -261,6 +272,12 @@ def run_backtest(
             longest_drawdown_trough_date=longest_drawdown_duration.trough_date,
             longest_drawdown_recovery_date=longest_drawdown_duration.recovery_date,
             data_snapshot_json=data_snapshot_json,
+            historical_var_95=tail_metrics.historical_var_95,
+            historical_cvar_95=tail_metrics.historical_cvar_95,
+            return_skewness=tail_metrics.return_skewness,
+            return_excess_kurtosis=tail_metrics.return_excess_kurtosis,
+            distribution_observation_count=tail_metrics.observation_count,
+            tail_observation_count=tail_metrics.tail_observation_count,
         ),
         equity_curve=_to_curve_inputs(points),
         benchmarks=_to_benchmark_inputs(benchmarks),
@@ -286,6 +303,12 @@ def run_backtest(
         calmar_ratio=calmar_ratio,
         longest_drawdown_duration=longest_drawdown_duration,
         benchmarks=benchmarks,
+        historical_var_95=tail_metrics.historical_var_95,
+        historical_cvar_95=tail_metrics.historical_cvar_95,
+        return_skewness=tail_metrics.return_skewness,
+        return_excess_kurtosis=tail_metrics.return_excess_kurtosis,
+        distribution_observation_count=tail_metrics.observation_count,
+        tail_observation_count=tail_metrics.tail_observation_count,
     )
     logger.info(
         "backtest.completed strategy_id=%s run_id=%s trading_day_count=%s signal_count=%s "
@@ -475,6 +498,12 @@ def _to_benchmark_inputs(
             up_capture_observation_count=benchmark.up_capture_observation_count,
             down_capture_ratio=benchmark.down_capture_ratio,
             down_capture_observation_count=benchmark.down_capture_observation_count,
+            historical_var_95=benchmark.historical_var_95,
+            historical_cvar_95=benchmark.historical_cvar_95,
+            return_skewness=benchmark.return_skewness,
+            return_excess_kurtosis=benchmark.return_excess_kurtosis,
+            distribution_observation_count=benchmark.distribution_observation_count,
+            tail_observation_count=benchmark.tail_observation_count,
             equity_curve=[(point.trade_date, point.net_value) for point in benchmark.points],
         )
         for benchmark in benchmarks
@@ -500,6 +529,7 @@ def _parameters_json(
     }
     if calculate_benchmarks:
         parameters["benchmark_regime_metric_version"] = "benchmark_regime_metrics_v1"
+    parameters["tail_distribution_metric_version"] = TAIL_DISTRIBUTION_METRIC_VERSION
     return json.dumps(parameters, sort_keys=True)
 
 
@@ -519,6 +549,12 @@ def _to_result(
     calmar_ratio: StrategyCalmarRatio,
     longest_drawdown_duration: StrategyLongestDrawdownDuration,
     benchmarks: list[BacktestBenchmarkResult],
+    historical_var_95: Decimal | None = None,
+    historical_cvar_95: Decimal | None = None,
+    return_skewness: Decimal | None = None,
+    return_excess_kurtosis: Decimal | None = None,
+    distribution_observation_count: int | None = None,
+    tail_observation_count: int | None = None,
 ) -> BacktestRunResult:
     return BacktestRunResult(
         backtest_run_id=backtest_run_id,
@@ -541,4 +577,10 @@ def _to_result(
         longest_drawdown_trough_date=longest_drawdown_duration.trough_date,
         longest_drawdown_recovery_date=longest_drawdown_duration.recovery_date,
         benchmarks=tuple(benchmarks),
+        historical_var_95=historical_var_95,
+        historical_cvar_95=historical_cvar_95,
+        return_skewness=return_skewness,
+        return_excess_kurtosis=return_excess_kurtosis,
+        distribution_observation_count=distribution_observation_count,
+        tail_observation_count=tail_observation_count,
     )

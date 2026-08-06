@@ -7,10 +7,21 @@ from dataclasses import dataclass, field
 from statistics import mean, median, pstdev
 from typing import Any, Literal, TypedDict
 
-from vela_core.walk_forward.evidence import WalkForwardEvidenceV2
+from vela_core.walk_forward.evidence import (
+    WalkForwardEvidenceV3,
+    WalkForwardTailDistributionOwnerModel,
+)
 from vela_core.walk_forward.window_splitter import WalkForwardWindow
 
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
+MINIMUM_PUBLICATION_OBSERVATIONS = 100
+TAIL_OWNER_KEYS = ("strategy", "equal_weight_monthly", "csi_300_buy_hold")
+TAIL_METRICS = (
+    "historical_var_95",
+    "historical_cvar_95",
+    "return_skewness",
+    "return_excess_kurtosis",
+)
 
 
 class WalkForwardMetricSummary(TypedDict):
@@ -69,6 +80,12 @@ class WalkForwardBenchmarkResult:
     up_capture_observation_count: int | None = None
     down_capture_ratio: float | None = None
     down_capture_observation_count: int | None = None
+    historical_var_95: float | None = None
+    historical_cvar_95: float | None = None
+    return_skewness: float | None = None
+    return_excess_kurtosis: float | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -92,6 +109,12 @@ class WalkForwardWindowResult:
     eligible_count: int = 0
     skipped_count: int = 0
     skip_reason_counts: dict[str, int] = field(default_factory=dict)
+    historical_var_95: float | None = None
+    historical_cvar_95: float | None = None
+    return_skewness: float | None = None
+    return_excess_kurtosis: float | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
 
 
 @dataclass
@@ -99,10 +122,10 @@ class WalkForwardReport:
     windows: list[WalkForwardWindowResult] = field(default_factory=list)
     walk_forward_run_id: int | None = None
 
-    def evidence_document(self) -> WalkForwardEvidenceV2:
+    def evidence_document(self) -> WalkForwardEvidenceV3:
         benchmark_comparisons = self.benchmark_differences()
         benchmark_regime = self.benchmark_regime_evidence()
-        return WalkForwardEvidenceV2.model_validate(
+        return WalkForwardEvidenceV3.model_validate(
             {
                 "metrics": self.aggregate(),
                 "positive_window_rate": self.positive_window_rate(),
@@ -119,8 +142,60 @@ class WalkForwardReport:
                     for key, value in benchmark_comparisons.items()
                 },
                 "parameter_stability": self.parameter_stability(),
+                "tail_distribution": self.tail_distribution_evidence(),
             }
         )
+
+    def tail_distribution_evidence(self) -> dict[str, object]:
+        """Per-window and aggregate one-day historical distribution evidence.
+
+        Aggregates are descriptive statistics across independent per-window
+        metric estimates; they are not calculated from a combined or stitched
+        return distribution. Nulls do not contribute; valid zeros do.
+        """
+        per_window: list[dict[str, object]] = []
+        for index, item in enumerate(self.windows):
+            owners: dict[str, object] = {
+                "strategy": _tail_owner(
+                    historical_var_95=item.historical_var_95,
+                    historical_cvar_95=item.historical_cvar_95,
+                    return_skewness=item.return_skewness,
+                    return_excess_kurtosis=item.return_excess_kurtosis,
+                    observation_count=item.distribution_observation_count,
+                    tail_observation_count=item.tail_observation_count,
+                )
+            }
+            for benchmark in item.benchmarks:
+                owners[benchmark.key] = _tail_owner(
+                    historical_var_95=benchmark.historical_var_95,
+                    historical_cvar_95=benchmark.historical_cvar_95,
+                    return_skewness=benchmark.return_skewness,
+                    return_excess_kurtosis=benchmark.return_excess_kurtosis,
+                    observation_count=benchmark.distribution_observation_count,
+                    tail_observation_count=benchmark.tail_observation_count,
+                )
+            per_window.append({"ordinal": index, "owners": owners})
+
+        aggregates: dict[str, dict[str, object]] = {}
+        for owner in TAIL_OWNER_KEYS:
+            aggregates[owner] = {
+                metric: _summary(
+                    self._tail_values(owner, metric),
+                    window_count=len(self.windows),
+                )
+                for metric in TAIL_METRICS
+            }
+        return {"per_window": per_window, "aggregates": aggregates}
+
+    def _tail_values(self, owner: str, metric: str) -> list[float | None]:
+        if owner == "strategy":
+            return [getattr(item, metric) for item in self.windows]
+        return [
+            getattr(benchmark, metric)
+            for item in self.windows
+            for benchmark in item.benchmarks
+            if benchmark.key == owner
+        ]
 
     def aggregate(self) -> dict[str, WalkForwardMetricSummary]:
         values_by_metric: dict[str, Sequence[float | int | None]] = {
@@ -265,6 +340,35 @@ class WalkForwardReport:
         return result
 
 
+def _tail_owner(
+    *,
+    historical_var_95: float | None,
+    historical_cvar_95: float | None,
+    return_skewness: float | None,
+    return_excess_kurtosis: float | None,
+    observation_count: int | None,
+    tail_observation_count: int | None,
+) -> dict[str, object]:
+    effective_count = 0 if observation_count is None else observation_count
+    tail_count = 0 if tail_observation_count is None else tail_observation_count
+    status: EvidenceStatus = (
+        "sufficient"
+        if effective_count >= MINIMUM_PUBLICATION_OBSERVATIONS
+        else "insufficient_evidence"
+    )
+    return WalkForwardTailDistributionOwnerModel.model_validate(
+        {
+            "historical_var_95": historical_var_95,
+            "historical_cvar_95": historical_cvar_95,
+            "return_skewness": return_skewness,
+            "return_excess_kurtosis": return_excess_kurtosis,
+            "observation_count": effective_count,
+            "tail_observation_count": tail_count,
+            "evidence_status": status,
+        }
+    ).model_dump(mode="json")
+
+
 def _summary(
     values: Sequence[float | int | None],
     *,
@@ -365,6 +469,13 @@ def format_report(report: WalkForwardReport) -> str:
             "OOS longest drawdown duration: "
             f"{_metric(item.oos_longest_drawdown_duration_sessions)}",
             f"  Skipped combinations: {len(item.skipped)}",
+            "  Distribution (1D historical loss; positive losses): "
+            f"VaR95={_metric(item.historical_var_95)}, "
+            f"CVaR95={_metric(item.historical_cvar_95)}, "
+            f"skewness={_metric(item.return_skewness)}, "
+            f"excess_kurtosis={_metric(item.return_excess_kurtosis)}, "
+            f"observations={_metric(item.distribution_observation_count)}, "
+            f"tail={_metric(item.tail_observation_count)}",
         ]
         for benchmark in item.benchmarks:
             lines.extend(
@@ -404,6 +515,13 @@ def format_report(report: WalkForwardReport) -> str:
                     f"{_metric(benchmark.down_capture_ratio)}",
                     "    Down capture selected months: "
                     f"{_metric(benchmark.down_capture_observation_count)}",
+                    "    Distribution (1D historical loss; positive losses): "
+                    f"VaR95={_metric(benchmark.historical_var_95)}, "
+                    f"CVaR95={_metric(benchmark.historical_cvar_95)}, "
+                    f"skewness={_metric(benchmark.return_skewness)}, "
+                    f"excess_kurtosis={_metric(benchmark.return_excess_kurtosis)}, "
+                    f"observations={_metric(benchmark.distribution_observation_count)}, "
+                    f"tail={_metric(benchmark.tail_observation_count)}",
                 ]
             )
         if item.skipped:
@@ -436,6 +554,21 @@ def format_report(report: WalkForwardReport) -> str:
     for key, regime in report.benchmark_regime_evidence().items():
         lines.append(f"{key} benchmark-regime evidence:")
         for metric, stats in regime.items():
+            lines.append(f"  {metric}: {_format_summary(stats)}")
+
+    lines.append(
+        "Tail-distribution aggregates (descriptive statistics across independent "
+        "window estimates, not a combined-distribution risk value)"
+    )
+    tail = report.tail_distribution_evidence()
+    for owner in TAIL_OWNER_KEYS:
+        lines.append(f"{owner}:")
+        for metric in TAIL_METRICS:
+            assert isinstance(tail["aggregates"], dict)
+            owner_stats = tail["aggregates"][owner]
+            assert isinstance(owner_stats, dict)
+            stats = owner_stats[metric]
+            assert isinstance(stats, dict)
             lines.append(f"  {metric}: {_format_summary(stats)}")
 
     lines.append("Parameter stability")

@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from vela_core import (
+    MINIMUM_PUBLICATION_OBSERVATIONS,
     BacktestReturnStability,
     BacktestRunResult,
     BacktestSignalSummaryEntry,
@@ -123,6 +124,14 @@ def _run_response(result: BacktestRunResult) -> dict[str, object]:
         "longest_drawdown_peak_date": _optional_date(result.longest_drawdown_peak_date),
         "longest_drawdown_trough_date": _optional_date(result.longest_drawdown_trough_date),
         "longest_drawdown_recovery_date": _optional_date(result.longest_drawdown_recovery_date),
+        **_distribution_fields(
+            historical_var_95=result.historical_var_95,
+            historical_cvar_95=result.historical_cvar_95,
+            return_skewness=result.return_skewness,
+            return_excess_kurtosis=result.return_excess_kurtosis,
+            distribution_observation_count=result.distribution_observation_count,
+            tail_observation_count=result.tail_observation_count,
+        ),
         "benchmarks": _benchmark_result_responses(result),
     }
 
@@ -173,6 +182,14 @@ def _metrics_response(run: BacktestRun) -> dict[str, object]:
         "longest_drawdown_peak_date": run.longest_drawdown_peak_date,
         "longest_drawdown_trough_date": run.longest_drawdown_trough_date,
         "longest_drawdown_recovery_date": run.longest_drawdown_recovery_date,
+        **_distribution_fields(
+            historical_var_95=run.historical_var_95,
+            historical_cvar_95=run.historical_cvar_95,
+            return_skewness=run.return_skewness,
+            return_excess_kurtosis=run.return_excess_kurtosis,
+            distribution_observation_count=run.distribution_observation_count,
+            tail_observation_count=run.tail_observation_count,
+        ),
     }
 
 
@@ -227,6 +244,14 @@ def _benchmark_result_responses(result: BacktestRunResult) -> list[dict[str, obj
             "up_capture_observation_count": benchmark.up_capture_observation_count,
             "down_capture_ratio": _decimal(benchmark.down_capture_ratio),
             "down_capture_observation_count": benchmark.down_capture_observation_count,
+            **_distribution_fields(
+                historical_var_95=benchmark.historical_var_95,
+                historical_cvar_95=benchmark.historical_cvar_95,
+                return_skewness=benchmark.return_skewness,
+                return_excess_kurtosis=benchmark.return_excess_kurtosis,
+                distribution_observation_count=benchmark.distribution_observation_count,
+                tail_observation_count=benchmark.tail_observation_count,
+            ),
             "total_return_difference": _difference(
                 result.total_return, benchmark.annualized_return.total_return
             ),
@@ -268,6 +293,14 @@ def _benchmark_response(
         "up_capture_observation_count": benchmark.up_capture_observation_count,
         "down_capture_ratio": _decimal(benchmark.down_capture_ratio),
         "down_capture_observation_count": benchmark.down_capture_observation_count,
+        **_distribution_fields(
+            historical_var_95=benchmark.historical_var_95,
+            historical_cvar_95=benchmark.historical_cvar_95,
+            return_skewness=benchmark.return_skewness,
+            return_excess_kurtosis=benchmark.return_excess_kurtosis,
+            distribution_observation_count=benchmark.distribution_observation_count,
+            tail_observation_count=benchmark.tail_observation_count,
+        ),
         "total_return_difference": _difference(strategy_total_return, benchmark.total_return),
         "annualized_return_difference": _difference(
             strategy_annualized_return, benchmark.annualized_return
@@ -281,6 +314,40 @@ def _benchmark_response(
 
 def _difference(left: Decimal | None, right: Decimal | None) -> str | None:
     return _decimal(None if left is None or right is None else left - right)
+
+
+def _distribution_fields(
+    *,
+    historical_var_95: Decimal | None,
+    historical_cvar_95: Decimal | None,
+    return_skewness: Decimal | None,
+    return_excess_kurtosis: Decimal | None,
+    distribution_observation_count: int | None,
+    tail_observation_count: int | None,
+) -> dict[str, object]:
+    """Serialize stored tail-distribution evidence without recomputing it.
+
+    Only the evidence label is derived from the persisted observation count;
+    legacy owners with null counts expose an explicit unavailable status rather
+    than an assumed zero sample.
+    """
+    return {
+        "historical_var_95": _decimal(historical_var_95),
+        "historical_cvar_95": _decimal(historical_cvar_95),
+        "return_skewness": _decimal(return_skewness),
+        "return_excess_kurtosis": _decimal(return_excess_kurtosis),
+        "distribution_observation_count": distribution_observation_count,
+        "tail_observation_count": tail_observation_count,
+        "distribution_evidence_status": _distribution_evidence_status(
+            distribution_observation_count
+        ),
+    }
+
+
+def _distribution_evidence_status(count: int | None) -> str:
+    if count is None:
+        return "unavailable_legacy"
+    return "sufficient" if count >= MINIMUM_PUBLICATION_OBSERVATIONS else "insufficient_evidence"
 
 
 def _return_stability_response(result: BacktestReturnStability) -> dict[str, object]:

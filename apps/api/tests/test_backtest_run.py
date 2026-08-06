@@ -127,6 +127,13 @@ def test_run_backtest_endpoint_runs_core_workflow_and_persists_results(
             "up_capture_observation_count",
             "down_capture_ratio",
             "down_capture_observation_count",
+            "historical_var_95",
+            "historical_cvar_95",
+            "return_skewness",
+            "return_excess_kurtosis",
+            "distribution_observation_count",
+            "tail_observation_count",
+            "distribution_evidence_status",
             "total_return_difference",
             "annualized_return_difference",
             "equity_curve",
@@ -276,6 +283,13 @@ def test_run_backtest_endpoint_updates_backtest_detail(
         "longest_drawdown_peak_date": run_body["longest_drawdown_peak_date"],
         "longest_drawdown_trough_date": run_body["longest_drawdown_trough_date"],
         "longest_drawdown_recovery_date": run_body["longest_drawdown_recovery_date"],
+        "historical_var_95": run_body["historical_var_95"],
+        "historical_cvar_95": run_body["historical_cvar_95"],
+        "return_skewness": run_body["return_skewness"],
+        "return_excess_kurtosis": run_body["return_excess_kurtosis"],
+        "distribution_observation_count": run_body["distribution_observation_count"],
+        "tail_observation_count": run_body["tail_observation_count"],
+        "distribution_evidence_status": run_body["distribution_evidence_status"],
     }
     assert len(detail["equity_curve"]) == len(curve_rows)
     assert detail["equity_curve"][0]["trade_date"] == curve_rows[0].trade_date.isoformat()
@@ -602,6 +616,13 @@ def test_backtest_detail_endpoint_reads_persisted_run_and_ordered_curve(tmp_path
             "longest_drawdown_peak_date": None,
             "longest_drawdown_trough_date": None,
             "longest_drawdown_recovery_date": None,
+            "historical_var_95": None,
+            "historical_cvar_95": None,
+            "return_skewness": None,
+            "return_excess_kurtosis": None,
+            "distribution_observation_count": None,
+            "tail_observation_count": None,
+            "distribution_evidence_status": "unavailable_legacy",
         },
         "equity_curve": [
             {
@@ -1167,3 +1188,121 @@ def test_backtest_signals_endpoint_collection_matches_signal_count(tmp_path) -> 
     assert len(collected_ids) == detail["signal_count"]
     assert len(set(collected_ids)) == len(collected_ids)
     assert set(collected_ids) == detail_signal_ids
+
+
+def test_backtest_detail_returns_stored_tail_distribution_evidence(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-detail-tail.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        run = backtest_run(
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+            total_return=Decimal("0.120000"),
+        )
+        run.historical_var_95 = Decimal("0.020000")
+        run.historical_cvar_95 = Decimal("0.060000")
+        run.return_skewness = Decimal("0.123456")
+        run.return_excess_kurtosis = Decimal("0.654321")
+        run.distribution_observation_count = 100
+        run.tail_observation_count = 5
+        run.benchmarks.extend(
+            [
+                BacktestBenchmark(
+                    benchmark_key="equal_weight_monthly",
+                    display_name="Equal-weight monthly rebalanced portfolio",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.120000"),
+                    max_drawdown=Decimal("-0.050000"),
+                    sharpe_ratio=Decimal("1.100000"),
+                    volatility=Decimal("0.200000"),
+                    historical_var_95=Decimal("0.010000"),
+                    historical_cvar_95=Decimal("0.030000"),
+                    return_skewness=Decimal("-0.500000"),
+                    return_excess_kurtosis=Decimal("2.000000"),
+                    distribution_observation_count=100,
+                    tail_observation_count=5,
+                ),
+                BacktestBenchmark(
+                    benchmark_key="csi_300_buy_hold",
+                    display_name="CSI 300 buy-and-hold",
+                    total_return=Decimal("0.100000"),
+                    annualized_return=Decimal("0.120000"),
+                    max_drawdown=Decimal("-0.050000"),
+                    sharpe_ratio=Decimal("1.100000"),
+                    volatility=Decimal("0.200000"),
+                    distribution_observation_count=99,
+                    tail_observation_count=5,
+                ),
+            ]
+        )
+        session.add(run)
+        session.commit()
+        run_id = run.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get(f"/api/backtests/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    metrics = body["metrics"]
+    assert metrics["historical_var_95"] == "0.020000"
+    assert metrics["historical_cvar_95"] == "0.060000"
+    assert metrics["return_skewness"] == "0.123456"
+    assert metrics["return_excess_kurtosis"] == "0.654321"
+    assert metrics["distribution_observation_count"] == 100
+    assert metrics["tail_observation_count"] == 5
+    assert metrics["distribution_evidence_status"] == "sufficient"
+    # Positive-loss invariant on returned values.
+    assert (
+        Decimal(metrics["historical_cvar_95"])
+        >= Decimal(metrics["historical_var_95"])
+        >= Decimal("0")
+    )
+    benchmarks = {benchmark["key"]: benchmark for benchmark in body["benchmarks"]}
+    assert benchmarks["equal_weight_monthly"]["historical_var_95"] == "0.010000"
+    assert benchmarks["equal_weight_monthly"]["distribution_evidence_status"] == "sufficient"
+    csi = benchmarks["csi_300_buy_hold"]
+    assert csi["historical_var_95"] is None
+    assert csi["historical_cvar_95"] is None
+    assert csi["return_skewness"] is None
+    assert csi["return_excess_kurtosis"] is None
+    assert csi["distribution_observation_count"] == 99
+    assert csi["tail_observation_count"] == 5
+    assert csi["distribution_evidence_status"] == "insufficient_evidence"
+
+
+def test_backtest_detail_keeps_legacy_tail_evidence_unavailable(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'backtest-detail-tail-legacy.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    with session_factory() as session:
+        run = backtest_run(
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            started_at=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+            finished_at=datetime(2026, 2, 1, 9, 5, tzinfo=UTC),
+            total_return=Decimal("0.120000"),
+        )
+        session.add(run)
+        session.commit()
+        run_id = run.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get(f"/api/backtests/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    metrics = response.json()["metrics"]
+    assert metrics["historical_var_95"] is None
+    assert metrics["historical_cvar_95"] is None
+    assert metrics["return_skewness"] is None
+    assert metrics["return_excess_kurtosis"] is None
+    assert metrics["distribution_observation_count"] is None
+    assert metrics["tail_observation_count"] is None
+    assert metrics["distribution_evidence_status"] == "unavailable_legacy"

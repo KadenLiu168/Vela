@@ -501,3 +501,157 @@ it("keeps OOS detail links navigable when the stitched curve is unavailable", as
   expect(screen.queryByText("Return stability")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
 });
+
+const v3Detail: WalkForwardDetailResponse = {
+  ...v2Detail,
+  run: { ...v2Detail.run, evidence_version: "wf_evidence_v3" },
+  evidence_version: "wf_evidence_v3",
+  evidence: {
+    ...v2Detail.evidence,
+    tail_distribution: {
+      per_window: [
+        {
+          ordinal: 0,
+          owners: {
+            strategy: {
+              historical_var_95: 0.02,
+              historical_cvar_95: 0.06,
+              return_skewness: 0.1,
+              return_excess_kurtosis: 0.2,
+              observation_count: 100,
+              tail_observation_count: 5,
+              evidence_status: "sufficient"
+            },
+            equal_weight_monthly: {
+              historical_var_95: 0.01,
+              historical_cvar_95: 0.03,
+              return_skewness: -0.1,
+              return_excess_kurtosis: 0.1,
+              observation_count: 100,
+              tail_observation_count: 5,
+              evidence_status: "sufficient"
+            },
+            csi_300_buy_hold: {
+              historical_var_95: 0.04,
+              historical_cvar_95: 0.08,
+              return_skewness: 0.2,
+              return_excess_kurtosis: -0.3,
+              observation_count: 100,
+              tail_observation_count: 5,
+              evidence_status: "sufficient"
+            }
+          }
+        },
+        {
+          ordinal: 1,
+          owners: {
+            strategy: {
+              historical_var_95: null,
+              historical_cvar_95: null,
+              return_skewness: null,
+              return_excess_kurtosis: null,
+              observation_count: 99,
+              tail_observation_count: 5,
+              evidence_status: "insufficient_evidence"
+            },
+            equal_weight_monthly: {
+              historical_var_95: 0,
+              historical_cvar_95: 0,
+              return_skewness: null,
+              return_excess_kurtosis: null,
+              observation_count: 100,
+              tail_observation_count: 5,
+              evidence_status: "sufficient"
+            },
+            csi_300_buy_hold: {
+              historical_var_95: 0.05,
+              historical_cvar_95: 0.09,
+              return_skewness: 0.3,
+              return_excess_kurtosis: -0.4,
+              observation_count: 100,
+              tail_observation_count: 5,
+              evidence_status: "sufficient"
+            }
+          }
+        }
+      ],
+      aggregates: {
+        strategy: {
+          historical_var_95: metric(0.02),
+          historical_cvar_95: metric(0.06),
+          return_skewness: metric(0.1),
+          return_excess_kurtosis: metric(0.2)
+        },
+        equal_weight_monthly: {
+          historical_var_95: metric(0.01),
+          historical_cvar_95: metric(0.03),
+          return_skewness: metric(-0.1),
+          return_excess_kurtosis: metric(0.1)
+        },
+        csi_300_buy_hold: {
+          historical_var_95: metric(0.045),
+          historical_cvar_95: metric(0.085),
+          return_skewness: metric(0.25),
+          return_excess_kurtosis: metric(-0.35)
+        }
+      }
+    }
+  }
+};
+
+it("presents v3 per-window and aggregate distribution evidence with owner-specific counts", async () => {
+  detailMock.mockResolvedValue(v3Detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(
+    screen.getByText(/descriptive statistics across independent per-window metric estimates/i)
+  ).toBeInTheDocument();
+  // Aggregate owner groups.
+  expect(screen.getByRole("heading", { name: "Strategy" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Equal-weight monthly" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "CSI 300 buy-and-hold" })).toBeInTheDocument();
+  // Per-window exact values and null/status handling.
+  const table = screen.getByRole("table", { name: /Persisted one-day historical distribution evidence/ });
+  expect(within(table).getAllByText("0.020000")).toHaveLength(1);
+  expect(within(table).getAllByText("0.060000")).toHaveLength(1);
+  expect(within(table).getAllByText("0.040000")).toHaveLength(1);
+  expect(within(table).getAllByText("n/a")).toHaveLength(6);
+  expect(within(table).getAllByText("99")).toHaveLength(1);
+  expect(within(table).getAllByText("insufficient_evidence")).toHaveLength(1);
+  expect(within(table).getAllByText("sufficient")).toHaveLength(5);
+  expect(within(table).getAllByText("0.000000")).toHaveLength(2);
+  // Existing v2/benchmark-regime and navigation content is preserved.
+  expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Stitched OOS capital path" })).toBeInTheDocument();
+});
+
+it("does not claim a combined-distribution risk value or pass/fail verdicts", async () => {
+  detailMock.mockResolvedValue(v3Detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(screen.queryByText(/combined return distribution/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/worst/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/pass/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/fail/i)).not.toBeInTheDocument();
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("keeps v3 distribution evidence and existing navigation readable without overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue(v3Detail);
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(screen.getByRole("heading", { name: "Per-window evidence" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+});

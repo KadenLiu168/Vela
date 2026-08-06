@@ -85,6 +85,8 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
         volatility=Decimal("0.180000"),
         calmar_ratio=Decimal("4.000000"),
         longest_drawdown_duration_sessions=0,
+        distribution_observation_count=1,
+        tail_observation_count=1,
     )
     assert run is not None
     assert run.strategy_id == "dual_momentum"
@@ -93,7 +95,9 @@ def test_run_backtest_persists_metrics_and_normalized_curve_rows(
         '"equity_model_version": "drift_v1", '
         '"performance_metric_version": "performance_metrics_v1", '
         '"risk_free_rate": 0.02, "start_date": "2026-01-01", '
-        '"strategy_id": "dual_momentum", "type": "dual_momentum"}'
+        '"strategy_id": "dual_momentum", '
+        '"tail_distribution_metric_version": "tail_distribution_metrics_v1", '
+        '"type": "dual_momentum"}'
     )
     assert [row.trade_date for row in curve_rows] == [date(2026, 1, 1), date(2026, 1, 3)]
     assert curve_rows[0].cash == Decimal("0.000000")
@@ -1140,6 +1144,147 @@ def test_late_regime_metric_failure_rolls_back_all_artifacts_together(
             fail_regime_metrics,
         )
         with pytest.raises(ValueError, match="regime metric alignment failed"):
+            run_core_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 1, 3),
+                calculate_benchmarks=True,
+            )
+
+        assert session.query(StrategySignal).count() == 1
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestBenchmark).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+        assert session.query(BacktestBenchmarkEquityCurve).count() == 0
+        session.rollback()
+        assert session.query(StrategySignal).count() == 0
+
+
+def test_run_backtest_persists_tail_distribution_metrics_and_version_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        result = run_core_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            calculate_benchmarks=True,
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        benchmarks = (
+            session.query(BacktestBenchmark).order_by(BacktestBenchmark.benchmark_key).all()
+        )
+
+    assert run is not None
+    parameters = json.loads(run.parameters_json)
+    assert parameters["tail_distribution_metric_version"] == "tail_distribution_metrics_v1"
+    # A two-point curve yields one effective return: insufficient evidence with
+    # actual counts persisted and null metrics.
+    assert run.distribution_observation_count == 1
+    assert run.tail_observation_count == 1
+    assert run.historical_var_95 is None
+    assert run.historical_cvar_95 is None
+    assert run.return_skewness is None
+    assert run.return_excess_kurtosis is None
+    assert len(benchmarks) == 2
+    for benchmark in benchmarks:
+        assert benchmark.distribution_observation_count == 1
+        assert benchmark.tail_observation_count == 1
+        assert benchmark.historical_var_95 is None
+        assert benchmark.historical_cvar_95 is None
+        assert benchmark.return_skewness is None
+        assert benchmark.return_excess_kurtosis is None
+
+
+def test_run_backtest_training_trial_keeps_tail_version_without_benchmark_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        result = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+
+    assert run is not None
+    parameters = json.loads(run.parameters_json)
+    assert parameters["tail_distribution_metric_version"] == "tail_distribution_metrics_v1"
+    assert run.distribution_observation_count == 1
+    assert run.tail_observation_count == 1
+
+
+def test_partial_run_persists_tail_counts_with_null_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id, signal_status="failure")
+
+        result = run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+
+    assert run is not None
+    assert run.status == "partial"
+    assert run.distribution_observation_count == 1
+    assert run.tail_observation_count == 1
+    assert run.historical_var_95 is None
+
+
+def test_late_tail_distribution_failure_rolls_back_all_artifacts_together(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="510300")
+        etf.exchange = "SSE"
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 3), close_price=110)
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id)
+
+        def fail_tail_metrics(*_args: Any, **_kwargs: Any) -> Any:
+            raise ValueError("distribution calculation failed")
+
+        monkeypatch.setattr(
+            runner,
+            "calculate_tail_distribution_risk_metrics",
+            fail_tail_metrics,
+        )
+        with pytest.raises(ValueError, match="distribution calculation failed"):
             run_core_backtest(
                 session,
                 config=_strategy_config(),

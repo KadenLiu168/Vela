@@ -229,6 +229,15 @@ class BacktestMetricsResponse(ResponseModel):
     longest_drawdown_peak_date: date | None
     longest_drawdown_trough_date: date | None
     longest_drawdown_recovery_date: date | None
+    historical_var_95: str | None
+    historical_cvar_95: str | None
+    return_skewness: str | None
+    return_excess_kurtosis: str | None
+    distribution_observation_count: int | None
+    tail_observation_count: int | None
+    distribution_evidence_status: Literal[
+        "sufficient", "insufficient_evidence", "unavailable_legacy"
+    ]
 
 
 class BacktestRunResponse(BacktestMetricsResponse):
@@ -303,6 +312,15 @@ class BacktestBenchmarkResponse(BacktestMetricsResponse):
     up_capture_observation_count: int | None
     down_capture_ratio: str | None
     down_capture_observation_count: int | None
+    historical_var_95: str | None
+    historical_cvar_95: str | None
+    return_skewness: str | None
+    return_excess_kurtosis: str | None
+    distribution_observation_count: int | None
+    tail_observation_count: int | None
+    distribution_evidence_status: Literal[
+        "sufficient", "insufficient_evidence", "unavailable_legacy"
+    ]
     equity_curve: list[BacktestBenchmarkCurvePointResponse] = []
 
 
@@ -441,6 +459,37 @@ class WalkForwardEvidenceV2Response(WalkForwardEvidenceResponse):
     benchmarks: WalkForwardBenchmarkEvidenceV2MapResponse  # type: ignore[assignment]
 
 
+class WalkForwardTailDistributionOwnerResponse(ResponseModel):
+    historical_var_95: float | None
+    historical_cvar_95: float | None
+    return_skewness: float | None
+    return_excess_kurtosis: float | None
+    observation_count: int
+    tail_observation_count: int
+    evidence_status: Literal["sufficient", "insufficient_evidence"]
+
+
+class WalkForwardTailDistributionWindowResponse(ResponseModel):
+    ordinal: int
+    owners: dict[str, WalkForwardTailDistributionOwnerResponse]
+
+
+class WalkForwardTailDistributionAggregatesResponse(ResponseModel):
+    historical_var_95: WalkForwardMetricSummaryResponse
+    historical_cvar_95: WalkForwardMetricSummaryResponse
+    return_skewness: WalkForwardMetricSummaryResponse
+    return_excess_kurtosis: WalkForwardMetricSummaryResponse
+
+
+class WalkForwardTailDistributionEvidenceResponse(ResponseModel):
+    per_window: list[WalkForwardTailDistributionWindowResponse]
+    aggregates: dict[str, WalkForwardTailDistributionAggregatesResponse]
+
+
+class WalkForwardEvidenceV3Response(WalkForwardEvidenceV2Response):
+    tail_distribution: WalkForwardTailDistributionEvidenceResponse
+
+
 class WalkForwardRunSummaryResponse(ResponseModel):
     run_id: int
     strategy_id: str
@@ -525,6 +574,15 @@ class WalkForwardOosBenchmarkResponse(ResponseModel):
     up_capture_observation_count: int | None
     down_capture_ratio: str | None
     down_capture_observation_count: int | None
+    historical_var_95: str | None
+    historical_cvar_95: str | None
+    return_skewness: str | None
+    return_excess_kurtosis: str | None
+    distribution_observation_count: int | None
+    tail_observation_count: int | None
+    distribution_evidence_status: Literal[
+        "sufficient", "insufficient_evidence", "unavailable_legacy"
+    ]
 
 
 class WalkForwardOosResponse(ResponseModel):
@@ -592,6 +650,8 @@ class WalkForwardDetailResponse(ResponseModel):
     configuration: WalkForwardConfigurationResponse
     input_provenance: WalkForwardInputProvenanceResponse
     evidence_version: str
-    evidence: WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response
+    evidence: (
+        WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response | WalkForwardEvidenceV3Response
+    )
     windows: list[WalkForwardWindowResponse]
     stitched_oos: StitchedOosResponse

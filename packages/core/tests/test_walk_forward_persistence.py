@@ -42,6 +42,71 @@ def _regime_summary(value: float | None) -> dict[str, object]:
     }
 
 
+def _tail_owner(
+    *,
+    var: float | None,
+    cvar: float | None,
+    skew: float | None,
+    kurt: float | None,
+    observations: int = 100,
+) -> dict[str, object]:
+    return {
+        "historical_var_95": var,
+        "historical_cvar_95": cvar,
+        "return_skewness": skew,
+        "return_excess_kurtosis": kurt,
+        "observation_count": observations,
+        "tail_observation_count": 5,
+        "evidence_status": "sufficient" if observations >= 100 else "insufficient_evidence",
+    }
+
+
+def _tail_agg(value: float | None) -> dict[str, object]:
+    if value is None:
+        return {
+            "mean": None,
+            "median": None,
+            "min": None,
+            "max": None,
+            "std": None,
+            "window_count": 1,
+            "valid_count": 0,
+            "evidence_status": "insufficient_evidence",
+        }
+    return {
+        "mean": value,
+        "median": value,
+        "min": value,
+        "max": value,
+        "std": 0.0,
+        "window_count": 1,
+        "valid_count": 1,
+        "evidence_status": "insufficient_evidence",
+    }
+
+
+def _tail_evidence() -> dict[str, object]:
+    owners = {
+        "strategy": _tail_owner(var=0.02, cvar=0.06, skew=0.1, kurt=0.2),
+        "equal_weight_monthly": _tail_owner(var=0.01, cvar=0.03, skew=-0.1, kurt=0.1),
+        "csi_300_buy_hold": _tail_owner(var=0.04, cvar=0.08, skew=0.2, kurt=-0.3),
+    }
+    metrics = (
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+    )
+    aggregates = {
+        owner: {metric: _tail_agg(values[metric]) for metric in metrics}
+        for owner, values in owners.items()
+    }
+    return {
+        "per_window": [{"ordinal": 0, "owners": deepcopy(owners)}],
+        "aggregates": aggregates,
+    }
+
+
 def _evidence() -> dict[str, object]:
     metrics = {
         name: _summary()
@@ -91,6 +156,7 @@ def _evidence() -> dict[str, object]:
             "csi_300_buy_hold": csi_comparison,
         },
         "parameter_stability": {},
+        "tail_distribution": _tail_evidence(),
     }
 
 
@@ -150,10 +216,23 @@ def _seed_valid_oos(
         config_version="wf-000000000000",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
-        parameters_json='{"benchmark_regime_metric_version":"benchmark_regime_metrics_v1"}',
+        parameters_json=(
+            '{"benchmark_regime_metric_version":"benchmark_regime_metrics_v1",'
+            '"tail_distribution_metric_version":"tail_distribution_metrics_v1"}'
+        ),
         started_at=datetime(2026, 1, 1),
         status="success",
+        historical_var_95=Decimal("0.02"),
+        historical_cvar_95=Decimal("0.06"),
+        return_skewness=Decimal("0.1"),
+        return_excess_kurtosis=Decimal("0.2"),
+        distribution_observation_count=100,
+        tail_observation_count=5,
     )
+    benchmark_values = {
+        "equal_weight_monthly": (0.01, 0.03, -0.1, 0.1),
+        "csi_300_buy_hold": (0.04, 0.08, 0.2, -0.3),
+    }
     run.benchmarks.extend(
         [
             BacktestBenchmark(
@@ -167,6 +246,12 @@ def _seed_valid_oos(
                 up_capture_observation_count=1,
                 down_capture_ratio=Decimal("0.1"),
                 down_capture_observation_count=1,
+                historical_var_95=Decimal(str(benchmark_values[key][0])),
+                historical_cvar_95=Decimal(str(benchmark_values[key][1])),
+                return_skewness=Decimal(str(benchmark_values[key][2])),
+                return_excess_kurtosis=Decimal(str(benchmark_values[key][3])),
+                distribution_observation_count=100,
+                tail_observation_count=5,
             )
             for key in benchmark_keys
         ]

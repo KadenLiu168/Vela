@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   ApiClientError,
@@ -31,6 +31,16 @@ const emptyStability = (): ReturnStability => ({
   benchmarks: []
 });
 
+const legacyTailFields = {
+  historical_var_95: null,
+  historical_cvar_95: null,
+  return_skewness: null,
+  return_excess_kurtosis: null,
+  distribution_observation_count: null,
+  tail_observation_count: null,
+  distribution_evidence_status: "unavailable_legacy" as const
+};
+
 const detail = (signalCount: number, runId = 7): BacktestDetailResponse => ({
   benchmarks: [],
   equity_curve: [],
@@ -45,7 +55,8 @@ const detail = (signalCount: number, runId = 7): BacktestDetailResponse => ({
     sharpe_ratio: null,
     sortino_ratio: null,
     total_return: null,
-    volatility: null
+    volatility: null,
+    ...legacyTailFields
   },
   return_stability: emptyStability(),
   run: { config_version: "v1", end_date: "2026-01-02", error_message: null, finished_at: null, parameters_json: null, run_id: runId, start_date: "2026-01-01", started_at: "2026-01-01T00:00:00", status: "success", strategy_id: "s" },
@@ -88,7 +99,8 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: null, up_capture_observation_count: null,
         down_capture_ratio: null, down_capture_observation_count: null,
-        equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.1" }]
+        equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.1" }],
+        ...legacyTailFields
       },
       {
         key: "csi_300_buy_hold",
@@ -101,7 +113,8 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: null, up_capture_observation_count: null,
         down_capture_ratio: null, down_capture_observation_count: null,
-        equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.08" }]
+        equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.08" }],
+        ...legacyTailFields
       }
     ],
     equity_curve: [
@@ -156,7 +169,8 @@ it("renders expanded strategy and relative benchmark metrics with ongoing and un
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: null, up_capture_observation_count: null,
         down_capture_ratio: null, down_capture_observation_count: null,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       }
     ]
   });
@@ -195,7 +209,8 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: "1.995274", up_capture_observation_count: 2,
         down_capture_ratio: "0.5", down_capture_observation_count: 1,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       },
       {
         key: "csi_300_buy_hold",
@@ -208,7 +223,8 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
         capm_alpha: "11.274002", capm_beta: "2.000000", capm_r_squared: "0.958580", capm_observation_count: 4,
         up_capture_ratio: "1.995274", up_capture_observation_count: 2,
         down_capture_ratio: "0.5", down_capture_observation_count: 1,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       }
     ]
   });
@@ -250,7 +266,8 @@ it("renders unavailable placeholders for legacy or undefined regime values", asy
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: null, up_capture_observation_count: null,
         down_capture_ratio: null, down_capture_observation_count: null,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       }
     ]
   });
@@ -282,7 +299,8 @@ it.each([
         capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
         up_capture_ratio: "1.2", up_capture_observation_count: 8,
         down_capture_ratio: "0.7", down_capture_observation_count: 3,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       },
       {
         key: "csi_300_buy_hold",
@@ -295,7 +313,8 @@ it.each([
         capm_alpha: "0.5", capm_beta: "1.1", capm_r_squared: "0.8", capm_observation_count: 240,
         up_capture_ratio: "1.2", up_capture_observation_count: 8,
         down_capture_ratio: "0.7", down_capture_observation_count: 3,
-        equity_curve: []
+        equity_curve: [],
+        ...legacyTailFields
       }
     ]
   });
@@ -520,4 +539,164 @@ it("keeps existing Overview tabs and actions when stability is present", async (
   expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Signals (0)" })).toBeInTheDocument();
   expect(screen.getByText(/Fewer than 64 persisted points/)).toBeInTheDocument();
+});
+
+const tailFields = (
+  overrides: {
+    historical_var_95?: string | null;
+    historical_cvar_95?: string | null;
+    return_skewness?: string | null;
+    return_excess_kurtosis?: string | null;
+    distribution_observation_count?: number | null;
+    tail_observation_count?: number | null;
+    distribution_evidence_status?: "sufficient" | "insufficient_evidence" | "unavailable_legacy";
+  } = {}
+) => ({
+  historical_var_95: "0.020000",
+  historical_cvar_95: "0.060000",
+  return_skewness: "0.123456",
+  return_excess_kurtosis: "0.654321",
+  distribution_observation_count: 100,
+  tail_observation_count: 5,
+  distribution_evidence_status: "sufficient" as const,
+  ...overrides
+});
+
+it("renders sufficient one-day historical distribution risk with exact API values", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: { ...detail(0).metrics, ...tailFields() }
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(screen.getByText("Historical VaR 95% (1D loss)")).toBeInTheDocument();
+  expect(screen.getByText("Historical CVaR 95% (1D loss)")).toBeInTheDocument();
+  expect(screen.getByText("Skewness")).toBeInTheDocument();
+  expect(screen.getByText("Excess kurtosis (normal = 0)")).toBeInTheDocument();
+  expect(screen.getByText("0.020000")).toBeInTheDocument();
+  expect(screen.getByText("0.060000")).toBeInTheDocument();
+  expect(screen.getByText("0.123456")).toBeInTheDocument();
+  expect(screen.getByText("0.654321")).toBeInTheDocument();
+  expect(screen.getAllByText("100")).toHaveLength(1);
+  expect(screen.getAllByText("5")).toHaveLength(1);
+  expect(
+    screen.getByText(/No forecast or regulatory-capital claim/i)
+  ).toBeInTheDocument();
+});
+
+it("explains the 99-observation tail-count cardinality and null metrics", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: {
+      ...detail(0).metrics,
+      ...tailFields({
+        historical_var_95: null,
+        historical_cvar_95: null,
+        return_skewness: null,
+        return_excess_kurtosis: null,
+        distribution_observation_count: 99,
+        distribution_evidence_status: "insufficient_evidence"
+      })
+    }
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  const heading = await screen.findByRole("heading", {
+    name: "One-day historical distribution risk (95%)"
+  });
+  const section = heading.closest("section");
+  expect(section).not.toBeNull();
+  expect(within(section as HTMLElement).getAllByText("n/a")).toHaveLength(4);
+  expect(within(section as HTMLElement).getByText("99")).toBeInTheDocument();
+  expect(within(section as HTMLElement).getByText("5")).toBeInTheDocument();
+  expect(
+    within(section as HTMLElement).getByText(/publication requires at least 100 effective observations/i)
+  ).toBeInTheDocument();
+  expect(
+    within(section as HTMLElement).getByText(/tail count of 5 is the cardinality implied by the fixed 5% rank rule/i)
+  ).toBeInTheDocument();
+});
+
+it("distinguishes legacy and constant-distribution null explanations", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: {
+      ...detail(0).metrics,
+      ...tailFields({
+        return_skewness: null,
+        return_excess_kurtosis: null
+      })
+    },
+    benchmarks: []
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(screen.getByText(/Constant distribution: return shape statistics are undefined/i)).toBeInTheDocument();
+  expect(screen.getByText("0.020000")).toBeInTheDocument();
+
+  detailMock.mockResolvedValue({ ...detail(0), metrics: { ...detail(0).metrics } });
+  render(<BacktestDetailPage backtestId="7" />);
+  expect(await screen.findByText(/Legacy history: one-day historical distribution metrics were not recorded/i)).toBeInTheDocument();
+});
+
+it("renders strategy and benchmark distribution groups with owner-specific values", async () => {
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: { ...detail(0).metrics, ...tailFields() },
+    benchmarks: [
+      {
+        key: "equal_weight_monthly",
+        name: "Equal-weight monthly rebalanced portfolio",
+        total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+        sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+        tracking_error: null, information_ratio: null,
+        total_return_difference: "0.02", annualized_return_difference: "0.02",
+        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+        up_capture_ratio: null, up_capture_observation_count: null,
+        down_capture_ratio: null, down_capture_observation_count: null,
+        equity_curve: [],
+        ...tailFields({
+          historical_var_95: "0.010000",
+          historical_cvar_95: "0.030000",
+          return_skewness: "-0.500000",
+          return_excess_kurtosis: "2.000000"
+        })
+      }
+    ]
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByText("Equal-weight monthly rebalanced portfolio");
+  expect(screen.getAllByText("0.010000")).toHaveLength(1);
+  expect(screen.getAllByText("0.030000")).toHaveLength(1);
+  expect(screen.getAllByText("-0.500000")).toHaveLength(1);
+  expect(screen.getAllByText("2.000000")).toHaveLength(1);
+});
+
+it.each([
+  [1440, 1000],
+  [390, 844]
+])("keeps tail distribution risk content and actions readable without overflow at %ipx wide", async (width, height) => {
+  Object.defineProperty(window, "innerWidth", { value: width, configurable: true, writable: true });
+  Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    metrics: { ...detail(0).metrics, ...tailFields() }
+  });
+
+  render(<BacktestDetailPage backtestId="7" />);
+
+  await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
+  expect(screen.getByText("Historical VaR 95% (1D loss)")).toBeInTheDocument();
+  expect(screen.getByText("Excess kurtosis (normal = 0)")).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Signals (0)" })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
 });

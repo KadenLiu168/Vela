@@ -258,6 +258,105 @@ def test_persist_backtest_result_round_trips_expanded_metrics_and_isolates_rerun
     assert second_run.benchmarks == []
 
 
+def test_persist_backtest_result_round_trips_tail_distribution_metrics() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(
+                historical_var_95=Decimal("0.020000"),
+                historical_cvar_95=Decimal("0.060000"),
+                return_skewness=Decimal("0.123456"),
+                return_excess_kurtosis=Decimal("0.654321"),
+                distribution_observation_count=100,
+                tail_observation_count=5,
+            ),
+            equity_curve=[],
+            benchmarks=[
+                _benchmark(
+                    "equal_weight_monthly",
+                    [],
+                    historical_var_95=Decimal("0.010000"),
+                    historical_cvar_95=Decimal("0.030000"),
+                    return_skewness=None,
+                    return_excess_kurtosis=None,
+                    distribution_observation_count=60,
+                    tail_observation_count=3,
+                ),
+                _benchmark(
+                    "csi_300_buy_hold",
+                    [],
+                    historical_var_95=None,
+                    historical_cvar_95=None,
+                    return_skewness=None,
+                    return_excess_kurtosis=None,
+                    distribution_observation_count=5,
+                    tail_observation_count=1,
+                ),
+            ],
+        )
+        session.commit()
+        session.expire_all()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+
+    assert run is not None
+    assert run.historical_var_95 == Decimal("0.020000")
+    assert run.historical_cvar_95 == Decimal("0.060000")
+    assert run.return_skewness == Decimal("0.123456")
+    assert run.return_excess_kurtosis == Decimal("0.654321")
+    assert run.distribution_observation_count == 100
+    assert run.tail_observation_count == 5
+    equal_weight, csi_300 = run.benchmarks
+    assert equal_weight.historical_var_95 == Decimal("0.010000")
+    assert equal_weight.historical_cvar_95 == Decimal("0.030000")
+    assert equal_weight.return_skewness is None
+    assert equal_weight.return_excess_kurtosis is None
+    assert equal_weight.distribution_observation_count == 60
+    assert equal_weight.tail_observation_count == 3
+    assert csi_300.historical_var_95 is None
+    assert csi_300.historical_cvar_95 is None
+    assert csi_300.return_skewness is None
+    assert csi_300.return_excess_kurtosis is None
+    assert csi_300.distribution_observation_count == 5
+    assert csi_300.tail_observation_count == 1
+
+
+def test_persist_backtest_result_keeps_legacy_tail_fields_null() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(
+            session,
+            run=_run_input(),
+            equity_curve=[],
+            benchmarks=[
+                _benchmark("equal_weight_monthly", []),
+                _benchmark("csi_300_buy_hold", []),
+            ],
+        )
+        session.commit()
+        session.expire_all()
+
+        run = get_backtest_result(session, run_id=persisted.backtest_run.id)
+
+    assert run is not None
+    assert run.historical_var_95 is None
+    assert run.historical_cvar_95 is None
+    assert run.return_skewness is None
+    assert run.return_excess_kurtosis is None
+    assert run.distribution_observation_count is None
+    assert run.tail_observation_count is None
+    for benchmark in run.benchmarks:
+        assert benchmark.historical_var_95 is None
+        assert benchmark.historical_cvar_95 is None
+        assert benchmark.return_skewness is None
+        assert benchmark.return_excess_kurtosis is None
+        assert benchmark.distribution_observation_count is None
+        assert benchmark.tail_observation_count is None
+
+
 def test_persist_backtest_result_round_trips_benchmark_regime_metrics() -> None:
     session_factory = _create_session_factory()
 
@@ -527,6 +626,12 @@ def _run_input(
     longest_drawdown_peak_date: date | None = None,
     longest_drawdown_trough_date: date | None = None,
     longest_drawdown_recovery_date: date | None = None,
+    historical_var_95: Decimal | None = None,
+    historical_cvar_95: Decimal | None = None,
+    return_skewness: Decimal | None = None,
+    return_excess_kurtosis: Decimal | None = None,
+    distribution_observation_count: int | None = None,
+    tail_observation_count: int | None = None,
     parameters_json: str = '{"top_n": 2}',
 ) -> BacktestResultRunInput:
     return BacktestResultRunInput(
@@ -550,6 +655,12 @@ def _run_input(
         longest_drawdown_peak_date=longest_drawdown_peak_date,
         longest_drawdown_trough_date=longest_drawdown_trough_date,
         longest_drawdown_recovery_date=longest_drawdown_recovery_date,
+        historical_var_95=historical_var_95,
+        historical_cvar_95=historical_cvar_95,
+        return_skewness=return_skewness,
+        return_excess_kurtosis=return_excess_kurtosis,
+        distribution_observation_count=distribution_observation_count,
+        tail_observation_count=tail_observation_count,
     )
 
 
@@ -585,6 +696,12 @@ def _benchmark(
     up_capture_observation_count: int | None = None,
     down_capture_ratio: Decimal | None = None,
     down_capture_observation_count: int | None = None,
+    historical_var_95: Decimal | None = None,
+    historical_cvar_95: Decimal | None = None,
+    return_skewness: Decimal | None = None,
+    return_excess_kurtosis: Decimal | None = None,
+    distribution_observation_count: int | None = None,
+    tail_observation_count: int | None = None,
 ) -> BacktestBenchmarkInput:
     return BacktestBenchmarkInput(
         key=key,
@@ -608,6 +725,12 @@ def _benchmark(
         up_capture_observation_count=up_capture_observation_count,
         down_capture_ratio=down_capture_ratio,
         down_capture_observation_count=down_capture_observation_count,
+        historical_var_95=historical_var_95,
+        historical_cvar_95=historical_cvar_95,
+        return_skewness=return_skewness,
+        return_excess_kurtosis=return_excess_kurtosis,
+        distribution_observation_count=distribution_observation_count,
+        tail_observation_count=tail_observation_count,
     )
 
 

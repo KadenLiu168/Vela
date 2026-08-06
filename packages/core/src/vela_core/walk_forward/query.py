@@ -9,8 +9,10 @@ from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.candidate_audit import build_candidate_audit
 from vela_core.walk_forward.evidence import (
     EVIDENCE_VERSION_V2,
+    EVIDENCE_VERSION_V3,
     PersistedDataContractError,
     WalkForwardEvidenceV2,
+    WalkForwardEvidenceV3,
     validate_wf_evidence,
 )
 from vela_core.walk_forward.provenance import WalkForwardInputManifestModel, validate_input_manifest
@@ -21,6 +23,9 @@ from vela_core.walk_forward.stitched_oos import (
     StitchedOosSourcePoint,
     StitchedOosWindow,
     derive_stitched_oos,
+)
+from vela_core.walk_forward.tail_evidence_validation import (
+    validate_v3_tail_source_evidence,
 )
 
 
@@ -139,6 +144,16 @@ def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestMo
     if row.evidence_version == EVIDENCE_VERSION_V2:
         assert isinstance(evidence, WalkForwardEvidenceV2)
         validate_v2_regime_source_evidence(
+            [child.oos_backtest_run for child in row.windows if child.oos_backtest_run is not None],
+            evidence,
+        )
+    if row.evidence_version == EVIDENCE_VERSION_V3:
+        assert isinstance(evidence, WalkForwardEvidenceV3)
+        validate_v2_regime_source_evidence(
+            [child.oos_backtest_run for child in row.windows if child.oos_backtest_run is not None],
+            evidence,
+        )
+        validate_v3_tail_source_evidence(
             [child.oos_backtest_run for child in row.windows if child.oos_backtest_run is not None],
             evidence,
         )

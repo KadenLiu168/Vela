@@ -4,11 +4,14 @@ from decimal import Decimal
 from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query
+from vela_core import MINIMUM_PUBLICATION_OBSERVATIONS
 from vela_core.models import BacktestBenchmark, BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.evidence import (
     EVIDENCE_VERSION_V2,
+    EVIDENCE_VERSION_V3,
     WalkForwardEvidenceV1,
     WalkForwardEvidenceV2,
+    WalkForwardEvidenceV3,
 )
 from vela_core.walk_forward.query import get_walk_forward_run, list_walk_forward_runs
 from vela_core.walk_forward.stitched_oos import StitchedOosResult
@@ -18,6 +21,7 @@ from vela_api.schemas import (
     WalkForwardDetailResponse,
     WalkForwardEvidenceResponse,
     WalkForwardEvidenceV2Response,
+    WalkForwardEvidenceV3Response,
     WalkForwardPageResponse,
 )
 
@@ -57,11 +61,18 @@ def walk_forward_detail(
     if row is None:
         raise HTTPException(status_code=404, detail="Walk-forward run not found")
     if row.evidence_version == EVIDENCE_VERSION_V2:
-        evidence: WalkForwardEvidenceV1 | WalkForwardEvidenceV2 = (
+        evidence: WalkForwardEvidenceV1 | WalkForwardEvidenceV2 | WalkForwardEvidenceV3 = (
             WalkForwardEvidenceV2.model_validate(row.evidence_json)
         )
-        evidence_response: WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response = (
-            WalkForwardEvidenceV2Response.model_validate(evidence.model_dump(mode="json"))
+        evidence_response: (
+            WalkForwardEvidenceResponse
+            | WalkForwardEvidenceV2Response
+            | WalkForwardEvidenceV3Response
+        ) = WalkForwardEvidenceV2Response.model_validate(evidence.model_dump(mode="json"))
+    elif row.evidence_version == EVIDENCE_VERSION_V3:
+        evidence = WalkForwardEvidenceV3.model_validate(row.evidence_json)
+        evidence_response = WalkForwardEvidenceV3Response.model_validate(
+            evidence.model_dump(mode="json")
         )
     else:
         evidence = WalkForwardEvidenceV1.model_validate(row.evidence_json)
@@ -197,11 +208,26 @@ def _benchmark_response(row: BacktestBenchmark, strategy: BacktestRun) -> dict[s
         "up_capture_observation_count": row.up_capture_observation_count,
         "down_capture_ratio": _decimal(row.down_capture_ratio),
         "down_capture_observation_count": row.down_capture_observation_count,
+        "historical_var_95": _decimal(row.historical_var_95),
+        "historical_cvar_95": _decimal(row.historical_cvar_95),
+        "return_skewness": _decimal(row.return_skewness),
+        "return_excess_kurtosis": _decimal(row.return_excess_kurtosis),
+        "distribution_observation_count": row.distribution_observation_count,
+        "tail_observation_count": row.tail_observation_count,
+        "distribution_evidence_status": _distribution_evidence_status(
+            row.distribution_observation_count
+        ),
     }
 
 
 def _decimal(value: Decimal | float | int | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _distribution_evidence_status(count: int | None) -> str:
+    if count is None:
+        return "unavailable_legacy"
+    return "sufficient" if count >= MINIMUM_PUBLICATION_OBSERVATIONS else "insufficient_evidence"
 
 
 def _difference(left: Decimal | None, right: Decimal | None) -> str | None:

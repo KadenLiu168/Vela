@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -353,6 +354,188 @@ def _add_v2_history(session, *, strategy_id: str, finished_at: datetime) -> Walk
     session.add(parent)
     session.flush()
     return parent
+
+
+def _add_v3_history(session, *, strategy_id: str, finished_at: datetime) -> WalkForwardRun:
+    oos = BacktestRun(
+        strategy_id=strategy_id,
+        config_version="wf-000000000001",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        parameters_json=(
+            '{"benchmark_regime_metric_version":"benchmark_regime_metrics_v1",'
+            '"tail_distribution_metric_version":"tail_distribution_metrics_v1"}'
+        ),
+        started_at=finished_at,
+        finished_at=finished_at,
+        status="success",
+        total_return=Decimal("0.100000"),
+        annualized_return=Decimal("0.100000"),
+        max_drawdown=Decimal("-0.050000"),
+        volatility=Decimal("0.100000"),
+        sharpe_ratio=Decimal("1.000000"),
+        historical_var_95=Decimal("0.020000"),
+        historical_cvar_95=Decimal("0.060000"),
+        return_skewness=Decimal("0.100000"),
+        return_excess_kurtosis=Decimal("0.200000"),
+        distribution_observation_count=100,
+        tail_observation_count=5,
+    )
+    oos.benchmarks.extend(
+        [
+            BacktestBenchmark(
+                benchmark_key="equal_weight_monthly",
+                display_name="Equal-weight monthly rebalanced portfolio",
+                total_return=Decimal("0.080000"),
+                annualized_return=Decimal("0.080000"),
+                max_drawdown=Decimal("-0.040000"),
+                volatility=Decimal("0.090000"),
+                sharpe_ratio=Decimal("0.900000"),
+                tracking_error=Decimal("0.020000"),
+                information_ratio=Decimal("0.300000"),
+                up_capture_ratio=Decimal("1.200000"),
+                up_capture_observation_count=8,
+                down_capture_ratio=Decimal("0.700000"),
+                down_capture_observation_count=3,
+                historical_var_95=Decimal("0.010000"),
+                historical_cvar_95=Decimal("0.030000"),
+                return_skewness=Decimal("-0.100000"),
+                return_excess_kurtosis=Decimal("0.100000"),
+                distribution_observation_count=100,
+                tail_observation_count=5,
+            ),
+            BacktestBenchmark(
+                benchmark_key="csi_300_buy_hold",
+                display_name="CSI 300 buy-and-hold",
+                total_return=Decimal("0.080000"),
+                annualized_return=Decimal("0.080000"),
+                max_drawdown=Decimal("-0.040000"),
+                volatility=Decimal("0.090000"),
+                sharpe_ratio=Decimal("0.900000"),
+                tracking_error=Decimal("0.020000"),
+                information_ratio=Decimal("0.300000"),
+                capm_alpha=Decimal("0.500000"),
+                capm_beta=Decimal("1.100000"),
+                capm_r_squared=Decimal("0.800000"),
+                capm_observation_count=240,
+                up_capture_ratio=Decimal("1.200000"),
+                up_capture_observation_count=8,
+                down_capture_ratio=Decimal("0.700000"),
+                down_capture_observation_count=3,
+                historical_var_95=Decimal("0.040000"),
+                historical_cvar_95=Decimal("0.080000"),
+                return_skewness=Decimal("0.200000"),
+                return_excess_kurtosis=Decimal("-0.300000"),
+                distribution_observation_count=100,
+                tail_observation_count=5,
+            ),
+        ]
+    )
+    oos.equity_curve.extend(
+        BacktestEquityCurve(
+            trade_date=trade_date,
+            net_value=Decimal("1.000000"),
+            cash=Decimal("0"),
+            market_value=Decimal("1"),
+            total_assets=Decimal("1"),
+            positions_json="[]",
+        )
+        for trade_date in (date(2026, 1, 1), date(2026, 12, 31))
+    )
+    parent = WalkForwardRun(
+        strategy_id=strategy_id,
+        start_date=date(2025, 1, 1),
+        end_date=date(2026, 12, 31),
+        window_count=1,
+        walk_forward_config_json={"strategy": {"base_config": "strategy.yaml"}},
+        base_strategy_config_json={"strategy_id": strategy_id},
+        provenance_version="wf_provenance_v1",
+        config_checksum="a" * 64,
+        input_data_snapshot_json={
+            "version": "wf_provenance_v1",
+            "earliest_required_session": "2025-01-01",
+            "configured_end_date": "2026-12-31",
+            "following_session": None,
+            "official_sessions": ["2025-01-01", "2026-01-01", "2026-12-31"],
+            "active_etfs": [],
+            "loaded_price_row_count": 0,
+            "first_loaded_price_date": None,
+            "last_loaded_price_date": None,
+        },
+        input_data_checksum="b" * 64,
+        evidence_version="wf_evidence_v3",
+        evidence_json=_v3_evidence(),
+        started_at=finished_at,
+        finished_at=finished_at,
+    )
+    parent.windows.append(
+        WalkForwardRunWindow(
+            ordinal=0,
+            train_start=date(2025, 1, 1),
+            train_end=date(2025, 12, 31),
+            test_start=date(2026, 1, 1),
+            test_end=date(2026, 12, 31),
+            oos_version="wf-000000000001",
+            selected_parameters_json={"parameters.selection.top_n": 1},
+            candidate_count=1,
+            eligible_count=1,
+            skipped_count=0,
+            skip_reason_counts_json={},
+            train_sharpe=Decimal("1.100000"),
+            oos_backtest_run=oos,
+        )
+    )
+    session.add(parent)
+    session.flush()
+    return parent
+
+
+def _tail_owner(*, var: float, cvar: float, skew: float, kurt: float) -> dict[str, object]:
+    return {
+        "historical_var_95": var,
+        "historical_cvar_95": cvar,
+        "return_skewness": skew,
+        "return_excess_kurtosis": kurt,
+        "observation_count": 100,
+        "tail_observation_count": 5,
+        "evidence_status": "sufficient",
+    }
+
+
+def _tail_agg(value: float) -> dict[str, object]:
+    return {
+        "mean": value,
+        "median": value,
+        "min": value,
+        "max": value,
+        "std": 0.0,
+        "window_count": 1,
+        "valid_count": 1,
+        "evidence_status": "insufficient_evidence",
+    }
+
+
+def _v3_evidence() -> dict[str, object]:
+    document = _v2_evidence()
+    owners = {
+        "strategy": _tail_owner(var=0.02, cvar=0.06, skew=0.1, kurt=0.2),
+        "equal_weight_monthly": _tail_owner(var=0.01, cvar=0.03, skew=-0.1, kurt=0.1),
+        "csi_300_buy_hold": _tail_owner(var=0.04, cvar=0.08, skew=0.2, kurt=-0.3),
+    }
+    metrics = (
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+    )
+    document["tail_distribution"] = {
+        "per_window": [{"ordinal": 0, "owners": deepcopy(owners)}],
+        "aggregates": {
+            owner: {metric: _tail_agg(values[metric]) for metric in metrics}
+            for owner, values in owners.items()
+        },
+    }
+    return document
 
 
 def _add_history_windows(
@@ -935,6 +1118,85 @@ def test_walk_forward_detail_fails_closed_on_missing_session_bound(tmp_path) -> 
     finally:
         initialize_database(app, database_url=DEFAULT_DATABASE_URL)
 
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {
+            "code": "unexpected_error",
+            "category": "unexpected",
+            "message": "Unexpected API error",
+        }
+    }
+
+
+def test_walk_forward_detail_returns_v3_tail_distribution_evidence(tmp_path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'wf-detail-v3.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    finished_at = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
+    with session_factory() as session:
+        row = _add_v3_history(session, strategy_id="Dual_momentum", finished_at=finished_at)
+        session.commit()
+        run_id = row.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app).get(f"/api/walk-forwards/{run_id}")
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["evidence_version"] == "wf_evidence_v3"
+    evidence = body["evidence"]
+    tail = evidence["tail_distribution"]
+    assert len(tail["per_window"]) == 1
+    owners = tail["per_window"][0]["owners"]
+    assert set(owners) == {"strategy", "equal_weight_monthly", "csi_300_buy_hold"}
+    assert owners["strategy"]["historical_var_95"] == 0.02
+    assert owners["strategy"]["historical_cvar_95"] == 0.06
+    assert owners["strategy"]["return_skewness"] == 0.1
+    assert owners["strategy"]["return_excess_kurtosis"] == 0.2
+    assert owners["strategy"]["observation_count"] == 100
+    assert owners["strategy"]["tail_observation_count"] == 5
+    assert owners["strategy"]["evidence_status"] == "sufficient"
+    assert owners["equal_weight_monthly"]["historical_var_95"] == 0.01
+    assert owners["csi_300_buy_hold"]["historical_var_95"] == 0.04
+    aggregates = tail["aggregates"]
+    assert aggregates["strategy"]["historical_var_95"]["mean"] == 0.02
+    assert aggregates["strategy"]["historical_var_95"]["valid_count"] == 1
+    assert aggregates["csi_300_buy_hold"]["return_excess_kurtosis"]["max"] == -0.3
+    # Stored per-window OOS benchmark evidence remains on the owning window.
+    oos_benchmarks = body["windows"][0]["oos_backtest"]["benchmarks"]
+    by_key = {benchmark["key"]: benchmark for benchmark in oos_benchmarks}
+    assert by_key["equal_weight_monthly"]["historical_var_95"] == "0.010000"
+    assert by_key["equal_weight_monthly"]["distribution_evidence_status"] == "sufficient"
+    assert by_key["csi_300_buy_hold"]["historical_cvar_95"] == "0.080000"
+
+
+def test_walk_forward_detail_returns_no_partial_v3_response_on_corrupt_evidence(
+    tmp_path,
+) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'wf-detail-v3-corrupt.db'}"
+    session_factory = prepare_sqlite_database(database_url)
+    finished_at = datetime(2026, 3, 1, 9, 0, tzinfo=UTC)
+    with session_factory() as session:
+        row = _add_v3_history(session, strategy_id="Dual_momentum", finished_at=finished_at)
+        evidence = deepcopy(row.evidence_json)
+        evidence["tail_distribution"]["per_window"][0]["owners"]["strategy"][
+            "historical_var_95"
+        ] = 0.99
+        row.evidence_json = evidence
+        session.commit()
+        run_id = row.id
+
+    try:
+        initialize_database(app, database_url=database_url)
+        response = TestClient(app, raise_server_exceptions=False).get(
+            f"/api/walk-forwards/{run_id}"
+        )
+    finally:
+        initialize_database(app, database_url=DEFAULT_DATABASE_URL)
+
+    # Corrupt v3 fails closed with the standard error envelope and no partial detail.
     assert response.status_code == 500
     assert response.json() == {
         "error": {

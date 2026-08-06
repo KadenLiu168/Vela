@@ -3,7 +3,6 @@
 ## Purpose
 Defines the FastAPI service surface, including the local-development `POST /api/setup/bootstrap` endpoint.
 ## Requirements
-
 ### Requirement: API lists current-strategy Walk-forward evaluations
 The API SHALL expose `GET /api/walk-forwards` scoped to the configured `strategy_id`, with `limit` 1..100 (default 10), non-negative `offset` (default 0), exact total, and stable `finished_at DESC, run_id DESC` ordering. It SHALL expose no `strategyId` filter and MUST NOT start or mutate a Walk-forward execution.
 
@@ -40,7 +39,6 @@ The HTTP service MUST expose only `GET /api/walk-forwards` and `GET /api/walk-fo
 #### Scenario: OpenAPI exposes only history reads
 - **WHEN** a client inspects Walk-forward paths in OpenAPI
 - **THEN** only the two GET history/detail paths are present
-
 
 ### Requirement: Expected API failures use typed domain mapping
 
@@ -114,6 +112,7 @@ include request bodies, raw query strings, credentials, or exception details.
 - **WHEN** an API request produces a handled or unexpected error response
 - **THEN** exactly one request completion event records request ID, method, normalized route, status, and duration
 - **AND** the event excludes the request body and raw query string
+
 ### Requirement: API setup bootstrap endpoint
 The API service SHALL expose `POST /api/setup/bootstrap` as a local-development endpoint that runs the compound local setup bootstrap operation.
 
@@ -460,6 +459,7 @@ The successful backtest-run response and backtest-detail response SHALL expose a
 #### Scenario: Legacy detail remains readable
 - **WHEN** a client requests a persisted run with no benchmark records
 - **THEN** the detail response succeeds with an empty benchmark collection
+
 ### Requirement: Backtest responses expose persisted expanded risk metrics
 Successful backtest-run and backtest-detail responses SHALL expose strategy Sortino, Calmar and longest drawdown duration fields. Every benchmark entry SHALL expose its own Sortino, Calmar and duration fields plus strategy-relative Tracking Error and Information Ratio. Decimal values SHALL remain strings, duration counts SHALL be integers, dates SHALL be ISO dates, and unavailable values SHALL be null.
 
@@ -519,3 +519,27 @@ Backtest list and run-creation responses SHALL NOT include return-stability seri
 #### Scenario: List response remains bounded
 - **WHEN** a client requests the backtest list after this Change
 - **THEN** its existing item schema and curve-loading behavior remain unchanged
+
+### Requirement: Backtest responses expose stored distribution-risk evidence
+Successful backtest-run and detail responses SHALL expose nullable Historical VaR 95%, Historical CVaR 95%, Skewness, Excess Kurtosis, effective observation count, tail observation count, and derived `sufficient`/`insufficient_evidence` status for the strategy and each fixed benchmark. Decimal values SHALL be six-place strings, routers MUST NOT recompute metrics, and legacy null counts SHALL produce an explicit unavailable legacy status rather than an assumed zero sample.
+
+#### Scenario: New response preserves stored values and positive-loss sign
+- **WHEN** a newly calculated benchmark-enabled run is serialized
+- **THEN** strategy and both benchmark objects return exact stored metrics/counts and derived statuses
+- **AND** returned VaR/CVaR values satisfy the positive-loss invariant
+
+#### Scenario: Legacy response does not fabricate evidence
+- **WHEN** a legacy run or benchmark has null distribution fields and counts
+- **THEN** new metric fields remain null with an explicit legacy-unavailable status
+
+### Requirement: Walk-forward Detail exposes validated v3 distribution evidence
+Walk-forward Detail SHALL serialize validated `wf_evidence_v3` per-window and aggregate distribution groups with named owners, metric-local counts, and statuses. Valid v1/v2 detail SHALL remain readable according to its version, and OpenAPI SHALL distinguish supported shapes without browser inference.
+
+#### Scenario: V3 response matches validated history
+- **WHEN** a client requests a valid v3 Walk-forward history
+- **THEN** every distribution value, count, null, status, and owner matches the validated evidence document
+
+#### Scenario: Invalid v3 returns no partial detail
+- **WHEN** persisted v3 evidence violates its strict contract
+- **THEN** the endpoint returns the standard error envelope and no partial Walk-forward response
+

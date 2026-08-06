@@ -13,14 +13,17 @@ from sqlalchemy.orm import Session
 from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.candidate_audit import build_candidate_audit
 from vela_core.walk_forward.evidence import (
-    EVIDENCE_VERSION_V2,
+    EVIDENCE_VERSION_V3,
     PersistedDataContractError,
-    WalkForwardEvidenceV2,
+    WalkForwardEvidenceV3,
     validate_wf_evidence,
 )
 from vela_core.walk_forward.provenance import PROVENANCE_VERSION, validate_input_manifest
 from vela_core.walk_forward.regime_evidence_validation import (
     validate_v2_regime_source_evidence,
+)
+from vela_core.walk_forward.tail_evidence_validation import (
+    validate_v3_tail_source_evidence,
 )
 
 _CHECKSUM = re.compile(r"[0-9a-f]{64}")
@@ -68,11 +71,12 @@ def persist_walk_forward_run(
     _validate_checksum(run.config_checksum, "config_checksum")
     _validate_checksum(run.input_data_checksum, "input_data_checksum")
     validate_input_manifest(PROVENANCE_VERSION, run.input_data_snapshot)
-    evidence = validate_wf_evidence(EVIDENCE_VERSION_V2, run.evidence)
-    assert isinstance(evidence, WalkForwardEvidenceV2)
+    evidence = validate_wf_evidence(EVIDENCE_VERSION_V3, run.evidence)
+    assert isinstance(evidence, WalkForwardEvidenceV3)
     children = _build_windows(run.windows)
     oos_rows = _validate_oos_ownership(session, run)
     validate_v2_regime_source_evidence(oos_rows, evidence)
+    validate_v3_tail_source_evidence(oos_rows, evidence)
     if len(children) != run.window_count:
         raise ValueError("Walk-forward parent window count must equal child count")
     parent = WalkForwardRun(
@@ -86,7 +90,7 @@ def persist_walk_forward_run(
         config_checksum=run.config_checksum,
         input_data_snapshot_json=run.input_data_snapshot,
         input_data_checksum=run.input_data_checksum,
-        evidence_version=EVIDENCE_VERSION_V2,
+        evidence_version=EVIDENCE_VERSION_V3,
         evidence_json=evidence.model_dump(mode="json"),
         started_at=run.started_at,
         finished_at=run.finished_at,

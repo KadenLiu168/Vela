@@ -540,7 +540,7 @@ def test_wf_v2_query_rejects_unsupported_version(tmp_path) -> None:
     with sessionmaker(bind=engine)() as session:
         _add_parent_with_windows(
             session,
-            evidence_version="wf_evidence_v3",
+            evidence_version="wf_evidence_v4",
             evidence=_v2_evidence(2, alpha_valid=2),
             regime_on_rows=True,
         )

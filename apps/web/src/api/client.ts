@@ -214,6 +214,21 @@ export type ReturnStability = {
   benchmarks: ReturnStabilityBenchmark[];
 };
 
+export type DistributionEvidenceStatus =
+  | "sufficient"
+  | "insufficient_evidence"
+  | "unavailable_legacy";
+
+export type TailDistributionFields = {
+  historical_var_95: string | null;
+  historical_cvar_95: string | null;
+  return_skewness: string | null;
+  return_excess_kurtosis: string | null;
+  distribution_observation_count: number | null;
+  tail_observation_count: number | null;
+  distribution_evidence_status: DistributionEvidenceStatus;
+};
+
 export type BacktestDetailResponse = {
   run: BacktestDetailRun;
   metrics: BacktestDetailMetrics;
@@ -251,7 +266,7 @@ export type BacktestBenchmark = {
   down_capture_ratio: string | null;
   down_capture_observation_count: number | null;
   equity_curve: Array<{ trade_date: string; net_value: string }>;
-};
+} & TailDistributionFields;
 
 export type BacktestDetailRun = {
   run_id: number;
@@ -278,7 +293,7 @@ export type BacktestDetailMetrics = {
   longest_drawdown_peak_date: string | null;
   longest_drawdown_trough_date: string | null;
   longest_drawdown_recovery_date: string | null;
-};
+} & TailDistributionFields;
 
 export type BacktestEquityCurvePoint = {
   trade_date: string;
@@ -568,6 +583,33 @@ export type WalkForwardBenchmarkEvidence = {
   down_capture_ratio?: WalkForwardMetricSummary;
 };
 
+export type WalkForwardTailDistributionOwner = {
+  historical_var_95: number | null;
+  historical_cvar_95: number | null;
+  return_skewness: number | null;
+  return_excess_kurtosis: number | null;
+  observation_count: number;
+  tail_observation_count: number;
+  evidence_status: WalkForwardEvidenceStatus;
+};
+
+export type WalkForwardTailDistributionWindow = {
+  ordinal: number;
+  owners: Record<string, WalkForwardTailDistributionOwner>;
+};
+
+export type WalkForwardTailDistributionAggregates = {
+  historical_var_95: WalkForwardMetricSummary;
+  historical_cvar_95: WalkForwardMetricSummary;
+  return_skewness: WalkForwardMetricSummary;
+  return_excess_kurtosis: WalkForwardMetricSummary;
+};
+
+export type WalkForwardTailDistribution = {
+  per_window: WalkForwardTailDistributionWindow[];
+  aggregates: Record<string, WalkForwardTailDistributionAggregates>;
+};
+
 export type WalkForwardEvidence = {
   metrics: {
     total_return: WalkForwardMetricSummary;
@@ -591,6 +633,7 @@ export type WalkForwardEvidence = {
       transition_rate: number | null;
     }
   >;
+  tail_distribution?: WalkForwardTailDistribution;
 };
 
 export type WalkForwardRunSummary = {

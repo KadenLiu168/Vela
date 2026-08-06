@@ -59,6 +59,12 @@ class BacktestRun(Base):
     longest_drawdown_peak_date: Mapped[date | None] = mapped_column(Date)
     longest_drawdown_trough_date: Mapped[date | None] = mapped_column(Date)
     longest_drawdown_recovery_date: Mapped[date | None] = mapped_column(Date)
+    historical_var_95: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    historical_cvar_95: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    return_skewness: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    return_excess_kurtosis: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    distribution_observation_count: Mapped[int | None] = mapped_column()
+    tail_observation_count: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -149,6 +155,12 @@ class BacktestBenchmark(Base):
     up_capture_observation_count: Mapped[int | None] = mapped_column()
     down_capture_ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     down_capture_observation_count: Mapped[int | None] = mapped_column()
+    historical_var_95: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    historical_cvar_95: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    return_skewness: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    return_excess_kurtosis: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    distribution_observation_count: Mapped[int | None] = mapped_column()
+    tail_observation_count: Mapped[int | None] = mapped_column()
     backtest_run: Mapped[BacktestRun] = relationship(back_populates="benchmarks")
     equity_curve: Mapped[list["BacktestBenchmarkEquityCurve"]] = relationship(
         back_populates="benchmark",

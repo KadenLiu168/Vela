@@ -26,6 +26,7 @@ from vela_core.strategy_equity_curve import (
     calculate_strategy_sortino_ratio,
     calculate_strategy_volatility,
 )
+from vela_core.tail_distribution_risk_metrics import calculate_tail_distribution_risk_metrics
 
 _SIX_PLACES = Decimal("0.000001")
 _BASIS_POINTS = Decimal("10000")
@@ -58,6 +59,12 @@ class BacktestBenchmarkResult:
     up_capture_observation_count: int | None = None
     down_capture_ratio: Decimal | None = None
     down_capture_observation_count: int | None = None
+    historical_var_95: Decimal | None = None
+    historical_cvar_95: Decimal | None = None
+    return_skewness: Decimal | None = None
+    return_excess_kurtosis: Decimal | None = None
+    distribution_observation_count: int | None = None
+    tail_observation_count: int | None = None
 
 
 def calculate_backtest_benchmarks(
@@ -271,6 +278,7 @@ def _result(
 ) -> BacktestBenchmarkResult:
     annualized_return = calculate_strategy_annualized_return(points)
     maximum_drawdown = calculate_strategy_maximum_drawdown(points)
+    tail_metrics = calculate_tail_distribution_risk_metrics(points)
     return BacktestBenchmarkResult(
         key=key,
         name=name,
@@ -285,4 +293,10 @@ def _result(
             maximum_drawdown.max_drawdown,
         ),
         longest_drawdown_duration=calculate_strategy_longest_drawdown_duration(points),
+        historical_var_95=tail_metrics.historical_var_95,
+        historical_cvar_95=tail_metrics.historical_cvar_95,
+        return_skewness=tail_metrics.return_skewness,
+        return_excess_kurtosis=tail_metrics.return_excess_kurtosis,
+        distribution_observation_count=tail_metrics.observation_count,
+        tail_observation_count=tail_metrics.tail_observation_count,
     )

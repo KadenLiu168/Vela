@@ -151,6 +151,12 @@ from vela_core.strategy_signal_report import (
     list_strategy_signals,
 )
 from vela_core.strategy_signal_service import generate_and_persist_strategy_signal
+from vela_core.tail_distribution_risk_metrics import (
+    MINIMUM_PUBLICATION_OBSERVATIONS,
+    TAIL_DISTRIBUTION_METRIC_VERSION,
+    TailDistributionRiskMetrics,
+    calculate_tail_distribution_risk_metrics,
+)
 from vela_core.tencent_market_data_provider import TencentMarketDataProvider
 from vela_core.trading_calendar_sync import (
     TradingCalendarSyncResult,
@@ -200,6 +206,7 @@ __all__ = [
     "MarketPriceMovingAverage",
     "MarketPriceReturns",
     "MarketPriceUpsertResult",
+    "MINIMUM_PUBLICATION_OBSERVATIONS",
     "MomentumRanking",
     "MomentumScore",
     "PortfolioHolding",
@@ -230,6 +237,8 @@ __all__ = [
     "StrategySignalReport",
     "StrategySignalReportPosition",
     "SystematicTradingDayGap",
+    "TAIL_DISTRIBUTION_METRIC_VERSION",
+    "TailDistributionRiskMetrics",
     "TopNSelection",
     "TrendFilterResult",
     "WalkForwardConfig",
@@ -252,6 +261,7 @@ __all__ = [
     "calculate_strategy_sharpe_ratio",
     "calculate_strategy_sortino_ratio",
     "calculate_strategy_volatility",
+    "calculate_tail_distribution_risk_metrics",
     "detect_corporate_action_factor_mismatch",
     "detect_duplicate_trade_dates",
     "detect_etf_trading_day_gaps",

@@ -3,7 +3,8 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from vela_core.backtest_result_persistence import get_backtest_result
-from vela_core.models import BacktestEquityCurve, BacktestRun
+from vela_core.models import BacktestBenchmark, BacktestEquityCurve, BacktestRun
+from vela_core.tail_distribution_risk_metrics import MINIMUM_PUBLICATION_OBSERVATIONS
 
 
 class BacktestReportNotFoundError(ValueError):
@@ -54,6 +55,7 @@ def _format_report(run: BacktestRun) -> str:
             f"- Longest drawdown peak: {_format_optional(run.longest_drawdown_peak_date)}",
             f"- Longest drawdown trough: {_format_optional(run.longest_drawdown_trough_date)}",
             f"- Longest drawdown recovery: {run_recovery}",
+            *_tail_distribution_lines(run),
             "Equity Curve Summary:",
             f"- Points: {len(run.equity_curve)}",
         ]
@@ -105,6 +107,7 @@ def _format_report(run: BacktestRun) -> str:
                 "- Longest drawdown trough: "
                 f"{_format_optional(benchmark.longest_drawdown_trough_date)}",
                 f"- Longest drawdown recovery: {benchmark_recovery}",
+                *_tail_distribution_lines(benchmark),
                 f"- Tracking error (252D): {_format_optional(benchmark.tracking_error)}",
                 f"- Information ratio (252D): {_format_optional(benchmark.information_ratio)}",
                 "- Strategy total return difference: "
@@ -145,6 +148,44 @@ def _format_curve_row(row: BacktestEquityCurve) -> str:
         f"{row.trade_date.isoformat()} net_value={row.net_value} cash={row.cash} "
         f"market_value={row.market_value} total_assets={row.total_assets}"
     )
+
+
+def _tail_distribution_lines(owner: BacktestRun | BacktestBenchmark) -> list[str]:
+    """Human-readable one-day historical distribution-risk evidence.
+
+    Values are stored as-is; only the evidence label is derived from the
+    persisted counts. Legacy owners (null counts) render explicitly unavailable
+    rather than implying a zero sample.
+    """
+    if owner.distribution_observation_count is None:
+        return [
+            "- Historical VaR 95% (1D loss): n/a",
+            "- Historical CVaR 95% (1D loss): n/a",
+            "- Skewness: n/a",
+            "- Excess kurtosis (normal = 0): n/a",
+            "- Distribution observation count: n/a",
+            "- Tail observation count: n/a",
+            "- Distribution evidence: unavailable (legacy history)",
+        ]
+    observation_count = owner.distribution_observation_count
+    if observation_count >= MINIMUM_PUBLICATION_OBSERVATIONS:
+        evidence_label = "sufficient"
+    else:
+        evidence_label = (
+            f"insufficient_evidence ({observation_count} effective observations; "
+            f"tail count {owner.tail_observation_count} is the fixed-rank tail "
+            f"cardinality; publication requires at least "
+            f"{MINIMUM_PUBLICATION_OBSERVATIONS})"
+        )
+    return [
+        f"- Historical VaR 95% (1D loss): {_format_optional(owner.historical_var_95)}",
+        f"- Historical CVaR 95% (1D loss): {_format_optional(owner.historical_cvar_95)}",
+        f"- Skewness: {_format_optional(owner.return_skewness)}",
+        f"- Excess kurtosis (normal = 0): {_format_optional(owner.return_excess_kurtosis)}",
+        f"- Distribution observation count: {observation_count}",
+        f"- Tail observation count: {_format_optional(owner.tail_observation_count)}",
+        f"- Distribution evidence: {evidence_label}",
+    ]
 
 
 def _format_optional(value: object | None) -> str:

@@ -546,6 +546,116 @@ def test_migration_adds_quality_warnings_column_to_data_fetch_log(
         engine.dispose()
 
 
+def test_tail_distribution_metric_migration_preserves_legacy_values_and_downgrades_cleanly(
+    tmp_path: Path,
+) -> None:
+    config = _alembic_config(tmp_path / "vela.db")
+    previous_revision = "20260805_0016"
+    alembic.command.upgrade(config, previous_revision)
+
+    engine = _create_engine(config)
+    try:
+        with engine.begin() as connection:
+            run_id = connection.execute(
+                text(
+                    "INSERT INTO backtest_run "
+                    "(strategy_id, config_version, start_date, end_date, parameters_json, "
+                    "started_at, finished_at, status, total_return, annualized_return, "
+                    "max_drawdown, sharpe_ratio, volatility) "
+                    "VALUES ('dual_momentum', 'v1', '2026-01-01', '2026-01-31', '{}', "
+                    "'2026-02-01 09:00:00', '2026-02-01 09:05:00', 'success', "
+                    "0.12, 0.18, -0.05, 1.10, 0.20) RETURNING id"
+                )
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_benchmark "
+                    "(backtest_run_id, benchmark_key, display_name, total_return, "
+                    "annualized_return, max_drawdown, sharpe_ratio, volatility, "
+                    "tracking_error, information_ratio) "
+                    "VALUES (:run_id, 'csi_300_buy_hold', 'CSI 300 buy-and-hold', "
+                    "0.1, 0.12, -0.04, 0.9, 0.1, 0.03, 0.5)"
+                ),
+                {"run_id": run_id},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO backtest_equity_curve "
+                    "(backtest_run_id, trade_date, net_value, cash, market_value, "
+                    "total_assets, positions_json) "
+                    "VALUES (:run_id, '2026-01-02', 1.010000, 0, 1.01, 1.01, '{}')"
+                ),
+                {"run_id": run_id},
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        inspector = inspect(engine)
+        expected = {
+            "historical_var_95",
+            "historical_cvar_95",
+            "return_skewness",
+            "return_excess_kurtosis",
+            "distribution_observation_count",
+            "tail_observation_count",
+        }
+        for table in ("backtest_run", "backtest_benchmark"):
+            columns = {column["name"] for column in inspector.get_columns(table)}
+            assert expected <= columns
+        with engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    "SELECT total_return, annualized_return, max_drawdown, sharpe_ratio, "
+                    "volatility FROM backtest_run"
+                )
+            ).one() == (0.12, 0.18, -0.05, 1.1, 0.2)
+            assert connection.execute(
+                text(
+                    "SELECT historical_var_95, historical_cvar_95, return_skewness, "
+                    "return_excess_kurtosis, distribution_observation_count, "
+                    "tail_observation_count FROM backtest_run"
+                )
+            ).one() == (None, None, None, None, None, None)
+            assert connection.execute(
+                text(
+                    "SELECT benchmark_key, tracking_error, historical_var_95, "
+                    "distribution_observation_count, tail_observation_count "
+                    "FROM backtest_benchmark"
+                )
+            ).one() == ("csi_300_buy_hold", 0.03, None, None, None)
+    finally:
+        engine.dispose()
+
+    alembic.command.downgrade(config, previous_revision)
+    engine = _create_engine(config)
+    try:
+        for table in ("backtest_run", "backtest_benchmark"):
+            columns = {column["name"] for column in inspect(engine).get_columns(table)}
+            assert expected.isdisjoint(columns)
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT benchmark_key, tracking_error FROM backtest_benchmark")
+            ).one() == ("csi_300_buy_hold", 0.03)
+            assert (
+                connection.execute(text("SELECT net_value FROM backtest_equity_curve")).scalar_one()
+                == 1.01
+            )
+    finally:
+        engine.dispose()
+
+    alembic.command.upgrade(config, "head")
+    engine = _create_engine(config)
+    try:
+        with engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        engine.dispose()
+
+
 def _load_alembic_env() -> Any:
     env_path = ROOT / "alembic" / "env.py"
     spec = importlib.util.spec_from_file_location("alembic_env", env_path)

@@ -310,6 +310,64 @@ def test_benchmark_regime_metrics_keep_ownership_and_preserve_existing_fields() 
     ]
 
 
+def test_benchmark_tail_metrics_keep_ownership_and_preserve_existing_fields() -> None:
+    from datetime import timedelta
+
+    from vela_core.tail_distribution_risk_metrics import (
+        calculate_tail_distribution_risk_metrics,
+    )
+
+    start = date(2026, 1, 1)
+    dates = [start + timedelta(days=index) for index in range(101)]
+    # Alternating wide moves produce a non-trivial return distribution with
+    # non-zero central moments while keeping every point realistic.
+    prices = [100 + (index % 2) * 8 - (index % 3) * 5 for index in range(101)]
+
+    results = calculate_backtest_benchmarks(
+        trading_dates=dates,
+        active_etfs=[_etf(1, "SSE", "510300")],
+        price_panel={
+            1: [
+                _price(1, trade_date, close, 1)
+                for trade_date, close in zip(dates, prices, strict=True)
+            ]
+        },
+        transaction_cost_bps=0,
+        risk_free_rate=Decimal("0"),
+    )
+
+    equal_weight, csi_300 = results
+    # Identical returns (single-ETF equal weight has no rebalance) must yield
+    # identical absolute distribution metrics on separate owners.
+    assert [point.daily_return for point in equal_weight.points] == [
+        point.daily_return for point in csi_300.points
+    ]
+    for result in (equal_weight, csi_300):
+        direct = calculate_tail_distribution_risk_metrics(result.points)
+        assert result.distribution_observation_count == direct.observation_count == 100
+        assert result.tail_observation_count == direct.tail_observation_count == 5
+        assert result.historical_var_95 == direct.historical_var_95
+        assert result.historical_cvar_95 == direct.historical_cvar_95
+        assert result.return_skewness == direct.return_skewness
+        assert result.return_excess_kurtosis == direct.return_excess_kurtosis
+        assert result.historical_var_95 is not None
+        assert result.historical_cvar_95 is not None
+        assert result.return_skewness is not None
+        assert result.return_excess_kurtosis is not None
+        assert result.historical_cvar_95 >= result.historical_var_95 >= Decimal("0")
+    assert equal_weight.historical_var_95 == csi_300.historical_var_95
+    assert equal_weight.historical_cvar_95 == csi_300.historical_cvar_95
+    assert equal_weight.return_skewness == csi_300.return_skewness
+    assert equal_weight.return_excess_kurtosis == csi_300.return_excess_kurtosis
+    # Existing summary/relative metrics remain calculated and unchanged by the
+    # tail family.
+    for result in (equal_weight, csi_300):
+        assert result.annualized_return.annualized_return is not None
+        assert result.volatility.volatility is not None
+        assert result.sharpe_ratio.sharpe_ratio is not None
+        assert result.maximum_drawdown.max_drawdown is not None
+
+
 def _etf(identifier: int, exchange: str, symbol: str) -> ETFInfo:
     return ETFInfo(id=identifier, exchange=exchange, symbol=symbol, name=symbol, is_active=True)
 

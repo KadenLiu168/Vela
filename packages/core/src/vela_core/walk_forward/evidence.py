@@ -9,10 +9,18 @@ from vela_core.errors import PersistedDataContractError
 
 EvidenceStatus = Literal["sufficient", "insufficient_evidence"]
 MINIMUM_EVIDENCE_COUNT = 3
+MINIMUM_PUBLICATION_OBSERVATIONS = 100
 EVIDENCE_VERSION = "wf_evidence_v1"
 EVIDENCE_VERSION_V2 = "wf_evidence_v2"
-SUPPORTED_EVIDENCE_VERSIONS = (EVIDENCE_VERSION, EVIDENCE_VERSION_V2)
+EVIDENCE_VERSION_V3 = "wf_evidence_v3"
+SUPPORTED_EVIDENCE_VERSIONS = (EVIDENCE_VERSION, EVIDENCE_VERSION_V2, EVIDENCE_VERSION_V3)
 BenchmarkKey = Literal["equal_weight_monthly", "csi_300_buy_hold"]
+TailOwnerKey = Literal["strategy", "equal_weight_monthly", "csi_300_buy_hold"]
+TAIL_OWNER_KEYS: tuple[TailOwnerKey, ...] = (
+    "strategy",
+    "equal_weight_monthly",
+    "csi_300_buy_hold",
+)
 
 
 class WalkForwardMetricSummaryModel(BaseModel):
@@ -174,13 +182,103 @@ class WalkForwardEvidenceV2(WalkForwardEvidenceV1):
     benchmarks: dict[BenchmarkKey, WalkForwardBenchmarkEvidenceV2Model]  # type: ignore[assignment]
 
 
+class WalkForwardTailDistributionOwnerModel(BaseModel):
+    """One owner's distribution evidence for one selected OOS window."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    historical_var_95: float | None
+    historical_cvar_95: float | None
+    return_skewness: float | None
+    return_excess_kurtosis: float | None
+    observation_count: int = Field(ge=0)
+    tail_observation_count: int = Field(ge=0)
+    evidence_status: EvidenceStatus
+
+    @model_validator(mode="after")
+    def validate_owner_contract(self) -> WalkForwardTailDistributionOwnerModel:
+        expected_tail_count = math.ceil(0.05 * self.observation_count)
+        if self.tail_observation_count != expected_tail_count:
+            raise ValueError("tail_observation_count must equal ceil(5% of observation_count)")
+        expected_status = (
+            "sufficient"
+            if self.observation_count >= MINIMUM_PUBLICATION_OBSERVATIONS
+            else "insufficient_evidence"
+        )
+        if self.evidence_status != expected_status:
+            raise ValueError("evidence_status must match the 100-observation publication threshold")
+        if self.observation_count < MINIMUM_PUBLICATION_OBSERVATIONS and any(
+            value is not None
+            for value in (
+                self.historical_var_95,
+                self.historical_cvar_95,
+                self.return_skewness,
+                self.return_excess_kurtosis,
+            )
+        ):
+            raise ValueError("insufficient distribution evidence must contain null metrics")
+        if self.historical_var_95 is not None:
+            if self.historical_var_95 < 0:
+                raise ValueError("Historical VaR must be a non-negative loss magnitude")
+            if self.historical_cvar_95 is None or self.historical_cvar_95 < self.historical_var_95:
+                raise ValueError("Historical CVaR must be at least Historical VaR")
+        return self
+
+
+class WalkForwardTailDistributionWindowModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ordinal: int = Field(ge=0)
+    owners: dict[str, WalkForwardTailDistributionOwnerModel]
+
+    @model_validator(mode="after")
+    def validate_owners(self) -> WalkForwardTailDistributionWindowModel:
+        if set(self.owners) != set(TAIL_OWNER_KEYS):
+            raise ValueError(
+                "tail-distribution windows require strategy and both fixed benchmark owners"
+            )
+        return self
+
+
+class WalkForwardTailDistributionAggregateModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    historical_var_95: WalkForwardMetricSummaryModel
+    historical_cvar_95: WalkForwardMetricSummaryModel
+    return_skewness: WalkForwardMetricSummaryModel
+    return_excess_kurtosis: WalkForwardMetricSummaryModel
+
+
+class WalkForwardTailDistributionEvidenceModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    per_window: tuple[WalkForwardTailDistributionWindowModel, ...]
+    aggregates: dict[str, WalkForwardTailDistributionAggregateModel]
+
+    @model_validator(mode="after")
+    def validate_aggregate_owners(self) -> WalkForwardTailDistributionEvidenceModel:
+        if set(self.aggregates) != set(TAIL_OWNER_KEYS):
+            raise ValueError(
+                "tail-distribution aggregates require strategy and both fixed benchmark owners"
+            )
+        return self
+
+
+class WalkForwardEvidenceV3(WalkForwardEvidenceV2):
+    tail_distribution: WalkForwardTailDistributionEvidenceModel
+
+
 def validate_wf_evidence(
     version: str, document: object
-) -> WalkForwardEvidenceV1 | WalkForwardEvidenceV2:
+) -> WalkForwardEvidenceV1 | WalkForwardEvidenceV2 | WalkForwardEvidenceV3:
     if version == EVIDENCE_VERSION:
-        model_type: type[WalkForwardEvidenceV1] = WalkForwardEvidenceV1
+        model_type: (
+            type[WalkForwardEvidenceV1] | type[WalkForwardEvidenceV2] | type[WalkForwardEvidenceV3]
+        ) = WalkForwardEvidenceV1
     elif version == EVIDENCE_VERSION_V2:
         model_type = WalkForwardEvidenceV2
+    elif version == EVIDENCE_VERSION_V3:
+        model_type = WalkForwardEvidenceV3
     else:
         raise PersistedDataContractError(f"unsupported Walk-forward evidence version: {version}")
     try:

@@ -22,7 +22,10 @@ from vela_core.models import (
     WalkForwardRun,
 )
 from vela_core.walk_forward.config import load_walk_forward_config
-from vela_core.walk_forward.evidence import EVIDENCE_VERSION_V2, WalkForwardEvidenceV2
+from vela_core.walk_forward.evidence import (
+    EVIDENCE_VERSION_V3,
+    WalkForwardEvidenceV3,
+)
 from vela_core.walk_forward.query import get_walk_forward_run
 from vela_core.walk_forward.runner import WalkForwardRunner
 
@@ -174,10 +177,10 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
         assert history is not None
         assert history.window_count == 3
         assert [item.ordinal for item in history.windows] == [0, 1, 2]
-        assert history.evidence_version == EVIDENCE_VERSION_V2
+        assert history.evidence_version == EVIDENCE_VERSION_V3
         assert isinstance(
-            WalkForwardEvidenceV2.model_validate(history.evidence_json),
-            WalkForwardEvidenceV2,
+            WalkForwardEvidenceV3.model_validate(history.evidence_json),
+            WalkForwardEvidenceV3,
         )
         assert all(
             benchmark.capm_observation_count is not None
@@ -199,7 +202,7 @@ def test_real_walk_forward_evidence_contract_uses_alembic_sqlite_fixture(
             session, run_id=report.walk_forward_run_id, strategy_id="integration_dual_momentum"
         )
         assert loaded is not None
-        assert loaded.evidence_version == EVIDENCE_VERSION_V2
+        assert loaded.evidence_version == EVIDENCE_VERSION_V3
 
 
 def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_db(

@@ -172,8 +172,91 @@ function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
       </dl>
       <BenchmarkEvidence data={data} />
       <ParameterStability data={data} />
+      {data.evidence.tail_distribution ? <TailDistributionEvidence data={data} /> : null}
     </section>
   );
+}
+
+const TAIL_OWNER_LABELS: Record<string, string> = {
+  strategy: "Strategy",
+  equal_weight_monthly: "Equal-weight monthly",
+  csi_300_buy_hold: "CSI 300 buy-and-hold"
+};
+
+const TAIL_METRIC_LABELS: Record<string, string> = {
+  historical_var_95: "Historical VaR 95% (1D loss)",
+  historical_cvar_95: "Historical CVaR 95% (1D loss)",
+  return_skewness: "Skewness",
+  return_excess_kurtosis: "Excess kurtosis (normal = 0)"
+};
+
+function TailDistributionEvidence({ data }: { data: WalkForwardDetailResponse }) {
+  const tail = data.evidence.tail_distribution;
+  if (!tail) {
+    return null;
+  }
+  return (
+    <div className="walk-forward-subsection">
+      <h3>One-day historical distribution risk (95%)</h3>
+      <p className="detail-note">
+        Aggregate values are descriptive statistics across independent per-window metric
+        estimates; they are not VaR/CVaR or shape statistics calculated from a combined or
+        stitched return distribution.
+      </p>
+      {Object.entries(tail.aggregates).map(([owner, aggregates]) => (
+        <section aria-label={`Distribution aggregates for ${owner}`} className="benchmark-metrics" key={owner}>
+          <h4>{TAIL_OWNER_LABELS[owner] ?? owner}</h4>
+          <dl className="metric-card-grid">
+            {Object.entries(aggregates).map(([metric, summary]) => (
+              <MetricCard key={metric} label={TAIL_METRIC_LABELS[metric] ?? metric} metric={summary} />
+            ))}
+          </dl>
+        </section>
+      ))}
+      <h4>Per-window evidence</h4>
+      <div aria-label="Per-window distribution evidence" className="walk-forward-window-scroll" tabIndex={0}>
+        <table className="holdings-table">
+          <caption className="sr-only">
+            Persisted one-day historical distribution evidence by window and owner
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Window</th>
+              <th scope="col">Owner</th>
+              <th scope="col">VaR 95% (1D loss)</th>
+              <th scope="col">CVaR 95% (1D loss)</th>
+              <th scope="col">Skewness</th>
+              <th scope="col">Excess kurtosis (normal = 0)</th>
+              <th scope="col">Observations</th>
+              <th scope="col">Tail (5%)</th>
+              <th scope="col">Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tail.per_window.flatMap((window) =>
+              Object.entries(window.owners).map(([owner, ownerEvidence]) => (
+                <tr key={`${window.ordinal}-${owner}`}>
+                  <td>{window.ordinal}</td>
+                  <td>{TAIL_OWNER_LABELS[owner] ?? owner}</td>
+                  <td>{formatTailValue(ownerEvidence.historical_var_95)}</td>
+                  <td>{formatTailValue(ownerEvidence.historical_cvar_95)}</td>
+                  <td>{formatTailValue(ownerEvidence.return_skewness)}</td>
+                  <td>{formatTailValue(ownerEvidence.return_excess_kurtosis)}</td>
+                  <td>{ownerEvidence.observation_count}</td>
+                  <td>{ownerEvidence.tail_observation_count}</td>
+                  <td>{ownerEvidence.evidence_status}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function formatTailValue(value: number | null): string {
+  return value === null ? "n/a" : value.toFixed(6);
 }
 
 function MetricCard({ label, metric }: { label: string; metric: WalkForwardMetricSummary }) {

@@ -19,6 +19,7 @@ import {
   formatTimestamp
 } from "../utils/formatters";
 import { formatEquityCurvePoint, formatParameterSummary } from "./backtestFormatters";
+import { DistributionRiskSection } from "./DistributionRiskSection";
 import { ReturnStabilitySection } from "./ReturnStabilitySection";
 import {
   computeEquityCurveGeometry,
@@ -235,6 +236,7 @@ function renderBacktestDetail(
             value={formatDrawdownRecovery(metrics)}
           />
         </dl>
+        <DistributionRiskSection fields={metrics} />
         {(backtestState.data.benchmarks ?? []).map((benchmark) => (
           <section aria-label={benchmark.name} className="benchmark-metrics" key={benchmark.key}>
             <h4>{benchmark.name}</h4>
@@ -297,6 +299,7 @@ function renderBacktestDetail(
               <MetricCard label="Strategy total return difference" value={formatRatioAsPercent(benchmark.total_return_difference)} />
               <MetricCard label="Strategy CAGR difference" value={formatRatioAsPercent(benchmark.annualized_return_difference)} />
             </dl>
+            <DistributionRiskSection fields={benchmark} />
           </section>
         ))}
       </section>

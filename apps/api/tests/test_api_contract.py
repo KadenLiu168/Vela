@@ -123,6 +123,13 @@ def test_first_version_api_success_response_contracts(tmp_path) -> None:
         "longest_drawdown_peak_date",
         "longest_drawdown_trough_date",
         "longest_drawdown_recovery_date",
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+        "distribution_observation_count",
+        "tail_observation_count",
+        "distribution_evidence_status",
         "benchmarks",
     }
 
@@ -326,6 +333,70 @@ def test_openapi_requires_nullable_benchmark_regime_response_fields() -> None:
 
     assert expected_fields <= set(schemas["BacktestBenchmarkResponse"]["required"])
     assert expected_fields <= set(schemas["WalkForwardOosBenchmarkResponse"]["required"])
+
+
+def test_openapi_declares_nullable_tail_distribution_response_fields() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    expected_fields = {
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+        "distribution_observation_count",
+        "tail_observation_count",
+        "distribution_evidence_status",
+    }
+    for schema_name in (
+        "BacktestMetricsResponse",
+        "BacktestBenchmarkResponse",
+        "WalkForwardOosBenchmarkResponse",
+    ):
+        assert expected_fields <= set(schemas[schema_name]["required"]), schema_name
+        for field in (
+            "historical_var_95",
+            "historical_cvar_95",
+            "return_skewness",
+            "return_excess_kurtosis",
+        ):
+            assert schemas[schema_name]["properties"][field]["anyOf"] == [
+                {"type": "string"},
+                {"type": "null"},
+            ], (schema_name, field)
+    status_enum = schemas["BacktestMetricsResponse"]["properties"]["distribution_evidence_status"][
+        "enum"
+    ]
+    assert {"sufficient", "insufficient_evidence", "unavailable_legacy"} <= set(status_enum)
+
+
+def test_openapi_declares_walk_forward_v3_tail_distribution_schemas() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    assert "WalkForwardEvidenceV3Response" in schemas
+    v3 = schemas["WalkForwardEvidenceV3Response"]
+    assert "tail_distribution" in v3["required"]
+    assert v3["properties"]["tail_distribution"]["$ref"].endswith(
+        "WalkForwardTailDistributionEvidenceResponse"
+    )
+    evidence = schemas["WalkForwardTailDistributionEvidenceResponse"]
+    assert {"per_window", "aggregates"} <= set(evidence["required"])
+    window = schemas["WalkForwardTailDistributionWindowResponse"]
+    assert "owners" in window["required"]
+    owner = schemas["WalkForwardTailDistributionOwnerResponse"]
+    assert {
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+        "observation_count",
+        "tail_observation_count",
+        "evidence_status",
+    } <= set(owner["required"])
+    aggregates = schemas["WalkForwardTailDistributionAggregatesResponse"]
+    assert {
+        "historical_var_95",
+        "historical_cvar_95",
+        "return_skewness",
+        "return_excess_kurtosis",
+    } <= set(aggregates["required"])
 
 
 def test_openapi_declares_return_stability_detail_schemas() -> None:
