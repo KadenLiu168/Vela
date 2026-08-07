@@ -1,9 +1,5 @@
-# local-setup-bootstrap Specification
+## MODIFIED Requirements
 
-## Purpose
-Defines the compound local setup bootstrap (`run_local_setup_bootstrap`) that runs database migration, ETF pool sync, trading calendar sync, and full market-data fetch in sequence, reporting per-step status.
-
-## Requirements
 ### Requirement: Run compound local setup bootstrap
 The system SHALL provide a `run_local_setup_bootstrap` orchestration function that runs the existing `init-db`, `sync-etf-pool`, trading-calendar sync, and full market-data fetch workflows in order: `migrate` → `sync_etf_pool` → `sync_trading_calendar` → `fetch_full_market_data`. The trading-calendar step SHALL invoke the existing `sync_trading_calendar_to_db` workflow with default arguments.
 
@@ -78,14 +74,6 @@ The system SHALL expose a `POST /api/setup/bootstrap` endpoint that loads one cu
 - **THEN** the endpoint returns status 500 using the stable API error envelope with code `config_error` and category `operation_failed`
 - **AND** `run_local_setup_bootstrap` is not invoked
 
-### Requirement: Local development scope
-The system SHALL document the bootstrap endpoint as local-development only and SHALL NOT use it to mutate schema in shared or production databases.
-
-#### Scenario: Endpoint scoped to local development
-- **WHEN** a developer reads the documentation for `POST /api/setup/bootstrap`
-- **THEN** the documentation states that the endpoint is intended for local development setup only
-- **AND** the documentation states that production database migrations must continue to use the `vela init-db` CLI command
-
 ### Requirement: Caller-provided script location for bootstrap
 The system SHALL require callers of `run_local_setup_bootstrap` to provide `script_location` explicitly. The function SHALL NOT compute a default script location from a hardcoded project-relative path.
 
@@ -106,6 +94,8 @@ The system SHALL require callers of `run_local_setup_bootstrap` to provide `scri
 - **AND** synchronizes the trading calendar via `vela_core.trading_calendar_sync.sync_trading_calendar_to_db`
 - **AND** runs a full market data fetch
 - **AND** returns a `BootstrapResult` with per-step status
+
+## ADDED Requirements
 
 ### Requirement: Calendar sync failure does not block market data fetch
 The bootstrap trading-calendar step SHALL detect failure by inspecting the returned `TradingCalendarSyncResult.status` rather than by catching an exception, because `sync_trading_calendar_to_db` returns `status = "failed"` with an error message on akshare fetch, parse, or empty-result failures instead of raising. When the calendar step fails, the orchestrator SHALL record the step as `status = "failed"` with the error message, SHALL NOT short-circuit, and SHALL continue to the `fetch_full_market_data` step. The overall `BootstrapResult.status` SHALL remain `"failed"` with `failed_step = "sync_trading_calendar"`.

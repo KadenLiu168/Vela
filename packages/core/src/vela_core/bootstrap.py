@@ -10,8 +10,12 @@ from vela_core.etf_pool_sync import ETFPoolSyncResult, sync_etf_pool_to_db
 from vela_core.market_data_fetcher import MarketDataFetchResult, fetch_full_market_prices
 from vela_core.market_data_provider import MarketDataProvider
 from vela_core.migration import run_alembic_upgrade
+from vela_core.trading_calendar_sync import (
+    TradingCalendarSyncResult,
+    sync_trading_calendar_to_db,
+)
 
-StepName = Literal["migrate", "sync_etf_pool", "fetch_full_market_data"]
+StepName = Literal["migrate", "sync_etf_pool", "sync_trading_calendar", "fetch_full_market_data"]
 StepStatus = Literal["success", "failed"]
 
 
@@ -21,6 +25,9 @@ class BootstrapStepResult:
     status: StepStatus
     duration_seconds: float
     error_message: str | None = None
+    # NOTE: sync_result/fetch_result are currently unread anywhere in the repo
+    # (see design.md Decision 3); future steps should not add step-specific
+    # result fields.
     sync_result: ETFPoolSyncResult | None = None
     fetch_result: MarketDataFetchResult | None = None
 
@@ -99,7 +106,23 @@ def run_local_setup_bootstrap(
             total_duration_seconds=time.monotonic() - total_start,
         )
 
-    # Step 3: fetch_full_market_data
+    # Step 3: sync_trading_calendar
+    # sync_trading_calendar_to_db returns status="failed" on akshare failure
+    # rather than raising, so inspect the status instead of catching. This step
+    # does NOT short-circuit: fetch_full_market_data still runs so price data is
+    # available even when the calendar source is temporarily unavailable.
+    step_start = time.monotonic()
+    calendar_result: TradingCalendarSyncResult = sync_trading_calendar_to_db(session)
+    steps.append(
+        BootstrapStepResult(
+            name="sync_trading_calendar",
+            status="success" if calendar_result.status == "success" else "failed",
+            duration_seconds=time.monotonic() - step_start,
+            error_message=calendar_result.error_message,
+        )
+    )
+
+    # Step 4: fetch_full_market_data
     step_start = time.monotonic()
     try:
         fetch_result = fetch_full_market_prices(session, provider=provider)

@@ -1,5 +1,8 @@
+import sys
 from datetime import date
+from types import ModuleType
 
+import pandas as pd
 from fastapi.testclient import TestClient
 from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH
 from vela_api.database import initialize_database
@@ -10,6 +13,15 @@ from vela_core.database import DEFAULT_DATABASE_URL
 from vela_core.strategy_config import validate_strategy_config
 
 from tests.integration_data import ControlledMarketDataProvider, daily_price
+
+
+def _patch_akshare(monkeypatch) -> None:
+    """Mock the akshare module so the bootstrap calendar step succeeds."""
+    fake_akshare = ModuleType("akshare")
+    fake_akshare.tool_trade_date_hist_sina = lambda: pd.DataFrame(
+        {"trade_date": ["2026-06-01", "2026-06-02"]}
+    )
+    monkeypatch.setitem(sys.modules, "akshare", fake_akshare)
 
 
 def _make_test_app_config() -> AppConfig:
@@ -55,6 +67,7 @@ def test_bootstrap_endpoint_success(tmp_path, monkeypatch) -> None:
     provider = ControlledMarketDataProvider(
         {"510300": [daily_price(symbol="510300", trade_date=date(2026, 6, 18))]}
     )
+    _patch_akshare(monkeypatch)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -72,10 +85,11 @@ def test_bootstrap_endpoint_success(tmp_path, monkeypatch) -> None:
     body = response.json()
     assert body["status"] == "success"
     assert body["failed_step"] is None
-    assert len(body["steps"]) == 3
+    assert len(body["steps"]) == 4
     assert [s["name"] for s in body["steps"]] == [
         "migrate",
         "sync_etf_pool",
+        "sync_trading_calendar",
         "fetch_full_market_data",
     ]
     assert all(s["status"] == "success" for s in body["steps"])
@@ -88,6 +102,7 @@ def test_bootstrap_endpoint_success(tmp_path, monkeypatch) -> None:
 def test_bootstrap_endpoint_step_failure(tmp_path, monkeypatch) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'bootstrap-api-fail.db'}"
     provider = ControlledMarketDataProvider({})
+    _patch_akshare(monkeypatch)
 
     try:
         initialize_database(app, database_url=database_url)
@@ -105,11 +120,12 @@ def test_bootstrap_endpoint_step_failure(tmp_path, monkeypatch) -> None:
     body = response.json()
     assert body["status"] == "failed"
     assert body["failed_step"] == "fetch_full_market_data"
-    assert len(body["steps"]) == 3
+    assert len(body["steps"]) == 4
     assert body["steps"][0]["status"] == "success"
     assert body["steps"][1]["status"] == "success"
-    assert body["steps"][2]["status"] == "failed"
-    assert body["steps"][2]["error_message"] is not None
+    assert body["steps"][2]["status"] == "success"
+    assert body["steps"][3]["status"] == "failed"
+    assert body["steps"][3]["error_message"] is not None
 
 
 def test_bootstrap_endpoint_loads_config_per_request(tmp_path, monkeypatch) -> None:
