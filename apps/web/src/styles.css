@@ -702,6 +702,10 @@ main {
   margin-bottom: var(--spacing-16);
 }
 
+.walk-forward-run-trigger {
+  margin-bottom: var(--spacing-16);
+}
+
 .signal-source-filter-button,
 .backtest-tab {
   background: var(--surface-carbon);

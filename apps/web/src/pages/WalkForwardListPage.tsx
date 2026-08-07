@@ -152,7 +152,7 @@ function renderRunTrigger(runState: RunTriggerState, onRun: () => void) {
   return (
     <div className="walk-forward-run-trigger">
       <button
-        className="action-button"
+        className="button-secondary"
         disabled={runState.status === "starting" || runState.status === "running"}
         onClick={onRun}
         type="button"
