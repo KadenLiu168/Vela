@@ -387,7 +387,7 @@ export function DashboardPage({
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
             </button>
             <button
-              className="button-tertiary"
+              className="button-secondary"
               type="button"
               disabled={fullFetchAction.isDisabled}
               onClick={fullFetchAction.onClick}
