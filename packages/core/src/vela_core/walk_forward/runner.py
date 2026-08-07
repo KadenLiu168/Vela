@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 from vela_core.backtest_runner import run_backtest
 from vela_core.strategy_config import validate_strategy_config
 from vela_core.walk_forward.config import WalkForwardConfig
+from vela_core.walk_forward.evidence import WalkForwardEvidenceV3
 from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
     canonical_combination,
@@ -27,8 +28,10 @@ from vela_core.walk_forward.persistence import (
     WalkForwardPersistenceInput,
     WalkForwardWindowPersistenceInput,
     persist_walk_forward_run,
+    persist_walk_forward_running,
+    update_walk_forward_status,
 )
-from vela_core.walk_forward.preflight import prepare_walk_forward_inputs
+from vela_core.walk_forward.preflight import WalkForwardPreflight, prepare_walk_forward_inputs
 from vela_core.walk_forward.provenance import (
     canonical_provenance_bytes,
     canonical_provenance_payload,
@@ -52,26 +55,110 @@ class WalkForwardRunner:
         self._version_contents: dict[str, str] = {}
 
     def run(self, session: Session) -> WalkForwardReport:
+        run_id, started_at = self.begin(session)
+        return self.complete(session, run_id, started_at)
+
+    def begin(self, session: Session) -> tuple[int, datetime]:
+        """Run preflight, commit a `running` parent row, and return its id.
+
+        The parent row is committed through the caller-provided source session
+        so the API can return the id to a polling client before the windows
+        execute. A failure here leaves no persisted parent row.
+        """
         if session.get_bind().dialect.name != "sqlite":
             raise ValueError("walk-forward only supports SQLite source databases")
         started_at = datetime.now(UTC)
         prepared = prepare_walk_forward_inputs(session, config=self.config)
-        windows = prepared.windows
-        combinations = generate_combinations(self.config.parameter_space)
-        with _memory_snapshot(session) as memory:
-            results = [self._run_window(session, memory, item, combinations) for item in windows]
-        report = WalkForwardReport(results)
-        oos_ids = [_require_oos_id(item.oos_backtest_id) for item in results]
-        evidence = report.evidence_document()
+        run_id = self._persist_running(session, prepared=prepared, started_at=started_at)
+        return run_id, started_at
+
+    def complete(self, session: Session, run_id: int, started_at: datetime) -> WalkForwardReport:
+        """Execute all windows and finalize the parent row to success/failed."""
+        try:
+            prepared = prepare_walk_forward_inputs(session, config=self.config)
+            windows = prepared.windows
+            combinations = generate_combinations(self.config.parameter_space)
+            with _memory_snapshot(session) as memory:
+                results = [
+                    self._run_window(session, memory, item, combinations) for item in windows
+                ]
+            report = WalkForwardReport(results)
+            oos_ids = [_require_oos_id(item.oos_backtest_id) for item in results]
+            evidence = report.evidence_document()
+            finished_at = datetime.now(UTC)
+            self._persist_success(
+                session,
+                run_id=run_id,
+                prepared=prepared,
+                results=results,
+                oos_ids=oos_ids,
+                evidence=evidence,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+            report.walk_forward_run_id = run_id
+            return report
+        except Exception as exc:
+            # Discard any OOS/signal/curve/benchmark rows produced by this
+            # command, then record the failure on the committed parent row.
+            session.rollback()
+            update_walk_forward_status(
+                session,
+                run_id,
+                "failed",
+                error_message=str(exc),
+                finished_at=datetime.now(UTC),
+            )
+            session.commit()
+            raise
+
+    def _persist_running(
+        self,
+        session: Session,
+        *,
+        prepared: WalkForwardPreflight,
+        started_at: datetime,
+    ) -> int:
         walk_forward_snapshot = self.config.model_dump(mode="json")
         base_strategy_snapshot = self._base_strategy_config.model_dump(mode="json")
         provenance_payload = canonical_provenance_payload(
             walk_forward_snapshot,
             base_strategy_snapshot,
         )
-        finished_at = datetime.now(UTC)
-        persistence_result = persist_walk_forward_run(
+        return persist_walk_forward_running(
             session,
+            strategy_id=self._base_strategy_config.strategy_id,
+            start_date=self.config.window.start_date,
+            end_date=self.config.window.end_date,
+            walk_forward_config=walk_forward_snapshot,
+            base_strategy_config=base_strategy_snapshot,
+            config_checksum=sha256_hex(canonical_provenance_bytes(provenance_payload)),
+            input_data_snapshot=prepared.manifest,
+            input_data_checksum=prepared.input_data_checksum,
+            started_at=started_at,
+        )
+
+    def _persist_success(
+        self,
+        session: Session,
+        *,
+        run_id: int,
+        prepared: WalkForwardPreflight,
+        results: list[WalkForwardWindowResult],
+        oos_ids: list[int],
+        evidence: WalkForwardEvidenceV3,
+        started_at: datetime,
+        finished_at: datetime,
+    ) -> None:
+        walk_forward_snapshot = self.config.model_dump(mode="json")
+        base_strategy_snapshot = self._base_strategy_config.model_dump(mode="json")
+        provenance_payload = canonical_provenance_payload(
+            walk_forward_snapshot,
+            base_strategy_snapshot,
+        )
+        persist_walk_forward_run(
+            session,
+            run_id=run_id,
             run=WalkForwardPersistenceInput(
                 strategy_id=self._base_strategy_config.strategy_id,
                 start_date=self.config.window.start_date,
@@ -105,8 +192,15 @@ class WalkForwardRunner:
                 ),
             ),
         )
-        report.walk_forward_run_id = persistence_result.id
-        return report
+        update_walk_forward_status(
+            session,
+            run_id,
+            "success",
+            finished_at=finished_at,
+            window_count=len(results),
+            evidence_json=evidence.model_dump(mode="json"),
+        )
+        session.commit()
 
     def _run_window(
         self,

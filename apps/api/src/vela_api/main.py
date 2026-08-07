@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from vela_core import load_app_config
+from vela_core.walk_forward.config import load_walk_forward_config
 
 from vela_api.backtest_router import router as backtest_router
 from vela_api.config import DEFAULT_STRATEGY_CONFIG_PATH
@@ -23,7 +24,12 @@ _REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.app_config = load_app_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    app_config = load_app_config(DEFAULT_STRATEGY_CONFIG_PATH)
+    # The API run-trigger endpoint reads the walk-forward configuration path
+    # from the lifespan configuration and MUST NOT accept a client-supplied
+    # path; validate the file exists at startup like the strategy config path.
+    load_walk_forward_config(app_config.walk_forward_config_path)
+    app.state.app_config = app_config
     yield
 
 

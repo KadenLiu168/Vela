@@ -35,6 +35,7 @@ def test_api_skeleton_exposes_health_and_config_endpoints() -> None:
         ("/api/strategy-signals/latest", ("GET",)),
         ("/api/walk-forwards", ("GET",)),
         ("/api/walk-forwards/{run_id}", ("GET",)),
+        ("/api/walk-forwards/run", ("POST",)),
     }
 
 

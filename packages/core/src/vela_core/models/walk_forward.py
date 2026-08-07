@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -29,6 +30,10 @@ class WalkForwardRun(Base):
     __tablename__ = "walk_forward_run"
     __table_args__ = (
         CheckConstraint("window_count >= 0", name="ck_walk_forward_run_window_count_nonnegative"),
+        CheckConstraint(
+            "status IN ('running','success','failed')",
+            name="ck_walk_forward_run_status",
+        ),
         Index(
             "ix_walk_forward_run_strategy_finished_id",
             "strategy_id",
@@ -50,8 +55,10 @@ class WalkForwardRun(Base):
     input_data_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
     evidence_version: Mapped[str] = mapped_column(String(64), nullable=False)
     evidence_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

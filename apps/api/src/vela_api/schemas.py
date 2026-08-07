@@ -500,12 +500,18 @@ class WalkForwardRunSummaryResponse(ResponseModel):
     evidence_version: str
     config_checksum: str
     input_data_checksum: str
+    status: str
+    error_message: str | None
     started_at: datetime
-    finished_at: datetime
+    finished_at: datetime | None
 
 
 class WalkForwardRunResponse(WalkForwardRunSummaryResponse):
     created_at: datetime
+
+
+class WalkForwardRunAcceptedResponse(ResponseModel):
+    walk_forward_run_id: int
 
 
 class WalkForwardPageResponse(ResponseModel):
@@ -652,6 +658,6 @@ class WalkForwardDetailResponse(ResponseModel):
     evidence_version: str
     evidence: (
         WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response | WalkForwardEvidenceV3Response
-    )
+    ) | None = None
     windows: list[WalkForwardWindowResponse]
     stitched_oos: StitchedOosResponse

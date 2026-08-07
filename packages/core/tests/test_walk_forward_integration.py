@@ -257,6 +257,11 @@ def test_real_walk_forward_later_oos_failure_rolls_back_source_rows_and_default_
         assert session.query(BacktestBenchmarkEquityCurve).count() == 0
         assert session.query(StrategySignal).count() == 0
         assert session.query(StrategySignalPosition).count() == 0
+        failed = session.query(WalkForwardRun).all()
+        assert len(failed) == 1
+        assert failed[0].status == "failed"
+        assert "fixed benchmark failure" in failed[0].error_message
+        assert failed[0].finished_at is not None
     assert _file_identity(default_database) == before_default
 
 
@@ -274,8 +279,8 @@ def test_real_walk_forward_persistence_failure_rolls_back_flushed_history_and_oo
 
     original_persist = runner_module.persist_walk_forward_run
 
-    def flush_then_fail(current_session, *, run):
-        original_persist(current_session, run=run)
+    def flush_then_fail(current_session, *, run, run_id=None):
+        original_persist(current_session, run=run, run_id=run_id)
         raise RuntimeError("caller commit failure")
 
     monkeypatch.setattr(runner_module, "persist_walk_forward_run", flush_then_fail)
@@ -284,7 +289,10 @@ def test_real_walk_forward_persistence_failure_rolls_back_flushed_history_and_oo
             WalkForwardRunner(load_walk_forward_config(config_path)).run(session)
 
     with factory() as session:
-        assert session.query(WalkForwardRun).count() == 0
+        runs = session.query(WalkForwardRun).all()
+        assert len(runs) == 1
+        assert runs[0].status == "failed"
+        assert "caller commit failure" in runs[0].error_message
         assert session.query(BacktestRun).count() == 0
         assert session.query(BacktestBenchmark).count() == 0
         assert session.query(BacktestEquityCurve).count() == 0

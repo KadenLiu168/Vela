@@ -42,6 +42,17 @@ def test_invalid_lifespan_config_prevents_api_startup(monkeypatch) -> None:
             pass
 
 
+def test_invalid_walk_forward_config_path_prevents_api_startup(monkeypatch, tmp_path: Path) -> None:
+    config = load_app_config("config/strategy_v1.yaml").model_copy(
+        update={"walk_forward_config_path": tmp_path / "missing_walk_forward.yaml"}
+    )
+    monkeypatch.setattr(api_main, "load_app_config", lambda _path: config)
+
+    with pytest.raises(ConfigError, match="Failed to read configuration file"):
+        with TestClient(api_main.create_app()):
+            pass
+
+
 def test_config_dependency_override_is_scoped_to_one_application() -> None:
     default_config = load_app_config("config/strategy_v1.yaml")
     overridden_config = default_config.model_copy(

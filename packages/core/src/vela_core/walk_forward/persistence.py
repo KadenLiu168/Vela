@@ -63,9 +63,83 @@ class WalkForwardPersistenceInput:
     windows: Sequence[WalkForwardWindowPersistenceInput]
 
 
+def persist_walk_forward_running(
+    session: Session,
+    *,
+    strategy_id: str,
+    start_date: date,
+    end_date: date,
+    walk_forward_config: dict[str, Any],
+    base_strategy_config: dict[str, Any],
+    config_checksum: str,
+    input_data_snapshot: dict[str, Any],
+    input_data_checksum: str,
+    started_at: datetime,
+) -> int:
+    """Persist and commit a `running` parent row, returning its positive id.
+
+    The row carries a placeholder ``evidence_json={}`` and ``window_count=0``
+    with a null ``finished_at`` so the API can poll the run while it executes.
+    """
+    _validate_checksum(config_checksum, "config_checksum")
+    _validate_checksum(input_data_checksum, "input_data_checksum")
+    validate_input_manifest(PROVENANCE_VERSION, input_data_snapshot)
+    parent = WalkForwardRun(
+        strategy_id=strategy_id,
+        start_date=start_date,
+        end_date=end_date,
+        window_count=0,
+        walk_forward_config_json=walk_forward_config,
+        base_strategy_config_json=base_strategy_config,
+        provenance_version=PROVENANCE_VERSION,
+        config_checksum=config_checksum,
+        input_data_snapshot_json=input_data_snapshot,
+        input_data_checksum=input_data_checksum,
+        evidence_version=EVIDENCE_VERSION_V3,
+        evidence_json={},
+        status="running",
+        started_at=started_at,
+        finished_at=None,
+    )
+    session.add(parent)
+    session.flush()
+    session.commit()
+    return parent.id
+
+
+def update_walk_forward_status(
+    session: Session,
+    run_id: int,
+    status: str,
+    *,
+    error_message: str | None = None,
+    finished_at: datetime,
+    window_count: int | None = None,
+    evidence_json: dict[str, Any] | None = None,
+) -> None:
+    """Update the status fields of an existing parent row without committing."""
+    parent = session.get(WalkForwardRun, run_id)
+    if parent is None:
+        raise PersistedDataContractError(f"WalkForwardRun {run_id} does not exist")
+    parent.status = status
+    parent.error_message = error_message
+    parent.finished_at = finished_at
+    if window_count is not None:
+        parent.window_count = window_count
+    if evidence_json is not None:
+        parent.evidence_json = evidence_json
+
+
 def persist_walk_forward_run(
-    session: Session, *, run: WalkForwardPersistenceInput
+    session: Session, *, run: WalkForwardPersistenceInput, run_id: int | None = None
 ) -> WalkForwardRun:
+    """Persist ordered window children.
+
+    With ``run_id=None`` a new parent row is created (legacy single-phase
+    behaviour). With a ``run_id`` the children are attached to that existing
+    parent row (two-phase behaviour); status fields are updated separately via
+    ``update_walk_forward_status``.
+    """
     if run.window_count < 0 or run.window_count != len(run.windows):
         raise ValueError("Walk-forward parent window count must equal child count")
     _validate_checksum(run.config_checksum, "config_checksum")
@@ -79,24 +153,31 @@ def persist_walk_forward_run(
     validate_v3_tail_source_evidence(oos_rows, evidence)
     if len(children) != run.window_count:
         raise ValueError("Walk-forward parent window count must equal child count")
-    parent = WalkForwardRun(
-        strategy_id=run.strategy_id,
-        start_date=run.start_date,
-        end_date=run.end_date,
-        window_count=run.window_count,
-        walk_forward_config_json=run.walk_forward_config,
-        base_strategy_config_json=run.base_strategy_config,
-        provenance_version=PROVENANCE_VERSION,
-        config_checksum=run.config_checksum,
-        input_data_snapshot_json=run.input_data_snapshot,
-        input_data_checksum=run.input_data_checksum,
-        evidence_version=EVIDENCE_VERSION_V3,
-        evidence_json=evidence.model_dump(mode="json"),
-        started_at=run.started_at,
-        finished_at=run.finished_at,
-    )
+    if run_id is None:
+        parent = WalkForwardRun(
+            strategy_id=run.strategy_id,
+            start_date=run.start_date,
+            end_date=run.end_date,
+            window_count=run.window_count,
+            walk_forward_config_json=run.walk_forward_config,
+            base_strategy_config_json=run.base_strategy_config,
+            provenance_version=PROVENANCE_VERSION,
+            config_checksum=run.config_checksum,
+            input_data_snapshot_json=run.input_data_snapshot,
+            input_data_checksum=run.input_data_checksum,
+            evidence_version=EVIDENCE_VERSION_V3,
+            evidence_json=evidence.model_dump(mode="json"),
+            status="success",
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+        )
+        session.add(parent)
+    else:
+        existing = session.get(WalkForwardRun, run_id)
+        if existing is None:
+            raise PersistedDataContractError(f"WalkForwardRun {run_id} does not exist")
+        parent = existing
     parent.windows.extend(children)
-    session.add(parent)
     session.flush()
     return parent
 

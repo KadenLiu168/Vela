@@ -36,6 +36,8 @@ const detail: WalkForwardDetailResponse = {
     evidence_version: "wf_evidence_v1",
     config_checksum: "a".repeat(64),
     input_data_checksum: "b".repeat(64),
+    status: "success",
+    error_message: null,
     started_at: "2026-12-01T00:00:00",
     finished_at: "2026-12-02T00:00:00",
     created_at: "2026-12-02T00:00:00"

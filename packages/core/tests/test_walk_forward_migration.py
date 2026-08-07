@@ -37,6 +37,73 @@ def _evidence_owner_snapshot(engine: Engine) -> dict[str, list[tuple[object, ...
         }
 
 
+def test_walk_forward_run_status_migration_backfills_and_round_trips(tmp_path: Path) -> None:
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'wf-status-migration.db'}"
+    alembic.command.upgrade(_alembic_config(database_url), "20260804_0015")
+    engine = create_engine(database_url)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO walk_forward_run "
+                "(strategy_id, start_date, end_date, window_count, walk_forward_config_json, "
+                "base_strategy_config_json, provenance_version, config_checksum, "
+                "input_data_snapshot_json, input_data_checksum, evidence_version, evidence_json, "
+                "started_at, finished_at) VALUES "
+                "('demo', '2026-01-01', '2026-12-31', 1, '{}', '{}', 'wf_provenance_v1', "
+                "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '{}', "
+                "'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', "
+                "'wf_evidence_v1', '{}', '2026-01-01 00:00:00', '2026-01-02 00:00:00')"
+            )
+        )
+
+    run_alembic_upgrade(database_url, ROOT / "alembic")
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT status, error_message, finished_at FROM walk_forward_run "
+                "WHERE strategy_id = 'demo'"
+            )
+        ).fetchall()
+        assert rows == [("success", None, "2026-01-02 00:00:00")]
+        create_sql = connection.execute(
+            text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'walk_forward_run'")
+        ).scalar_one()
+        assert "ck_walk_forward_run_status" in create_sql
+
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        with pytest.raises(IntegrityError):
+            connection.execute(
+                text(
+                    "INSERT INTO walk_forward_run "
+                    "(strategy_id, start_date, end_date, window_count, "
+                    "walk_forward_config_json, base_strategy_config_json, provenance_version, "
+                    "config_checksum, input_data_snapshot_json, input_data_checksum, "
+                    "evidence_version, evidence_json, started_at, finished_at, status) VALUES "
+                    "('demo', '2026-01-01', '2026-12-31', 1, '{}', '{}', 'wf_provenance_v1', "
+                    "'a' * 64, '{}', 'b' * 64, 'wf_evidence_v1', '{}', "
+                    "'2026-01-03 00:00:00', NULL, 'bogus')"
+                )
+            )
+            connection.commit()
+        connection.rollback()
+
+    alembic.command.downgrade(_alembic_config(database_url), "20260804_0015")
+    with engine.connect() as connection:
+        columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(walk_forward_run)"))
+        }
+        assert "status" not in columns
+        assert "error_message" not in columns
+        assert (
+            connection.execute(
+                text("SELECT finished_at FROM walk_forward_run WHERE strategy_id = 'demo'")
+            ).scalar_one()
+            == "2026-01-02 00:00:00"
+        )
+
+
 def test_walk_forward_migration_round_trip_preserves_backtest_rows(tmp_path: Path) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'migration.db'}"
     alembic.command.upgrade(_alembic_config(database_url), "20260804_0014")
@@ -121,12 +188,12 @@ def test_walk_forward_migration_round_trip_preserves_backtest_rows(tmp_path: Pat
                 "(strategy_id, start_date, end_date, window_count, walk_forward_config_json, "
                 "base_strategy_config_json, provenance_version, config_checksum, "
                 "input_data_snapshot_json, input_data_checksum, evidence_version, evidence_json, "
-                "started_at, finished_at) VALUES "
+                "started_at, finished_at, status) VALUES "
                 "('demo', '2026-01-01', '2026-12-31', 1, '{}', '{}', 'wf_provenance_v1', "
                 "'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '{}', "
                 "'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', "
-                "'wf_evidence_v1', '{}', '2026-01-01 00:00:00', '2026-01-02 00:00:00') "
-                "RETURNING id"
+                "'wf_evidence_v1', '{}', '2026-01-01 00:00:00', '2026-01-02 00:00:00', "
+                "'success') RETURNING id"
             )
         ).scalar_one()
         connection.execute(
@@ -182,12 +249,12 @@ def test_walk_forward_migration_round_trip_preserves_backtest_rows(tmp_path: Pat
                     "(strategy_id, start_date, end_date, window_count, "
                     "walk_forward_config_json, base_strategy_config_json, provenance_version, "
                     "config_checksum, input_data_snapshot_json, input_data_checksum, "
-                    "evidence_version, evidence_json, started_at, finished_at) VALUES "
+                    "evidence_version, evidence_json, started_at, finished_at, status) VALUES "
                     "('demo', '2026-01-01', '2026-12-31', -1, '{}', '{}', "
                     "'wf_provenance_v1', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     "aaaaaaaaaaaaaaaa', '{}', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                     "bbbbbbbbbbbbbbbb', 'wf_evidence_v1', '{}', '2026-01-01 00:00:00', "
-                    "'2026-01-02 00:00:00')"
+                    "'2026-01-02 00:00:00', 'success')"
                 )
             )
             connection.commit()

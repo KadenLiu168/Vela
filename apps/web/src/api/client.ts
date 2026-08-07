@@ -636,6 +636,8 @@ export type WalkForwardEvidence = {
   tail_distribution?: WalkForwardTailDistribution;
 };
 
+export type WalkForwardRunStatus = "running" | "success" | "failed";
+
 export type WalkForwardRunSummary = {
   run_id: number;
   strategy_id: string;
@@ -646,8 +648,14 @@ export type WalkForwardRunSummary = {
   evidence_version: string;
   config_checksum: string;
   input_data_checksum: string;
+  status: WalkForwardRunStatus;
+  error_message: string | null;
   started_at: string;
-  finished_at: string;
+  finished_at: string | null;
+};
+
+export type WalkForwardRunAcceptedResponse = {
+  walk_forward_run_id: number;
 };
 
 export type WalkForwardPageResponse = {
@@ -789,6 +797,12 @@ export function listWalkForwards(limit = 10, offset = 0): Promise<WalkForwardPag
     offset: String(offset)
   });
   return apiRequest<WalkForwardPageResponse>(`/walk-forwards?${searchParams.toString()}`);
+}
+
+export function runWalkForward(): Promise<WalkForwardRunAcceptedResponse> {
+  return apiRequest<WalkForwardRunAcceptedResponse>("/walk-forwards/run", {
+    method: "POST"
+  });
 }
 
 export function getWalkForwardDetail(runId: string): Promise<WalkForwardDetailResponse> {

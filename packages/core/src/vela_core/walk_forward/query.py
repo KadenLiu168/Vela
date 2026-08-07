@@ -42,7 +42,11 @@ def list_walk_forward_runs(
         session.scalars(
             select(WalkForwardRun)
             .where(WalkForwardRun.strategy_id == strategy_id)
-            .order_by(WalkForwardRun.finished_at.desc(), WalkForwardRun.id.desc())
+            .order_by(
+                WalkForwardRun.finished_at.is_(None).desc(),
+                func.coalesce(WalkForwardRun.finished_at, WalkForwardRun.started_at).desc(),
+                WalkForwardRun.id.desc(),
+            )
             .offset(offset)
             .limit(limit)
         ).all()
@@ -103,6 +107,14 @@ def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestMo
             f"unsupported Walk-forward provenance version: {row.provenance_version}"
         )
     manifest = validate_input_manifest(row.provenance_version, row.input_data_snapshot_json)
+    if row.status != "success":
+        # Running and failed parents carry a placeholder evidence document and
+        # no windows by contract; only the input manifest is validated.
+        if row.window_count != 0 or row.windows:
+            raise PersistedDataContractError(
+                "non-success Walk-forward run must have no persisted windows"
+            )
+        return manifest
     evidence = validate_wf_evidence(row.evidence_version, row.evidence_json)
     if row.window_count != len(row.windows):
         raise PersistedDataContractError("Walk-forward window count does not match children")

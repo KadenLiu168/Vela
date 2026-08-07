@@ -310,7 +310,9 @@ def test_openapi_declares_concrete_success_schemas_for_every_api_route() -> None
 
     for operations in openapi["paths"].values():
         for operation in operations.values():
-            response_schema = operation["responses"]["200"]
+            # Success responses are 200 except the asynchronous walk-forward
+            # run trigger, which returns 202 Accepted.
+            response_schema = operation["responses"].get("200") or operation["responses"]["202"]
             schema = response_schema["content"]["application/json"]["schema"]
             assert "$ref" in schema
 

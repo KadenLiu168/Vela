@@ -7,6 +7,7 @@ import {
   getLatestStrategySignal,
   listBacktests,
   runBacktest,
+  runWalkForward,
   bootstrapLocalDatabase,
   generateStrategySignal
 } from "./api/client";
@@ -161,6 +162,17 @@ export default function App() {
       keywords: ["backtest", "run"],
       action: async () => {
         await runBacktest(backtestStartDateRef.current, backtestEndDateRef.current);
+      }
+    },
+    {
+      kind: "action",
+      id: "action-run-walk-forward",
+      label: "Run walk-forward",
+      path: null,
+      keywords: ["walk-forward", "walk", "wf", "run"],
+      action: async () => {
+        const accepted = await runWalkForward();
+        navigate(`/walk-forwards/${accepted.walk_forward_run_id}`);
       }
     }
   ]);

@@ -40,19 +40,26 @@ The system SHALL, for each window, search the parameter space on the training pe
 - **THEN** the system selects the combination whose canonical JSON sorts first.
 
 ### Requirement: Source writes use the caller transaction
-The walk-forward runner SHALL neither commit nor roll back the caller-provided source session. The CLI SHALL execute the complete run inside the repository's managed-session boundary so all selected OOS runs, fixed benchmark results and the final Walk-forward parent/children commit only after every window, provenance/evidence validation and persistence step succeeds. Any later OOS, fixed benchmark, provenance, evidence or WF persistence failure SHALL roll back all writes from the command.
+The walk-forward runner SHALL persist a `WalkForwardRun` parent row with `status = "running"`, `started_at`, a placeholder `evidence_json`, `window_count = 0`, and the resolved configuration/provenance/manifest/checksum fields at the start of execution, and SHALL commit that row through the caller-provided source session to obtain a positive `walk_forward_run_id` before executing any window. After every window, OOS evaluation, benchmark evaluation, provenance/evidence validation, and child persistence step succeeds, the runner SHALL update the same parent row to `status = "success"`, set `finished_at`, `window_count`, and the final `evidence_json`, and persist one ordered child per selected OOS window, then commit through the caller-provided source session. If any window, OOS evaluation, fixed benchmark evaluation, provenance/evidence, or persistence step fails after the running row was committed, the runner SHALL update the parent row to `status = "failed"`, set `finished_at` and `error_message`, commit that update through the caller-provided source session, and re-raise so the caller can map the error. The runner SHALL NOT roll back the running or failed parent row; OOS backtest rows, signal rows, curve rows, and benchmark rows added to the source session before the failure SHALL be rolled back by the caller-managed transaction boundary so only the parent `WalkForwardRun` row (in `running` or `failed` state) remains. The CLI SHALL continue to execute the complete run inside the repository's managed-session boundary and SHALL print the `walk_forward_run_id` and report on success; on failure the CLI SHALL exit non-zero and the parent row SHALL remain persisted in `failed` state.
 
 #### Scenario: Complete run commits source outputs
-- **WHEN** all windows, OOS evaluations, and fixed benchmark evaluations succeed through the CLI
-- **THEN** the managed caller transaction commits all source-side outputs and one complete WF history once.
+- **WHEN** all windows, OOS evaluations, and fixed benchmark evaluations succeed through the CLI or API
+- **THEN** the runner commits the initial `running` parent row, then the final `success` parent update with children, in the managed caller transaction
 
 #### Scenario: Later window failure rolls back source outputs
 - **WHEN** a later OOS or fixed benchmark evaluation fails after an earlier window added source-side rows
-- **THEN** the CLI exits non-zero and the managed caller transaction persists none of this command's source-side rows or WF history.
+- **THEN** the runner updates the parent row to `status = "failed"` with `finished_at` and `error_message` and commits that update
+- **AND** the caller-managed transaction rolls back the source-side OOS, signal, curve, and benchmark rows from this command
+- **AND** the parent `WalkForwardRun` row remains persisted in `failed` state with no children
 
 #### Scenario: Final WF persistence failure rolls back OOS outputs
-- **WHEN** every OOS window succeeds but final parent or child validation/flush fails
-- **THEN** the managed caller transaction persists neither WF history nor any selected OOS artifact from the command
+- **WHEN** every OOS window succeeds but the final parent or child validation/flush fails after the running row was committed
+- **THEN** the runner updates the parent row to `status = "failed"` and rolls back all WF history and selected OOS artifacts from the command
+
+#### Scenario: Preflight failure records failed state without running windows
+- **WHEN** configuration, provenance, or input preparation fails before any window executes
+- **THEN** the runner records `status = "failed"` with `error_message` on the parent row (or no parent row is persisted if the failure precedes the running-row insert)
+- **AND** no OOS backtest, signal, curve, or benchmark row is added
 
 ### Requirement: Runner prepares provenance before source output
 Before starting any source-side OOS backtest, `WalkForwardRunner` SHALL validate every generated candidate, resolve each valid strategy's non-negative lookback, use `TradingCalendar` as the sole window/session axis, generate final windows, and build complete versioned configuration and input provenance. Missing candidates, invalid lookback, incomplete official-session envelope or missing required price SHALL fail before source output is added.
@@ -63,12 +70,17 @@ Before starting any source-side OOS backtest, `WalkForwardRunner` SHALL validate
 - **AND** no source signal, run, curve or benchmark is added
 
 ### Requirement: Successful runner execution returns flushed evaluation identity
-After producing valid `wf_evidence_v1`, the runner SHALL persist the parent and ordered window records through the caller-provided session, flush without committing or rolling back, and return the positive Walk-forward parent id with the report/result. No id SHALL be returned for a failed execution.
+The runner SHALL commit the initial `WalkForwardRun` parent row with `status = "running"` through the caller-provided source session, flush it to obtain a positive parent id, and return that id with the report/result after the final `status = "success"` update is committed. A `running` id MAY be returned to the caller (for example the API run-trigger endpoint) before the run completes so the caller can poll the detail endpoint; the CLI SHALL wait for completion and return the final id only. No id SHALL be returned for a failure that prevents the initial running row from being persisted.
 
 #### Scenario: Runner returns parent id before caller commit
-- **WHEN** every window and evidence calculation succeeds and parent/children flush
-- **THEN** the runner returns a positive Walk-forward evaluation id
-- **AND** leaves final commit ownership to the caller
+- **WHEN** the API run-trigger endpoint starts a walk-forward execution and the initial running row is committed and flushed
+- **THEN** the runner makes the positive parent id available to the endpoint before completion
+- **AND** the CLI, on success, returns the final parent id after the `status = "success"` commit
+
+#### Scenario: CLI returns final id after success
+- **WHEN** the CLI executes a walk-forward run and every window and evidence calculation succeeds
+- **THEN** the runner returns the positive Walk-forward parent id after the final `status = "success"` commit
+- **AND** the CLI prints that id and the report
 
 ### Requirement: Runner records bounded candidate selection evidence
 For each window the runner SHALL persist generated candidate, eligible, skipped and fixed-category reason counts. Candidate count SHALL equal eligible plus skipped count and reason counts SHALL sum to skipped count. Raw exception text, tracebacks, dynamic statuses and candidate payloads MUST NOT be persisted.
