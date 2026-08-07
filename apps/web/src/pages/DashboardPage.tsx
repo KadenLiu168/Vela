@@ -216,6 +216,13 @@ export function DashboardPage({
       void handleMarketDataFetch("incremental");
     }
   };
+  const fullFetchAction = {
+    isDisabled: hasActiveOperation,
+    isLoading: activeOperation === "marketDataFetch",
+    onClick: () => {
+      void handleMarketDataFetch("full");
+    }
+  };
   const signalGenerationAction = {
     isDisabled: hasActiveOperation,
     isLoading: activeOperation === "signalGeneration",
@@ -378,6 +385,15 @@ export function DashboardPage({
               onClick={marketFetchAction.onClick}
             >
               {marketDataFetchMode === "incremental" ? "Fetching market data" : "Fetch market data"}
+            </button>
+            <button
+              className="button-tertiary"
+              type="button"
+              disabled={fullFetchAction.isDisabled}
+              onClick={fullFetchAction.onClick}
+              title="Re-downloads all ETF price history"
+            >
+              {marketDataFetchMode === "full" ? "Fetching full market data" : "Fetch full"}
             </button>
             <button
               className="button-secondary"

@@ -501,6 +501,7 @@ it("presents full market data fetch after the incremental fetch action", async (
 
   expect(actions.map((button) => button.textContent)).toEqual([
     "Fetch market data",
+    "Fetch full",
     "Generate signal",
     "Bootstrap / Setup database & data",
     "Run backtest"
