@@ -204,7 +204,7 @@ function SourceFilterButton({
   onClick: () => void;
 }) {
   return (
-    <button aria-pressed={active} className="signal-source-filter-button" onClick={onClick} type="button">
+    <button aria-pressed={active} className="signal-source-filter-button button-secondary" onClick={onClick} type="button">
       {children}
     </button>
   );

@@ -230,7 +230,7 @@ The web frontend Dashboard SHALL use semantically consistent PanelHeading label 
 - **AND** the statusPill SHALL be preserved in its current position
 
 ### Requirement: Signal history list page
-The web frontend SHALL expose a `/signals` route rendering a paginated table of historical successful strategy signals for the current strategy and version, with each row linking to that signal's detail page. The page SHALL provide a SOURCE segmented filter (All / Manual / Scheduled / Backtest / Legacy) that drives server-side filtering via the API `source` parameter. The active non-All filter SHALL be reflected in the URL query as `?source=<value>`, while All SHALL omit the parameter. Changing the filter SHALL reset pagination to the first page.
+The web frontend SHALL expose a `/signals` route rendering a paginated table of historical successful strategy signals for the current strategy and version, with each row linking to that signal's detail page. The page SHALL provide a SOURCE filter button group (All / Manual / Scheduled / Backtest / Legacy) that drives server-side filtering via the API `source` parameter. The filter buttons SHALL use the `button-secondary` variant; the active non-All option SHALL render with the variant's pressed state (inverted fill via `aria-pressed="true"`). The active non-All filter SHALL be reflected in the URL query as `?source=<value>`, while All SHALL omit the parameter. Changing the filter SHALL reset pagination to the first page.
 
 #### Scenario: List renders signal rows
 - **WHEN** the user navigates to `/signals` and successful signals exist
@@ -242,7 +242,7 @@ The web frontend SHALL expose a `/signals` route rendering a paginated table of 
 - **THEN** the page provides pagination controls that request successive pages via limit and offset
 
 #### Scenario: Source filter narrows the list
-- **WHEN** the user selects the Backtest segment
+- **WHEN** the user selects the Backtest filter button
 - **THEN** the frontend requests the first page with `source=backtest`
 - **AND** the table shows only entries returned for that source
 - **AND** the URL query includes `source=backtest`
@@ -269,6 +269,11 @@ The web frontend SHALL expose a `/signals` route rendering a paginated table of 
 #### Scenario: Selected source has no results
 - **WHEN** a valid non-All SOURCE filter returns no signals on its first page
 - **THEN** the page renders an empty state naming or otherwise identifying the active filter
+
+#### Scenario: Filter buttons use the secondary variant with a pressed state
+- **WHEN** the user navigates to `/signals`
+- **THEN** every SOURCE filter button MUST carry the `button-secondary` variant className
+- **AND** the active option MUST carry `aria-pressed="true"` and render with the inverted fill
 
 ### Requirement: Backtest history list page
 The web frontend SHALL expose a `/backtests` route rendering a paginated table of historical backtest runs for the current strategy and version, with each row linking to that run's detail page.
