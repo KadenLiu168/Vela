@@ -702,8 +702,14 @@ main {
   margin-bottom: var(--spacing-16);
 }
 
+.signal-list-page > :not(.page-heading),
+.backtest-list-page > :not(.page-heading) {
+  margin-top: var(--space-xl);
+}
+
 .walk-forward-run-trigger {
   margin-bottom: var(--spacing-16);
+  margin-top: var(--space-xl);
 }
 
 .backtest-tab {
@@ -1304,6 +1310,16 @@ main {
 
 .signal-detail-page .holdings-section {
   margin-top: calc(var(--section-gap) * 0.75);
+}
+
+.holdings-section h2 {
+  color: var(--color-paper);
+  font-family: var(--font-display);
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-subheading);
+  line-height: var(--leading-subheading);
+  margin: 0 0 var(--spacing-16);
 }
 
 .holdings-section h3 {
