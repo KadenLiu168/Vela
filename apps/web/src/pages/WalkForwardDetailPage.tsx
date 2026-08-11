@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type WalkForwardBenchmark,
@@ -424,9 +425,9 @@ function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
                 <td><code className="mono-compact">{JSON.stringify(window.selected_parameters)}</code></td>
                 <td>{formatNullableText(window.train_sharpe)}</td>
                 <td>
-                  <a className="operation-link" href={`/backtests/${window.oos_backtest.run_id}`}>
+                  <Link className="operation-link" to={`/backtests/${window.oos_backtest.run_id}`}>
                     Backtest #{window.oos_backtest.run_id}
-                  </a>
+                  </Link>
                   <div>{window.oos_version} · {window.oos_backtest.status}</div>
                   <OosStrategyMetrics backtest={window.oos_backtest} ordinal={window.ordinal} />
                 </td>

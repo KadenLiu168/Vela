@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ApiClientError,
   type StrategySignalListItem,
@@ -28,11 +29,28 @@ type SignalListState =
     };
 
 export function SignalListPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const rawSource = searchParams.get("source");
+  const source = isStrategySignalSource(rawSource) ? rawSource : undefined;
   const [offset, setOffset] = useState(0);
-  const [source, setSource] = useState<StrategySignalSource | undefined>(getSourceFromLocation);
   const [signalState, setSignalState] = useState<SignalListState>({
     status: "loading"
   });
+
+  // Normalize an invalid source value through Router replacement navigation,
+  // preserving unrelated query parameters and the hash.
+  useEffect(() => {
+    if (rawSource !== null && !isStrategySignalSource(rawSource)) {
+      const params = new URLSearchParams(location.search);
+      params.delete("source");
+      const search = params.toString();
+      navigate(`${location.pathname}${search ? `?${search}` : ""}${location.hash}`, {
+        replace: true
+      });
+    }
+  }, [rawSource, location, navigate]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -63,14 +81,16 @@ export function SignalListPage() {
 
   function selectSource(nextSource: StrategySignalSource | undefined) {
     setOffset(0);
-    setSource(nextSource);
-    const url = new URL(window.location.href);
+    const params = new URLSearchParams(location.search);
     if (nextSource === undefined) {
-      url.searchParams.delete("source");
+      params.delete("source");
     } else {
-      url.searchParams.set("source", nextSource);
+      params.set("source", nextSource);
     }
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    const search = params.toString();
+    navigate(`${location.pathname}${search ? `?${search}` : ""}${location.hash}`, {
+      replace: true
+    });
   }
 
   return (
@@ -148,9 +168,9 @@ function renderSignalList(
             {state.data.map((signal) => (
               <tr key={signal.signal_id}>
                 <td>
-                  <a className="operation-link" href={`/signals/${signal.signal_id}`}>
+                  <Link className="operation-link" to={`/signals/${signal.signal_id}`}>
                     #{signal.signal_id}
-                  </a>
+                  </Link>
                 </td>
                 <td>{formatDate(signal.signal_date)}</td>
                 <td>{signal.config_version}</td>
@@ -175,19 +195,6 @@ function renderSignalList(
       ) : null}
     </article>
   );
-}
-
-function getSourceFromLocation(): StrategySignalSource | undefined {
-  const url = new URL(window.location.href);
-  const source = url.searchParams.get("source");
-  if (isStrategySignalSource(source)) {
-    return source;
-  }
-  if (source !== null) {
-    url.searchParams.delete("source");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }
-  return undefined;
 }
 
 function isStrategySignalSource(value: string | null): value is StrategySignalSource {

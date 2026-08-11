@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type BacktestDetailResponse,
@@ -325,7 +326,7 @@ function renderBacktestDetail(
 
 function SignalsPanel({ count, offset, setOffset, state }: { count: number; offset: number; setOffset: (offset: number) => void; state: SignalsState }) {
   return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
-    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><thead><tr><th scope="col">Signal #</th><th scope="col">Signal date</th><th scope="col">Result</th><th scope="col">Action</th></tr></thead><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><td>{signal.signal_id}</td><td>{formatDate(signal.signal_date)}</td><td>{formatNullableText(signal.result)}</td><td><a className="operation-link" href={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</a></td></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><thead><tr><th scope="col">Signal #</th><th scope="col">Signal date</th><th scope="col">Result</th><th scope="col">Action</th></tr></thead><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><td>{signal.signal_id}</td><td>{formatDate(signal.signal_date)}</td><td>{formatNullableText(signal.result)}</td><td><Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link></td></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
   </section>;
 }
 

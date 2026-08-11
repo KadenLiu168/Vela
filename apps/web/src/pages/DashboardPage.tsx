@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type ApiErrorCategory,
@@ -323,9 +324,9 @@ export function DashboardPage({
                   <span className="etf-row-name">{etf.name}</span>
                   <span className="etf-row-date">{etf.earliest_trade_date ? formatDate(etf.earliest_trade_date) : "—"}</span>
                   {etf.etf_id != null ? (
-                    <a className="etf-row-link" href={`/etfs/${etf.etf_id}`} aria-label={`View ${etf.symbol} price trend`}>
+                    <Link className="etf-row-link" to={`/etfs/${etf.etf_id}`} aria-label={`View ${etf.symbol} price trend`}>
                       Trend
-                    </a>
+                    </Link>
                   ) : null}
                 </div>
               ))}
@@ -407,9 +408,7 @@ export function DashboardPage({
               className="bootstrap-action button-primary"
               type="button"
               disabled={hasActiveOperation}
-              onClick={() => {
-                void handleBootstrap();
-              }}
+              onClick={handleBootstrap}
             >
               {activeOperation === "bootstrap" ? "Running bootstrap" : "Bootstrap / Setup database & data"}
             </button>
@@ -606,9 +605,9 @@ function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
         <DescriptionItem label="Annualized volatility (252D)" value={formatRatioAsPercent(result.volatility)} />
         <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(result.sharpe_ratio)} />
       </dl>
-      <a className="operation-link" href={`/backtests/${result.run_id}`}>
+      <Link className="operation-link" to={`/backtests/${result.run_id}`}>
         View backtest detail
-      </a>
+      </Link>
     </FeedbackMessage>
   );
 }
@@ -712,9 +711,9 @@ function SignalSummary({
         <DescriptionItem label="Fallback" value={formatBoolean(signal.is_fallback)} />
         <DescriptionItem label="Target holdings" value={formatInteger(signal.position_count)} />
       </dl>
-      <a className="operation-link" href={`/signals/${signal.signal_id}`}>
+      <Link className="operation-link" to={`/signals/${signal.signal_id}`}>
         View signal detail
-      </a>
+      </Link>
     </>
   );
 }
@@ -748,9 +747,9 @@ function BacktestSummary({
         <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
         <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(backtest.sharpe_ratio)} />
       </dl>
-      <a className="operation-link" href={`/backtests/${backtest.run_id}`}>
+      <Link className="operation-link" to={`/backtests/${backtest.run_id}`}>
         View backtest detail
-      </a>
+      </Link>
     </>
   );
 }

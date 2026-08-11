@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ApiClientError,
   type WalkForwardPageResponse,
@@ -26,6 +27,7 @@ type RunTriggerState =
   | { status: "failed"; message: string };
 
 export function WalkForwardListPage() {
+  const navigate = useNavigate();
   const [offset, setOffset] = useState(0);
   const [state, setState] = useState<WalkForwardListState>({ status: "loading" });
   const [runState, setRunState] = useState<RunTriggerState>({ status: "idle" });
@@ -89,7 +91,7 @@ export function WalkForwardListPage() {
         }
         if (detail.run.status === "success") {
           setRunState({ status: "idle" });
-          navigateToDetail(activeRunId);
+          navigate(`/walk-forwards/${activeRunId}`);
         } else if (detail.run.status === "failed") {
           setRunState({
             status: "failed",
@@ -139,7 +141,7 @@ export function WalkForwardListPage() {
       }
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [activeRunId]);
+  }, [activeRunId, navigate]);
 
   async function handleRunClick() {
     if (
@@ -228,14 +230,6 @@ function getCurrentListState(state: WalkForwardListState, offset: number): WalkF
   return state.status === "loading" || state.offset === offset ? state : { status: "loading" };
 }
 
-function navigateToDetail(runId: number) {
-  const nextPath = `/walk-forwards/${runId}`;
-  if (window.location.pathname !== nextPath) {
-    window.history.pushState({}, "", nextPath);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }
-}
-
 function renderWalkForwardList(
   state: WalkForwardListState,
   offset: number,
@@ -282,9 +276,9 @@ function renderWalkForwardList(
             {state.data.runs.map((run) => (
               <tr key={run.run_id}>
                 <td>
-                  <a className="operation-link" href={`/walk-forwards/${run.run_id}`}>
+                  <Link className="operation-link" to={`/walk-forwards/${run.run_id}`}>
                     #{run.run_id}
-                  </a>
+                  </Link>
                 </td>
                 <td>{run.status}</td>
                 <td>{run.finished_at === null ? "—" : formatTimestamp(run.finished_at)}</td>

@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useLocation } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   ApiClientError,
@@ -7,6 +8,7 @@ import {
   runWalkForward,
   type WalkForwardDetailResponse
 } from "../api/client";
+import { renderWithRouter } from "../test/renderWithRouter";
 import { WalkForwardListPage } from "./WalkForwardListPage";
 
 vi.mock("../api/client", async () => {
@@ -17,6 +19,21 @@ vi.mock("../api/client", async () => {
 const listMock = vi.mocked(listWalkForwards);
 const runMock = vi.mocked(runWalkForward);
 const detailMock = vi.mocked(getWalkForwardDetail);
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location-probe">{location.pathname}</span>;
+}
+
+function renderList() {
+  return renderWithRouter(
+    <>
+      <WalkForwardListPage />
+      <LocationProbe />
+    </>,
+    "/walk-forwards"
+  );
+}
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -46,7 +63,7 @@ const summary = (runId: number) => ({
 it("renders history metadata and links rows to detail", async () => {
   listMock.mockResolvedValue({ runs: [summary(8)], total: 1, limit: 10, offset: 0 });
 
-  render(<WalkForwardListPage />);
+  renderList();
 
   expect(await screen.findByText("Walk-forward History")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "#8" })).toHaveAttribute("href", "/walk-forwards/8");
@@ -61,7 +78,7 @@ it("uses the exact total at the final page boundary", async () => {
     limit: 10,
     offset
   }));
-  render(<WalkForwardListPage />);
+  renderList();
 
   await screen.findByText("#8");
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -73,7 +90,7 @@ it("uses the exact total at the final page boundary", async () => {
 it("shows an explicit error and suppresses stale results after a failed request", async () => {
   listMock.mockResolvedValueOnce({ runs: [summary(8)], total: 11, limit: 10, offset: 0 });
   listMock.mockRejectedValueOnce(new ApiClientError("unavailable", { kind: "network" }));
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("#8");
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("unavailable"));
@@ -116,7 +133,7 @@ const runningDetail = (runId: number) => ({
 it("clicking Run calls runWalkForward and disables the button while pending", async () => {
   listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
   runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("Walk-forward History");
 
   const button = screen.getByRole("button", { name: "Run walk-forward" });
@@ -133,10 +150,8 @@ it("navigates to the detail page after polling reports success", async () => {
     ...runningDetail(9),
     run: { ...summary(9), status: "success" as const, created_at: "2026-12-01T00:00:00" }
   });
-  const pushSpy = vi.spyOn(window.history, "pushState");
-  const popSpy = vi.spyOn(window, "dispatchEvent");
 
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("Walk-forward History");
   vi.useFakeTimers();
   fireEvent.click(screen.getByRole("button", { name: "Run walk-forward" }));
@@ -150,8 +165,10 @@ it("navigates to the detail page after polling reports success", async () => {
   });
 
   expect(detailMock).toHaveBeenCalledWith("9");
-  expect(pushSpy).toHaveBeenCalledWith({}, "", "/walk-forwards/9");
-  expect(popSpy).toHaveBeenCalled();
+  vi.useRealTimers();
+  await waitFor(() => {
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/walk-forwards/9");
+  });
 });
 
 it("surfaces error_message and re-enables the button when polling reports failed", async () => {
@@ -167,7 +184,7 @@ it("surfaces error_message and re-enables the button when polling reports failed
     }
   });
 
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("Walk-forward History");
   vi.useFakeTimers();
   fireEvent.click(screen.getByRole("button", { name: "Run walk-forward" }));
@@ -195,7 +212,7 @@ it("surfaces a 409 conflict without issuing a second POST", async () => {
     new ApiClientError("conflict", { kind: "http", status: 409, category: "operation_failed" })
   );
 
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("Walk-forward History");
   fireEvent.click(screen.getByRole("button", { name: "Run walk-forward" }));
 
@@ -214,7 +231,7 @@ it("pauses polling while the document is hidden and resumes when visible", async
   runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
   detailMock.mockResolvedValue(runningDetail(9));
 
-  render(<WalkForwardListPage />);
+  renderList();
   await screen.findByText("Walk-forward History");
   vi.useFakeTimers();
   fireEvent.click(screen.getByRole("button", { name: "Run walk-forward" }));
@@ -252,7 +269,7 @@ it("discovers a queued run after reload and resumes polling without reposting", 
   detailMock.mockResolvedValue(runningDetail(8));
 
   vi.useFakeTimers();
-  render(<WalkForwardListPage />);
+  renderList();
 
   await act(async () => {
     await Promise.resolve();

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type StrategySignalDetailPosition,
@@ -109,9 +110,9 @@ function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
           <DescriptionItem
             label="Backtest"
             value={
-              <a className="operation-link" href={`/backtests/${signal.backtest_run_id}`}>
+              <Link className="operation-link" to={`/backtests/${signal.backtest_run_id}`}>
                 Backtest #{signal.backtest_run_id}
-              </a>
+              </Link>
             }
           />
         ) : null}

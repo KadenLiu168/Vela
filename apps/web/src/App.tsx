@@ -1,4 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  BrowserRouter,
+  Link,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams
+} from "react-router-dom";
 import { CommandPalette } from "./components/CommandPalette";
 import type { ActionRow, PageRow } from "./components/commandPaletteFilter";
 import {
@@ -60,10 +69,20 @@ const pageRows: PageRow[] = navItems.map((item) => ({
   keywords: []
 }));
 
+const DECIMAL_ID = /^\d+$/;
+
 export default function App() {
-  const [path, setPath] = useState(getCurrentPath);
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const isPaletteOpenRef = useRef(isPaletteOpen);
 
   // Lifted backtest form state from DashboardPage
   const [backtestStartDate, setBacktestStartDate] = useState("");
@@ -71,38 +90,12 @@ export default function App() {
   const backtestStartDateRef = useRef(backtestStartDate);
   const backtestEndDateRef = useRef(backtestEndDate);
 
-  useEffect(() => {
-    backtestStartDateRef.current = backtestStartDate;
-  }, [backtestStartDate]);
-
-  useEffect(() => {
-    backtestEndDateRef.current = backtestEndDate;
-  }, [backtestEndDate]);
-
-  useEffect(() => {
-    isPaletteOpenRef.current = isPaletteOpen;
-  }, [isPaletteOpen]);
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setPath(getCurrentPath());
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, []);
-
   // Global keydown: open palette via Cmd+K / Ctrl+K / /
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const isFormInput =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
+        target?.matches?.("input, textarea, select") ||
         target?.isContentEditable;
 
       // Cmd+K / Ctrl+K — toggle palette
@@ -113,7 +106,7 @@ export default function App() {
       }
 
       // Slash — open palette when not in a form input
-      if (!isFormInput && e.key === "/" && !isPaletteOpenRef.current) {
+      if (!isFormInput && e.key === "/" && !isPaletteOpen) {
         e.preventDefault();
         setIsPaletteOpen(true);
         return;
@@ -122,15 +115,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const navigate = (nextPath: string) => {
-    if (nextPath !== getCurrentPath()) {
-      window.history.pushState({}, "", nextPath);
-    }
-
-    setPath(nextPath);
-  };
+  }, [isPaletteOpen]);
 
   // Actions for the command palette
   const [paletteActions] = useState<ActionRow[]>(() => [
@@ -184,7 +169,6 @@ export default function App() {
 
   return (
     <AppShell
-      activePath={getActivePath(path)}
       apiBaseUrl={getApiBaseUrl()}
       commandPalette={
         <CommandPalette
@@ -199,14 +183,88 @@ export default function App() {
         />
       }
       navItems={navItems}
-      onNavigate={navigate}
     >
-      <ErrorBoundary key={path} fallback={<RouteLoadFailureFallback />}>
+      <ErrorBoundary key={location.pathname} fallback={<RouteLoadFailureFallback />}>
         <Suspense fallback={<RouteLoadingFallback />}>
-          {renderRoute(path, backtestStartDate, backtestEndDate, setBacktestStartDate, setBacktestEndDate)}
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <DashboardPage
+                  backtestForm={{ startDate: backtestStartDate, endDate: backtestEndDate }}
+                  onBacktestFormChange={(form) => {
+                    backtestStartDateRef.current = form.startDate;
+                    backtestEndDateRef.current = form.endDate;
+                    setBacktestStartDate(form.startDate);
+                    setBacktestEndDate(form.endDate);
+                  }}
+                />
+              }
+            />
+            <Route path="/signals" element={<SignalListPage />} />
+            <Route path="/signals/:signalId" element={<SignalDetailRoute />} />
+            <Route path="/backtests" element={<BacktestListPage />} />
+            <Route path="/backtests/:backtestId" element={<BacktestDetailRoute />} />
+            <Route path="/walk-forwards" element={<WalkForwardListPage />} />
+            <Route path="/walk-forwards/:runId" element={<WalkForwardDetailRoute />} />
+            <Route path="/etfs/:etfId" element={<EtfDetailRoute />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
         </Suspense>
       </ErrorBoundary>
     </AppShell>
+  );
+}
+
+function SignalDetailRoute() {
+  const signalId = useNumericParam("signalId");
+  if (!signalId) {
+    return <NotFoundPage />;
+  }
+  return <SignalDetailPage signalId={signalId} />;
+}
+
+function BacktestDetailRoute() {
+  const backtestId = useNumericParam("backtestId");
+  if (!backtestId) {
+    return <NotFoundPage />;
+  }
+  return <BacktestDetailPage backtestId={backtestId} />;
+}
+
+function WalkForwardDetailRoute() {
+  const runId = useNumericParam("runId");
+  if (!runId) {
+    return <NotFoundPage />;
+  }
+  return <WalkForwardDetailPage runId={runId} />;
+}
+
+function EtfDetailRoute() {
+  const etfId = useNumericParam("etfId");
+  if (!etfId) {
+    return <NotFoundPage />;
+  }
+  return <EtfDetailPage etfId={etfId} />;
+}
+
+function useNumericParam(name: string): string | null {
+  const value = useParams()[name];
+  return value !== undefined && DECIMAL_ID.test(value) ? value : null;
+}
+
+function NotFoundPage() {
+  return (
+    <section className="page not-found-page">
+      <div className="page-heading">
+        <p>Unknown route</p>
+        <h1>Page not found</h1>
+      </div>
+      <p>The requested page does not exist.</p>
+      <Link className="operation-link" to="/">
+        Go to Dashboard
+      </Link>
+    </section>
   );
 }
 
@@ -229,86 +287,4 @@ function RouteLoadFailureFallback() {
       </button>
     </div>
   );
-}
-
-function renderRoute(
-  path: string,
-  backtestStartDate?: string,
-  backtestEndDate?: string,
-  setBacktestStartDate?: (value: string) => void,
-  setBacktestEndDate?: (value: string) => void
-) {
-  if (path === "/signals") {
-    return <SignalListPage />;
-  }
-
-  const signalMatch = path.match(/^\/signals\/(\d+)$/);
-
-  if (signalMatch) {
-    return <SignalDetailPage signalId={signalMatch[1]} />;
-  }
-
-  if (path === "/backtests") {
-    return <BacktestListPage />;
-  }
-
-  const backtestMatch = path.match(/^\/backtests\/(\d+)$/);
-
-  if (backtestMatch) {
-    return <BacktestDetailPage backtestId={backtestMatch[1]} />;
-  }
-
-  if (path === "/walk-forwards") {
-    return <WalkForwardListPage />;
-  }
-
-  const walkForwardMatch = path.match(/^\/walk-forwards\/(\d+)$/);
-
-  if (walkForwardMatch) {
-    return <WalkForwardDetailPage runId={walkForwardMatch[1]} />;
-  }
-
-  const etfMatch = path.match(/^\/etfs\/(\d+)$/);
-
-  if (etfMatch) {
-    return <EtfDetailPage etfId={etfMatch[1]} />;
-  }
-
-  return (
-    <DashboardPage
-      backtestForm={{ startDate: backtestStartDate ?? "", endDate: backtestEndDate ?? "" }}
-      onBacktestFormChange={
-        setBacktestStartDate && setBacktestEndDate
-          ? (form) => {
-              setBacktestStartDate(form.startDate);
-              setBacktestEndDate(form.endDate);
-            }
-          : undefined
-      }
-    />
-  );
-}
-
-function getActivePath(path: string): string {
-  if (path === "/signals" || path.startsWith("/signals/")) {
-    return "/signals";
-  }
-
-  if (path === "/backtests" || path.startsWith("/backtests/")) {
-    return "/backtests";
-  }
-
-  if (path === "/walk-forwards" || path.startsWith("/walk-forwards/")) {
-    return "/walk-forwards";
-  }
-
-  if (path === "/etfs" || path.startsWith("/etfs/")) {
-    return "/etfs";
-  }
-
-  return "/";
-}
-
-function getCurrentPath(): string {
-  return window.location.pathname;
 }

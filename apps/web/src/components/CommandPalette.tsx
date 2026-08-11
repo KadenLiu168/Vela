@@ -103,16 +103,12 @@ export function CommandPalette({
   const onCloseRef = useRef(onClose);
   const onNavigateRef = useRef(onNavigate);
   const visibleRowsRef = useRef<CommandPaletteRow[]>([]);
-  const expandedEtfIdRef = useRef(expandedEtfId);
-  const setExpandedEtfIdRef = useRef(setExpandedEtfId);
-  const setActiveRowIdRef = useRef(setActiveRowId);
   const validActiveRowIdRef = useRef<string | null>(null);
 
   // Sync refs (in effects — satisfies react-hooks/refs rule)
   useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => { onNavigateRef.current = onNavigate; }, [onNavigate]);
-  useEffect(() => { expandedEtfIdRef.current = expandedEtfId; }, [expandedEtfId]);
 
   // Open / close lifecycle
   useEffect(() => {
@@ -213,8 +209,6 @@ export function CommandPalette({
   // Sync remaining dynamic refs
   useEffect(() => { visibleRowsRef.current = visibleRows; }, [visibleRows]);
   useEffect(() => { validActiveRowIdRef.current = validActiveRowId; }, [validActiveRowId]);
-  useEffect(() => { setActiveRowIdRef.current = setActiveRowId; }, [setActiveRowId]);
-  useEffect(() => { setExpandedEtfIdRef.current = setExpandedEtfId; }, [setExpandedEtfId]);
 
   // Group rows for display
   const groupedRows = useMemo(() => {
@@ -245,7 +239,7 @@ export function CommandPalette({
         void row.action();
       }, 0);
     } else if (row.kind === "etf") {
-      setExpandedEtfIdRef.current((prev: string | null) =>
+      setExpandedEtfId((prev: string | null) =>
         prev === row.id ? null : row.id
       );
     }
@@ -313,7 +307,7 @@ export function CommandPalette({
         const id = validActiveRowIdRef.current;
         const idx = id ? rows.findIndex((r) => r.id === id) : -1;
         const next = idx === -1 || idx >= rows.length - 1 ? 0 : idx + 1;
-        setActiveRowIdRef.current(rows[next].id);
+        setActiveRowId(rows[next].id);
         return;
       }
 
@@ -324,7 +318,7 @@ export function CommandPalette({
         const id = validActiveRowIdRef.current;
         const idx = id ? rows.findIndex((r) => r.id === id) : -1;
         const next = idx <= 0 ? rows.length - 1 : idx - 1;
-        setActiveRowIdRef.current(rows[next].id);
+        setActiveRowId(rows[next].id);
         return;
       }
 
@@ -364,8 +358,7 @@ export function CommandPalette({
       <div
         className="command-palette-backdrop"
         data-testid="command-palette-backdrop"
-        onClick={() => onClose()}
-        onKeyDown={() => {}}
+        onClick={onClose}
         role="presentation"
       />
       {/* Dialog */}
@@ -439,7 +432,6 @@ export function CommandPalette({
                         data-testid={isActive ? "command-palette-row-active" : "command-palette-row"}
                         id={optionId}
                         onClick={() => commitRow(row)}
-                        onKeyDown={() => {}}
                         role="option"
                         tabIndex={-1}
                       >

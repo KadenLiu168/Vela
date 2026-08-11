@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 
 export type NavItem = {
   href: string;
@@ -6,22 +7,13 @@ export type NavItem = {
 };
 
 type AppShellProps = {
-  activePath: string;
   apiBaseUrl: string;
   children: ReactNode;
   commandPalette?: ReactNode;
   navItems: NavItem[];
-  onNavigate: (path: string) => void;
 };
 
-export function AppShell({
-  activePath,
-  apiBaseUrl,
-  children,
-  commandPalette,
-  navItems,
-  onNavigate
-}: AppShellProps) {
+export function AppShell({ apiBaseUrl, children, commandPalette, navItems }: AppShellProps) {
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -31,18 +23,14 @@ export function AppShell({
         </div>
         <nav aria-label="Research navigation" className="app-nav">
           {navItems.map((item) => (
-            <a
-              aria-current={item.href === activePath ? "page" : undefined}
+            <NavLink
               className="app-nav-link"
-              href={item.href}
               key={item.href}
-              onClick={(event) => {
-                event.preventDefault();
-                onNavigate(item.href);
-              }}
+              to={item.href}
+              end={item.href === "/"}
             >
               {item.label}
-            </a>
+            </NavLink>
           ))}
         </nav>
       </header>

@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   ApiClientError,
@@ -8,6 +10,10 @@ import {
   listBacktestSignals
 } from "../api/client";
 import { BacktestDetailPage } from "./BacktestDetailPage";
+
+function RouterWrapper({ children }: { children: ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>;
+}
 
 vi.mock("../api/client", async () => {
   const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
@@ -69,7 +75,7 @@ afterEach(() => vi.clearAllMocks());
 it("renders Overview by default with connected automatically activated tabs", async () => {
   detailMock.mockResolvedValue(detail(1));
   signalsMock.mockResolvedValue({ signals: [] });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   const overview = screen.getByRole("tab", { name: "Overview" });
@@ -122,7 +128,7 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
       { trade_date: "2026-01-02", net_value: "1.12", cash: "0", market_value: "1.12", total_assets: "1.12", positions_json: "[]" }
     ]
   });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "Equal-weight monthly rebalanced portfolio" });
   expect(screen.getByRole("heading", { name: "CSI 300 buy-and-hold" })).toBeInTheDocument();
@@ -175,7 +181,7 @@ it("renders expanded strategy and relative benchmark metrics with ongoing and un
     ]
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   expect(screen.getAllByText("Sortino (rf MAR, 252D)").length).toBe(2);
@@ -228,7 +234,7 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
       }
     ]
   });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
@@ -271,7 +277,7 @@ it("renders unavailable placeholders for legacy or undefined regime values", asy
       }
     ]
   });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
   expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
@@ -319,7 +325,7 @@ it.each([
     ]
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
   expect(screen.getByRole("heading", { name: "Equal-weight monthly rebalanced portfolio" })).toBeInTheDocument();
@@ -334,7 +340,7 @@ it.each([
 
 it("wraps ArrowLeft and ArrowRight and supports Home and End", async () => {
   detailMock.mockResolvedValue(detail(0));
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   const overview = await screen.findByRole("tab", { name: "Overview" });
   const signals = screen.getByRole("tab", { name: "Signals (0)" });
@@ -355,7 +361,7 @@ it("wraps ArrowLeft and ArrowRight and supports Home and End", async () => {
 
 it("does not request zero-count signals and renders the explicit empty state", async () => {
   detailMock.mockResolvedValue(detail(0));
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (0)" }));
@@ -366,7 +372,7 @@ it("does not request zero-count signals and renders the explicit empty state", a
 it("renders the signals table and uses signal_count for an exact final-page boundary", async () => {
   detailMock.mockResolvedValue(detail(20));
   signalsMock.mockResolvedValue({ signals: Array.from({ length: 20 }, (_, index) => ({ backtest_run_id: 7, result: "rebalance", signal_date: "2026-01-02", signal_id: 80 + index })) });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (20)" }));
@@ -383,7 +389,7 @@ it("loads signals lazily, shows request feedback, and reuses the loaded page aft
   let resolveSignals!: (value: { signals: [] }) => void;
   detailMock.mockResolvedValue(detail(1));
   signalsMock.mockImplementation(() => new Promise((resolve) => { resolveSignals = resolve; }));
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   expect(signalsMock).not.toHaveBeenCalled();
@@ -400,7 +406,7 @@ it("loads signals lazily, shows request feedback, and reuses the loaded page aft
 it("renders a stable error state when the signals request fails", async () => {
   detailMock.mockResolvedValue(detail(1));
   signalsMock.mockRejectedValue(new ApiClientError("offline", { kind: "network" }));
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (1)" }));
@@ -421,7 +427,7 @@ it("requests the next offset and disables Next at the exact known total", async 
       }))
     });
   });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (40)" }));
@@ -443,7 +449,7 @@ it("resets on backtestId changes and ignores the previous run's signal response"
     .mockResolvedValueOnce({
       signals: [{ backtest_run_id: 8, result: "hold", signal_date: "2026-01-03", signal_id: 8 }]
     });
-  const { rerender } = render(<BacktestDetailPage backtestId="7" />);
+  const { rerender } = render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (1)" }));
@@ -470,7 +476,7 @@ it("does not revive cached state during a rapid A to B to A route change", async
   signalsMock.mockResolvedValue({
     signals: [{ backtest_run_id: 7, result: "hold", signal_date: "2026-01-02", signal_id: 7 }]
   });
-  const { rerender } = render(<BacktestDetailPage backtestId="7" />);
+  const { rerender } = render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (1)" }));
@@ -517,7 +523,7 @@ it.each([
   Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
   detailMock.mockResolvedValue(stabilityDetail());
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   expect(screen.getByRole("heading", { name: "Return stability" })).toBeInTheDocument();
@@ -533,7 +539,7 @@ it.each([
 it("keeps existing Overview tabs and actions when stability is present", async () => {
   detailMock.mockResolvedValue(stabilityDetail({ strategy: { ...stabilityDetail().return_stability.strategy, rolling_status: "insufficient_observations", rolling: [] } }));
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
   expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
@@ -568,7 +574,7 @@ it("renders sufficient one-day historical distribution risk with exact API value
     metrics: { ...detail(0).metrics, ...tailFields() }
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(screen.getByText("Historical VaR 95% (1D loss)")).toBeInTheDocument();
@@ -602,7 +608,7 @@ it("explains the 99-observation tail-count cardinality and null metrics", async 
     }
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   const heading = await screen.findByRole("heading", {
     name: "One-day historical distribution risk (95%)"
@@ -633,14 +639,14 @@ it("distinguishes legacy and constant-distribution null explanations", async () 
     benchmarks: []
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(screen.getByText(/Constant distribution: return shape statistics are undefined/i)).toBeInTheDocument();
   expect(screen.getByText("0.020000")).toBeInTheDocument();
 
   detailMock.mockResolvedValue({ ...detail(0), metrics: { ...detail(0).metrics } });
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
   expect(await screen.findByText(/Legacy history: one-day historical distribution metrics were not recorded/i)).toBeInTheDocument();
 });
 
@@ -671,7 +677,7 @@ it("renders strategy and benchmark distribution groups with owner-specific value
     ]
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Equal-weight monthly rebalanced portfolio");
   expect(screen.getAllByText("0.010000")).toHaveLength(1);
@@ -691,7 +697,7 @@ it.each([
     metrics: { ...detail(0).metrics, ...tailFields() }
   });
 
-  render(<BacktestDetailPage backtestId="7" />);
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(screen.getByText("Historical VaR 95% (1D loss)")).toBeInTheDocument();

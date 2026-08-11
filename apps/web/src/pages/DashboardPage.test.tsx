@@ -1,7 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DashboardResponse, MarketDataFetchResponse } from "../api/client";
 import { DashboardPage } from "./DashboardPage";
+
+function RouterWrapper({ children }: { children: ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>;
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -75,7 +81,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch full" }));
 
@@ -89,7 +95,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
 
@@ -107,7 +113,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock({ postResponse: pendingFetch });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch full" }));
 
@@ -131,7 +137,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock({ postResponse: pendingFetch });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch full" }));
 
@@ -153,7 +159,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock({ postResponse: pendingFetch });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
 
@@ -171,7 +177,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch full" }));
 
@@ -200,7 +206,7 @@ describe("DashboardPage market data fetch actions", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch full" }));
 
@@ -216,7 +222,7 @@ describe("DashboardPage market data fetch actions", () => {
     const fetchMock = createFetchMock({ postResponse: pendingFetch });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
 
@@ -253,7 +259,7 @@ describe("DashboardPage market data fetch actions", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DashboardPage />);
+    render(<DashboardPage />, { wrapper: RouterWrapper });
 
     expect(await screen.findByText("100 rows")).toBeInTheDocument();
 

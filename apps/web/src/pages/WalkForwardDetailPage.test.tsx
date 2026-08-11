@@ -1,7 +1,13 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { ApiClientError, getWalkForwardDetail, type WalkForwardDetailResponse } from "../api/client";
 import { WalkForwardDetailPage } from "./WalkForwardDetailPage";
+
+function RouterWrapper({ children }: { children: ReactNode }) {
+  return <MemoryRouter>{children}</MemoryRouter>;
+}
 
 vi.mock("../api/client", async () => {
   const actual = await vi.importActual<typeof import("../api/client")>("../api/client");
@@ -235,7 +241,7 @@ const detailEvidence = detail.evidence as NonNullable<WalkForwardDetailResponse[
 it("presents persisted evidence, provenance, candidates, and stitched OOS reset semantics", async () => {
   detailMock.mockResolvedValue(detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
   expect(screen.getByText("Total return")).toBeInTheDocument();
@@ -335,7 +341,7 @@ const v2Detail: WalkForwardDetailResponse = {
 it("presents v2 benchmark-regime aggregates and per-window evidence with count units", async () => {
   detailMock.mockResolvedValue(v2Detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Walk-forward #42");
   expect(screen.getByText("wf_evidence_v2")).toBeInTheDocument();
@@ -365,7 +371,7 @@ it.each([
   Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
   detailMock.mockResolvedValue(v2Detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   expect(await screen.findByText("wf_evidence_v2")).toBeInTheDocument();
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
@@ -381,7 +387,7 @@ it.each([
 it("keeps legacy v1 evidence without fabricated regime values", async () => {
   detailMock.mockResolvedValue(detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Walk-forward #42");
   expect(screen.getByText("wf_evidence_v1")).toBeInTheDocument();
@@ -391,12 +397,12 @@ it("keeps legacy v1 evidence without fabricated regime values", async () => {
 
 it("renders explicit not-found and unexpected-error states", async () => {
   detailMock.mockRejectedValueOnce(new ApiClientError("not found", { kind: "http", status: 404, category: "not_found" }));
-  const { unmount } = render(<WalkForwardDetailPage runId="404" />);
+  const { unmount } = render(<WalkForwardDetailPage runId="404" />, { wrapper: RouterWrapper });
   expect(await screen.findByText("Walk-forward run 404 was not found.")).toBeInTheDocument();
   unmount();
 
   detailMock.mockRejectedValueOnce(new ApiClientError("network", { kind: "network" }));
-  render(<WalkForwardDetailPage runId="500" />);
+  render(<WalkForwardDetailPage runId="500" />, { wrapper: RouterWrapper });
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("network"));
 });
 
@@ -414,7 +420,7 @@ it("ignores a stale detail response when the route id changes", async () => {
     });
   });
 
-  const { rerender } = render(<WalkForwardDetailPage runId="1" />);
+  const { rerender } = render(<WalkForwardDetailPage runId="1" />, { wrapper: RouterWrapper });
   rerender(<WalkForwardDetailPage runId="2" />);
   expect(await screen.findByText("Walk-forward #2")).toBeInTheDocument();
 
@@ -435,7 +441,7 @@ it("preserves complete evidence when stitched OOS is unavailable for non-contigu
     }
   });
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
   const section = screen.getByRole("heading", { name: "Stitched OOS capital path" }).closest("section");
@@ -466,7 +472,7 @@ it("does not fabricate stitched OOS evidence for an active run", async () => {
     stitched_oos: null
   });
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   expect(await screen.findByText(/Evidence is unavailable until this queued run/)).toBeInTheDocument();
   expect(
@@ -485,7 +491,7 @@ it.each([
   Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
   detailMock.mockResolvedValue(detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   expect(await screen.findByRole("heading", { name: "Stitched OOS capital path" })).toBeInTheDocument();
   expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
@@ -503,7 +509,7 @@ it.each([
 it("never renders rolling or calendar stability metrics on the Walk-forward parent", async () => {
   detailMock.mockResolvedValue(detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Walk-forward #42");
   expect(screen.queryByText("Return stability")).not.toBeInTheDocument();
@@ -529,7 +535,7 @@ it("keeps OOS detail links navigable when the stitched curve is unavailable", as
     }
   });
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByText(/Gap or overlap windows/);
   expect(screen.queryByText("Return stability")).not.toBeInTheDocument();
@@ -636,7 +642,7 @@ const v3Detail: WalkForwardDetailResponse = {
 it("presents v3 per-window and aggregate distribution evidence with owner-specific counts", async () => {
   detailMock.mockResolvedValue(v3Detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(
@@ -665,7 +671,7 @@ it("presents v3 per-window and aggregate distribution evidence with owner-specif
 it("does not claim a combined-distribution risk value or pass/fail verdicts", async () => {
   detailMock.mockResolvedValue(v3Detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(screen.queryByText(/combined return distribution/i)).not.toBeInTheDocument();
@@ -682,7 +688,7 @@ it.each([
   Object.defineProperty(window, "innerHeight", { value: height, configurable: true, writable: true });
   detailMock.mockResolvedValue(v3Detail);
 
-  render(<WalkForwardDetailPage runId="42" />);
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
   await screen.findByRole("heading", { name: "One-day historical distribution risk (95%)" });
   expect(screen.getByRole("heading", { name: "Per-window evidence" })).toBeInTheDocument();

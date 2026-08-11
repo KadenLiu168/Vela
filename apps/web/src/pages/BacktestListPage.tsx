@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type BacktestListItem,
@@ -102,9 +103,9 @@ function renderBacktestList(
             {state.data.map((run) => (
               <tr key={run.run_id}>
                 <td>
-                  <a className="operation-link" href={`/backtests/${run.run_id}`}>
+                  <Link className="operation-link" to={`/backtests/${run.run_id}`}>
                     #{run.run_id}
-                  </a>
+                  </Link>
                 </td>
                 <td>{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
                 <td>{run.status}</td>
