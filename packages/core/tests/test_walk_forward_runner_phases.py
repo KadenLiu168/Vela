@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
+from dataclasses import replace
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,8 +9,11 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from vela_core.models import Base, TradingCalendar, WalkForwardRun, WalkForwardRunWindow
+from vela_core.walk_forward import runner as runner_module
 from vela_core.walk_forward.config import load_walk_forward_config
-from vela_core.walk_forward.runner import WalkForwardRunner
+from vela_core.walk_forward.persistence import claim_walk_forward_run
+from vela_core.walk_forward.preflight import prepare_walk_forward_inputs
+from vela_core.walk_forward.runner import LostWalkForwardClaim, WalkForwardRunner
 
 
 def _config(tmp_path: Path) -> Path:
@@ -213,4 +217,100 @@ def test_preflight_failure_leaves_no_parent_row(
 
     with factory() as session:
         assert session.scalar(select(WalkForwardRun.id)) is None
+        assert session.scalar(select(WalkForwardRunWindow.id)) is None
+
+
+def test_runner_reconstructs_from_persisted_snapshots_without_loading_config_path(
+    tmp_path: Path,
+) -> None:
+    config = load_walk_forward_config(_config(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        WalkForwardRunner(
+            config.model_copy(
+                update={
+                    "strategy": config.strategy.model_copy(
+                        update={"base_config": tmp_path / "missing-strategy.yaml"}
+                    )
+                }
+            )
+        )
+
+    parent = WalkForwardRun(
+        strategy_id="dual_momentum",
+        start_date=config.window.start_date,
+        end_date=config.window.end_date,
+        window_count=0,
+        walk_forward_config_json=config.model_dump(mode="json"),
+        base_strategy_config_json={
+            "strategy_id": "dual_momentum",
+            "version": "v1",
+            "type": "dual_momentum",
+            "universe_config": "pool.yaml",
+            "rebalance": {"frequency": "weekly"},
+            "parameters": {
+                "momentum": {"short_window_days": 20, "long_window_days": 80},
+                "score_weights": {"short": 0.4, "long": 0.6},
+                "trend_filter": {"moving_average_days": 60, "price_relation": "above"},
+                "selection": {"top_n": 1},
+                "defense": {"assets": [{"exchange": "SSE", "symbol": "511010"}]},
+            },
+            "costs": {"transaction_cost_bps": 10},
+            "performance": {"risk_free_rate": 0.02},
+        },
+        provenance_version="wf_provenance_v1",
+        config_checksum="a" * 64,
+        input_data_snapshot_json={},
+        input_data_checksum="b" * 64,
+        evidence_version="wf_evidence_v3",
+        evidence_json={},
+        status="queued",
+        started_at=config.window.start_date,
+    )
+
+    runner = WalkForwardRunner.from_persisted(parent)
+
+    assert runner.config.window.start_date == config.window.start_date
+    assert runner._base_strategy_config.strategy_id == "dual_momentum"
+
+
+def test_runner_completion_requires_claim_token(tmp_path: Path) -> None:
+    factory = _seeded_session(tmp_path)
+    config = load_walk_forward_config(_config(tmp_path))
+    with factory() as session:
+        with pytest.raises(LostWalkForwardClaim, match="claim"):
+            WalkForwardRunner(config).complete(session, 1, "claim-token")
+
+
+def test_claimed_runner_fails_closed_on_persisted_input_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    factory = _seeded_session(tmp_path)
+    config = load_walk_forward_config(_config(tmp_path))
+    with factory() as session:
+        runner = WalkForwardRunner(config)
+        run_id = runner.enqueue(session)
+        claim = claim_walk_forward_run(
+            session,
+            worker_id="worker-drift",
+            now=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        assert claim is not None
+
+        original_prepare = prepare_walk_forward_inputs
+
+        def drifted_prepare(*args, **kwargs):
+            prepared = original_prepare(*args, **kwargs)
+            return replace(prepared, input_data_checksum="c" * 64)
+
+        monkeypatch.setattr(runner_module, "prepare_walk_forward_inputs", drifted_prepare)
+        with pytest.raises(ValueError, match="provenance drift"):
+            WalkForwardRunner.from_persisted(session.get(WalkForwardRun, run_id)).complete(
+                session, run_id, claim.claim_token
+            )
+
+    with factory() as session:
+        parent = session.get(WalkForwardRun, run_id)
+        assert parent is not None
+        assert parent.status == "failed"
+        assert "provenance drift" in (parent.error_message or "")
         assert session.scalar(select(WalkForwardRunWindow.id)) is None

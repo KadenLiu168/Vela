@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import yaml
 from sqlalchemy import create_engine
@@ -16,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from vela_core.backtest_runner import run_backtest
+from vela_core.models import WalkForwardRun
 from vela_core.strategy_config import validate_strategy_config
 from vela_core.walk_forward.config import WalkForwardConfig
 from vela_core.walk_forward.evidence import WalkForwardEvidenceV3
@@ -27,9 +29,10 @@ from vela_core.walk_forward.parameter_space import (
 from vela_core.walk_forward.persistence import (
     WalkForwardPersistenceInput,
     WalkForwardWindowPersistenceInput,
+    claim_walk_forward_run,
+    enqueue_walk_forward_run,
     persist_walk_forward_run,
-    persist_walk_forward_running,
-    update_walk_forward_status,
+    transition_walk_forward_run,
 )
 from vela_core.walk_forward.preflight import WalkForwardPreflight, prepare_walk_forward_inputs
 from vela_core.walk_forward.provenance import (
@@ -47,35 +50,78 @@ from vela_core.walk_forward.window_splitter import WalkForwardWindow
 logger = logging.getLogger(__name__)
 
 
+class LostWalkForwardClaim(RuntimeError):
+    """Raised when a worker no longer owns the durable Walk-forward parent."""
+
+
 class WalkForwardRunner:
-    def __init__(self, config: WalkForwardConfig) -> None:
+    def __init__(
+        self,
+        config: WalkForwardConfig,
+        *,
+        base_strategy_config: dict[str, Any] | None = None,
+    ) -> None:
         self.config = config
-        self._base_config = _load_base_config(config.strategy.base_config)
+        self._base_config = (
+            base_strategy_config
+            if base_strategy_config is not None
+            else _load_base_config(config.strategy.base_config)
+        )
         self._base_strategy_config = validate_strategy_config(self._base_config)
         self._version_contents: dict[str, str] = {}
 
+    @classmethod
+    def from_persisted(cls, parent: WalkForwardRun) -> WalkForwardRunner:
+        return cls(
+            WalkForwardConfig.model_validate(parent.walk_forward_config_json),
+            base_strategy_config=parent.base_strategy_config_json,
+        )
+
     def run(self, session: Session) -> WalkForwardReport:
-        run_id, started_at = self.begin(session)
-        return self.complete(session, run_id, started_at)
+        run_id = self.enqueue(session)
+        claim = claim_walk_forward_run(
+            session,
+            worker_id=f"sync-cli:{uuid4().hex}",
+            now=datetime.now(UTC),
+            run_id=run_id,
+        )
+        if claim is None:
+            raise RuntimeError("walk-forward claim could not be acquired")
+        return self.complete(session, run_id, claim.claim_token)
+
+    def enqueue(self, session: Session) -> int:
+        """Preflight and commit a durable queued parent row."""
+        self._require_sqlite(session)
+        started_at = datetime.now(UTC)
+        prepared = prepare_walk_forward_inputs(
+            session,
+            config=self.config,
+            base_config=self._base_config,
+        )
+        return self._persist_queued(session, prepared=prepared, started_at=started_at)
 
     def begin(self, session: Session) -> tuple[int, datetime]:
-        """Run preflight, commit a `running` parent row, and return its id.
+        """Compatibility wrapper for callers that only need enqueue identity."""
+        run_id = self.enqueue(session)
+        parent = session.get(WalkForwardRun, run_id)
+        if parent is None:
+            raise RuntimeError(f"WalkForwardRun {run_id} disappeared after enqueue")
+        return run_id, parent.started_at
 
-        The parent row is committed through the caller-provided source session
-        so the API can return the id to a polling client before the windows
-        execute. A failure here leaves no persisted parent row.
-        """
-        if session.get_bind().dialect.name != "sqlite":
-            raise ValueError("walk-forward only supports SQLite source databases")
-        started_at = datetime.now(UTC)
-        prepared = prepare_walk_forward_inputs(session, config=self.config)
-        run_id = self._persist_running(session, prepared=prepared, started_at=started_at)
-        return run_id, started_at
-
-    def complete(self, session: Session, run_id: int, started_at: datetime) -> WalkForwardReport:
-        """Execute all windows and finalize the parent row to success/failed."""
+    def complete(self, session: Session, run_id: int, claim_token: str) -> WalkForwardReport:
+        """Execute and publish one existing parent under a fenced claim."""
+        self._require_sqlite(session)
+        parent = session.get(WalkForwardRun, run_id)
+        if parent is None or parent.status != "running" or parent.claim_token != claim_token:
+            raise LostWalkForwardClaim(f"Walk-forward claim {run_id} is no longer owned")
+        started_at = parent.started_at
         try:
-            prepared = prepare_walk_forward_inputs(session, config=self.config)
+            prepared = prepare_walk_forward_inputs(
+                session,
+                config=self.config,
+                base_config=self._base_config,
+            )
+            self._validate_persisted_input(parent, prepared)
             windows = prepared.windows
             combinations = generate_combinations(self.config.parameter_space)
             with _memory_snapshot(session) as memory:
@@ -89,30 +135,47 @@ class WalkForwardRunner:
             self._persist_success(
                 session,
                 run_id=run_id,
-                prepared=prepared,
                 results=results,
                 oos_ids=oos_ids,
                 evidence=evidence,
                 started_at=started_at,
                 finished_at=finished_at,
+                parent=parent,
             )
+            if not transition_walk_forward_run(
+                session,
+                run_id=run_id,
+                claim_token=claim_token,
+                status="success",
+                finished_at=finished_at,
+                window_count=len(results),
+                evidence_json=evidence.model_dump(mode="json"),
+                commit=False,
+            ):
+                raise LostWalkForwardClaim(f"Walk-forward claim {run_id} was fenced")
+            session.commit()
             report.walk_forward_run_id = run_id
             return report
+        except LostWalkForwardClaim:
+            session.rollback()
+            raise
         except Exception as exc:
             # Discard any OOS/signal/curve/benchmark rows produced by this
-            # command, then record the failure on the committed parent row.
+            # attempt, then record failure only if this claim still owns it.
             session.rollback()
-            update_walk_forward_status(
+            if not transition_walk_forward_run(
                 session,
-                run_id,
-                "failed",
+                run_id=run_id,
+                claim_token=claim_token,
+                status="failed",
                 error_message=str(exc),
                 finished_at=datetime.now(UTC),
-            )
-            session.commit()
+            ):
+                session.rollback()
+                raise LostWalkForwardClaim(f"Walk-forward claim {run_id} was fenced") from exc
             raise
 
-    def _persist_running(
+    def _persist_queued(
         self,
         session: Session,
         *,
@@ -125,7 +188,7 @@ class WalkForwardRunner:
             walk_forward_snapshot,
             base_strategy_snapshot,
         )
-        return persist_walk_forward_running(
+        return enqueue_walk_forward_run(
             session,
             strategy_id=self._base_strategy_config.strategy_id,
             start_date=self.config.window.start_date,
@@ -138,17 +201,13 @@ class WalkForwardRunner:
             started_at=started_at,
         )
 
-    def _persist_success(
-        self,
-        session: Session,
-        *,
-        run_id: int,
-        prepared: WalkForwardPreflight,
-        results: list[WalkForwardWindowResult],
-        oos_ids: list[int],
-        evidence: WalkForwardEvidenceV3,
-        started_at: datetime,
-        finished_at: datetime,
+    @staticmethod
+    def _require_sqlite(session: Session) -> None:
+        if session.get_bind().dialect.name != "sqlite":
+            raise ValueError("walk-forward only supports SQLite source databases")
+
+    def _validate_persisted_input(
+        self, parent: WalkForwardRun, prepared: WalkForwardPreflight
     ) -> None:
         walk_forward_snapshot = self.config.model_dump(mode="json")
         base_strategy_snapshot = self._base_strategy_config.model_dump(mode="json")
@@ -156,6 +215,28 @@ class WalkForwardRunner:
             walk_forward_snapshot,
             base_strategy_snapshot,
         )
+        if (
+            parent.strategy_id != self._base_strategy_config.strategy_id
+            or parent.start_date != self.config.window.start_date
+            or parent.end_date != self.config.window.end_date
+            or parent.config_checksum != sha256_hex(canonical_provenance_bytes(provenance_payload))
+            or parent.input_data_checksum != prepared.input_data_checksum
+            or parent.input_data_snapshot_json != prepared.manifest
+        ):
+            raise ValueError("walk-forward input provenance drift detected")
+
+    def _persist_success(
+        self,
+        session: Session,
+        *,
+        run_id: int,
+        results: list[WalkForwardWindowResult],
+        oos_ids: list[int],
+        evidence: WalkForwardEvidenceV3,
+        started_at: datetime,
+        finished_at: datetime,
+        parent: WalkForwardRun,
+    ) -> None:
         persist_walk_forward_run(
             session,
             run_id=run_id,
@@ -164,11 +245,11 @@ class WalkForwardRunner:
                 start_date=self.config.window.start_date,
                 end_date=self.config.window.end_date,
                 window_count=len(results),
-                walk_forward_config=walk_forward_snapshot,
-                base_strategy_config=base_strategy_snapshot,
-                config_checksum=sha256_hex(canonical_provenance_bytes(provenance_payload)),
-                input_data_snapshot=prepared.manifest,
-                input_data_checksum=prepared.input_data_checksum,
+                walk_forward_config=parent.walk_forward_config_json,
+                base_strategy_config=parent.base_strategy_config_json,
+                config_checksum=parent.config_checksum,
+                input_data_snapshot=parent.input_data_snapshot_json,
+                input_data_checksum=parent.input_data_checksum,
                 evidence=evidence.model_dump(mode="json"),
                 started_at=started_at,
                 finished_at=finished_at,
@@ -192,15 +273,6 @@ class WalkForwardRunner:
                 ),
             ),
         )
-        update_walk_forward_status(
-            session,
-            run_id,
-            "success",
-            finished_at=finished_at,
-            window_count=len(results),
-            evidence_json=evidence.model_dump(mode="json"),
-        )
-        session.commit()
 
     def _run_window(
         self,

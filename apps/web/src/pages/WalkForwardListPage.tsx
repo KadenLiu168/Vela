@@ -20,6 +20,8 @@ type WalkForwardListState =
 type RunTriggerState =
   | { status: "idle" }
   | { status: "starting" }
+  | { status: "refreshing"; message: string }
+  | { status: "queued"; runId: number }
   | { status: "running"; runId: number }
   | { status: "failed"; message: string };
 
@@ -27,7 +29,9 @@ export function WalkForwardListPage() {
   const [offset, setOffset] = useState(0);
   const [state, setState] = useState<WalkForwardListState>({ status: "loading" });
   const [runState, setRunState] = useState<RunTriggerState>({ status: "idle" });
-  const runningRunId = runState.status === "running" ? runState.runId : null;
+  const [refreshToken, setRefreshToken] = useState(0);
+  const activeRunId =
+    runState.status === "queued" || runState.status === "running" ? runState.runId : null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -35,6 +39,22 @@ export function WalkForwardListPage() {
       .then((data) => {
         if (isCurrent) {
           setState({ status: "ready", data, offset });
+          const active = data.runs.find(
+            (run) => run.status === "queued" || run.status === "running"
+          );
+          setRunState((current) => {
+            if (current.status === "starting") {
+              return current;
+            }
+            if (active?.status === "queued" || active?.status === "running") {
+              return { status: active.status, runId: active.run_id };
+            }
+            return current.status === "queued" ||
+              current.status === "running" ||
+              current.status === "refreshing"
+              ? { status: "idle" }
+              : current;
+          });
         }
       })
       .catch((error: unknown) => {
@@ -50,11 +70,11 @@ export function WalkForwardListPage() {
     return () => {
       isCurrent = false;
     };
-  }, [offset]);
+  }, [offset, refreshToken]);
 
   // Poll the running run every 5s, pausing while the document is hidden.
   useEffect(() => {
-    if (runningRunId === null) {
+    if (activeRunId === null) {
       return;
     }
 
@@ -63,18 +83,20 @@ export function WalkForwardListPage() {
 
     const poll = async () => {
       try {
-        const detail = await getWalkForwardDetail(String(runningRunId));
+        const detail = await getWalkForwardDetail(String(activeRunId));
         if (stopped) {
           return;
         }
         if (detail.run.status === "success") {
           setRunState({ status: "idle" });
-          navigateToDetail(runningRunId);
+          navigateToDetail(activeRunId);
         } else if (detail.run.status === "failed") {
           setRunState({
             status: "failed",
             message: detail.run.error_message ?? "Walk-forward run failed."
           });
+        } else {
+          setRunState({ status: detail.run.status, runId: activeRunId });
         }
       } catch {
         // Transient poll failure: keep polling until the run terminal state.
@@ -106,7 +128,9 @@ export function WalkForwardListPage() {
       }
     };
 
-    schedule();
+    if (!document.hidden) {
+      schedule();
+    }
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       stopped = true;
@@ -115,24 +139,35 @@ export function WalkForwardListPage() {
       }
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [runningRunId]);
+  }, [activeRunId]);
 
   async function handleRunClick() {
-    if (runState.status === "starting" || runState.status === "running") {
+    if (
+      runState.status === "starting" ||
+      runState.status === "refreshing" ||
+      runState.status === "queued" ||
+      runState.status === "running"
+    ) {
       return;
     }
     setRunState({ status: "starting" });
     try {
       const accepted = await runWalkForward();
-      setRunState({ status: "running", runId: accepted.walk_forward_run_id });
+      setRunState({ status: accepted.status, runId: accepted.walk_forward_run_id });
     } catch (error: unknown) {
-      const message =
-        error instanceof ApiClientError && error.status === 409
-          ? "A walk-forward run is already in progress for this strategy."
-          : error instanceof ApiClientError && error.kind === "http"
+      if (error instanceof ApiClientError && error.status === 409) {
+        setRunState({
+          status: "refreshing",
+          message: "A walk-forward run is already in progress for this strategy."
+        });
+        setRefreshToken((value) => value + 1);
+      } else {
+        const message =
+          error instanceof ApiClientError && error.kind === "http"
             ? error.message
             : "Unable to start walk-forward run.";
-      setRunState({ status: "failed", message });
+        setRunState({ status: "failed", message });
+      }
     }
   }
 
@@ -153,20 +188,34 @@ function renderRunTrigger(runState: RunTriggerState, onRun: () => void) {
     <div className="walk-forward-run-trigger">
       <button
         className="button-secondary"
-        disabled={runState.status === "starting" || runState.status === "running"}
+        disabled={
+          runState.status === "starting" ||
+          runState.status === "refreshing" ||
+          runState.status === "queued" ||
+          runState.status === "running"
+        }
         onClick={onRun}
         type="button"
       >
-        {runState.status === "running"
-          ? `Running walk-forward #${runState.runId}…`
-          : "Run walk-forward"}
+        {runState.status === "queued"
+          ? `Queued walk-forward #${runState.runId}…`
+          : runState.status === "running"
+            ? `Running walk-forward #${runState.runId}…`
+            : "Run walk-forward"}
       </button>
-      {runState.status === "running" ? (
+      {runState.status === "queued" || runState.status === "running" ? (
         <FeedbackMessage variant="loading">
-          Running walk-forward; expected 11-30 minutes. This page updates automatically.
+          {runState.status === "queued"
+            ? "Walk-forward queued; waiting for the supervised worker."
+            : "Walk-forward running; this page updates automatically."}
         </FeedbackMessage>
       ) : null}
       {runState.status === "failed" ? (
+        <FeedbackMessage className="dashboard-alert" variant="error">
+          {runState.message}
+        </FeedbackMessage>
+      ) : null}
+      {runState.status === "refreshing" ? (
         <FeedbackMessage className="dashboard-alert" variant="error">
           {runState.message}
         </FeedbackMessage>

@@ -17,6 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,8 +31,9 @@ class WalkForwardRun(Base):
     __tablename__ = "walk_forward_run"
     __table_args__ = (
         CheckConstraint("window_count >= 0", name="ck_walk_forward_run_window_count_nonnegative"),
+        CheckConstraint("attempt_count >= 0", name="ck_walk_forward_run_attempt_count_nonnegative"),
         CheckConstraint(
-            "status IN ('running','success','failed')",
+            "status IN ('queued','running','success','failed')",
             name="ck_walk_forward_run_status",
         ),
         Index(
@@ -39,6 +41,18 @@ class WalkForwardRun(Base):
             "strategy_id",
             "finished_at",
             "id",
+        ),
+        Index(
+            "uq_walk_forward_run_active_strategy",
+            "strategy_id",
+            unique=True,
+            sqlite_where=text("status IN ('queued','running')"),
+        ),
+        Index(
+            "uq_walk_forward_run_sqlite_running",
+            text("(1)"),
+            unique=True,
+            sqlite_where=text("status = 'running'"),
         ),
     )
 
@@ -57,6 +71,16 @@ class WalkForwardRun(Base):
     evidence_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="success")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    claim_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

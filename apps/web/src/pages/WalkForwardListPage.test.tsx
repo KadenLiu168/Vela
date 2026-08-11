@@ -35,6 +35,10 @@ const summary = (runId: number) => ({
   input_data_checksum: "b".repeat(64),
   status: "success" as const,
   error_message: null,
+  attempt_count: 0,
+  claimed_at: null,
+  heartbeat_at: null,
+  lease_expires_at: null,
   started_at: "2026-12-01T00:00:00",
   finished_at: "2026-12-02T00:00:00"
 });
@@ -111,7 +115,7 @@ const runningDetail = (runId: number) => ({
 
 it("clicking Run calls runWalkForward and disables the button while pending", async () => {
   listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
-  runMock.mockResolvedValue({ walk_forward_run_id: 9 });
+  runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
   render(<WalkForwardListPage />);
   await screen.findByText("Walk-forward History");
 
@@ -124,7 +128,7 @@ it("clicking Run calls runWalkForward and disables the button while pending", as
 
 it("navigates to the detail page after polling reports success", async () => {
   listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
-  runMock.mockResolvedValue({ walk_forward_run_id: 9 });
+  runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
   detailMock.mockResolvedValue({
     ...runningDetail(9),
     run: { ...summary(9), status: "success" as const, created_at: "2026-12-01T00:00:00" }
@@ -152,7 +156,7 @@ it("navigates to the detail page after polling reports success", async () => {
 
 it("surfaces error_message and re-enables the button when polling reports failed", async () => {
   listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
-  runMock.mockResolvedValue({ walk_forward_run_id: 9 });
+  runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
   detailMock.mockResolvedValue({
     ...runningDetail(9),
     run: {
@@ -178,7 +182,15 @@ it("surfaces error_message and re-enables the button when polling reports failed
 });
 
 it("surfaces a 409 conflict without issuing a second POST", async () => {
-  listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
+  let finishRefresh: ((value: { runs: never[]; total: number; limit: number; offset: number }) => void) | undefined;
+  listMock
+    .mockResolvedValueOnce({ runs: [], total: 0, limit: 10, offset: 0 })
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRefresh = resolve;
+        })
+    );
   runMock.mockRejectedValue(
     new ApiClientError("conflict", { kind: "http", status: 409, category: "operation_failed" })
   );
@@ -188,13 +200,18 @@ it("surfaces a 409 conflict without issuing a second POST", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Run walk-forward" }));
 
   expect(await screen.findByText(/already in progress/)).toBeInTheDocument();
+  await waitFor(() => expect(listMock).toHaveBeenCalledTimes(2));
+  const button = screen.getByRole("button", { name: "Run walk-forward" });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
   expect(runMock).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("button", { name: "Run walk-forward" })).toBeEnabled();
+  finishRefresh?.({ runs: [], total: 0, limit: 10, offset: 0 });
+  await waitFor(() => expect(button).toBeEnabled());
 });
 
 it("pauses polling while the document is hidden and resumes when visible", async () => {
   listMock.mockResolvedValue({ runs: [], total: 0, limit: 10, offset: 0 });
-  runMock.mockResolvedValue({ walk_forward_run_id: 9 });
+  runMock.mockResolvedValue({ walk_forward_run_id: 9, status: "queued" });
   detailMock.mockResolvedValue(runningDetail(9));
 
   render(<WalkForwardListPage />);
@@ -223,4 +240,30 @@ it("pauses polling while the document is hidden and resumes when visible", async
     vi.advanceTimersByTime(5000);
   });
   expect(detailMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+});
+
+it("discovers a queued run after reload and resumes polling without reposting", async () => {
+  listMock.mockResolvedValue({
+    runs: [{ ...summary(8), status: "queued" as const, finished_at: null }],
+    total: 1,
+    limit: 10,
+    offset: 0
+  });
+  detailMock.mockResolvedValue(runningDetail(8));
+
+  vi.useFakeTimers();
+  render(<WalkForwardListPage />);
+
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect(screen.getByText("Walk-forward History")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Queued walk-forward #8/ })).toBeDisabled();
+  expect(runMock).not.toHaveBeenCalled();
+
+  await act(async () => {
+    vi.advanceTimersByTime(5000);
+  });
+  expect(detailMock).toHaveBeenCalledWith("8");
 });

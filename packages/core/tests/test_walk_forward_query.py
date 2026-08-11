@@ -263,3 +263,19 @@ def test_walk_forward_queries_fail_closed_on_contract_drift(tmp_path, corruption
     with sessionmaker(bind=engine)() as session:
         with pytest.raises(PersistedDataContractError):
             get_walk_forward_run(session, run_id=1, strategy_id="demo")
+
+
+def test_active_walk_forward_detail_has_no_fabricated_stitched_result(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'active-detail.db'}")
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as session:
+        row = _add_parent(session, strategy_id="demo", finished_at=datetime(2026, 1, 1))
+        row.status = "queued"
+        row.finished_at = None
+        row.evidence_json = {}
+        session.commit()
+
+    with sessionmaker(bind=engine)() as session:
+        row = get_walk_forward_run(session, run_id=1, strategy_id="demo")
+        assert row is not None
+        assert not hasattr(row, "stitched_oos")

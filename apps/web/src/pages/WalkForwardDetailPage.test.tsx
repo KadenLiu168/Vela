@@ -38,6 +38,10 @@ const detail: WalkForwardDetailResponse = {
     input_data_checksum: "b".repeat(64),
     status: "success",
     error_message: null,
+    attempt_count: 1,
+    claimed_at: "2026-12-01T00:00:00",
+    heartbeat_at: "2026-12-01T00:00:15",
+    lease_expires_at: "2026-12-01T00:02:00",
     started_at: "2026-12-01T00:00:00",
     finished_at: "2026-12-02T00:00:00",
     created_at: "2026-12-02T00:00:00"
@@ -226,6 +230,8 @@ const detail: WalkForwardDetailResponse = {
   ]
 };
 
+const detailEvidence = detail.evidence as NonNullable<WalkForwardDetailResponse["evidence"]>;
+
 it("presents persisted evidence, provenance, candidates, and stitched OOS reset semantics", async () => {
   detailMock.mockResolvedValue(detail);
 
@@ -279,15 +285,15 @@ const v2Detail: WalkForwardDetailResponse = {
   run: { ...detail.run, evidence_version: "wf_evidence_v2" },
   evidence_version: "wf_evidence_v2",
   evidence: {
-    ...detail.evidence,
+    ...detailEvidence,
     benchmarks: {
       equal_weight_monthly: {
-        ...detail.evidence.benchmarks.equal_weight_monthly,
+        ...detailEvidence.benchmarks.equal_weight_monthly,
         up_capture_ratio: metric(1.2),
         down_capture_ratio: metric(0.7)
       },
       csi_300_buy_hold: {
-        ...detail.evidence.benchmarks.csi_300_buy_hold,
+        ...detailEvidence.benchmarks.csi_300_buy_hold,
         capm_alpha: metric(0.5),
         capm_beta: metric(1.1),
         capm_r_squared: metric(0.8),
@@ -445,6 +451,32 @@ it("preserves complete evidence when stitched OOS is unavailable for non-contigu
   expect(screen.queryByText(/Window 2 reset/)).not.toBeInTheDocument();
 });
 
+it("does not fabricate stitched OOS evidence for an active run", async () => {
+  detailMock.mockResolvedValue({
+    ...detail,
+    run: {
+      ...detail.run,
+      status: "queued",
+      window_count: 0,
+      finished_at: null,
+      error_message: null
+    },
+    evidence: null,
+    windows: [],
+    stitched_oos: null
+  });
+
+  render(<WalkForwardDetailPage runId="42" />);
+
+  expect(await screen.findByText(/Evidence is unavailable until this queued run/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Stitched OOS capital path" })
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(/No OOS windows have been published/)).toBeInTheDocument();
+  expect(screen.queryByText(/stitched capital path above/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Backtest #/ })).not.toBeInTheDocument();
+});
+
 it.each([
   [1440, 1000],
   [390, 844]
@@ -509,7 +541,7 @@ const v3Detail: WalkForwardDetailResponse = {
   run: { ...v2Detail.run, evidence_version: "wf_evidence_v3" },
   evidence_version: "wf_evidence_v3",
   evidence: {
-    ...v2Detail.evidence,
+    ...(v2Detail.evidence as NonNullable<WalkForwardDetailResponse["evidence"]>),
     tail_distribution: {
       per_window: [
         {

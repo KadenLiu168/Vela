@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import asyncio
-import logging
-from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from pathlib import Path
 from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from vela_core import MINIMUM_PUBLICATION_OBSERVATIONS
 from vela_core.config import ConfigError
-from vela_core.database import create_engine_from_url, create_session_factory, managed_session
 from vela_core.models import BacktestBenchmark, BacktestRun, WalkForwardRun, WalkForwardRunWindow
 from vela_core.walk_forward.config import load_walk_forward_config
 from vela_core.walk_forward.evidence import (
@@ -90,9 +85,7 @@ def walk_forward_detail(
             "evidence_version": row.evidence_version,
             "evidence": None,
             "windows": [],
-            "stitched_oos": _stitched_oos_response(
-                cast(StitchedOosResult, getattr(row, "stitched_oos"))  # noqa: B009
-            ),
+            "stitched_oos": None,
         }
     if row.evidence_version == EVIDENCE_VERSION_V2:
         evidence: WalkForwardEvidenceV1 | WalkForwardEvidenceV2 | WalkForwardEvidenceV3 = (
@@ -157,82 +150,26 @@ async def run_walk_forward(
             status_code=422,
             detail="Walk-forward run accepts no request body",
         )
-    _reject_concurrent_run(session, app_config)
-    database_url = request.app.state.database_url
-    config_path = app_config.walk_forward_config_path
     try:
-        run_id = await asyncio.to_thread(
-            _begin_walk_forward_run,
-            database_url=database_url,
-            config_path=config_path,
-        )
+        config = load_walk_forward_config(app_config.walk_forward_config_path)
+        run_id = WalkForwardRunner(config).enqueue(session)
+    except IntegrityError as exc:
+        session.rollback()
+        error_text = str(exc)
+        if (
+            "walk_forward_run.strategy_id" not in error_text
+            and "uq_walk_forward_run_active_strategy" not in error_text
+        ):
+            raise
+        raise HTTPException(
+            status_code=409,
+            detail="a walk-forward run is already in progress for this strategy",
+        ) from exc
     except ConfigError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    task = asyncio.create_task(
-        asyncio.to_thread(
-            _complete_walk_forward_run,
-            database_url=database_url,
-            run_id=run_id,
-            config_path=config_path,
-        )
-    )
-    task.add_done_callback(_consume_background_failure)
-    return {"walk_forward_run_id": run_id}
-
-
-def _consume_background_failure(task: asyncio.Task[object]) -> None:
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger = logging.getLogger(__name__)
-        logger.error("walk_forward.background_run_failed run_id_unknown exception=%s", exc)
-
-
-def _reject_concurrent_run(session, app_config) -> None:
-    stale_before = datetime.now(UTC) - timedelta(hours=1)
-    running = session.scalar(
-        select(WalkForwardRun.id)
-        .where(WalkForwardRun.strategy_id == app_config.strategy.strategy_id)
-        .where(WalkForwardRun.status == "running")
-        .where(WalkForwardRun.started_at >= stale_before)
-        .limit(1)
-    )
-    if running is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="a walk-forward run is already in progress for this strategy",
-        )
-
-
-def _begin_walk_forward_run(*, database_url: str, config_path: Path) -> int:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    try:
-        with managed_session(session_factory) as session:
-            config = load_walk_forward_config(config_path)
-            runner = WalkForwardRunner(config)
-            run_id, _started_at = runner.begin(session)
-            return run_id
-    finally:
-        engine.dispose()
-
-
-def _complete_walk_forward_run(*, database_url: str, run_id: int, config_path: Path) -> None:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    try:
-        with managed_session(session_factory) as session:
-            row = session.get(WalkForwardRun, run_id)
-            if row is None:
-                return
-            config = load_walk_forward_config(config_path)
-            runner = WalkForwardRunner(config)
-            runner.complete(session, run_id, row.started_at)
-    finally:
-        engine.dispose()
+    return {"walk_forward_run_id": run_id, "status": "queued"}
 
 
 def _summary(row: WalkForwardRun) -> dict[str, object]:
@@ -248,6 +185,10 @@ def _summary(row: WalkForwardRun) -> dict[str, object]:
         "input_data_checksum": row.input_data_checksum,
         "status": row.status,
         "error_message": row.error_message,
+        "attempt_count": row.attempt_count,
+        "claimed_at": row.claimed_at,
+        "heartbeat_at": row.heartbeat_at,
+        "lease_expires_at": row.lease_expires_at,
         "started_at": row.started_at,
         "finished_at": row.finished_at,
     }

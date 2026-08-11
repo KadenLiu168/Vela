@@ -40,25 +40,26 @@ The system SHALL, for each window, search the parameter space on the training pe
 - **THEN** the system selects the combination whose canonical JSON sorts first.
 
 ### Requirement: Source writes use the caller transaction
-The walk-forward runner SHALL persist a `WalkForwardRun` parent row with `status = "running"`, `started_at`, a placeholder `evidence_json`, `window_count = 0`, and the resolved configuration/provenance/manifest/checksum fields at the start of execution, and SHALL commit that row through the caller-provided source session to obtain a positive `walk_forward_run_id` before executing any window. After every window, OOS evaluation, benchmark evaluation, provenance/evidence validation, and child persistence step succeeds, the runner SHALL update the same parent row to `status = "success"`, set `finished_at`, `window_count`, and the final `evidence_json`, and persist one ordered child per selected OOS window, then commit through the caller-provided source session. If any window, OOS evaluation, fixed benchmark evaluation, provenance/evidence, or persistence step fails after the running row was committed, the runner SHALL update the parent row to `status = "failed"`, set `finished_at` and `error_message`, commit that update through the caller-provided source session, and re-raise so the caller can map the error. The runner SHALL NOT roll back the running or failed parent row; OOS backtest rows, signal rows, curve rows, and benchmark rows added to the source session before the failure SHALL be rolled back by the caller-managed transaction boundary so only the parent `WalkForwardRun` row (in `running` or `failed` state) remains. The CLI SHALL continue to execute the complete run inside the repository's managed-session boundary and SHALL print the `walk_forward_run_id` and report on success; on failure the CLI SHALL exit non-zero and the parent row SHALL remain persisted in `failed` state.
+The walk-forward runner SHALL execute only for a persisted `WalkForwardRun` that a worker or synchronous CLI has claimed with a current opaque claim token. It SHALL use the queued resolved configuration, base-strategy snapshot, provenance manifest, and checksums, and SHALL reject a preflight manifest/checksum mismatch before any source-side OOS output. After every window, OOS evaluation, benchmark evaluation, provenance/evidence validation, and child persistence step succeeds, the runner SHALL persist one ordered child per selected OOS window and conditionally update the same parent from `running` to `success`, setting `finished_at`, `window_count`, and final `evidence_json`, in one caller-managed source transaction. If a window, OOS evaluation, fixed benchmark evaluation, provenance/evidence, persistence, or ownership step fails, the runner SHALL roll back OOS backtest rows, signal rows, curve rows, and benchmark rows added by that attempt, then conditionally update the matching claimed parent to `failed`, set `finished_at` and bounded `error_message`, and re-raise. A runner that no longer owns the claim SHALL roll back and raise a lost-claim error; it SHALL not change parent status. The CLI SHALL execute the complete claimed run through the repository's managed-session boundary and print the run id and report only on success.
 
 #### Scenario: Complete run commits source outputs
-- **WHEN** all windows, OOS evaluations, and fixed benchmark evaluations succeed through the CLI or API
-- **THEN** the runner commits the initial `running` parent row, then the final `success` parent update with children, in the managed caller transaction
+- **WHEN** all windows, OOS evaluations, and fixed benchmark evaluations succeed under a valid claim
+- **THEN** the runner commits the final `success` parent update with children in the same transaction as all selected source outputs
 
 #### Scenario: Later window failure rolls back source outputs
 - **WHEN** a later OOS or fixed benchmark evaluation fails after an earlier window added source-side rows
-- **THEN** the runner updates the parent row to `status = "failed"` with `finished_at` and `error_message` and commits that update
-- **AND** the caller-managed transaction rolls back the source-side OOS, signal, curve, and benchmark rows from this command
-- **AND** the parent `WalkForwardRun` row remains persisted in `failed` state with no children
+- **THEN** the runner records `status = "failed"` only if it still owns the matching claim
+- **AND** the caller-managed transaction rolls back source-side OOS, signal, curve, and benchmark rows from that attempt
+- **AND** the parent `WalkForwardRun` remains persisted in failed state with no children from that attempt
 
 #### Scenario: Final WF persistence failure rolls back OOS outputs
-- **WHEN** every OOS window succeeds but the final parent or child validation/flush fails after the running row was committed
-- **THEN** the runner updates the parent row to `status = "failed"` and rolls back all WF history and selected OOS artifacts from the command
+- **WHEN** every OOS window succeeds but the final parent or child validation/flush fails
+- **THEN** the runner records `status = "failed"` only if it still owns the claim
+- **AND** rolls back all selected OOS artifacts from the attempt
 
 #### Scenario: Preflight failure records failed state without running windows
-- **WHEN** configuration, provenance, or input preparation fails before any window executes
-- **THEN** the runner records `status = "failed"` with `error_message` on the parent row (or no parent row is persisted if the failure precedes the running-row insert)
+- **WHEN** queued-input revalidation fails before any window executes
+- **THEN** the runner records `status = "failed"` only if it owns the matching claim
 - **AND** no OOS backtest, signal, curve, or benchmark row is added
 
 ### Requirement: Runner prepares provenance before source output
@@ -70,17 +71,22 @@ Before starting any source-side OOS backtest, `WalkForwardRunner` SHALL validate
 - **AND** no source signal, run, curve or benchmark is added
 
 ### Requirement: Successful runner execution returns flushed evaluation identity
-The runner SHALL commit the initial `WalkForwardRun` parent row with `status = "running"` through the caller-provided source session, flush it to obtain a positive parent id, and return that id with the report/result after the final `status = "success"` update is committed. A `running` id MAY be returned to the caller (for example the API run-trigger endpoint) before the run completes so the caller can poll the detail endpoint; the CLI SHALL wait for completion and return the final id only. No id SHALL be returned for a failure that prevents the initial running row from being persisted.
+The enqueue service SHALL return a positive `WalkForwardRun` id only after the queued parent has committed. `WalkForwardRunner` SHALL accept that existing claimed id and return it with the report only after its conditional `status = "success"` update has committed. It SHALL not create a second parent, return an id for an uncommitted enqueue, or publish a result after it loses its claim. The API returns the queued id before completion; the synchronous CLI waits for a terminal result.
 
-#### Scenario: Runner returns parent id before caller commit
-- **WHEN** the API run-trigger endpoint starts a walk-forward execution and the initial running row is committed and flushed
-- **THEN** the runner makes the positive parent id available to the endpoint before completion
-- **AND** the CLI, on success, returns the final parent id after the `status = "success"` commit
+#### Scenario: API returns queued parent identity before execution
+- **WHEN** a valid API submission commits a queued parent
+- **THEN** the enqueue service makes that positive parent id available before worker completion
+- **AND** no Walk-forward window has executed in the API process
 
 #### Scenario: CLI returns final id after success
-- **WHEN** the CLI executes a walk-forward run and every window and evidence calculation succeeds
-- **THEN** the runner returns the positive Walk-forward parent id after the final `status = "success"` commit
+- **WHEN** the CLI executes a claimed Walk-forward run and every window and evidence calculation succeeds
+- **THEN** the runner returns the same positive queued parent id after the final `status = "success"` commit
 - **AND** the CLI prints that id and the report
+
+#### Scenario: Runner returns parent id before caller commit
+- **WHEN** the API enqueue endpoint commits a queued Walk-forward parent and a worker claims it
+- **THEN** the enqueue service makes the positive parent id available to the endpoint before worker completion
+- **AND** the CLI, on success, returns the final parent id after the `status = "success"` commit
 
 ### Requirement: Runner records bounded candidate selection evidence
 For each window the runner SHALL persist generated candidate, eligible, skipped and fixed-category reason counts. Candidate count SHALL equal eligible plus skipped count and reason counts SHALL sum to skipped count. Raw exception text, tracebacks, dynamic statuses and candidate payloads MUST NOT be persisted.
@@ -197,23 +203,23 @@ The system SHALL produce a terminal-readable evidence report containing per-wind
 - **AND** does not label the strategy as passed, failed, approved or rejected
 
 ### Requirement: CLI command
-The system SHALL provide a `vela walk-forward` CLI command that accepts a walk-forward YAML configuration path, an optional database URL using the same default as other database commands, and an optional report output path. Relative base-strategy paths in the walk-forward YAML SHALL resolve relative to that YAML file. The command SHALL execute the full analysis against SQLite only.
+The system SHALL provide a `vela walk-forward` CLI command that accepts a walk-forward YAML configuration path, an optional database URL using the same default as other database commands, and an optional report output path. Relative base-strategy paths in the walk-forward YAML SHALL resolve relative to that YAML file. The command SHALL enqueue a durable execution and claim/run that exact record synchronously against SQLite only; it SHALL not bypass the durable claim protocol.
 
 #### Scenario: CLI invocation
 - **WHEN** the user runs `vela walk-forward --config config/walk_forward_v1.yaml`
-- **THEN** the system loads the configuration, executes the walk-forward run, prints the report to stdout, and exits with code 0 on success.
+- **THEN** the system enqueues and claims one Walk-forward record, executes it, prints the report to stdout, and exits with code 0 on success
 
 #### Scenario: CLI with invalid config
 - **WHEN** the user runs `vela walk-forward --config nonexistent.yaml`
-- **THEN** the system exits with a non-zero code and prints an error message indicating the config file could not be found.
+- **THEN** the system exits with a non-zero code and prints an error message indicating the config file could not be found
 
 #### Scenario: Report output file
 - **WHEN** the user supplies `--output /tmp/walk-forward-report.txt`
-- **THEN** the command writes the same complete report to that path and prints a confirmation.
+- **THEN** the command writes the same complete report to that path and prints a confirmation
 
 #### Scenario: Non-SQLite database rejected
 - **WHEN** the user supplies a non-SQLite database URL
-- **THEN** the command fails before any backtest with a clear SQLite-only message.
+- **THEN** the command fails before any backtest with a clear SQLite-only message
 
 ### Requirement: Selected OOS evidence includes expanded risk metrics
 After `strengthen-walk-forward-evaluation-contract`, each selected OOS window SHALL retain strategy Sortino, Calmar and longest drawdown duration and each fixed benchmark comparison SHALL retain Tracking Error and Information Ratio. The report SHALL aggregate each strategy metric and each benchmark-relative metric separately using the existing metric-local valid-count and evidence-status contract. A stitched OOS capital path MAY be derived under the `OOS windows remain isolated evidence` requirement, but it MUST NOT change any per-window or aggregate risk metric and MUST NOT introduce cross-window Calmar or drawdown-duration calculations.

@@ -32,9 +32,11 @@ class WalkForwardPreflight:
 
 
 def prepare_walk_forward_inputs(
-    session: Session, *, config: WalkForwardConfig
+    session: Session, *, config: WalkForwardConfig, base_config: dict[str, Any] | None = None
 ) -> WalkForwardPreflight:
-    base_config = _load_base_config(config.strategy.base_config)
+    base_config = (
+        base_config if base_config is not None else _load_base_config(config.strategy.base_config)
+    )
     combinations = generate_combinations(config.parameter_space)
     valid_candidates: list[StrategyConfig] = []
     maximum_lookback_days = 0

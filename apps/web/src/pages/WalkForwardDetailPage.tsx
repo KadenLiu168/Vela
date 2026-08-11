@@ -27,6 +27,8 @@ type WalkForwardDetailState =
   | { status: "not-found"; data?: never; error?: never; runId: string }
   | { status: "error"; data?: never; error: string; runId: string };
 
+type PersistedWalkForwardEvidence = NonNullable<WalkForwardDetailResponse["evidence"]>;
+
 const metricLabels: Record<string, string> = {
   total_return: "Total return",
   annualized_return: "Annualized return",
@@ -117,6 +119,9 @@ function renderDetail(state: WalkForwardDetailState, runId: string) {
 
 function StitchedOosSection({ data }: { data: WalkForwardDetailResponse }) {
   const stitched = data.stitched_oos;
+  if (stitched === null) {
+    return null;
+  }
   if (stitched.status === "unavailable_non_contiguous_windows") {
     return <section className="holdings-section" aria-labelledby="stitched-oos-heading"><h2 id="stitched-oos-heading">Stitched OOS capital path</h2><p className="detail-note">Gap or overlap windows cannot form one chronological capital path. Independent OOS evidence remains available below.</p></section>;
   }
@@ -154,7 +159,20 @@ function RunSummary({ data }: { data: WalkForwardDetailResponse }) {
 }
 
 function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
-  const metrics = Object.entries(data.evidence.metrics);
+  if (data.evidence === null) {
+    return (
+      <section className="holdings-section" aria-labelledby="walk-forward-evidence-heading">
+        <h2 id="walk-forward-evidence-heading">Aggregated evidence</h2>
+        <p className="detail-note">
+          Evidence is unavailable until this {data.run.status} run reaches a terminal state.
+        </p>
+        {data.run.error_message ? <FeedbackMessage variant="error">{data.run.error_message}</FeedbackMessage> : null}
+      </section>
+    );
+  }
+
+  const evidence = data.evidence;
+  const metrics = Object.entries(evidence.metrics);
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-evidence-heading">
       <h2 id="walk-forward-evidence-heading">Aggregated evidence</h2>
@@ -167,12 +185,12 @@ function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
         ))}
       </div>
       <dl className="compact-list">
-        <DescriptionItem label="Positive-window rate" value={formatRate(data.evidence.positive_window_rate)} />
-        <DescriptionItem label="Generalization gap" value={formatMetricSummary(data.evidence.generalization_gap)} />
+        <DescriptionItem label="Positive-window rate" value={formatRate(evidence.positive_window_rate)} />
+        <DescriptionItem label="Generalization gap" value={formatMetricSummary(evidence.generalization_gap)} />
       </dl>
       <BenchmarkEvidence data={data} />
-      <ParameterStability data={data} />
-      {data.evidence.tail_distribution ? <TailDistributionEvidence data={data} /> : null}
+      <ParameterStability evidence={evidence} />
+      {evidence.tail_distribution ? <TailDistributionEvidence evidence={evidence} /> : null}
     </section>
   );
 }
@@ -190,9 +208,9 @@ const TAIL_METRIC_LABELS: Record<string, string> = {
   return_excess_kurtosis: "Excess kurtosis (normal = 0)"
 };
 
-function TailDistributionEvidence({ data }: { data: WalkForwardDetailResponse }) {
-  const tail = data.evidence.tail_distribution;
-  if (!tail) {
+function TailDistributionEvidence({ evidence }: { evidence: PersistedWalkForwardEvidence }) {
+  const tail = evidence.tail_distribution;
+  if (tail === undefined) {
     return null;
   }
   return (
@@ -275,6 +293,9 @@ function MetricCard({ label, metric }: { label: string; metric: WalkForwardMetri
 }
 
 function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
+  if (data.evidence === null) {
+    return null;
+  }
   return (
     <div className="walk-forward-subsection">
       <h3>Benchmark evidence</h3>
@@ -310,11 +331,11 @@ function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
   );
 }
 
-function ParameterStability({ data }: { data: WalkForwardDetailResponse }) {
+function ParameterStability({ evidence }: { evidence: PersistedWalkForwardEvidence }) {
   return (
     <div className="walk-forward-subsection">
       <h3>Parameter stability</h3>
-      {Object.entries(data.evidence.parameter_stability).map(([key, value]) => (
+      {Object.entries(evidence.parameter_stability).map(([key, value]) => (
         <dl className="compact-list" key={key}>
           <DescriptionItem label={key} value={JSON.stringify(value.value_frequencies)} />
           <DescriptionItem label="Transition rate" value={formatDecimal(value.transition_rate === null ? null : String(value.transition_rate), 4)} />
@@ -360,6 +381,14 @@ function JsonBlock({ label, value }: { label: string; value: object }) {
 }
 
 function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
+  if (data.windows.length === 0) {
+    return (
+      <section className="holdings-section" aria-labelledby="walk-forward-windows-heading">
+        <h2 id="walk-forward-windows-heading">Window evidence</h2>
+        <EmptyState>No OOS windows have been published for this {data.run.status} run.</EmptyState>
+      </section>
+    );
+  }
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-windows-heading">
       <h2 id="walk-forward-windows-heading">Window evidence</h2>

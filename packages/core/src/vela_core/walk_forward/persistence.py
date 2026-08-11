@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import re
+import secrets
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
@@ -27,6 +30,20 @@ from vela_core.walk_forward.tail_evidence_validation import (
 )
 
 _CHECKSUM = re.compile(r"[0-9a-f]{64}")
+HEARTBEAT_INTERVAL_SECONDS = 15
+LEASE_DURATION_SECONDS = 120
+MAX_ATTEMPTS = 3
+MAX_ERROR_MESSAGE_LENGTH = 1024
+
+
+@dataclass(frozen=True)
+class WalkForwardClaim:
+    run_id: int
+    worker_id: str
+    claim_token: str
+    attempt_count: int
+    claimed_at: datetime
+    lease_expires_at: datetime
 
 
 @dataclass(frozen=True)
@@ -63,7 +80,7 @@ class WalkForwardPersistenceInput:
     windows: Sequence[WalkForwardWindowPersistenceInput]
 
 
-def persist_walk_forward_running(
+def enqueue_walk_forward_run(
     session: Session,
     *,
     strategy_id: str,
@@ -76,11 +93,6 @@ def persist_walk_forward_running(
     input_data_checksum: str,
     started_at: datetime,
 ) -> int:
-    """Persist and commit a `running` parent row, returning its positive id.
-
-    The row carries a placeholder ``evidence_json={}`` and ``window_count=0``
-    with a null ``finished_at`` so the API can poll the run while it executes.
-    """
     _validate_checksum(config_checksum, "config_checksum")
     _validate_checksum(input_data_checksum, "input_data_checksum")
     validate_input_manifest(PROVENANCE_VERSION, input_data_snapshot)
@@ -97,7 +109,8 @@ def persist_walk_forward_running(
         input_data_checksum=input_data_checksum,
         evidence_version=EVIDENCE_VERSION_V3,
         evidence_json={},
-        status="running",
+        status="queued",
+        attempt_count=0,
         started_at=started_at,
         finished_at=None,
     )
@@ -107,27 +120,169 @@ def persist_walk_forward_running(
     return parent.id
 
 
-def update_walk_forward_status(
+def claim_walk_forward_run(
     session: Session,
-    run_id: int,
-    status: str,
     *,
-    error_message: str | None = None,
+    worker_id: str,
+    now: datetime,
+    run_id: int | None = None,
+    lease_duration_seconds: int = LEASE_DURATION_SECONDS,
+    max_attempts: int = MAX_ATTEMPTS,
+) -> WalkForwardClaim | None:
+    candidate_query = (
+        select(WalkForwardRun)
+        .where(
+            or_(
+                WalkForwardRun.status == "queued",
+                and_(
+                    WalkForwardRun.status == "running",
+                    WalkForwardRun.lease_expires_at < now,
+                ),
+            )
+        )
+        .where(WalkForwardRun.attempt_count < max_attempts)
+        .order_by(WalkForwardRun.created_at.asc(), WalkForwardRun.id.asc())
+        .limit(1)
+    )
+    if run_id is not None:
+        candidate_query = candidate_query.where(WalkForwardRun.id == run_id)
+    candidate = session.scalar(candidate_query)
+    if candidate is None:
+        return None
+
+    token = secrets.token_hex(32)
+    attempt_count = candidate.attempt_count + 1
+    lease_expires_at = now + timedelta(seconds=lease_duration_seconds)
+    eligible = or_(
+        WalkForwardRun.status == "queued",
+        and_(
+            WalkForwardRun.status == "running",
+            WalkForwardRun.lease_expires_at < now,
+        ),
+    )
+    result = cast(
+        CursorResult[Any],
+        session.execute(
+            update(WalkForwardRun)
+            .where(WalkForwardRun.id == candidate.id)
+            .where(eligible)
+            .where(WalkForwardRun.attempt_count < max_attempts)
+            .values(
+                status="running",
+                attempt_count=WalkForwardRun.attempt_count + 1,
+                claimed_at=now,
+                heartbeat_at=now,
+                lease_expires_at=lease_expires_at,
+                worker_id=worker_id,
+                claim_token=token,
+                finished_at=None,
+                error_message=None,
+            )
+        ),
+    )
+    if result.rowcount != 1:
+        session.rollback()
+        return None
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return None
+    return WalkForwardClaim(
+        run_id=candidate.id,
+        worker_id=worker_id,
+        claim_token=token,
+        attempt_count=attempt_count,
+        claimed_at=now,
+        lease_expires_at=lease_expires_at,
+    )
+
+
+def heartbeat_walk_forward_run(
+    session: Session,
+    *,
+    run_id: int,
+    claim_token: str,
+    now: datetime,
+    lease_duration_seconds: int = LEASE_DURATION_SECONDS,
+) -> bool:
+    result = cast(
+        CursorResult[Any],
+        session.execute(
+            update(WalkForwardRun)
+            .where(WalkForwardRun.id == run_id)
+            .where(WalkForwardRun.status == "running")
+            .where(WalkForwardRun.claim_token == claim_token)
+            .values(
+                heartbeat_at=now,
+                lease_expires_at=now + timedelta(seconds=lease_duration_seconds),
+            )
+        ),
+    )
+    session.commit()
+    return result.rowcount == 1
+
+
+def transition_walk_forward_run(
+    session: Session,
+    *,
+    run_id: int,
+    claim_token: str,
+    status: str,
     finished_at: datetime,
+    error_message: str | None = None,
     window_count: int | None = None,
     evidence_json: dict[str, Any] | None = None,
-) -> None:
-    """Update the status fields of an existing parent row without committing."""
-    parent = session.get(WalkForwardRun, run_id)
-    if parent is None:
-        raise PersistedDataContractError(f"WalkForwardRun {run_id} does not exist")
-    parent.status = status
-    parent.error_message = error_message
-    parent.finished_at = finished_at
+    commit: bool = True,
+) -> bool:
+    if status not in {"success", "failed"}:
+        raise ValueError("Walk-forward terminal status must be success or failed")
+    values: dict[str, object] = {
+        "status": status,
+        "error_message": _bound_error_message(error_message),
+        "finished_at": finished_at,
+    }
     if window_count is not None:
-        parent.window_count = window_count
+        values["window_count"] = window_count
     if evidence_json is not None:
-        parent.evidence_json = evidence_json
+        values["evidence_json"] = evidence_json
+    result = cast(
+        CursorResult[Any],
+        session.execute(
+            update(WalkForwardRun)
+            .where(WalkForwardRun.id == run_id)
+            .where(WalkForwardRun.status == "running")
+            .where(WalkForwardRun.claim_token == claim_token)
+            .values(**values)
+        ),
+    )
+    if commit:
+        session.commit()
+    return result.rowcount == 1
+
+
+def mark_expired_walk_forward_runs_failed(
+    session: Session,
+    *,
+    now: datetime,
+    max_attempts: int = MAX_ATTEMPTS,
+) -> int:
+    result = cast(
+        CursorResult[Any],
+        session.execute(
+            update(WalkForwardRun)
+            .where(WalkForwardRun.status == "running")
+            .where(WalkForwardRun.lease_expires_at < now)
+            .where(WalkForwardRun.attempt_count >= max_attempts)
+            .values(
+                status="failed",
+                finished_at=now,
+                error_message="worker_lost: maximum durable attempts exhausted",
+            )
+        ),
+    )
+    session.commit()
+    return result.rowcount
 
 
 def persist_walk_forward_run(
@@ -135,10 +290,9 @@ def persist_walk_forward_run(
 ) -> WalkForwardRun:
     """Persist ordered window children.
 
-    With ``run_id=None`` a new parent row is created (legacy single-phase
-    behaviour). With a ``run_id`` the children are attached to that existing
-    parent row (two-phase behaviour); status fields are updated separately via
-    ``update_walk_forward_status``.
+    With ``run_id=None`` this retains the historical persistence helper for
+    existing callers. Durable execution uses an already enqueued parent id and
+    performs its fenced terminal transition separately.
     """
     if run.window_count < 0 or run.window_count != len(run.windows):
         raise ValueError("Walk-forward parent window count must equal child count")
@@ -223,6 +377,12 @@ def _build_windows(
 def _validate_checksum(value: str, field_name: str) -> None:
     if _CHECKSUM.fullmatch(value) is None:
         raise PersistedDataContractError(f"{field_name} must be a lowercase SHA-256 checksum")
+
+
+def _bound_error_message(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value[:MAX_ERROR_MESSAGE_LENGTH]
 
 
 def _validate_oos_ownership(

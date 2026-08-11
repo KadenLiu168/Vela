@@ -169,6 +169,54 @@ parameter_space: [{name: parameters.selection.top_n, type: choice, values: [1]}]
         assert session.scalar(select(WalkForwardRun.id)) is None
 
 
+def test_walk_forward_worker_once_processes_at_most_one_cycle(monkeypatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    class FakeWorker:
+        def __init__(self, database_url: str) -> None:
+            calls.append(database_url)
+
+        def run_once(self) -> bool:
+            calls.append("once")
+            return True
+
+    monkeypatch.setattr(cli, "WalkForwardWorker", FakeWorker)
+
+    assert (
+        cli.main(
+            [
+                "walk-forward-worker",
+                "--database-url",
+                f"sqlite+pysqlite:///{tmp_path / 'worker.db'}",
+                "--once",
+            ]
+        )
+        == 0
+    )
+    assert calls == [f"sqlite+pysqlite:///{tmp_path / 'worker.db'}", "once"]
+
+
+def test_walk_forward_worker_reports_non_sqlite_error(capsys, monkeypatch) -> None:
+    class FakeWorker:
+        def __init__(self, _database_url: str) -> None:
+            raise ValueError("walk-forward-worker only supports SQLite database URLs")
+
+    monkeypatch.setattr(cli, "WalkForwardWorker", FakeWorker)
+
+    assert (
+        cli.main(
+            [
+                "walk-forward-worker",
+                "--database-url",
+                "postgresql+psycopg://user:pass@localhost/vela",
+                "--once",
+            ]
+        )
+        == 1
+    )
+    assert "SQLite" in capsys.readouterr().err
+
+
 def _write_walk_forward_config(tmp_path: Path) -> Path:
     strategy_path = tmp_path / "strategy.yaml"
     strategy_path.write_text(

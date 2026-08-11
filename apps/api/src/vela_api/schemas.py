@@ -500,8 +500,12 @@ class WalkForwardRunSummaryResponse(ResponseModel):
     evidence_version: str
     config_checksum: str
     input_data_checksum: str
-    status: str
+    status: Literal["queued", "running", "success", "failed"]
     error_message: str | None
+    attempt_count: int
+    claimed_at: datetime | None
+    heartbeat_at: datetime | None
+    lease_expires_at: datetime | None
     started_at: datetime
     finished_at: datetime | None
 
@@ -512,6 +516,7 @@ class WalkForwardRunResponse(WalkForwardRunSummaryResponse):
 
 class WalkForwardRunAcceptedResponse(ResponseModel):
     walk_forward_run_id: int
+    status: Literal["queued"]
 
 
 class WalkForwardPageResponse(ResponseModel):
@@ -658,6 +663,6 @@ class WalkForwardDetailResponse(ResponseModel):
     evidence_version: str
     evidence: (
         WalkForwardEvidenceResponse | WalkForwardEvidenceV2Response | WalkForwardEvidenceV3Response
-    ) | None = None
+    ) | None
     windows: list[WalkForwardWindowResponse]
-    stitched_oos: StitchedOosResponse
+    stitched_oos: StitchedOosResponse | None

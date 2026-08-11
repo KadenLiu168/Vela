@@ -636,7 +636,7 @@ export type WalkForwardEvidence = {
   tail_distribution?: WalkForwardTailDistribution;
 };
 
-export type WalkForwardRunStatus = "running" | "success" | "failed";
+export type WalkForwardRunStatus = "queued" | "running" | "success" | "failed";
 
 export type WalkForwardRunSummary = {
   run_id: number;
@@ -650,12 +650,17 @@ export type WalkForwardRunSummary = {
   input_data_checksum: string;
   status: WalkForwardRunStatus;
   error_message: string | null;
+  attempt_count: number;
+  claimed_at: string | null;
+  heartbeat_at: string | null;
+  lease_expires_at: string | null;
   started_at: string;
   finished_at: string | null;
 };
 
 export type WalkForwardRunAcceptedResponse = {
   walk_forward_run_id: number;
+  status: "queued";
 };
 
 export type WalkForwardPageResponse = {
@@ -746,7 +751,7 @@ export type WalkForwardDetailResponse = {
     input_data_checksum: string;
   };
   evidence_version: string;
-  evidence: WalkForwardEvidence;
+  evidence: WalkForwardEvidence | null;
   stitched_oos: {
     status: "available" | "unavailable_non_contiguous_windows";
     initial_net_value: string | null;
@@ -758,7 +763,7 @@ export type WalkForwardDetailResponse = {
       window_ordinal: number;
       is_window_start: boolean;
     }>;
-  };
+  } | null;
   windows: Array<{
     ordinal: number;
     train_start: string;

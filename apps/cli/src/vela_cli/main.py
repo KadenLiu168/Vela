@@ -43,6 +43,7 @@ from vela_core.strategy_config import load_strategy_config
 from vela_core.walk_forward.config import load_walk_forward_config
 from vela_core.walk_forward.report import format_report
 from vela_core.walk_forward.runner import WalkForwardRunner
+from vela_core.walk_forward.worker import WalkForwardWorker
 
 ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_ALEMBIC_SCRIPT_LOCATION = ROOT / "alembic"
@@ -205,6 +206,16 @@ def _build_parser() -> argparse.ArgumentParser:
     walk_forward_parser.add_argument("--config", type=Path, required=True)
     walk_forward_parser.add_argument("--database-url", default=DEFAULT_DATABASE_URL)
     walk_forward_parser.add_argument("--output", type=Path, default=None)
+    walk_forward_worker_parser = subparsers.add_parser(
+        "walk-forward-worker",
+        help="Run the durable Walk-forward execution worker",
+    )
+    walk_forward_worker_parser.add_argument("--database-url", default=DEFAULT_DATABASE_URL)
+    walk_forward_worker_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Claim and execute at most one eligible record",
+    )
     export_backtest_report_parser.add_argument(
         "--run-id",
         type=int,
@@ -364,6 +375,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             args.output.write_text(output)
             print(f"Exported walk-forward report to {args.output}")
+        return 0
+
+    if args.command == "walk-forward-worker":
+        try:
+            worker = WalkForwardWorker(args.database_url)
+            if args.once:
+                worker.run_once()
+            else:
+                worker.run_forever()
+        except Exception as exc:
+            print(
+                f"Failed to run walk-forward worker in {args.database_url}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
         return 0
 
     parser.error(f"unknown command: {args.command}")

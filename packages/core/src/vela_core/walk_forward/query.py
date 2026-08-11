@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
@@ -43,8 +43,14 @@ def list_walk_forward_runs(
             select(WalkForwardRun)
             .where(WalkForwardRun.strategy_id == strategy_id)
             .order_by(
-                WalkForwardRun.finished_at.is_(None).desc(),
-                func.coalesce(WalkForwardRun.finished_at, WalkForwardRun.started_at).desc(),
+                case(
+                    (WalkForwardRun.status.in_(("queued", "running")), 0),
+                    else_=1,
+                ),
+                case(
+                    (WalkForwardRun.status.in_(("queued", "running")), WalkForwardRun.started_at),
+                    else_=WalkForwardRun.finished_at,
+                ).desc(),
                 WalkForwardRun.id.desc(),
             )
             .offset(offset)
@@ -75,6 +81,8 @@ def get_walk_forward_run(
     if row is None:
         return None
     manifest = validate_walk_forward_run(row)
+    if row.status != "success":
+        return row
     setattr(  # noqa: B010
         row,
         "stitched_oos",

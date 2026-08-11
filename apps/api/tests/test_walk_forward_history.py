@@ -693,6 +693,12 @@ def test_walk_forward_history_api_returns_typed_current_strategy_page_and_detail
     body = detail.json()
     assert body["run"]["provenance_version"] == "wf_provenance_v1"
     assert body["evidence_version"] == "wf_evidence_v1"
+    assert body["run"]["attempt_count"] == 0
+    assert body["run"]["claimed_at"] is None
+    assert body["run"]["heartbeat_at"] is None
+    assert body["run"]["lease_expires_at"] is None
+    assert "worker_id" not in body["run"]
+    assert "claim_token" not in body["run"]
     assert body["configuration"]["config_checksum"] == "a" * 64
     assert body["input_provenance"]["manifest"]["following_session"] is None
     assert set(body["evidence"]["metrics"]) == {
@@ -740,6 +746,9 @@ def test_walk_forward_history_api_returns_typed_current_strategy_page_and_detail
         "stitched_oos"
         in openapi["components"]["schemas"]["WalkForwardDetailResponse"]["properties"]
     )
+    detail_schema = openapi["components"]["schemas"]["WalkForwardDetailResponse"]
+    assert "evidence" in detail_schema["required"]
+    assert "stitched_oos" in detail_schema["required"]
     stitched_schema = openapi["components"]["schemas"]["StitchedOosResponse"]
     assert set(stitched_schema["properties"]) == {
         "status",

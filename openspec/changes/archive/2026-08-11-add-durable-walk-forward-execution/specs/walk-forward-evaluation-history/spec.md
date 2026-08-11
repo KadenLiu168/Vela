@@ -1,8 +1,5 @@
-# walk-forward-evaluation-history Specification
+## MODIFIED Requirements
 
-## Purpose
-Define the durable, immutable, provenance-bearing history of successful Walk-forward evaluations and their ordered OOS windows.
-## Requirements
 ### Requirement: Persist successful Walk-forward runs and ordered windows
 The system SHALL persist one `WalkForwardRun` parent row as a durable job before any Walk-forward window executes. The enqueue transaction SHALL validate and store the resolved configuration, base-strategy snapshot, provenance manifest, and checksums, and insert the parent with `status = "queued"`, a non-null `started_at`, null `finished_at`, placeholder `evidence_json`, and `window_count = 0`. A worker claim SHALL transition that same parent to `status = "running"` and record durable claim ownership. After every configured window and structured evidence calculation succeeds under that claim, the system SHALL update the same parent to `status = "success"`, set `finished_at`, `window_count`, and the final `evidence_json`, and persist one ordered child per selected OOS window with unique parent ordinal and unique `BacktestRun` ownership in the same publication transaction. If any execution, provenance, evidence, persistence, lost-claim, or retry-limit step fails, the system SHALL conditionally update the parent to `status = "failed"`, set `finished_at` and a bounded `error_message`, and persist no children from that failed attempt. Strategy and benchmark metrics remain owned by referenced OOS records. The HTTP service SHALL expose exactly one mutation route (`POST /api/walk-forwards/run`) that enqueues a new execution; it MUST NOT expose a client retry, edit, delete, claim, heartbeat, or status-mutation route.
 
@@ -30,41 +27,6 @@ The system SHALL persist one `WalkForwardRun` parent row as a durable job before
 - **THEN** one parent row is persisted with `status = "queued"`, non-null `started_at`, null `finished_at`, `window_count = 0`, and placeholder `evidence_json`
 - **AND** that row has a positive id before any worker window backtest runs
 
-### Requirement: Configuration provenance uses an exact versioned identity
-The parent SHALL persist the exact versioned configuration/provenance document and SHA-256 identity. Display paths MAY be retained, but SHALL NOT affect the effective configuration checksum; equal effective inputs produce equal checksums and repeated executions receive distinct run identities.
-
-#### Scenario: Display path does not change identity
-- **WHEN** equal effective configuration is loaded from different source paths
-- **THEN** the effective configuration checksum is equal
-
-### Requirement: Input provenance is a compact bounded manifest
-The manifest SHALL retain bounded ETF local ids, canonical identities, inception dates, official-session sequence, following-session sentinel, loaded-price counts/bounds and checksum metadata without copying the full raw price table.
-
-#### Scenario: Manifest excludes raw price table
-- **WHEN** input provenance is persisted
-- **THEN** it contains bounded manifest data and no full raw price-value array
-
-### Requirement: Input checksum covers every effective database input
-The input checksum SHALL cover execution-sensitive ETF-id mappings and strategy-visible `close_price`/`factor_hfq` rows, include observable non-official rows, and exclude output rows, pre-inception rows and future-price rows.
-
-#### Scenario: Effective input drift changes checksum
-- **WHEN** an execution-sensitive input row changes
-- **THEN** the input checksum changes
-
-### Requirement: Versioned evidence round-trips without semantic loss
-Persisted `wf_evidence_v1` SHALL validate at persistence, query and API boundaries and preserve all eight strategy summaries, rates, benchmark return/Tracking Error/Information Ratio groups, generalization gap and parameter stability. Unsupported versions or corrupt documents SHALL fail closed.
-
-#### Scenario: Corrupt evidence fails closed
-- **WHEN** a persisted evidence document has an unsupported version or invalid shape
-- **THEN** typed reads raise a persisted-data contract error and return no partial evidence
-
-### Requirement: Window selection evidence is bounded and reconciled
-Each child SHALL persist boundaries, selected canonical parameters, candidate/eligible/skipped counts, fixed skip-reason counts, train Sharpe and OOS id. Counts and reasons SHALL reconcile; raw exception text, tracebacks, candidates and dynamic status strings MUST NOT be stored.
-
-#### Scenario: Candidate counts reconcile
-- **WHEN** candidates are skipped during selection
-- **THEN** candidate count equals eligible plus skipped and reason counts equal skipped
-
 ### Requirement: Query immutable Walk-forward history
 Queries SHALL return current-strategy summaries with exact totals, bounded pagination, and chronological eager-loaded children. Queued and running records SHALL sort before terminal records by descending `started_at` then id; terminal records SHALL sort by descending `finished_at` then id. Every summary/detail SHALL expose status, attempt count, claimed timestamp, heartbeat timestamp, and lease expiry without exposing claim tokens or worker identities. Unknown or other-strategy ids return no result; legacy OOS runs do not fabricate history.
 
@@ -76,47 +38,6 @@ Queries SHALL return current-strategy summaries with exact totals, bounded pagin
 #### Scenario: Empty legacy history stays empty
 - **WHEN** an upgraded database has OOS runs but no WF parent
 - **THEN** history returns an empty collection and zero total
-
-### Requirement: Walk-forward history migration is non-destructive
-The Alembic revision SHALL create only the WF parent/child tables, typed columns, checks, unique constraints, history index and foreign keys. It SHALL not backfill or alter existing backtest data; downgrade drops child before parent and preserves evidence owners.
-
-#### Scenario: Migration preserves existing owners
-- **WHEN** the WF revision is upgraded and downgraded around existing OOS data
-- **THEN** pre-existing backtest, signal, curve and benchmark rows remain unchanged
-
-### Requirement: Versioned history preserves benchmark-regime evidence
-Newly persisted Walk-forward histories SHALL store `wf_evidence_v2`, containing all valid `wf_evidence_v1` content plus per-benchmark daily CAPM/monthly-capture aggregates and per-window daily-session or selected-month evidence counts defined by this Change. Persistence, query, and API boundaries SHALL validate `v2` strictly, continue to support legacy `v1`, and fail closed on unsupported versions, missing benchmark ownership, or corrupt metric/count relationships.
-
-#### Scenario: New history round-trips v2 evidence
-- **WHEN** a completed Walk-forward run with benchmark-regime metrics is persisted and queried in a fresh session
-- **THEN** its `wf_evidence_v2` document round-trips every new aggregate, count, null, and evidence status
-- **AND** referenced OOS benchmark rows retain the matching per-window source values
-
-#### Scenario: Legacy v1 history remains readable
-- **WHEN** a valid pre-change `wf_evidence_v1` history is queried
-- **THEN** existing evidence remains readable
-- **AND** no CAPM or capture value is fabricated
-
-#### Scenario: Corrupt v2 history fails closed
-- **WHEN** a `wf_evidence_v2` document has an unsupported benchmark key, invalid count, non-finite value, or source ownership mismatch
-- **THEN** persistence or query rejects the complete history instead of returning partial evidence
-
-### Requirement: Versioned history preserves tail-distribution evidence
-After `add-benchmark-regime-performance-metrics`, newly persisted Walk-forward histories SHALL store `wf_evidence_v3`, containing all valid `wf_evidence_v2` content plus per-window and aggregate strategy/fixed-benchmark distribution metrics, counts, and evidence statuses. Persistence, query, and API SHALL validate v3 strictly, continue to support valid legacy v1/v2, and reject unsupported/corrupt documents without partial output.
-
-#### Scenario: New v3 history round-trips source-owned evidence
-- **WHEN** a completed Walk-forward run with distribution metrics is persisted and queried in a fresh session
-- **THEN** every v3 value, null, count, status, benchmark key, and aggregate round-trips exactly
-- **AND** referenced OOS records retain matching source fields
-
-#### Scenario: Legacy v1 and v2 remain readable
-- **WHEN** a valid earlier evidence document is queried
-- **THEN** all evidence defined by that version remains readable
-- **AND** no distribution metric or count is fabricated
-
-#### Scenario: Corrupt v3 fails closed
-- **WHEN** v3 contains an invalid version, owner, benchmark key, count relationship, non-finite value, loss invariant, or mismatch with referenced OOS fields
-- **THEN** persistence or query rejects the complete history
 
 ### Requirement: Failed Walk-forward executions leave a failed parent record
 The parent and all source-side artifacts produced after a claim SHALL share the claimed worker's final publication transaction. Any execution, provenance, evidence, input-drift, or persistence failure that occurs after the queued parent was committed SHALL roll back all source-side OOS, signal, curve, and benchmark artifacts produced by that attempt, then conditionally update the matching parent claim to `status = "failed"` with `finished_at` and bounded `error_message`. A failed parent SHALL remain queryable; no children, OOS, signal, curve, or benchmark rows from the failed attempt SHALL remain. A failure before enqueue commits SHALL leave no persisted parent row.
@@ -159,4 +80,3 @@ The parent and all source-side artifacts produced after a claim SHALL share the 
 - **WHEN** the Alembic revision is downgraded
 - **THEN** the `status`, `error_message`, and nullable-`finished_at` changes are reverted
 - **AND** pre-existing parent and child rows remain otherwise unchanged
-

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -23,6 +22,7 @@ from vela_core.models import (
     WalkForwardRunWindow,
 )
 from vela_core.walk_forward import runner as runner_module
+from vela_core.walk_forward.worker import WalkForwardWorker
 
 from tests.integration_data import prepare_sqlite_database
 
@@ -122,19 +122,7 @@ def _override_config(monkeypatch: pytest.MonkeyPatch, walk_config_path: Path) ->
     app.dependency_overrides[get_app_config] = lambda: config
 
 
-def _poll_until_terminal(client: TestClient, run_id: int, *, timeout_seconds: float = 60.0) -> dict:
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        response = client.get(f"/api/walk-forwards/{run_id}")
-        assert response.status_code == 200
-        status = response.json()["run"]["status"]
-        if status in ("success", "failed"):
-            return response.json()
-        time.sleep(0.25)
-    raise AssertionError("walk-forward run did not reach a terminal state in time")
-
-
-def test_e2e_run_trigger_transitions_running_to_success(
+def test_e2e_run_trigger_enqueues_then_worker_transitions_to_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'e2e-success.db'}"
@@ -150,8 +138,10 @@ def test_e2e_run_trigger_transitions_running_to_success(
         assert accepted.status_code == 202
         run_id = accepted.json()["walk_forward_run_id"]
         assert run_id > 0
+        assert accepted.json()["status"] == "queued"
 
-        detail = _poll_until_terminal(client, run_id)
+        assert WalkForwardWorker(database_url, worker_id="e2e-worker").run_once() is True
+        detail = client.get(f"/api/walk-forwards/{run_id}").json()
         assert detail["run"]["status"] == "success"
         assert detail["run"]["error_message"] is None
         assert detail["run"]["finished_at"] is not None
@@ -168,7 +158,7 @@ def test_e2e_run_trigger_transitions_running_to_success(
         assert session.query(WalkForwardRunWindow).count() == 1
 
 
-def test_e2e_run_trigger_transitions_running_to_failed_without_children(
+def test_e2e_run_trigger_enqueues_then_worker_transitions_to_failed_without_children(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     database_url = f"sqlite+pysqlite:///{tmp_path / 'e2e-failed.db'}"
@@ -191,7 +181,8 @@ def test_e2e_run_trigger_transitions_running_to_failed_without_children(
         assert accepted.status_code == 202
         run_id = accepted.json()["walk_forward_run_id"]
 
-        detail = _poll_until_terminal(client, run_id)
+        assert WalkForwardWorker(database_url, worker_id="e2e-worker").run_once() is True
+        detail = client.get(f"/api/walk-forwards/{run_id}").json()
         assert detail["run"]["status"] == "failed"
         assert detail["run"]["error_message"] is not None
         assert "no scorable" in detail["run"]["error_message"]
