@@ -6,7 +6,7 @@ import {
   listBacktests
 } from "../api/client";
 import { EmptyState, FeedbackMessage, Pagination } from "../components";
-import { formatDate, formatTimestamp } from "../utils/formatters";
+import { formatDate, formatDecimal, formatRatioAsPercent, formatTimestamp } from "../utils/formatters";
 
 const PAGE_SIZE = 10;
 
@@ -89,14 +89,17 @@ function renderBacktestList(
 
   return (
     <article className="dashboard-panel">
-      <div className="holdings-table-wrap">
-        <table className="holdings-table">
+      <div aria-label="Backtest runs table" className="holdings-table-wrap backtest-list-table-wrap" tabIndex={0}>
+        <table className="holdings-table backtest-list-table">
           <thead>
             <tr>
               <th scope="col">Run</th>
               <th scope="col">Date range</th>
               <th scope="col">Status</th>
               <th scope="col">Started at</th>
+              <th scope="col">Total return</th>
+              <th scope="col">CAGR (calendar-time)</th>
+              <th scope="col">Sharpe (daily returns, 252D)</th>
             </tr>
           </thead>
           <tbody>
@@ -110,6 +113,9 @@ function renderBacktestList(
                 <td>{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
                 <td>{run.status}</td>
                 <td>{formatTimestamp(run.started_at)}</td>
+                <td>{formatRatioAsPercent(run.total_return)}</td>
+                <td>{formatRatioAsPercent(run.annualized_return)}</td>
+                <td>{formatDecimal(run.sharpe_ratio, 2, false)}</td>
               </tr>
             ))}
           </tbody>

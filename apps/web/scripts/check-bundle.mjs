@@ -21,10 +21,15 @@ const budgets = {
   requiredRuntimeGzip: 73544,
   eagerApplicationRaw: 40000,
   eagerApplicationGzip: 12000,
-  lazyRouteRaw: 61000,
+  // Lazy-route allocation raised for `redesign-backtest-results-ui`:
+  // BacktestDetailPage now carries the hero, comparison matrix, and chart
+  // enhancements (measured 68062 raw bytes on the 2026-08-12 fresh build).
+  lazyRouteRaw: 70000,
   initialRaw: 273000,
   initialGzip: 86000,
-  totalRaw: 333000
+  // Total-JavaScript budget raised for the same change (measured 337206 raw
+  // bytes on the 2026-08-12 fresh build).
+  totalRaw: 340000
 };
 const reviewedRuntimeComponents = {
   reactVendor: { rawBytes: 192347, gzipBytes: 60212 },

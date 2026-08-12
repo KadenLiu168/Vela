@@ -130,8 +130,8 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("heading", { name: "Equal-weight monthly rebalanced portfolio" });
-  expect(screen.getByRole("heading", { name: "CSI 300 buy-and-hold" })).toBeInTheDocument();
+  await screen.findByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" });
+  expect(screen.getByRole("columnheader", { name: "CSI 300 buy-and-hold" })).toBeInTheDocument();
   const legend = screen.getByRole("list", { name: "Equity curve legend" });
   expect(legend).toHaveTextContent("Strategy");
   expect(legend).toHaveTextContent("Equal-weight monthly rebalanced portfolio");
@@ -184,19 +184,20 @@ it("renders expanded strategy and relative benchmark metrics with ongoing and un
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
-  expect(screen.getAllByText("Sortino (rf MAR, 252D)").length).toBe(2);
-  expect(screen.getByText("1.234567")).toBeInTheDocument();
-  expect(screen.getAllByText("Calmar (calendar CAGR / |MaxDD|)").length).toBe(2);
-  expect(screen.getByText("2.345678")).toBeInTheDocument();
-  expect(screen.getAllByText("Longest drawdown duration (official sessions)").length).toBe(2);
-  expect(screen.getByText("3")).toBeInTheDocument();
-  expect(screen.getByText("2026-01-10")).toBeInTheDocument();
-  expect(screen.getByText("2026-01-20")).toBeInTheDocument();
-  expect(screen.getByText("ongoing")).toBeInTheDocument();
-  expect(screen.getByText("Tracking error (252D)")).toBeInTheDocument();
-  expect(screen.getByText("0.038884")).toBeInTheDocument();
-  expect(screen.getByText("Information ratio (252D)")).toBeInTheDocument();
-  expect(screen.getByText("12.961481")).toBeInTheDocument();
+  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
+
+  const sortinoRow = within(matrix).getByTestId("comparison-row-sortino_ratio");
+  expect(within(sortinoRow).getByText("1.234567")).toBeInTheDocument();
+  const calmarRow = within(matrix).getByTestId("comparison-row-calmar_ratio");
+  expect(within(calmarRow).getByText("2.345678")).toBeInTheDocument();
+  const durationRow = within(matrix).getByTestId("comparison-row-longest_drawdown_duration_sessions");
+  expect(within(durationRow).getByText("3")).toBeInTheDocument();
+  expect(within(durationRow).getAllByText("n/a").length).toBe(1);
+  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_peak_date")).getByText("2026-01-10")).toBeInTheDocument();
+  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_trough_date")).getByText("2026-01-20")).toBeInTheDocument();
+  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_recovery")).getByText("ongoing")).toBeInTheDocument();
+  expect(within(within(matrix).getByTestId("comparison-row-tracking_error")).getByText("0.038884")).toBeInTheDocument();
+  expect(within(within(matrix).getByTestId("comparison-row-information_ratio")).getByText("12.961481")).toBeInTheDocument();
   expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
 });
 
@@ -236,7 +237,7 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
+  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
   expect(screen.getByText("1127.40%")).toBeInTheDocument();
   expect(screen.getByText("Beta (CSI 300 ETF proxy)")).toBeInTheDocument();
@@ -245,14 +246,14 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
   expect(screen.getByText("0.958580")).toBeInTheDocument();
   expect(screen.getByText("CAPM observations (daily sessions)")).toBeInTheDocument();
   expect(screen.getByText("4")).toBeInTheDocument();
-  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
+  expect(screen.getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
   expect(screen.getAllByText("199.53%").length).toBe(2);
-  expect(screen.getAllByText("Up selected months").length).toBe(2);
-  expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
+  expect(screen.getByText("Up selected months")).toBeInTheDocument();
+  expect(screen.getByText("Monthly Down Capture (selected months)")).toBeInTheDocument();
   expect(screen.getAllByText("50.00%").length).toBe(2);
-  expect(screen.getAllByText("Down selected months").length).toBe(2);
-  // CAPM lines appear only once (the CSI 300 group); the equal-weight group
-  // never presents equal-weight results as CAPM.
+  expect(screen.getByText("Down selected months")).toBeInTheDocument();
+  // CAPM lines appear only once (the CSI 300 disclosure); the equal-weight
+  // group never presents equal-weight results as CAPM.
   expect(screen.getAllByText("Beta (CSI 300 ETF proxy)").length).toBe(1);
   expect(screen.getAllByText("CSI 300 ETF proxy Alpha (252D compounded)").length).toBe(1);
 });
@@ -279,7 +280,7 @@ it("renders unavailable placeholders for legacy or undefined regime values", asy
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
+  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
   expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
   expect(screen.queryByText("NaN")).not.toBeInTheDocument();
   expect(screen.queryByText("Infinity")).not.toBeInTheDocument();
@@ -327,12 +328,12 @@ it.each([
 
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("heading", { name: "CSI 300 buy-and-hold" });
-  expect(screen.getByRole("heading", { name: "Equal-weight monthly rebalanced portfolio" })).toBeInTheDocument();
+  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
+  expect(screen.getByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" })).toBeInTheDocument();
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
-  expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
-  expect(screen.getAllByText("Up selected months").length).toBe(2);
-  expect(screen.getAllByText("Down selected months").length).toBe(2);
+  expect(screen.getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
+  expect(screen.getByText("Up selected months")).toBeInTheDocument();
+  expect(screen.getByText("Down selected months")).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Signals (1)" })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
@@ -613,16 +614,16 @@ it("explains the 99-observation tail-count cardinality and null metrics", async 
   const heading = await screen.findByRole("heading", {
     name: "One-day historical distribution risk (95%)"
   });
-  const section = heading.closest("section");
-  expect(section).not.toBeNull();
-  expect(within(section as HTMLElement).getAllByText("n/a")).toHaveLength(4);
-  expect(within(section as HTMLElement).getByText("99")).toBeInTheDocument();
-  expect(within(section as HTMLElement).getByText("5")).toBeInTheDocument();
+  const details = heading.closest("details");
+  expect(details).not.toBeNull();
+  expect(within(details as HTMLElement).getAllByText("n/a")).toHaveLength(4);
+  expect(within(details as HTMLElement).getByText("99")).toBeInTheDocument();
+  expect(within(details as HTMLElement).getByText("5")).toBeInTheDocument();
   expect(
-    within(section as HTMLElement).getByText(/publication requires at least 100 effective observations/i)
+    within(details as HTMLElement).getByText(/publication requires at least 100 effective observations/i)
   ).toBeInTheDocument();
   expect(
-    within(section as HTMLElement).getByText(/tail count of 5 is the cardinality implied by the fixed 5% rank rule/i)
+    within(details as HTMLElement).getByText(/tail count of 5 is the cardinality implied by the fixed 5% rank rule/i)
   ).toBeInTheDocument();
 });
 
@@ -705,4 +706,358 @@ it.each([
   expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Signals (0)" })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+const chartDetail = (overrides: Partial<BacktestDetailResponse> = {}): BacktestDetailResponse => ({
+  ...detail(0),
+  equity_curve: [
+    { trade_date: "2026-01-01", net_value: "1", cash: "0", market_value: "1", total_assets: "1", positions_json: "[]" },
+    { trade_date: "2026-01-02", net_value: "1.12", cash: "0", market_value: "1.12", total_assets: "1.12", positions_json: "[]" },
+    { trade_date: "2026-01-03", net_value: "1.2", cash: "0", market_value: "1.2", total_assets: "1.2", positions_json: "[]" }
+  ],
+  benchmarks: [
+    {
+      key: "equal_weight_monthly",
+      name: "Equal-weight monthly rebalanced portfolio",
+      total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+      sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+      longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+      tracking_error: null, information_ratio: null,
+      total_return_difference: null, annualized_return_difference: null,
+      capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+      up_capture_ratio: null, up_capture_observation_count: null,
+      down_capture_ratio: null, down_capture_observation_count: null,
+      equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-02", net_value: "1.1" }],
+      ...legacyTailFields
+    },
+    {
+      key: "csi_300_buy_hold",
+      name: "CSI 300 buy-and-hold",
+      total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.08", sharpe_ratio: "0.8",
+      sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+      longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+      tracking_error: null, information_ratio: null,
+      total_return_difference: null, annualized_return_difference: null,
+      capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+      up_capture_ratio: null, up_capture_observation_count: null,
+      down_capture_ratio: null, down_capture_observation_count: null,
+      equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-03", net_value: "1.05" }],
+      ...legacyTailFields
+    }
+  ],
+  ...overrides
+});
+
+it("assigns explicit key colors to lines, swatches, and end-labels", async () => {
+  detailMock.mockResolvedValue(chartDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const strategyLine = await screen.findByTestId("equity-curve-line-strategy");
+  expect(strategyLine).toHaveAttribute("stroke", "var(--color-series-1)");
+  expect(screen.getByTestId("equity-curve-line-equal_weight_monthly")).toHaveAttribute("stroke", "var(--color-series-2)");
+  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--color-series-3)");
+
+  const legend = screen.getByRole("list", { name: "Equity curve legend" });
+  const strategySwatch = within(legend).getByTestId("equity-curve-swatch-strategy");
+  expect(strategySwatch).toHaveStyle({ backgroundColor: "var(--color-series-1)" });
+  const equalSwatch = within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly");
+  expect(equalSwatch).toHaveStyle({ backgroundColor: "var(--color-series-2)" });
+  const csiSwatch = within(legend).getByTestId("equity-curve-swatch-csi_300_buy_hold");
+  expect(csiSwatch).toHaveStyle({ backgroundColor: "var(--color-series-3)" });
+
+  expect(screen.getByTestId("equity-curve-end-label-strategy")).toHaveAttribute("fill", "var(--color-series-1)");
+  expect(screen.getByTestId("equity-curve-end-label-equal_weight_monthly")).toHaveAttribute("fill", "var(--color-series-2)");
+  expect(screen.getByTestId("equity-curve-end-label-csi_300_buy_hold")).toHaveAttribute("fill", "var(--color-series-3)");
+});
+
+it("keeps current series identity when one benchmark has no plottable points", async () => {
+  detailMock.mockResolvedValue(
+    chartDetail({
+      benchmarks: [
+        {
+          key: "equal_weight_monthly",
+          name: "Equal-weight monthly rebalanced portfolio",
+          total_return: "0.1", annualized_return: "0.1", max_drawdown: "-0.1", volatility: "0.1", sharpe_ratio: "1",
+          sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+          longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+          tracking_error: null, information_ratio: null,
+          total_return_difference: null, annualized_return_difference: null,
+          capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+          up_capture_ratio: null, up_capture_observation_count: null,
+          down_capture_ratio: null, down_capture_observation_count: null,
+          equity_curve: [],
+          ...legacyTailFields
+        },
+        {
+          key: "csi_300_buy_hold",
+          name: "CSI 300 buy-and-hold",
+          total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.08", sharpe_ratio: "0.8",
+          sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+          longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+          tracking_error: null, information_ratio: null,
+          total_return_difference: null, annualized_return_difference: null,
+          capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+          up_capture_ratio: null, up_capture_observation_count: null,
+          down_capture_ratio: null, down_capture_observation_count: null,
+          equity_curve: [{ trade_date: "2026-01-01", net_value: "1" }, { trade_date: "2026-01-03", net_value: "1.05" }],
+          ...legacyTailFields
+        }
+      ]
+    })
+  );
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const strategyLine = await screen.findByTestId("equity-curve-line-strategy");
+  expect(strategyLine).toHaveAttribute("stroke", "var(--color-series-1)");
+  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--color-series-3)");
+  expect(screen.queryByTestId("equity-curve-line-equal_weight_monthly")).not.toBeInTheDocument();
+});
+
+it("renders date x-axis ticks and net-value y-axis ticks", async () => {
+  detailMock.mockResolvedValue(chartDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByTestId("equity-curve-line-strategy");
+  const xTickValues = screen.getAllByTestId("equity-curve-x-tick").map((tick) => tick.textContent);
+  expect(xTickValues).toContain("2026-01-01");
+  expect(xTickValues).toContain("2026-01-03");
+  const yTickValues = screen.getAllByTestId("equity-curve-y-tick").map((tick) => tick.textContent);
+  expect(yTickValues.length).toBeGreaterThanOrEqual(2);
+  expect(yTickValues).toContain("1.20");
+});
+
+it("preserves empty and single-point fallbacks", async () => {
+  detailMock.mockResolvedValue(detail(0));
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText("No valid equity curve points are available for this run.")).toBeInTheDocument();
+
+  detailMock.mockResolvedValue({
+    ...detail(0),
+    equity_curve: [
+      { trade_date: "2026-01-01", net_value: "1", cash: "0", market_value: "1", total_assets: "1", positions_json: "[]" }
+    ]
+  });
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText("Only one equity curve point is available.")).toBeInTheDocument();
+  expect(screen.getByText("Net value")).toBeInTheDocument();
+});
+
+const heroDetail = (overrides: Partial<BacktestDetailResponse> = {}): BacktestDetailResponse => ({
+  ...detail(0),
+  metrics: {
+    ...detail(0).metrics,
+    total_return: "0.12",
+    annualized_return: "0.11",
+    max_drawdown: "-0.09",
+    volatility: "0.15",
+    sharpe_ratio: "1.5",
+    sortino_ratio: "1.8",
+    calmar_ratio: "2.1",
+    longest_drawdown_duration_sessions: 12,
+    longest_drawdown_peak_date: "2026-01-10",
+    longest_drawdown_trough_date: "2026-01-20",
+    longest_drawdown_recovery_date: null
+  },
+  benchmarks: [
+    {
+      key: "equal_weight_monthly",
+      name: "Equal-weight monthly rebalanced portfolio",
+      total_return: "0.10", annualized_return: "0.09", max_drawdown: "-0.10", volatility: "0.18", sharpe_ratio: "1.2",
+      sortino_ratio: "1.4", calmar_ratio: "1.6", longest_drawdown_duration_sessions: 20,
+      longest_drawdown_peak_date: "2026-01-11", longest_drawdown_trough_date: "2026-01-21", longest_drawdown_recovery_date: "2026-01-25",
+      tracking_error: "0.038884", information_ratio: "12.961481",
+      total_return_difference: "0.02", annualized_return_difference: "0.02",
+      capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
+      up_capture_ratio: "1.5", up_capture_observation_count: 6,
+      down_capture_ratio: "0.8", down_capture_observation_count: 3,
+      equity_curve: [],
+      ...legacyTailFields
+    },
+    {
+      key: "csi_300_buy_hold",
+      name: "CSI 300 buy-and-hold",
+      total_return: "0.08", annualized_return: "0.08", max_drawdown: "-0.08", volatility: "0.2", sharpe_ratio: "0.8",
+      sortino_ratio: null, calmar_ratio: null, longest_drawdown_duration_sessions: null,
+      longest_drawdown_peak_date: null, longest_drawdown_trough_date: null, longest_drawdown_recovery_date: null,
+      tracking_error: null, information_ratio: null,
+      total_return_difference: "0.04", annualized_return_difference: "0.03",
+      capm_alpha: "0.5", capm_beta: "1.1", capm_r_squared: "0.8", capm_observation_count: 240,
+      up_capture_ratio: "1.3", up_capture_observation_count: 5,
+      down_capture_ratio: "0.9", down_capture_observation_count: 4,
+      equity_curve: [],
+      ...legacyTailFields
+    }
+  ],
+  ...overrides
+});
+
+it("renders the 4-card strategy hero before the comparison matrix", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const hero = screen.getByLabelText("Strategy headline metrics");
+  expect(within(hero).getAllByRole("term").map((term) => term.textContent)).toEqual([
+    "Total return",
+    "CAGR (calendar-time)",
+    "Sharpe (daily returns, 252D)",
+    "Max drawdown"
+  ]);
+  expect(within(hero).getByText("12.00%")).toBeInTheDocument();
+  expect(within(hero).getByText("11.00%")).toBeInTheDocument();
+  expect(within(hero).getByText("1.50")).toBeInTheDocument();
+  expect(within(hero).getByText("-9.00%")).toBeInTheDocument();
+});
+
+it("renders the semantic comparison matrix with absolute and strategy-relative row groups", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
+  const columns = within(matrix).getAllByRole("columnheader").map((header) => header.textContent);
+  expect(columns).toEqual([
+    "Metric",
+    "Strategy",
+    "Equal-weight monthly rebalanced portfolio",
+    "CSI 300 buy-and-hold"
+  ]);
+
+  expect(within(matrix).getByText("Total return")).toBeInTheDocument();
+  expect(within(matrix).getByText("CAGR (calendar-time)")).toBeInTheDocument();
+  expect(within(matrix).getByText("Annualized volatility (252D)")).toBeInTheDocument();
+  expect(within(matrix).getByText("Longest drawdown recovery")).toBeInTheDocument();
+
+  const relativeGroup = within(matrix).getByLabelText("Strategy-relative metrics");
+  expect(within(relativeGroup).getByText("Tracking error (252D)")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Information ratio (252D)")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Up selected months")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Monthly Down Capture (selected months)")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Down selected months")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Strategy total return difference")).toBeInTheDocument();
+  expect(within(relativeGroup).getByText("Strategy CAGR difference")).toBeInTheDocument();
+});
+
+it("leaves the strategy cell n/a in strategy-relative rows and keeps capture counts adjacent", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
+  const trackingRow = within(matrix).getByTestId("comparison-row-tracking_error");
+  const trackingCells = within(trackingRow).getAllByRole("cell");
+  expect(trackingCells[0]).toHaveTextContent("n/a");
+  expect(trackingCells[1]).toHaveTextContent("0.038884");
+
+  const upCountRow = within(matrix).getByTestId("comparison-row-up_count");
+  expect(within(upCountRow).getByText("6")).toBeInTheDocument();
+  expect(within(upCountRow).getByText("5")).toBeInTheDocument();
+});
+
+it("marks comparable absolute best cells with visible Best text and never ranks evidence", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
+
+  // Total return: strategy 0.12 is highest.
+  const totalReturnRow = within(matrix).getByTestId("comparison-row-total_return");
+  expect(within(within(totalReturnRow).getAllByRole("cell")[0]).getByText("Best")).toBeInTheDocument();
+
+  // Max drawdown: CSI 300 -0.08 is closest to zero.
+  const maxDrawdownRow = within(matrix).getByTestId("comparison-row-max_drawdown");
+  expect(within(within(maxDrawdownRow).getAllByRole("cell")[2]).getByText("Best")).toBeInTheDocument();
+
+  // Volatility: strategy 0.15 is lowest.
+  const volatilityRow = within(matrix).getByTestId("comparison-row-volatility");
+  expect(within(within(volatilityRow).getAllByRole("cell")[0]).getByText("Best")).toBeInTheDocument();
+
+  // Dates and relative rows are never ranked.
+  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_peak_date")).queryByText("Best")).not.toBeInTheDocument();
+  expect(within(within(matrix).getByTestId("comparison-row-tracking_error")).queryByText("Best")).not.toBeInTheDocument();
+});
+
+it("shows an explicit no-benchmark state for legacy details while keeping the hero", async () => {
+  detailMock.mockResolvedValue(detail(0));
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  expect(screen.getByLabelText("Strategy headline metrics")).toBeInTheDocument();
+  expect(screen.getByText("No benchmark comparison is available for this run.")).toBeInTheDocument();
+  expect(screen.queryByRole("table", { name: "Strategy vs benchmark comparison matrix" })).not.toBeInTheDocument();
+});
+
+it("renders distribution risk, return stability, and CAPM as closed-by-default disclosures", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const distribution = screen.getByRole("heading", { name: "One-day historical distribution risk (95%)" }).closest("details");
+  expect(distribution).not.toBeNull();
+  expect(distribution).not.toHaveAttribute("open");
+  expect(within(distribution as HTMLElement).getByText("Historical VaR 95% (1D loss)")).toBeInTheDocument();
+
+  const stability = screen.getByRole("heading", { name: "Return stability" }).closest("details");
+  expect(stability).not.toBeNull();
+  expect(stability).not.toHaveAttribute("open");
+  expect(within(stability as HTMLElement).getByText(/63-session trailing window/)).toBeInTheDocument();
+
+  const capm = screen.getByRole("heading", { name: "CSI-300 CAPM regression" }).closest("details");
+  expect(capm).not.toBeNull();
+  expect(capm).not.toHaveAttribute("open");
+  expect(within(capm as HTMLElement).getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
+});
+
+it("keeps owner identity on per-benchmark distribution disclosures", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  expect(
+    screen.getByRole("heading", {
+      name: "One-day historical distribution risk (95%) — Equal-weight monthly rebalanced portfolio"
+    })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", {
+      name: "One-day historical distribution risk (95%) — CSI 300 buy-and-hold"
+    })
+  ).toBeInTheDocument();
+});
+
+it("toggles disclosures open via their summary", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const summary = screen.getByText("One-day historical distribution risk (95%)").closest("summary");
+  expect(summary).not.toBeNull();
+  fireEvent.click(summary as HTMLElement);
+  const distribution = screen.getByRole("heading", { name: "One-day historical distribution risk (95%)" }).closest("details");
+  expect(distribution).toHaveAttribute("open");
+});
+
+it("conditions CAPM disclosure on the CSI-300 benchmark", async () => {
+  detailMock.mockResolvedValue(
+    heroDetail({
+      benchmarks: heroDetail().benchmarks!.filter((benchmark) => benchmark.key === "equal_weight_monthly")
+    })
+  );
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  expect(screen.queryByRole("heading", { name: "CSI-300 CAPM regression" })).not.toBeInTheDocument();
+  expect(screen.queryByText("CSI 300 ETF proxy Alpha (252D compounded)")).not.toBeInTheDocument();
+});
+
+it("wraps the comparison matrix in a labeled keyboard-scrollable region without page overflow", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const region = screen.getByLabelText("Strategy vs benchmark comparison matrix region");
+  expect(region).toHaveAttribute("tabindex", "0");
+  expect(screen.getByRole("table", { name: "Strategy vs benchmark comparison matrix" })).toBeInTheDocument();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1440);
 });

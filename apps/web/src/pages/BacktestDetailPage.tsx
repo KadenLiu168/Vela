@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ApiClientError,
+  type BacktestBenchmark,
   type BacktestDetailResponse,
   type BacktestDetailMetrics,
   type BacktestSignalSummary,
@@ -20,15 +21,21 @@ import {
   formatTimestamp
 } from "../utils/formatters";
 import { formatEquityCurvePoint, formatParameterSummary } from "./backtestFormatters";
+import {
+  bestCellIndexes,
+  type ComparisonRow
+} from "./comparisonMatrix";
 import { DistributionRiskSection } from "./DistributionRiskSection";
 import { ReturnStabilitySection } from "./ReturnStabilitySection";
 import {
   computeEquityCurveGeometry,
   computeMultiEquityCurveGeometry,
+  computeSeriesEndLabels,
   EQUITY_CURVE_CHART,
   normalizeEquityCurvePoints,
   type EquityCurveChartSeries
 } from "./equityCurveChart";
+import { seriesColor } from "./seriesColor";
 
 type BacktestDetailPageProps = {
   backtestId: string;
@@ -215,94 +222,32 @@ function renderBacktestDetail(
       </dl>
       <section className="holdings-section" aria-labelledby="backtest-metrics-heading">
         <h3 id="backtest-metrics-heading">Metrics</h3>
-        <dl className="metric-card-grid">
+        <div aria-label="Strategy headline metrics" className="backtest-hero-grid">
           <MetricCard label="Total return" value={formatRatioAsPercent(metrics.total_return)} />
-          <MetricCard
-            label="CAGR (calendar-time)"
-            value={formatRatioAsPercent(metrics.annualized_return)}
-          />
-          <MetricCard label="Max drawdown" value={formatRatioAsPercent(metrics.max_drawdown)} />
-          <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(metrics.volatility)} />
+          <MetricCard label="CAGR (calendar-time)" value={formatRatioAsPercent(metrics.annualized_return)} />
           <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(metrics.sharpe_ratio, 2, false)} />
-          <MetricCard label="Sortino (rf MAR, 252D)" value={formatDecimal(metrics.sortino_ratio, 6, false)} />
-          <MetricCard label="Calmar (calendar CAGR / |MaxDD|)" value={formatDecimal(metrics.calmar_ratio, 6, false)} />
-          <MetricCard
-            label="Longest drawdown duration (official sessions)"
-            value={formatNullableInteger(metrics.longest_drawdown_duration_sessions)}
+          <MetricCard label="Max drawdown" value={formatRatioAsPercent(metrics.max_drawdown)} />
+        </div>
+        {(backtestState.data.benchmarks ?? []).length === 0 ? (
+          <p className="detail-note">No benchmark comparison is available for this run.</p>
+        ) : (
+          <ComparisonMatrix
+            metrics={metrics}
+            benchmarks={backtestState.data.benchmarks}
           />
-          <MetricCard label="Longest drawdown peak" value={formatDate(metrics.longest_drawdown_peak_date)} />
-          <MetricCard label="Longest drawdown trough" value={formatDate(metrics.longest_drawdown_trough_date)} />
-          <MetricCard
-            label="Longest drawdown recovery"
-            value={formatDrawdownRecovery(metrics)}
-          />
-        </dl>
+        )}
         <DistributionRiskSection fields={metrics} />
         {(backtestState.data.benchmarks ?? []).map((benchmark) => (
-          <section aria-label={benchmark.name} className="benchmark-metrics" key={benchmark.key}>
-            <h4>{benchmark.name}</h4>
-            <dl className="metric-card-grid">
-              <MetricCard label="Total return" value={formatRatioAsPercent(benchmark.total_return)} />
-              <MetricCard label="CAGR (calendar-time)" value={formatRatioAsPercent(benchmark.annualized_return)} />
-              <MetricCard label="Max drawdown" value={formatRatioAsPercent(benchmark.max_drawdown)} />
-              <MetricCard label="Annualized volatility (252D)" value={formatRatioAsPercent(benchmark.volatility)} />
-              <MetricCard label="Sharpe (daily returns, 252D)" value={formatDecimal(benchmark.sharpe_ratio, 2, false)} />
-              <MetricCard label="Sortino (rf MAR, 252D)" value={formatDecimal(benchmark.sortino_ratio, 6, false)} />
-              <MetricCard label="Calmar (calendar CAGR / |MaxDD|)" value={formatDecimal(benchmark.calmar_ratio, 6, false)} />
-              <MetricCard
-                label="Longest drawdown duration (official sessions)"
-                value={formatNullableInteger(benchmark.longest_drawdown_duration_sessions)}
-              />
-              <MetricCard label="Longest drawdown peak" value={formatDate(benchmark.longest_drawdown_peak_date)} />
-              <MetricCard label="Longest drawdown trough" value={formatDate(benchmark.longest_drawdown_trough_date)} />
-              <MetricCard
-                label="Longest drawdown recovery"
-                value={formatDrawdownRecovery(benchmark)}
-              />
-              <MetricCard label="Tracking error (252D)" value={formatDecimal(benchmark.tracking_error, 6, false)} />
-              <MetricCard label="Information ratio (252D)" value={formatDecimal(benchmark.information_ratio, 6, false)} />
-              {benchmark.key === "csi_300_buy_hold" ? (
-                <>
-                  <MetricCard
-                    label="CSI 300 ETF proxy Alpha (252D compounded)"
-                    value={formatRatioAsPercent(benchmark.capm_alpha)}
-                  />
-                  <MetricCard
-                    label="Beta (CSI 300 ETF proxy)"
-                    value={formatDecimal(benchmark.capm_beta, 6, false)}
-                  />
-                  <MetricCard
-                    label="R-squared (CSI 300 ETF proxy)"
-                    value={formatDecimal(benchmark.capm_r_squared, 6, false)}
-                  />
-                  <MetricCard
-                    label="CAPM observations (daily sessions)"
-                    value={formatNullableInteger(benchmark.capm_observation_count)}
-                  />
-                </>
-              ) : null}
-              <MetricCard
-                label="Monthly Up Capture (selected months)"
-                value={formatRatioAsPercent(benchmark.up_capture_ratio)}
-              />
-              <MetricCard
-                label="Up selected months"
-                value={formatNullableInteger(benchmark.up_capture_observation_count)}
-              />
-              <MetricCard
-                label="Monthly Down Capture (selected months)"
-                value={formatRatioAsPercent(benchmark.down_capture_ratio)}
-              />
-              <MetricCard
-                label="Down selected months"
-                value={formatNullableInteger(benchmark.down_capture_observation_count)}
-              />
-              <MetricCard label="Strategy total return difference" value={formatRatioAsPercent(benchmark.total_return_difference)} />
-              <MetricCard label="Strategy CAGR difference" value={formatRatioAsPercent(benchmark.annualized_return_difference)} />
-            </dl>
-            <DistributionRiskSection fields={benchmark} />
-          </section>
+          <DistributionRiskSection
+            fields={benchmark}
+            key={benchmark.key}
+            ownerName={benchmark.name}
+          />
         ))}
+        <ReturnStabilitySection stability={backtestState.data.return_stability} />
+        {backtestState.data.benchmarks?.find((benchmark) => benchmark.key === "csi_300_buy_hold") ? (
+          <CapmSection benchmark={backtestState.data.benchmarks.find((benchmark) => benchmark.key === "csi_300_buy_hold")!} />
+        ) : null}
       </section>
       <section className="holdings-section" aria-labelledby="backtest-equity-curve-heading">
         <h3 id="backtest-equity-curve-heading">Equity curve</h3>
@@ -311,7 +256,6 @@ function renderBacktestDetail(
           benchmarks={backtestState.data.benchmarks ?? []}
         />
       </section>
-      <ReturnStabilitySection stability={backtestState.data.return_stability} />
       <section className="holdings-section" aria-labelledby="backtest-parameters-heading">
         <h3 id="backtest-parameters-heading">Parameters</h3>
         <pre className="parameter-summary">{formatParameterSummary(run.parameters_json)}</pre>
@@ -366,8 +310,9 @@ function EquityCurveChart({
     );
   }
 
-  const { maxNetValue, minNetValue, series } = computeMultiEquityCurveGeometry(chartSeries);
+  const { maxNetValue, minNetValue, series, dateTicks, valueTicks } = computeMultiEquityCurveGeometry(chartSeries);
   const legacyGeometry = series.length === 1 ? computeEquityCurveGeometry(chartPoints) : null;
+  const endLabels = computeSeriesEndLabels(series);
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
   return (
@@ -393,14 +338,67 @@ function EquityCurveChart({
           y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
           y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
         />
-        {series.map((item, index) => (
+        <line
+          aria-hidden="true"
+          className="equity-curve-axis"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
+          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+        />
+        <line
+          aria-hidden="true"
+          className="equity-curve-axis"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.paddingLeft}
+          y1={EQUITY_CURVE_CHART.paddingTop}
+          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+        />
+        {dateTicks.map((tick) => (
+          <text
+            className="equity-curve-axis-tick"
+            data-testid="equity-curve-x-tick"
+            key={tick.value}
+            textAnchor="middle"
+            x={tick.x}
+            y={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom + 16}
+          >
+            {tick.value}
+          </text>
+        ))}
+        {valueTicks.map((tick) => (
+          <text
+            className="equity-curve-axis-tick"
+            data-testid="equity-curve-y-tick"
+            key={tick.value}
+            textAnchor="end"
+            x={EQUITY_CURVE_CHART.paddingLeft - 8}
+            y={tick.y + 4}
+          >
+            {tick.value.toFixed(2)}
+          </text>
+        ))}
+        {series.map((item) => (
           <path
             className="equity-curve-line"
             d={item.linePath}
             data-testid={series.length === 1 ? "equity-curve-line" : `equity-curve-line-${item.key}`}
             key={item.key}
-            stroke={index === 0 ? "var(--color-acid-lime)" : index === 1 ? "var(--color-signal-teal)" : "var(--color-iris-violet)"}
+            stroke={seriesColor(item.key)}
           />
+        ))}
+        {endLabels.map((label) => (
+          <text
+            className="equity-curve-end-label"
+            data-testid={`equity-curve-end-label-${label.key}`}
+            fill={seriesColor(label.key)}
+            key={label.key}
+            textAnchor="end"
+            x={label.x}
+            y={label.y}
+          >
+            {label.name}
+          </text>
         ))}
         {legacyGeometry?.highlightCoordinates.map((coordinate) => (
           <circle
@@ -414,7 +412,17 @@ function EquityCurveChart({
         ))}
       </svg>
       <ul aria-label="Equity curve legend" className="equity-curve-legend">
-        {series.map((item) => <li key={item.key}>{item.name}</li>)}
+        {series.map((item) => (
+          <li className="equity-curve-legend-item" key={item.key}>
+            <span
+              aria-hidden="true"
+              className="equity-curve-swatch"
+              data-testid={`equity-curve-swatch-${item.key}`}
+              style={{ backgroundColor: seriesColor(item.key) }}
+            />
+            {item.name}
+          </li>
+        ))}
       </ul>
       <dl className="equity-curve-summary">
         <DescriptionItem label="Point count" value={formatInteger(chartPoints.length)} />
@@ -433,6 +441,231 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
+  );
+}
+
+function toComparableNumber(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Side-by-side strategy versus benchmark matrix (方案 A): absolute rows for
+ *  every entity plus strategy-relative rows whose Strategy cell stays n/a. */
+function ComparisonMatrix({
+  metrics,
+  benchmarks
+}: {
+  metrics: BacktestDetailMetrics;
+  benchmarks: BacktestBenchmark[];
+}) {
+  const entities: BacktestDetailMetrics[] = [metrics, ...benchmarks];
+  const toNumber = toComparableNumber;
+
+  const absoluteRows: ComparisonRow[] = [
+    {
+      key: "total_return",
+      label: "Total return",
+      cells: entities.map((entity) => formatRatioAsPercent(entity.total_return)),
+      numeric: entities.map((entity) => toNumber(entity.total_return)),
+      direction: "higher",
+      rankable: true
+    },
+    {
+      key: "annualized_return",
+      label: "CAGR (calendar-time)",
+      cells: entities.map((entity) => formatRatioAsPercent(entity.annualized_return)),
+      numeric: entities.map((entity) => toNumber(entity.annualized_return)),
+      direction: "higher",
+      rankable: true
+    },
+    {
+      key: "max_drawdown",
+      label: "Max drawdown",
+      cells: entities.map((entity) => formatRatioAsPercent(entity.max_drawdown)),
+      numeric: entities.map((entity) => toNumber(entity.max_drawdown)),
+      direction: "closest-to-zero",
+      rankable: true
+    },
+    {
+      key: "volatility",
+      label: "Annualized volatility (252D)",
+      cells: entities.map((entity) => formatRatioAsPercent(entity.volatility)),
+      numeric: entities.map((entity) => toNumber(entity.volatility)),
+      direction: "lower",
+      rankable: true
+    },
+    {
+      key: "sharpe_ratio",
+      label: "Sharpe (daily returns, 252D)",
+      cells: entities.map((entity) => formatDecimal(entity.sharpe_ratio, 2, false)),
+      numeric: entities.map((entity) => toNumber(entity.sharpe_ratio)),
+      direction: "higher",
+      rankable: true
+    },
+    {
+      key: "sortino_ratio",
+      label: "Sortino (rf MAR, 252D)",
+      cells: entities.map((entity) => formatDecimal(entity.sortino_ratio, 6, false)),
+      numeric: entities.map((entity) => toNumber(entity.sortino_ratio)),
+      direction: "higher",
+      rankable: true
+    },
+    {
+      key: "calmar_ratio",
+      label: "Calmar (calendar CAGR / |MaxDD|)",
+      cells: entities.map((entity) => formatDecimal(entity.calmar_ratio, 6, false)),
+      numeric: entities.map((entity) => toNumber(entity.calmar_ratio)),
+      direction: "higher",
+      rankable: true
+    },
+    {
+      key: "longest_drawdown_duration_sessions",
+      label: "Longest drawdown duration (official sessions)",
+      cells: entities.map((entity) => formatNullableInteger(entity.longest_drawdown_duration_sessions)),
+      numeric: entities.map((entity) => entity.longest_drawdown_duration_sessions),
+      direction: "lower",
+      rankable: true
+    },
+    {
+      key: "longest_drawdown_peak_date",
+      label: "Longest drawdown peak date",
+      cells: entities.map((entity) => formatDate(entity.longest_drawdown_peak_date))
+    },
+    {
+      key: "longest_drawdown_trough_date",
+      label: "Longest drawdown trough date",
+      cells: entities.map((entity) => formatDate(entity.longest_drawdown_trough_date))
+    },
+    {
+      key: "longest_drawdown_recovery",
+      label: "Longest drawdown recovery",
+      cells: entities.map((entity) => formatDrawdownRecovery(entity))
+    }
+  ];
+
+  const relativeRows: ComparisonRow[] = [
+    {
+      key: "tracking_error",
+      label: "Tracking error (252D)",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatDecimal(benchmark.tracking_error, 6, false))]
+    },
+    {
+      key: "information_ratio",
+      label: "Information ratio (252D)",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatDecimal(benchmark.information_ratio, 6, false))]
+    },
+    {
+      key: "up_capture_ratio",
+      label: "Monthly Up Capture (selected months)",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.up_capture_ratio))]
+    },
+    {
+      key: "up_count",
+      label: "Up selected months",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatNullableInteger(benchmark.up_capture_observation_count))]
+    },
+    {
+      key: "down_capture_ratio",
+      label: "Monthly Down Capture (selected months)",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.down_capture_ratio))]
+    },
+    {
+      key: "down_count",
+      label: "Down selected months",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatNullableInteger(benchmark.down_capture_observation_count))]
+    },
+    {
+      key: "total_return_difference",
+      label: "Strategy total return difference",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.total_return_difference))]
+    },
+    {
+      key: "annualized_return_difference",
+      label: "Strategy CAGR difference",
+      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.annualized_return_difference))]
+    }
+  ];
+
+  return (
+    <div
+      aria-label="Strategy vs benchmark comparison matrix region"
+      className="comparison-matrix-wrap"
+      tabIndex={0}
+    >
+      <table className="comparison-matrix holdings-table">
+        <caption className="sr-only">Strategy vs benchmark comparison matrix</caption>
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">Strategy</th>
+            {benchmarks.map((benchmark) => (
+              <th scope="col" key={benchmark.key}>
+                {benchmark.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody aria-label="Absolute metrics">
+          {absoluteRows.map((row) => (
+            <MatrixRow key={row.key} row={row} />
+          ))}
+        </tbody>
+        <tbody aria-label="Strategy-relative metrics">
+          {relativeRows.map((row) => (
+            <MatrixRow key={row.key} row={row} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MatrixRow({ row }: { row: ComparisonRow }) {
+  const bestIndexes = new Set(bestCellIndexes(row));
+  return (
+    <tr data-testid={`comparison-row-${row.key}`}>
+      <th scope="row">{row.label}</th>
+      {row.cells.map((cell, index) => (
+        <td className={bestIndexes.has(index) ? "comparison-best" : undefined} key={index}>
+          {cell}
+          {bestIndexes.has(index) ? <span className="comparison-best-badge">Best</span> : null}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+/** CSI-300-only CAPM evidence in a closed-by-default disclosure. */
+function CapmSection({ benchmark }: { benchmark: BacktestBenchmark }) {
+  return (
+    <details className="disclosure">
+      <summary className="disclosure-summary">
+        <h4 className="disclosure-heading">CSI-300 CAPM regression</h4>
+      </summary>
+      <div className="disclosure-body">
+        <dl className="metric-card-grid">
+          <MetricCard
+            label="CSI 300 ETF proxy Alpha (252D compounded)"
+            value={formatRatioAsPercent(benchmark.capm_alpha)}
+          />
+          <MetricCard
+            label="Beta (CSI 300 ETF proxy)"
+            value={formatDecimal(benchmark.capm_beta, 6, false)}
+          />
+          <MetricCard
+            label="R-squared (CSI 300 ETF proxy)"
+            value={formatDecimal(benchmark.capm_r_squared, 6, false)}
+          />
+          <MetricCard
+            label="CAPM observations (daily sessions)"
+            value={formatNullableInteger(benchmark.capm_observation_count)}
+          />
+        </dl>
+      </div>
+    </details>
   );
 }
 

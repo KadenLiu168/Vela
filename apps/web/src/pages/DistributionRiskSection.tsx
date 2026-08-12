@@ -7,30 +7,50 @@ import { formatDecimal, formatNullableInteger } from "../utils/formatters";
  * of zero) plus observation/tail counts. The browser never recomputes metrics:
  * values come from the API and only the evidence note is derived from the
  * stored counts and nulls.
+ *
+ * The evidence lives in a closed-by-default disclosure; collapsing changes
+ * visibility only, never the evidence semantics or the owner identity.
  */
-export function DistributionRiskSection({ fields }: { fields: TailDistributionFields }) {
+export function DistributionRiskSection({
+  fields,
+  ownerName
+}: {
+  fields: TailDistributionFields;
+  ownerName?: string;
+}) {
+  const label = ownerName
+    ? `One-day historical distribution risk (95%) — ${ownerName}`
+    : "One-day historical distribution risk (95%)";
+  const headingId = ownerName ? `distribution-risk-heading-${ownerName}` : "distribution-risk-heading";
+
   return (
-    <section className="holdings-section" aria-labelledby="distribution-risk-heading">
-      <h4 id="distribution-risk-heading">One-day historical distribution risk (95%)</h4>
-      <dl className="metric-card-grid">
-        <MetricCard label="Historical VaR 95% (1D loss)" value={formatDecimal(fields.historical_var_95, 6, false)} />
-        <MetricCard label="Historical CVaR 95% (1D loss)" value={formatDecimal(fields.historical_cvar_95, 6, false)} />
-        <MetricCard label="Skewness" value={formatDecimal(fields.return_skewness, 6, false)} />
-        <MetricCard
-          label="Excess kurtosis (normal = 0)"
-          value={formatDecimal(fields.return_excess_kurtosis, 6, false)}
-        />
-        <MetricCard
-          label="Effective observations"
-          value={formatNullableInteger(fields.distribution_observation_count)}
-        />
-        <MetricCard
-          label="Tail observations (5% rank rule)"
-          value={formatNullableInteger(fields.tail_observation_count)}
-        />
-      </dl>
-      <p className="distribution-evidence-note">{distributionNote(fields)}</p>
-    </section>
+    <details className="disclosure">
+      <summary className="disclosure-summary">
+        <h4 className="disclosure-heading" id={headingId}>
+          {label}
+        </h4>
+      </summary>
+      <div className="disclosure-body">
+        <dl className="metric-card-grid">
+          <MetricCard label="Historical VaR 95% (1D loss)" value={formatDecimal(fields.historical_var_95, 6, false)} />
+          <MetricCard label="Historical CVaR 95% (1D loss)" value={formatDecimal(fields.historical_cvar_95, 6, false)} />
+          <MetricCard label="Skewness" value={formatDecimal(fields.return_skewness, 6, false)} />
+          <MetricCard
+            label="Excess kurtosis (normal = 0)"
+            value={formatDecimal(fields.return_excess_kurtosis, 6, false)}
+          />
+          <MetricCard
+            label="Effective observations"
+            value={formatNullableInteger(fields.distribution_observation_count)}
+          />
+          <MetricCard
+            label="Tail observations (5% rank rule)"
+            value={formatNullableInteger(fields.tail_observation_count)}
+          />
+        </dl>
+        <p className="distribution-evidence-note">{distributionNote(fields)}</p>
+      </div>
+    </details>
   );
 }
 

@@ -790,6 +790,112 @@ main {
   background: transparent;
 }
 
+/* Backtest hero — four strategy headline cards before the comparison matrix. */
+.detail-page .backtest-hero-grid {
+  display: grid;
+  gap: var(--spacing-16);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 0 0 var(--spacing-24);
+}
+
+/* Comparison matrix — local keyboard-scrollable region, sticky metric column. */
+.detail-page .comparison-matrix-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.detail-page .comparison-matrix-wrap:focus-visible {
+  border-radius: var(--radius-md);
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.detail-page .comparison-matrix {
+  min-width: 640px;
+}
+
+.detail-page .comparison-matrix th[scope="row"] {
+  background: var(--surface-carbon);
+  left: 0;
+  position: sticky;
+  z-index: 1;
+}
+
+.detail-page .comparison-best {
+  background: rgba(228, 242, 34, 0.07);
+}
+
+.detail-page .comparison-best-badge {
+  background: var(--color-acid-lime);
+  border-radius: var(--radius-pills);
+  color: var(--color-void);
+  display: inline-block;
+  font-family: var(--font-inter-variable);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  line-height: var(--leading-display);
+  margin-left: var(--spacing-8);
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
+/* Progressive disclosure — native <details> for secondary metric groups. */
+.detail-page .disclosure {
+  margin-top: calc(var(--section-gap) * 0.75);
+}
+
+.detail-page .disclosure + .disclosure {
+  margin-top: var(--spacing-24);
+}
+
+.detail-page .disclosure-summary {
+  align-items: baseline;
+  cursor: pointer;
+  display: flex;
+  gap: var(--spacing-12);
+  list-style: none;
+}
+
+.detail-page .disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-page .disclosure-summary:focus-visible {
+  border-radius: var(--radius-md);
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.detail-page .disclosure-summary::before {
+  color: var(--color-fog);
+  content: "▸";
+  flex: none;
+  font-size: 12px;
+  transform: translateY(-1px);
+}
+
+.detail-page .disclosure[open] .disclosure-summary::before {
+  transform: rotate(90deg) translateY(-1px);
+}
+
+.detail-page .disclosure-heading {
+  color: var(--color-paper);
+  font-size: var(--text-subheading);
+  line-height: var(--leading-subheading);
+  margin: 0;
+}
+
+.detail-page .disclosure[open] .disclosure-summary h4 {
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-body-lg);
+}
+
+.detail-page .disclosure-body {
+  margin-top: var(--spacing-16);
+}
+
 .detail-page .metric-card {
   background: var(--surface-obsidian);
   border: 1px solid var(--color-graphite);
@@ -1372,6 +1478,26 @@ main {
   stroke-width: 1;
 }
 
+.equity-curve-axis {
+  stroke: var(--color-fog);
+  stroke-width: 1;
+}
+
+.equity-curve-axis-tick {
+  fill: var(--color-fog);
+  font-family: var(--font-berkeley-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-numeral);
+}
+
+.equity-curve-end-label {
+  font-family: var(--font-inter-variable);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.1px;
+}
+
 .equity-curve-line {
   fill: none;
   stroke-linecap: round;
@@ -1386,6 +1512,26 @@ main {
   list-style: none;
   margin: var(--spacing-16) 0;
   padding: 0;
+}
+
+.equity-curve-legend-item {
+  align-items: center;
+  color: var(--color-mist);
+  display: flex;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-regular);
+  gap: var(--spacing-8);
+  line-height: var(--leading-body-card);
+}
+
+.equity-curve-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-small);
+  display: inline-block;
+  flex: none;
+  height: 10px;
+  width: 10px;
 }
 
 .equity-curve-highlight {
@@ -1500,6 +1646,16 @@ main {
   border-radius: var(--radius-md);
   min-width: 0;
   overflow-x: auto;
+}
+
+/* Backtest list metric columns — local keyboard-scrollable region. */
+.backtest-list-table-wrap:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.backtest-list-table {
+  min-width: 920px;
 }
 
 .walk-forward-window-scroll {

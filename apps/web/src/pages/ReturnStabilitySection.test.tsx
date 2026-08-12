@@ -205,6 +205,50 @@ describe("ReturnStabilitySection", () => {
     expect(screen.getByText(/Fewer than 64 persisted points/)).toBeInTheDocument();
     expect(screen.getByText(/No calendar-period returns/)).toBeInTheDocument();
   });
+
+  it("assigns explicit key colors to rolling lines, swatches, and end-labels", () => {
+    renderSection();
+
+    expect(screen.getByTestId("rolling-line-return-strategy")).toHaveAttribute("stroke", "var(--color-series-1)");
+    expect(screen.getByTestId("rolling-line-return-equal_weight_monthly")).toHaveAttribute("stroke", "var(--color-series-2)");
+
+    const legend = screen.getByRole("list", { name: "Rolling Return legend" });
+    expect(within(legend).getByTestId("equity-curve-swatch-strategy")).toHaveStyle({ backgroundColor: "var(--color-series-1)" });
+    expect(within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly")).toHaveStyle({ backgroundColor: "var(--color-series-2)" });
+
+    expect(screen.getByTestId("rolling-end-label-return-strategy")).toHaveAttribute("fill", "var(--color-series-1)");
+    expect(screen.getByTestId("rolling-end-label-return-equal_weight_monthly")).toHaveAttribute("fill", "var(--color-series-2)");
+  });
+
+  it("renders date x-axis ticks and metric-correct y-axis ticks", () => {
+    renderSection();
+
+    const xTickValues = screen.getAllByTestId("rolling-x-tick").map((tick) => tick.textContent);
+    expect(xTickValues).toContain("2026-03-31");
+    expect(xTickValues).toContain("2026-04-01");
+
+    // Return ticks are percentages spanning [9%, 13%] (0.09..0.13).
+    const returnYTicks = screen.getAllByTestId("rolling-y-tick").map((tick) => tick.textContent);
+    expect(returnYTicks).toContain("12%");
+    expect(returnYTicks).toContain("9%");
+
+    // Volatility ticks are percentages spanning [15%, 19%] (0.15..0.19).
+    fireEvent.click(screen.getByRole("button", { name: "Rolling Volatility" }));
+    const volatilityYTicks = screen.getAllByTestId("rolling-y-tick").map((tick) => tick.textContent);
+    expect(volatilityYTicks).toContain("18%");
+
+    // Sharpe ticks are ratios spanning [0.7, 0.9].
+    fireEvent.click(screen.getByRole("button", { name: "Rolling Sharpe" }));
+    const sharpeYTicks = screen.getAllByTestId("rolling-y-tick").map((tick) => tick.textContent);
+    expect(sharpeYTicks).toContain("0.9");
+  });
+
+  it("keeps the exact-value table available next to the chart", () => {
+    renderSection();
+
+    expect(screen.getByText("0.123456")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Exact Rolling Return values by window" })).toBeInTheDocument();
+  });
 });
 
 function emptyStability(): ReturnStability {

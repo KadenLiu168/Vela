@@ -9,10 +9,12 @@ import { EmptyState } from "../components";
 import { formatDate } from "../utils/formatters";
 import {
   computeMultiEquityCurveGeometry,
+  computeSeriesEndLabels,
   EQUITY_CURVE_CHART,
   type EquityCurveChartPoint,
   type EquityCurveChartSeries
 } from "./equityCurveChart";
+import { seriesColor } from "./seriesColor";
 
 export type RollingMetric = "return" | "volatility" | "sharpe";
 
@@ -39,6 +41,15 @@ function formatMetricValue(raw: string | null): string {
   return raw ?? "n/a";
 }
 
+/** Y-axis tick labels use the selected metric's own scale: Return and
+ *  Volatility are ratios rendered as percentages; Sharpe is a ratio. */
+function formatRollingTick(metric: RollingMetric, value: number): string {
+  if (metric === "sharpe") {
+    return value.toFixed(1);
+  }
+  return `${(value * 100).toFixed(0)}%`;
+}
+
 export function ReturnStabilitySection({ stability }: { stability: ReturnStability }) {
   const [rollingMetric, setRollingMetric] = useState<RollingMetric>("return");
   const [calendarEntity, setCalendarEntity] = useState("strategy");
@@ -56,33 +67,39 @@ export function ReturnStabilitySection({ stability }: { stability: ReturnStabili
   const insufficient = stability.strategy.rolling_status === "insufficient_observations";
 
   return (
-    <section className="holdings-section" aria-labelledby="return-stability-heading">
-      <h3 id="return-stability-heading">Return stability</h3>
-      <p className="detail-note">
-        63-session trailing window derived from persisted net values. Rolling and calendar
-        values are computed by the backend; the browser displays API-provided results only.
-      </p>
-      {insufficient ? (
-        <EmptyState>
-          Fewer than 64 persisted points are available, so no 63-session rolling window can
-          be formed. Calendar-period returns below remain available.
-        </EmptyState>
-      ) : null}
+    <details className="disclosure">
+      <summary className="disclosure-summary">
+        <h3 className="disclosure-heading" id="return-stability-heading">
+          Return stability
+        </h3>
+      </summary>
+      <div className="disclosure-body">
+        <p className="detail-note">
+          63-session trailing window derived from persisted net values. Rolling and calendar
+          values are computed by the backend; the browser displays API-provided results only.
+        </p>
+        {insufficient ? (
+          <EmptyState>
+            Fewer than 64 persisted points are available, so no 63-session rolling window can
+            be formed. Calendar-period returns below remain available.
+          </EmptyState>
+        ) : null}
 
-      {!insufficient ? (
-        <RollingPanel
+        {!insufficient ? (
+          <RollingPanel
+            entities={entities}
+            metric={rollingMetric}
+            onMetricChange={setRollingMetric}
+          />
+        ) : null}
+
+        <CalendarPanel
           entities={entities}
-          metric={rollingMetric}
-          onMetricChange={setRollingMetric}
+          selectedKey={selectedCalendar.key}
+          onEntityChange={setCalendarEntity}
         />
-      ) : null}
-
-      <CalendarPanel
-        entities={entities}
-        selectedKey={selectedCalendar.key}
-        onEntityChange={setCalendarEntity}
-      />
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -193,6 +210,7 @@ function RollingChart({
   }
 
   const lastPoint = geometry.series[0].points[geometry.series[0].points.length - 1];
+  const endLabels = computeSeriesEndLabels(geometry.series);
   return (
     <div className="equity-curve-card">
       <svg
@@ -218,25 +236,80 @@ function RollingChart({
           y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
           y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
         />
-        {geometry.series.map((series, index) => (
+        <line
+          aria-hidden="true"
+          className="equity-curve-axis"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
+          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+        />
+        <line
+          aria-hidden="true"
+          className="equity-curve-axis"
+          x1={EQUITY_CURVE_CHART.paddingLeft}
+          x2={EQUITY_CURVE_CHART.paddingLeft}
+          y1={EQUITY_CURVE_CHART.paddingTop}
+          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
+        />
+        {geometry.dateTicks.map((tick) => (
+          <text
+            className="equity-curve-axis-tick"
+            data-testid="rolling-x-tick"
+            key={tick.value}
+            textAnchor="middle"
+            x={tick.x}
+            y={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom + 16}
+          >
+            {tick.value}
+          </text>
+        ))}
+        {geometry.valueTicks.map((tick) => (
+          <text
+            className="equity-curve-axis-tick"
+            data-testid="rolling-y-tick"
+            key={tick.value}
+            textAnchor="end"
+            x={EQUITY_CURVE_CHART.paddingLeft - 8}
+            y={tick.y + 4}
+          >
+            {formatRollingTick(metric, tick.value)}
+          </text>
+        ))}
+        {geometry.series.map((series) => (
           <path
             className="equity-curve-line"
             d={series.linePath}
             data-testid={`rolling-line-${metric}-${series.key}`}
             key={series.key}
-            stroke={
-              index === 0
-                ? "var(--color-acid-lime)"
-                : index === 1
-                  ? "var(--color-signal-teal)"
-                  : "var(--color-iris-violet)"
-            }
+            stroke={seriesColor(series.key)}
           />
+        ))}
+        {endLabels.map((label) => (
+          <text
+            className="equity-curve-end-label"
+            data-testid={`rolling-end-label-${metric}-${label.key}`}
+            fill={seriesColor(label.key)}
+            key={label.key}
+            textAnchor="end"
+            x={label.x}
+            y={label.y}
+          >
+            {label.name}
+          </text>
         ))}
       </svg>
       <ul aria-label={`${metricAccessibleLabel(metric)} legend`} className="equity-curve-legend">
         {geometry.series.map((series) => (
-          <li key={series.key}>{series.name}</li>
+          <li className="equity-curve-legend-item" key={series.key}>
+            <span
+              aria-hidden="true"
+              className="equity-curve-swatch"
+              data-testid={`equity-curve-swatch-${series.key}`}
+              style={{ backgroundColor: seriesColor(series.key) }}
+            />
+            {series.name}
+          </li>
         ))}
       </ul>
       <dl className="equity-curve-summary">

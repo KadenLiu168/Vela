@@ -1724,24 +1724,27 @@ it("loads backtest detail data through the shared client", async () => {
   expect(screen.getByText("success")).toBeInTheDocument();
   expect(screen.getByText("2026-02-01T09:00:00")).toBeInTheDocument();
   expect(screen.getByText("2026-02-01T09:05:00")).toBeInTheDocument();
-  expect(screen.getByText("12.00%")).toBeInTheDocument();
-  expect(screen.getByText("144.00%")).toBeInTheDocument();
-  expect(screen.getByText("-5.00%")).toBeInTheDocument();
-  expect(screen.getByText("20.00%")).toBeInTheDocument();
-  expect(screen.getByText("1.10")).toBeInTheDocument();
+  // Hero and comparison matrix both surface the headline metrics; the
+  // strategy values appear in the hero cards and in the matrix's strategy
+  // column, so multi-match queries are required.
+  expect(screen.getAllByText("12.00%").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("144.00%").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("-5.00%").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("20.00%").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("1.10").length).toBeGreaterThanOrEqual(1);
   const metricsSection = screen.getByRole("heading", { name: "Metrics" }).closest("section");
   expect(metricsSection).not.toBeNull();
   const metrics = within(metricsSection as HTMLElement);
-  expect(metrics.getByText("Total return")).toBeInTheDocument();
-  expect(metrics.getByText("12.00%")).toBeInTheDocument();
-  expect(metrics.getByText("CAGR (calendar-time)")).toBeInTheDocument();
-  expect(metrics.getByText("144.00%")).toBeInTheDocument();
-  expect(metrics.getByText("Max drawdown")).toBeInTheDocument();
-  expect(metrics.getByText("-5.00%")).toBeInTheDocument();
+  expect(metrics.getAllByText("Total return").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("12.00%").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("CAGR (calendar-time)").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("144.00%").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("Max drawdown").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("-5.00%").length).toBeGreaterThanOrEqual(1);
   expect(metrics.getByText("Annualized volatility (252D)")).toBeInTheDocument();
   expect(metrics.getByText("20.00%")).toBeInTheDocument();
-  expect(metrics.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
-  expect(metrics.getByText("1.10")).toBeInTheDocument();
+  expect(metrics.getAllByText("Sharpe (daily returns, 252D)").length).toBeGreaterThanOrEqual(1);
+  expect(metrics.getAllByText("1.10").length).toBeGreaterThanOrEqual(1);
   fireEvent.click(screen.getByRole("tab", { name: "Signals (2)" }));
   const signalsSection = (await screen.findByRole("columnheader", { name: "Signal #" })).closest("section");
   expect(signalsSection).not.toBeNull();
@@ -1855,27 +1858,23 @@ it("renders a single-point equity curve state on the backtest detail route", asy
 
 it("renders n/a for nullable backtest metric cards", async () => {
   window.history.pushState({}, "", "/backtests/8");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(
-      jsonResponse({
-        ...createBacktestDetailResponse(),
-        metrics: {
-          total_return: null,
-          annualized_return: null,
-          max_drawdown: null,
-          volatility: null,
-          sharpe_ratio: null,
-          sortino_ratio: null,
-          calmar_ratio: null,
-          longest_drawdown_duration_sessions: null,
-          longest_drawdown_peak_date: null,
-          longest_drawdown_trough_date: null,
-          longest_drawdown_recovery_date: null
-        }
-      })
-    )
-  );
+  const fixture = {
+    ...createBacktestDetailResponse(),
+    metrics: {
+      total_return: null,
+      annualized_return: null,
+      max_drawdown: null,
+      volatility: null,
+      sharpe_ratio: null,
+      sortino_ratio: null,
+      calmar_ratio: null,
+      longest_drawdown_duration_sessions: null,
+      longest_drawdown_peak_date: null,
+      longest_drawdown_trough_date: null,
+      longest_drawdown_recovery_date: null
+    }
+  };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(fixture)));
 
   render(<App />);
 
@@ -1883,7 +1882,8 @@ it("renders n/a for nullable backtest metric cards", async () => {
     "section"
   );
   expect(metricsSection).not.toBeNull();
-  expect(within(metricsSection as HTMLElement).getAllByText("n/a")).toHaveLength(17);
+  const metricsEl = metricsSection as HTMLElement;
+  expect(within(metricsEl).getAllByText("n/a").length).toBeGreaterThanOrEqual(20);
   expect(screen.getByText("Backtest #8")).toBeInTheDocument();
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
@@ -2539,6 +2539,43 @@ function createBacktestDetailResponse() {
         market_value: "10100.000000",
         total_assets: "10200.000000",
         positions_json: "[{\"symbol\": \"510300\", \"weight\": 1.0}]"
+      }
+    ],
+    benchmarks: [
+      {
+        key: "equal_weight_monthly",
+        name: "Equal-weight monthly rebalanced portfolio",
+        total_return: null,
+        annualized_return: null,
+        max_drawdown: null,
+        volatility: null,
+        sharpe_ratio: null,
+        sortino_ratio: null,
+        calmar_ratio: null,
+        longest_drawdown_duration_sessions: null,
+        longest_drawdown_peak_date: null,
+        longest_drawdown_trough_date: null,
+        longest_drawdown_recovery_date: null,
+        tracking_error: null,
+        information_ratio: null,
+        total_return_difference: null,
+        annualized_return_difference: null,
+        capm_alpha: null,
+        capm_beta: null,
+        capm_r_squared: null,
+        capm_observation_count: null,
+        up_capture_ratio: null,
+        up_capture_observation_count: null,
+        down_capture_ratio: null,
+        down_capture_observation_count: null,
+        equity_curve: [],
+        historical_var_95: null,
+        historical_cvar_95: null,
+        return_skewness: null,
+        return_excess_kurtosis: null,
+        distribution_observation_count: null,
+        tail_observation_count: null,
+        distribution_evidence_status: "unavailable_legacy"
       }
     ],
     signal_ids: [7, 9],
