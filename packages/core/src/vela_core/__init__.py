@@ -1,4 +1,9 @@
 from vela_core.app_config import AppConfig, load_app_config
+from vela_core.backtest_input import (
+    BACKTEST_INPUT_VERSION,
+    build_backtest_input_v2,
+    validate_backtest_input_v2,
+)
 from vela_core.backtest_report import BacktestReportNotFoundError, export_backtest_report
 from vela_core.backtest_result_persistence import (
     BacktestBenchmarkInput,
@@ -50,6 +55,15 @@ from vela_core.etf_price_trend import (
     PriceTrendRange,
     get_etf_price_trend,
 )
+from vela_core.etf_session_status_sync import (
+    ETF_SESSION_STATUS_VERSION,
+    ETFSessionStatusDocument,
+    ETFSessionStatusEntry,
+    ETFSessionStatusSyncResult,
+    load_etf_session_status_document,
+    sync_etf_session_status_to_db,
+    validate_etf_session_status_document,
+)
 from vela_core.joinquant_market_data_provider import JoinQuantMarketDataProvider
 from vela_core.market_data_fetcher import (
     MarketDataFetchResult,
@@ -93,6 +107,13 @@ from vela_core.rebalance_dates import (
     generate_monthly_rebalance_dates,
     generate_rebalance_dates,
     generate_weekly_rebalance_dates,
+)
+from vela_core.resolved_session_price import (
+    RESOLUTION_POLICY_VERSION,
+    ResolutionFailure,
+    ResolvedSessionInputError,
+    ResolvedSessionPrice,
+    resolve_session_prices,
 )
 from vela_core.return_stability import (
     BacktestReturnStability,
@@ -171,6 +192,7 @@ __version__ = "0.1.0"
 __all__ = [
     "AppConfig",
     "ActiveRiskMetrics",
+    "BACKTEST_INPUT_VERSION",
     "BacktestBenchmarkInput",
     "BacktestEquityCurveInput",
     "BacktestResultPersistenceResult",
@@ -183,6 +205,7 @@ __all__ = [
     "BenchmarkRegimeMetrics",
     "BootstrapResult",
     "BootstrapStepResult",
+    "build_backtest_input_v2",
     "ConfigError",
     "CorporateActionFactorMismatchWarning",
     "DailyPrice",
@@ -194,6 +217,10 @@ __all__ = [
     "ETFConfig",
     "ETFPoolConfig",
     "ETFPoolSyncResult",
+    "ETF_SESSION_STATUS_VERSION",
+    "ETFSessionStatusDocument",
+    "ETFSessionStatusEntry",
+    "ETFSessionStatusSyncResult",
     "EtfPriceTrendPoint",
     "EtfPriceTrendResult",
     "EtfTradingDayGap",
@@ -215,6 +242,10 @@ __all__ = [
     "RebalanceFrequency",
     "ReturnStabilityResult",
     "ReturnStabilitySourcePoint",
+    "RESOLUTION_POLICY_VERSION",
+    "ResolvedSessionInputError",
+    "ResolvedSessionPrice",
+    "ResolutionFailure",
     "RollingStabilityPoint",
     "CalendarReturnBucket",
     "LatestStrategySignalReportNotFoundError",
@@ -288,17 +319,22 @@ __all__ = [
     "export_latest_strategy_signal_report",
     "export_backtest_report",
     "load_app_config",
+    "load_etf_session_status_document",
     "load_etf_pool_config",
     "load_walk_forward_config",
     "persist_strategy_signal",
     "persist_backtest_result",
     "rank_momentum_scores",
+    "resolve_session_prices",
     "run_backtest",
     "run_alembic_upgrade",
     "run_local_setup_bootstrap",
     "select_with_defensive_fallback",
     "select_top_n_etfs",
     "sync_etf_pool_to_db",
+    "sync_etf_session_status_to_db",
+    "validate_etf_session_status_document",
+    "validate_backtest_input_v2",
     "sync_trading_calendar_to_db",
     "to_market_price",
     "upsert_market_prices",

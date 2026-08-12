@@ -22,6 +22,7 @@ def test_etf_info_table_has_required_columns() -> None:
         "issuer",
         "category",
         "inception_date",
+        "listing_date",
         "expense_ratio",
         "is_active",
         "created_at",

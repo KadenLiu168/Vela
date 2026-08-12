@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import (
@@ -10,6 +11,7 @@ from vela_core import (
     load_price_panel,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice, StrategySignal, StrategySignalPosition
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_config import RebalanceConfig, StrategyConfig, validate_strategy_config
 from vela_core.strategy_signal_persistence import (
     StrategySignalPositionInput,
@@ -540,6 +542,100 @@ def test_generate_historical_strategy_signals_returns_empty_without_persisting_r
     assert signal_count == 0
 
 
+def test_historical_signals_use_listing_boundary_and_keep_non_tradable_target() -> None:
+    config = validate_strategy_config(
+        {
+            "strategy_id": "equal_weight",
+            "version": "v1",
+            "type": "equal_weight",
+            "universe_config": "config/etf_pool.yaml",
+            "parameters": {},
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
+    first = _etf_for_resolved_panel(1, "510300", date(2026, 1, 2))
+    second = _etf_for_resolved_panel(2, "513100", date(2026, 1, 5))
+    panel = {
+        1: [_resolved_signal_point(1, date(2026, 1, 2), "10")],
+        2: [
+            _resolved_signal_point(
+                2,
+                date(2026, 1, 5),
+                "20",
+                tradable=False,
+                resolution="confirmed_non_trading_carry",
+            )
+        ],
+    }
+
+    results = generate_historical_strategy_signals(
+        historical_trading_dates=[date(2026, 1, 2), date(2026, 1, 5)],
+        config=config,
+        price_panel=panel,
+        active_etfs=[first, second],
+    )
+
+    assert [result.signal_date for result in results] == [
+        date(2026, 1, 2),
+        date(2026, 1, 5),
+    ]
+    assert [[position.etf_id for position in result.positions] for result in results] == [
+        [1],
+        [1, 2],
+    ]
+
+
+def test_single_date_signal_excludes_etf_before_listing_date() -> None:
+    config = validate_strategy_config(
+        {
+            "strategy_id": "equal_weight",
+            "version": "v1",
+            "type": "equal_weight",
+            "universe_config": "config/etf_pool.yaml",
+            "parameters": {},
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
+    signal_date = date(2026, 1, 2)
+    listed = _etf_for_resolved_panel(1, "510300", signal_date)
+    future = _etf_for_resolved_panel(2, "513100", date(2026, 1, 5))
+
+    result = generate_strategy_signal(
+        signal_date=signal_date,
+        config=config,
+        price_panel={},
+        active_etfs=[listed, future],
+    )
+
+    assert [position.etf_id for position in result.positions] == [1]
+
+
+def test_historical_signal_generation_rejects_missing_listing_metadata() -> None:
+    config = validate_strategy_config(
+        {
+            "strategy_id": "equal_weight",
+            "version": "v1",
+            "type": "equal_weight",
+            "universe_config": "config/etf_pool.yaml",
+            "parameters": {},
+            "costs": {"transaction_cost_bps": 5},
+            "performance": {"risk_free_rate": 0.02},
+        }
+    )
+    missing = _etf_for_resolved_panel(1, "510300", date(2026, 1, 2))
+    missing.listing_date = None
+
+    with pytest.raises(ValueError, match="missing listing_date.*510300"):
+        generate_historical_strategy_signals(
+            historical_trading_dates=[date(2026, 1, 2)],
+            config=config,
+            price_panel={},
+            active_etfs=[missing],
+        )
+
+
 def test_generate_historical_strategy_signals_uses_configured_rebalance_frequency() -> None:
     weekly_config = _strategy_config(top_n=1).model_copy(
         update={"rebalance": RebalanceConfig(frequency="weekly")}
@@ -680,10 +776,43 @@ def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:
         symbol=symbol,
         name=f"{symbol} ETF",
         currency="CNY",
+        listing_date=date(2026, 1, 1),
     )
     session.add(etf)
     session.flush()
     return etf
+
+
+def _etf_for_resolved_panel(etf_id: int, symbol: str, listing_date: date) -> ETFInfo:
+    return ETFInfo(
+        id=etf_id,
+        exchange="SSE",
+        symbol=symbol,
+        name=f"{symbol} ETF",
+        currency="CNY",
+        listing_date=listing_date,
+        is_active=True,
+    )
+
+
+def _resolved_signal_point(
+    etf_id: int,
+    trade_date: date,
+    value: str,
+    *,
+    tradable: bool = True,
+    resolution: str = "market_price",
+) -> ResolvedSessionPrice:
+    adjusted_value = Decimal(value)
+    return ResolvedSessionPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        adjusted_value=adjusted_value,
+        raw_close=adjusted_value if tradable else None,
+        raw_factor=Decimal("1") if tradable else None,
+        tradable=tradable,
+        resolution=resolution,
+    )
 
 
 def _add_price_history(

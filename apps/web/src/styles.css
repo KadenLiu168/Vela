@@ -2123,7 +2123,8 @@ main {
   .metric-row,
   .detail-page .metric-card-grid,
   .equity-curve-summary,
-  .compact-list {
+  .compact-list,
+  .walk-forward-json-grid {
     grid-template-columns: 1fr;
   }
 

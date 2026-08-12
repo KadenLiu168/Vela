@@ -5,8 +5,10 @@ import pytest
 from vela_core.adjusted_price_projection import (
     ForwardAdjustedPrice,
     forward_adjusted_prices,
+    resolved_adjusted_prices,
 )
 from vela_core.models import MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 
 
 def _price(trade_date: date, close: Decimal, factor: Decimal) -> MarketPrice:
@@ -103,3 +105,36 @@ def test_forward_adjusted_prices_does_not_mutate_input() -> None:
 
     assert [p.trade_date for p in prices] == original_dates
     assert [p.factor_hfq for p in prices] == original_factors
+
+
+def test_resolved_adjusted_prices_preserve_derived_valuation_and_tradability() -> None:
+    prices = [
+        ResolvedSessionPrice(
+            etf_id=1,
+            trade_date=date(2024, 1, 1),
+            adjusted_value=Decimal("10.12345678901234567890"),
+            raw_close=Decimal("10.12345678901234567890"),
+            raw_factor=Decimal("1"),
+            tradable=True,
+            resolution="market_price",
+        ),
+        ResolvedSessionPrice(
+            etf_id=1,
+            trade_date=date(2024, 1, 2),
+            adjusted_value=Decimal("10.12345678901234567890"),
+            raw_close=None,
+            raw_factor=None,
+            tradable=False,
+            resolution="confirmed_non_trading_carry",
+            status="full_day_suspension",
+        ),
+    ]
+
+    result = resolved_adjusted_prices(prices)
+
+    assert [point.adjusted_value for point in result] == [
+        Decimal("10.12345678901234567890"),
+        Decimal("10.12345678901234567890"),
+    ]
+    assert [point.tradable for point in result] == [True, False]
+    assert not hasattr(MarketPrice, "adjusted_value")

@@ -7,6 +7,7 @@ from vela_core.momentum_scoring import (
     rank_momentum_scores,
     select_with_defensive_fallback,
 )
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategies.types import GeneratedSignalPosition, StrategyGenerationError
 from vela_core.strategy_config import DualMomentumParams
 from vela_core.trend_filter import _trend_filter_from_prices
@@ -27,7 +28,7 @@ class DualMomentumStrategy:
         self,
         *,
         signal_date: date,
-        price_panel: dict[int, list[MarketPrice]],
+        price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
         active_etfs: list[ETFInfo],
     ) -> list[GeneratedSignalPosition]:
         etfs_by_id = {etf.id: etf for etf in active_etfs}
@@ -76,5 +77,7 @@ class DualMomentumStrategy:
         return positions
 
 
-def _prices_through(prices: list[MarketPrice], signal_date: date) -> list[MarketPrice]:
+def _prices_through(
+    prices: list[MarketPrice | ResolvedSessionPrice], signal_date: date
+) -> list[MarketPrice | ResolvedSessionPrice]:
     return [price for price in prices if price.trade_date <= signal_date]

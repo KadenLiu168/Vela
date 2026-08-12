@@ -266,6 +266,7 @@ def _seed_market_fixture(database_url: str) -> sessionmaker:
             name="CSI 300 fixture ETF",
             currency="CNY",
             category="risk",
+            listing_date=date(2017, 6, 1),
         )
         defensive = ETFInfo(
             exchange="SSE",
@@ -273,6 +274,7 @@ def _seed_market_fixture(database_url: str) -> sessionmaker:
             name="Defensive fixture ETF",
             currency="CNY",
             category="defense",
+            listing_date=date(2017, 6, 1),
         )
         session.add_all([csi_300, defensive])
         session.flush()

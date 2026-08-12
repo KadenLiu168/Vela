@@ -19,6 +19,7 @@ from vela_core.models import (  # noqa: E402,F401
     Base,
     DataFetchLog,
     ETFInfo,
+    ETFSessionStatus,
     MarketPrice,
     StrategySignal,
     StrategySignalPosition,

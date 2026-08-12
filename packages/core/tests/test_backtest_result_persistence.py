@@ -151,6 +151,19 @@ def test_get_backtest_result_loads_run_with_ordered_equity_curve() -> None:
     ]
 
 
+def test_get_backtest_result_rejects_corrupt_v2_input_snapshot() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        persisted = persist_backtest_result(session, run=_run_input(), equity_curve=[])
+        persisted.backtest_run.data_snapshot_json = {"version": "backtest_input_v2"}
+        session.commit()
+        session.expire_all()
+
+        with pytest.raises(ValueError, match="backtest_input_v2"):
+            get_backtest_result(session, run_id=persisted.backtest_run.id)
+
+
 def test_persist_backtest_result_loads_ordered_benchmark_curves_and_legacy_runs() -> None:
     session_factory = _create_session_factory()
 

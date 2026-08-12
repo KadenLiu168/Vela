@@ -21,6 +21,7 @@ from vela_core.models import (
     BacktestRun,
     Base,
     ETFInfo,
+    ETFSessionStatus,
     MarketPrice,
     StrategySignal,
     TradingCalendar,
@@ -444,7 +445,6 @@ def test_run_backtest_reruns_keep_signal_scopes_and_persisted_results_isolated(
         "_load_required_trading_dates",
         lambda session, *, trading_dates, first_rebalance_date, lookback_days: trading_dates,
     )
-    monkeypatch.setattr(runner, "_validate_required_prices", lambda **_kwargs: None)
 
     with session_factory() as session:
         spy = _add_etf(session, symbol="SPY")
@@ -657,12 +657,52 @@ def test_run_backtest_rejects_required_price_gap_before_any_persistence(
         session.commit()
         monkeypatch.setattr(runner, "resolve_strategy", lambda config: ZeroLookbackStrategy())
 
-        with pytest.raises(ValueError, match=r"ETF 2 on 2026-01-02"):
+        with pytest.raises(ValueError, match=r"ETF 2 NYSEARCA:BBB on 2026-01-02"):
             run_backtest(
                 session,
                 config=_strategy_config(),
                 start_date=date(2026, 1, 1),
                 end_date=date(2026, 1, 2),
+            )
+
+        assert session.query(StrategySignal).count() == 0
+        assert session.query(BacktestRun).count() == 0
+        assert session.query(BacktestEquityCurve).count() == 0
+
+
+def test_run_backtest_rejects_raw_status_conflict_before_any_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+
+    class ZeroLookbackStrategy:
+        def lookback_days(self) -> int:
+            return 0
+
+    with session_factory() as session:
+        etf = _add_etf(session, symbol="CONFLICT")
+        trade_date = date(2026, 1, 2)
+        _add_calendar(session, trade_date)
+        _add_price(session, etf_id=etf.id, trade_date=trade_date, close_price=100)
+        session.add(
+            ETFSessionStatus(
+                etf_id=etf.id,
+                trade_date=trade_date,
+                status="full_day_suspension",
+                reason="holder_meeting",
+                source_uri="https://example.test/status",
+                source_published_date=trade_date,
+            )
+        )
+        session.commit()
+        monkeypatch.setattr(runner, "resolve_strategy", lambda config: ZeroLookbackStrategy())
+
+        with pytest.raises(ValueError, match=r"raw_status_conflict=1"):
+            run_backtest(
+                session,
+                config=_strategy_config(),
+                start_date=trade_date,
+                end_date=trade_date,
             )
 
         assert session.query(StrategySignal).count() == 0
@@ -685,12 +725,14 @@ def test_run_backtest_rejects_missing_csi_price_before_any_persistence(
             symbol="510300",
             name="CSI 300 ETF",
             currency="CNY",
+            listing_date=date(1900, 1, 1),
         )
         other = ETFInfo(
             exchange="SSE",
             symbol="510500",
             name="CSI 500 ETF",
             currency="CNY",
+            listing_date=date(1900, 1, 1),
         )
         session.add_all([csi, other])
         session.flush()
@@ -714,41 +756,6 @@ def test_run_backtest_rejects_missing_csi_price_before_any_persistence(
         assert session.query(BacktestEquityCurve).count() == 0
         assert session.query(BacktestBenchmark).count() == 0
         assert session.query(BacktestBenchmarkEquityCurve).count() == 0
-
-
-def test_validate_required_prices_applies_inception_boundary_without_first_price_exemption() -> (
-    None
-):
-    session_factory = _create_session_factory()
-
-    with session_factory() as session:
-        etf = _add_etf(session)
-        etf.inception_date = date(2026, 1, 2)
-        session.flush()
-        price_panel = {
-            etf.id: [
-                _price_row(
-                    etf_id=etf.id,
-                    trade_date=date(2026, 1, 2),
-                    close_price=Decimal("100"),
-                    factor_hfq=Decimal("1"),
-                )
-            ]
-        }
-
-        runner._validate_required_prices(
-            active_etfs=[etf],
-            required_dates=[date(2026, 1, 1), date(2026, 1, 2)],
-            price_panel=price_panel,
-        )
-
-        etf.inception_date = None
-        with pytest.raises(ValueError, match="2026-01-01"):
-            runner._validate_required_prices(
-                active_etfs=[etf],
-                required_dates=[date(2026, 1, 1), date(2026, 1, 2)],
-                price_panel=price_panel,
-            )
 
 
 def test_run_backtest_persists_empty_holdings_as_cash(
@@ -835,10 +842,22 @@ def test_run_backtest_loads_price_panel_from_exact_required_session_start(
         def lookback_days(self) -> int:
             return lookback_days
 
-    def fake_load_price_panel(session: Session, **kwargs: Any) -> dict[int, list[Any]]:
+    def fake_load_resolved_panel(session: Session, **kwargs: Any) -> dict[int, list[Any]]:
         del session
-        captured_start_dates.append(kwargs["start_date"])
-        return {}
+        official_sessions = kwargs["official_sessions"]
+        captured_start_dates.append(official_sessions[0])
+        active_etf = kwargs["active_etfs"][0]
+        return {
+            active_etf.id: [
+                _price_row(
+                    etf_id=active_etf.id,
+                    trade_date=trade_date,
+                    close_price=Decimal("100"),
+                    factor_hfq=Decimal("1"),
+                )
+                for trade_date in official_sessions
+            ]
+        }
 
     with session_factory() as session:
         etf = _add_etf(session)
@@ -847,7 +866,11 @@ def test_run_backtest_loads_price_panel_from_exact_required_session_start(
         session.commit()
         _patch_runner_helpers(monkeypatch, etf_id=etf.id)
         monkeypatch.setattr(runner, "resolve_strategy", lambda config: StrategyWithLookback())
-        monkeypatch.setattr(runner, "load_price_panel", fake_load_price_panel)
+        monkeypatch.setattr(
+            runner,
+            "load_resolved_session_price_panel",
+            fake_load_resolved_panel,
+        )
         required_start = signal_date - timedelta(days=lookback_days)
         monkeypatch.setattr(
             runner,
@@ -1045,6 +1068,284 @@ def test_run_backtest_snapshots_full_panel_without_future_signal_input(
         date(2026, 1, 3),
     ]
     assert captured_curve_panels == captured_panels
+
+
+def test_run_backtest_passes_resolved_confirmed_session_to_downstream_stages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session_factory = _create_session_factory()
+    captured_panels: list[dict[int, list[Any]]] = []
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        _add_calendar(session, date(2026, 1, 1))
+        _add_calendar(session, date(2026, 1, 2))
+        _add_price(session, etf_id=etf.id, trade_date=date(2026, 1, 1), close_price=100)
+        session.add(
+            ETFSessionStatus(
+                etf_id=etf.id,
+                trade_date=date(2026, 1, 2),
+                status="full_day_suspension",
+                reason="holder_meeting",
+                source_uri="https://example.test/status",
+                source_published_date=date(2026, 1, 2),
+            )
+        )
+        session.commit()
+        _patch_runner_helpers(monkeypatch, etf_id=etf.id, captured_panels=captured_panels)
+        monkeypatch.setattr(
+            runner,
+            "_load_trading_dates",
+            lambda session, *, start_date, end_date: [date(2026, 1, 1), date(2026, 1, 2)],
+        )
+
+        run_backtest(
+            session,
+            config=_strategy_config(),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 2),
+        )
+
+    assert captured_panels
+    resolved = captured_panels[0][etf.id]
+    assert [point.trade_date for point in resolved] == [date(2026, 1, 1), date(2026, 1, 2)]
+    assert resolved[1].tradable is False
+    assert resolved[1].resolution == "confirmed_non_trading_carry"
+
+
+def test_run_backtest_covers_all_reviewed_non_trading_event_shapes_end_to_end(
+    tmp_path: Path,
+) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'reviewed-events.db'}")
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    event_specs = {
+        ("SZSE", "159915"): (
+            date(2021, 2, 8),
+            "full_day_suspension",
+            "holder_meeting",
+            None,
+        ),
+        ("SSE", "513100"): (
+            date(2022, 1, 13),
+            "corporate_action_halt",
+            "share_split",
+            Decimal("5"),
+        ),
+        ("SSE", "513500"): (
+            date(2022, 3, 29),
+            "corporate_action_halt",
+            "share_split",
+            Decimal("2"),
+        ),
+        ("SSE", "512100"): (
+            date(2022, 9, 2),
+            "corporate_action_halt",
+            "share_merge",
+            Decimal("0.36555"),
+        ),
+    }
+    official_sessions = [
+        date(2021, 2, 5),
+        date(2021, 2, 8),
+        date(2021, 2, 9),
+        date(2022, 1, 12),
+        date(2022, 1, 13),
+        date(2022, 1, 14),
+        date(2022, 3, 28),
+        date(2022, 3, 29),
+        date(2022, 3, 30),
+        date(2022, 9, 1),
+        date(2022, 9, 2),
+        date(2022, 9, 5),
+    ]
+
+    with session_factory() as session:
+        etfs: dict[tuple[str, str], ETFInfo] = {}
+        for exchange, symbol in [("SSE", "510300"), *event_specs]:
+            etf = ETFInfo(
+                exchange=exchange,
+                symbol=symbol,
+                name=symbol,
+                currency="CNY",
+                listing_date=date(2019, 1, 1),
+            )
+            session.add(etf)
+            session.flush()
+            etfs[(exchange, symbol)] = etf
+        for trade_date in official_sessions:
+            _add_calendar(session, trade_date)
+            for identity, etf in etfs.items():
+                event = event_specs.get(identity)
+                if event is not None and trade_date == event[0]:
+                    continue
+                close_price = Decimal("100")
+                factor = Decimal("1")
+                if identity == ("SSE", "513100") and trade_date > event_specs[identity][0]:
+                    close_price, factor = Decimal("20"), Decimal("5")
+                elif identity == ("SSE", "513500") and trade_date > event_specs[identity][0]:
+                    close_price, factor = Decimal("50"), Decimal("2")
+                elif identity == ("SSE", "512100"):
+                    if trade_date > event_specs[identity][0]:
+                        close_price, factor = Decimal("200"), Decimal("0.36555")
+                    else:
+                        close_price = Decimal("73.11")
+                session.add(
+                    MarketPrice(
+                        etf_id=etf.id,
+                        trade_date=trade_date,
+                        open_price=close_price,
+                        high_price=close_price,
+                        low_price=close_price,
+                        close_price=close_price,
+                        factor_hfq=factor,
+                        volume=1000,
+                    )
+                )
+        for identity, (trade_date, status, reason, share_ratio) in event_specs.items():
+            session.add(
+                ETFSessionStatus(
+                    etf_id=etfs[identity].id,
+                    trade_date=trade_date,
+                    status=status,
+                    reason=reason,
+                    source_uri=f"https://example.test/{identity[1]}/{trade_date.isoformat()}",
+                    source_published_date=trade_date,
+                    share_ratio=share_ratio,
+                )
+            )
+        session.commit()
+
+        result = run_core_backtest(
+            session,
+            config=_equal_weight_config(),
+            start_date=official_sessions[0],
+            end_date=official_sessions[-1],
+            calculate_benchmarks=True,
+        )
+        run = session.get(BacktestRun, result.backtest_run_id)
+        strategy_dates = list(
+            session.scalars(
+                runner.select(BacktestEquityCurve.trade_date)
+                .where(BacktestEquityCurve.backtest_run_id == result.backtest_run_id)
+                .order_by(BacktestEquityCurve.trade_date)
+            )
+        )
+        benchmark_dates = list(
+            session.scalars(
+                runner.select(BacktestBenchmarkEquityCurve.trade_date)
+                .join(BacktestBenchmark)
+                .where(BacktestBenchmark.backtest_run_id == result.backtest_run_id)
+                .distinct()
+                .order_by(BacktestBenchmarkEquityCurve.trade_date)
+            )
+        )
+
+    assert result.status == "success"
+    assert result.total_return == Decimal("0.000000")
+    assert run is not None
+    assert run.data_snapshot_json is not None
+    assert run.data_snapshot_json["version"] == "backtest_input_v2"
+    assert run.data_snapshot_json["derived_session_counts"]["global"] == 4
+    assert {
+        (
+            row["exchange"],
+            row["symbol"],
+            row["trade_date"],
+            row["status"],
+            Decimal(row["share_ratio"]) if row["share_ratio"] is not None else None,
+        )
+        for row in run.data_snapshot_json["derived_sessions"]
+    } == {
+        ("SZSE", "159915", "2021-02-08", "full_day_suspension", None),
+        ("SSE", "513100", "2022-01-13", "corporate_action_halt", Decimal("5")),
+        ("SSE", "513500", "2022-03-29", "corporate_action_halt", Decimal("2")),
+        (
+            "SSE",
+            "512100",
+            "2022-09-02",
+            "corporate_action_halt",
+            Decimal("0.36555"),
+        ),
+    }
+    assert strategy_dates == official_sessions
+    assert benchmark_dates == official_sessions
+
+
+def test_resolved_panel_loads_consecutive_status_anchor_before_required_envelope() -> None:
+    session_factory = _create_session_factory()
+    anchor = date(2025, 12, 30)
+    prior_status_date = date(2025, 12, 31)
+    required_dates = [date(2026, 1, 2), date(2026, 1, 3)]
+
+    with session_factory() as session:
+        etf = _add_etf(session)
+        for trade_date in [anchor, prior_status_date, *required_dates]:
+            _add_calendar(session, trade_date)
+        _add_price(session, etf_id=etf.id, trade_date=anchor, close_price=100)
+        _add_price(session, etf_id=etf.id, trade_date=required_dates[1], close_price=100)
+        session.add_all(
+            [
+                ETFSessionStatus(
+                    etf_id=etf.id,
+                    trade_date=trade_date,
+                    status="full_day_suspension",
+                    reason="holder_meeting",
+                    source_uri="https://example.test/status",
+                    source_published_date=anchor,
+                )
+                for trade_date in (prior_status_date, required_dates[0])
+            ]
+        )
+        session.commit()
+
+        panel = runner._load_resolved_price_panel(
+            session,
+            active_etfs=[etf],
+            required_dates=required_dates,
+            end_date=required_dates[-1],
+        )
+
+    assert [point.trade_date for point in panel[etf.id]] == required_dates
+    assert panel[etf.id][0].adjusted_value == Decimal("100")
+    assert panel[etf.id][0].tradable is False
+
+
+def test_resolved_panel_anchor_does_not_require_unrelated_etf_outside_envelope() -> None:
+    session_factory = _create_session_factory()
+    anchor = date(2025, 12, 31)
+    required_dates = [date(2026, 1, 2), date(2026, 1, 3)]
+
+    with session_factory() as session:
+        halted = _add_etf(session, symbol="HALT")
+        unrelated = _add_etf(session, symbol="OPEN")
+        for trade_date in [anchor, *required_dates]:
+            _add_calendar(session, trade_date)
+        _add_price(session, etf_id=halted.id, trade_date=anchor, close_price=100)
+        _add_price(session, etf_id=halted.id, trade_date=required_dates[1], close_price=100)
+        for trade_date in required_dates:
+            _add_price(session, etf_id=unrelated.id, trade_date=trade_date, close_price=100)
+        session.add(
+            ETFSessionStatus(
+                etf_id=halted.id,
+                trade_date=required_dates[0],
+                status="full_day_suspension",
+                reason="holder_meeting",
+                source_uri="https://example.test/status",
+                source_published_date=anchor,
+            )
+        )
+        session.commit()
+
+        panel = runner._load_resolved_price_panel(
+            session,
+            active_etfs=[halted, unrelated],
+            required_dates=required_dates,
+            end_date=required_dates[-1],
+        )
+
+    assert set(panel) == {halted.id, unrelated.id}
+    assert all([point.trade_date for point in rows] == required_dates for rows in panel.values())
 
 
 def test_run_backtest_persists_benchmark_regime_metrics_and_version_marker(
@@ -1344,7 +1645,6 @@ def _patch_runner_helpers(
         "_load_required_trading_dates",
         lambda session, *, trading_dates, first_rebalance_date, lookback_days: trading_dates,
     )
-    monkeypatch.setattr(runner, "_validate_required_prices", lambda **_kwargs: None)
 
     def fake_generate_historical_strategy_signals(
         *,
@@ -1555,8 +1855,28 @@ def _strategy_config() -> StrategyConfig:
     )
 
 
+def _equal_weight_config() -> StrategyConfig:
+    return validate_strategy_config(
+        {
+            "strategy_id": "equal_weight_reviewed_events",
+            "version": "v1",
+            "type": "equal_weight",
+            "universe_config": "config/etf_pool.yaml",
+            "parameters": {},
+            "costs": {"transaction_cost_bps": 0},
+            "performance": {"risk_free_rate": 0},
+        }
+    )
+
+
 def _add_etf(session: Session, symbol: str = "SPY") -> ETFInfo:
-    etf = ETFInfo(exchange="NYSEARCA", symbol=symbol, name=f"{symbol} ETF", currency="USD")
+    etf = ETFInfo(
+        exchange="NYSEARCA",
+        symbol=symbol,
+        name=f"{symbol} ETF",
+        currency="USD",
+        listing_date=date(1900, 1, 1),
+    )
     session.add(etf)
     session.flush()
     return etf

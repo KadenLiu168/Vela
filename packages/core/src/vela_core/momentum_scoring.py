@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from vela_core.adjusted_price_projection import ForwardAdjustedPrice, forward_adjusted_prices
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_config import DualMomentumParams
 
 
@@ -45,7 +47,7 @@ class DefensiveFallbackSelection:
 
 
 def _momentum_score_from_prices(
-    prices: list[MarketPrice],
+    prices: Sequence[MarketPrice | ResolvedSessionPrice],
     *,
     etf_id: int,
     as_of_date: date,

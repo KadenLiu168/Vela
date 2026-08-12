@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from vela_core.backtest_input import validate_backtest_input_v2
 from vela_core.models import (
     BacktestBenchmark,
     BacktestBenchmarkEquityCurve,
@@ -109,6 +110,10 @@ def persist_backtest_result(
     equity_curve: Sequence[BacktestEquityCurveInput],
     benchmarks: Sequence[BacktestBenchmarkInput] = (),
 ) -> BacktestResultPersistenceResult:
+    if run.data_snapshot_json is not None and run.data_snapshot_json.get("version") == (
+        "backtest_input_v2"
+    ):
+        validate_backtest_input_v2(run.data_snapshot_json)
     keys = [item.key for item in benchmarks]
     if len(keys) != len(set(keys)):
         raise ValueError("Backtest benchmark keys must be unique")
@@ -207,7 +212,7 @@ def persist_backtest_result(
 
 
 def get_backtest_result(session: Session, *, run_id: int) -> BacktestRun | None:
-    return session.scalar(
+    run = session.scalar(
         select(BacktestRun)
         .options(
             selectinload(BacktestRun.equity_curve),
@@ -216,6 +221,10 @@ def get_backtest_result(session: Session, *, run_id: int) -> BacktestRun | None:
         )
         .where(BacktestRun.id == run_id)
     )
+    if run is not None and run.data_snapshot_json is not None:
+        if run.data_snapshot_json.get("version") == "backtest_input_v2":
+            validate_backtest_input_v2(run.data_snapshot_json)
+    return run
 
 
 def derive_backtest_return_stability(run: BacktestRun) -> BacktestReturnStability:

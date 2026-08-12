@@ -1,12 +1,14 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
+from typing import TypeAlias
 
 from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.benchmark_regime_metrics import calculate_benchmark_regime_metrics
 from vela_core.errors import BacktestDataError
 from vela_core.models import ETFInfo, MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_equity_curve import (
     ActiveRiskMetrics,
     StrategyAnnualizedReturn,
@@ -30,6 +32,7 @@ from vela_core.tail_distribution_risk_metrics import calculate_tail_distribution
 
 _SIX_PLACES = Decimal("0.000001")
 _BASIS_POINTS = Decimal("10000")
+_SessionPrice: TypeAlias = MarketPrice | ResolvedSessionPrice
 
 
 @dataclass(frozen=True)
@@ -71,7 +74,7 @@ def calculate_backtest_benchmarks(
     *,
     trading_dates: Sequence[date],
     active_etfs: Sequence[ETFInfo],
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
     transaction_cost_bps: Decimal | float,
     risk_free_rate: Decimal,
     following_trading_date: date | None = None,
@@ -146,7 +149,7 @@ def _resolve_csi_300(active_etfs: Sequence[ETFInfo], *, first_date: date) -> ETF
     matches = [etf for etf in active_etfs if etf.exchange == "SSE" and etf.symbol == "510300"]
     if len(matches) != 1:
         raise BacktestDataError("Benchmark requires exactly one active SSE:510300 ETF")
-    if matches[0].inception_date is not None and matches[0].inception_date > first_date:
+    if matches[0].listing_date is None or matches[0].listing_date > first_date:
         raise BacktestDataError(
             f"Benchmark requires active SSE:510300 ETF on {first_date.isoformat()}"
         )
@@ -156,8 +159,15 @@ def _resolve_csi_300(active_etfs: Sequence[ETFInfo], *, first_date: date) -> ETF
 def _validate_prices(
     trading_dates: Sequence[date],
     active_etfs: Sequence[ETFInfo],
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
 ) -> None:
+    missing_listing = [
+        f"{etf.exchange}:{etf.symbol}" for etf in active_etfs if etf.listing_date is None
+    ]
+    if missing_listing:
+        raise BacktestDataError(
+            "Benchmark requires listing_date for active ETF " + ", ".join(missing_listing)
+        )
     available = {
         (price.etf_id, price.trade_date) for rows in price_panel.values() for price in rows
     }
@@ -165,7 +175,7 @@ def _validate_prices(
         (etf, trade_date)
         for etf in active_etfs
         for trade_date in trading_dates
-        if etf.inception_date is None or etf.inception_date <= trade_date
+        if etf.listing_date is None or etf.listing_date <= trade_date
         if (etf.id, trade_date) not in available
     ]
     if gaps:
@@ -178,42 +188,55 @@ def _validate_prices(
 def _equal_weight_points(
     trading_dates: Sequence[date],
     active_etfs: Sequence[ETFInfo],
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
     transaction_cost_bps: Decimal,
     following_trading_date: date | None,
 ) -> list[StrategyEquityCurvePoint]:
     initial_etfs = _eligible_etfs(active_etfs, trading_dates[0])
-    values = {etf.id: Decimal("1") / Decimal(len(initial_etfs)) for etf in initial_etfs}
-    points = [StrategyEquityCurvePoint(trading_dates[0], Decimal("1.000000"), Decimal("0.000000"))]
+    if not initial_etfs:
+        raise BacktestDataError("Equal-weight benchmark has no ETF eligible on first session")
+    initial_weight = Decimal("1") / Decimal(len(initial_etfs))
+    pending_target = {etf.id: initial_weight for etf in initial_etfs}
+    cash = Decimal("1")
+    values: dict[int, Decimal] = {}
+    points: list[StrategyEquityCurvePoint] = []
     cost_rate = transaction_cost_bps / _BASIS_POINTS
-    for index, current_date in enumerate(trading_dates[1:], start=1):
-        previous_total = sum(values.values(), Decimal("0"))
-        values = _mark(values, trading_dates[index - 1], current_date, price_panel)
-        total = sum(values.values(), Decimal("0"))
+    for index, current_date in enumerate(trading_dates):
+        previous_total = cash + sum(values.values(), Decimal("0"))
+        if index > 0:
+            values = _mark(values, trading_dates[index - 1], current_date, price_panel)
+        total = cash + sum(values.values(), Decimal("0"))
         next_date = (
             trading_dates[index + 1] if index + 1 < len(trading_dates) else following_trading_date
         )
-        if _is_month_end(current_date, next_date):
+        if index > 0 and _is_month_end(current_date, next_date):
             target_etfs = _eligible_etfs(active_etfs, current_date)
-            target = Decimal("1") / Decimal(len(target_etfs))
-            target_weights = {etf.id: target for etf in target_etfs}
-            actual_weights = {etf_id: value / total for etf_id, value in values.items()}
-            turnover = sum(
-                abs(
-                    actual_weights.get(etf_id, Decimal("0"))
-                    - target_weights.get(etf_id, Decimal("0"))
+            if not target_etfs:
+                raise BacktestDataError(
+                    f"Equal-weight benchmark has no ETF eligible on {current_date.isoformat()}"
                 )
-                for etf_id in actual_weights.keys() | target_weights.keys()
-            )
-            total *= Decimal("1") - turnover * cost_rate
-            if total <= 0:
-                raise ValueError("Transaction costs exhausted benchmark assets")
-            values = {etf_id: total * weight for etf_id, weight in target_weights.items()}
+            target = Decimal("1") / Decimal(len(target_etfs))
+            pending_target = {etf.id: target for etf in target_etfs}
+        if pending_target and _target_is_tradable(
+            values, pending_target, current_date, price_panel
+        ):
+            if not values:
+                cash, values = _allocate_target_weights(total, pending_target)
+            else:
+                cash, values = _rebalance_target(
+                    total,
+                    values,
+                    pending_target,
+                    cost_rate,
+                )
+            pending_target = {}
+            total = cash + sum(values.values(), Decimal("0"))
+        daily_return = Decimal("0") if index == 0 else total / previous_total - 1
         points.append(
             StrategyEquityCurvePoint(
                 current_date,
                 total.quantize(_SIX_PLACES),
-                (total / previous_total - 1).quantize(_SIX_PLACES),
+                daily_return.quantize(_SIX_PLACES),
             )
         )
     return points
@@ -222,19 +245,31 @@ def _equal_weight_points(
 def _buy_hold_points(
     trading_dates: Sequence[date],
     etf: ETFInfo,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
 ) -> list[StrategyEquityCurvePoint]:
-    values = {etf.id: Decimal("1")}
-    points = [StrategyEquityCurvePoint(trading_dates[0], Decimal("1.000000"), Decimal("0.000000"))]
-    for index, current_date in enumerate(trading_dates[1:], start=1):
-        previous_total = values[etf.id]
-        values = _mark(values, trading_dates[index - 1], current_date, price_panel)
-        total = values[etf.id]
+    cash = Decimal("1")
+    values: dict[int, Decimal] = {}
+    pending = True
+    points: list[StrategyEquityCurvePoint] = []
+    for index, current_date in enumerate(trading_dates):
+        previous_total = cash + sum(values.values(), Decimal("0"))
+        if index > 0:
+            values = _mark(values, trading_dates[index - 1], current_date, price_panel)
+        total = cash + sum(values.values(), Decimal("0"))
+        if pending and _target_is_tradable(
+            values,
+            {etf.id: Decimal("1")},
+            current_date,
+            price_panel,
+        ):
+            cash, values = _allocate_target_weights(total, {etf.id: Decimal("1")})
+            pending = False
+            total = cash + sum(values.values(), Decimal("0"))
         points.append(
             StrategyEquityCurvePoint(
                 current_date,
                 total.quantize(_SIX_PLACES),
-                (total / previous_total - 1).quantize(_SIX_PLACES),
+                (Decimal("0") if index == 0 else total / previous_total - 1).quantize(_SIX_PLACES),
             )
         )
     return points
@@ -244,7 +279,7 @@ def _mark(
     values: dict[int, Decimal],
     previous_date: date,
     current_date: date,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
 ) -> dict[int, Decimal]:
     prices = {
         (price.etf_id, price.trade_date): price for rows in price_panel.values() for price in rows
@@ -269,8 +304,64 @@ def _is_month_end(current_date: date, next_date: date | None) -> bool:
 
 def _eligible_etfs(active_etfs: Sequence[ETFInfo], trade_date: date) -> list[ETFInfo]:
     return [
-        etf for etf in active_etfs if etf.inception_date is None or etf.inception_date <= trade_date
+        etf
+        for etf in active_etfs
+        if etf.listing_date is not None and etf.listing_date <= trade_date
     ]
+
+
+def _target_is_tradable(
+    current_values: dict[int, Decimal],
+    target_weights: dict[int, Decimal],
+    trade_date: date,
+    price_panel: Mapping[int, Sequence[_SessionPrice]],
+) -> bool:
+    prices = {
+        (price.etf_id, price.trade_date): price for rows in price_panel.values() for price in rows
+    }
+    total_assets = sum(current_values.values(), Decimal("0"))
+    actual_weights = (
+        {}
+        if not current_values
+        else {etf_id: value / total_assets for etf_id, value in current_values.items()}
+    )
+    changed_etf_ids = {
+        etf_id
+        for etf_id in current_values.keys() | target_weights.keys()
+        if actual_weights.get(etf_id, Decimal("0")) != target_weights.get(etf_id, Decimal("0"))
+    }
+    for etf_id in changed_etf_ids:
+        price = prices.get((etf_id, trade_date))
+        if price is None:
+            raise BacktestDataError(f"Benchmark requires price for ETF {etf_id} on {trade_date}")
+        if isinstance(price, ResolvedSessionPrice) and not price.tradable:
+            return False
+    return True
+
+
+def _allocate_target_weights(
+    total_assets: Decimal, target_weights: dict[int, Decimal]
+) -> tuple[Decimal, dict[int, Decimal]]:
+    return Decimal("0"), {
+        etf_id: total_assets * weight for etf_id, weight in target_weights.items()
+    }
+
+
+def _rebalance_target(
+    total_assets: Decimal,
+    current_values: dict[int, Decimal],
+    target_weights: dict[int, Decimal],
+    transaction_cost_rate: Decimal,
+) -> tuple[Decimal, dict[int, Decimal]]:
+    actual_weights = {etf_id: value / total_assets for etf_id, value in current_values.items()}
+    turnover = sum(
+        abs(actual_weights.get(etf_id, Decimal("0")) - target_weights.get(etf_id, Decimal("0")))
+        for etf_id in actual_weights.keys() | target_weights.keys()
+    )
+    total_after_cost = total_assets * (Decimal("1") - turnover * transaction_cost_rate)
+    if total_after_cost <= 0:
+        raise ValueError("Transaction costs exhausted benchmark assets")
+    return _allocate_target_weights(total_after_cost, target_weights)
 
 
 def _result(

@@ -21,6 +21,7 @@ from vela_core import (
     persist_strategy_signal,
 )
 from vela_core.models import Base, ETFInfo, MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_config import StrategyConfig, validate_strategy_config
 
 
@@ -35,6 +36,199 @@ def test_calculate_strategy_equity_curve_returns_empty_for_empty_dates() -> None
         )
 
     assert points == []
+
+
+def test_equity_curve_defers_whole_target_until_all_resolved_legs_are_tradable() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [date(2026, 1, 2), date(2026, 1, 3), date(2026, 1, 4)]
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 1),
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 2),
+            positions=[StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1"))],
+        )
+        session.commit()
+
+        price_panel = {
+            spy.id: [
+                _resolved(spy.id, trading_dates[0], "100"),
+                _resolved(spy.id, trading_dates[1], "110"),
+                _resolved(spy.id, trading_dates[2], "110"),
+            ],
+            qqq.id: [
+                _resolved(qqq.id, trading_dates[0], "200"),
+                _resolved(
+                    qqq.id,
+                    trading_dates[1],
+                    "200",
+                    tradable=False,
+                    resolution="confirmed_non_trading_carry",
+                ),
+                _resolved(qqq.id, trading_dates[2], "220"),
+            ],
+        }
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+            price_panel=price_panel,
+        )
+
+    assert points[1].portfolio_state is not None
+    assert [position.etf_id for position in points[1].portfolio_state.positions] == [spy.id]
+    assert points[1].portfolio_state.cash == Decimal("0.000000")
+    assert points[2].portfolio_state is not None
+    assert [position.etf_id for position in points[2].portfolio_state.positions] == [qqq.id]
+    assert points[2].portfolio_state.cash == Decimal("0.000000")
+    assert points[2].net_value == Decimal("1.097800")
+
+
+def test_equity_curve_keeps_initial_non_tradable_target_in_cash() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [date(2026, 1, 2), date(2026, 1, 3)]
+
+    with session_factory() as session:
+        qqq = _add_etf(session, symbol="QQQ")
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 1),
+            positions=[StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1"))],
+        )
+        session.commit()
+        price_panel = {
+            qqq.id: [
+                _resolved(
+                    qqq.id,
+                    trading_dates[0],
+                    "100",
+                    tradable=False,
+                    resolution="confirmed_non_trading_carry",
+                ),
+                _resolved(qqq.id, trading_dates[1], "110"),
+            ]
+        }
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+            price_panel=price_panel,
+        )
+
+    assert points[0].portfolio_state is not None
+    assert points[0].portfolio_state.cash == Decimal("1.000000")
+    assert points[0].portfolio_state.positions == ()
+    assert points[1].portfolio_state is not None
+    assert [position.etf_id for position in points[1].portfolio_state.positions] == [qqq.id]
+
+
+def test_equity_curve_replaces_blocked_target_with_newer_target() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [date(2026, 1, 2), date(2026, 1, 3), date(2026, 1, 4)]
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        qqq = _add_etf(session, symbol="QQQ")
+        bond = _add_etf(session, symbol="BOND")
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 1),
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 2),
+            positions=[StrategySignalPositionInput(etf_id=qqq.id, target_weight=Decimal("1"))],
+        )
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 3),
+            positions=[StrategySignalPositionInput(etf_id=bond.id, target_weight=Decimal("1"))],
+        )
+        session.commit()
+        price_panel = {
+            spy.id: [_resolved(spy.id, current_date, "100") for current_date in trading_dates],
+            qqq.id: [
+                _resolved(qqq.id, trading_dates[0], "100"),
+                _resolved(
+                    qqq.id,
+                    trading_dates[1],
+                    "100",
+                    tradable=False,
+                    resolution="confirmed_non_trading_carry",
+                ),
+                _resolved(
+                    qqq.id,
+                    trading_dates[2],
+                    "100",
+                    tradable=False,
+                    resolution="confirmed_non_trading_carry",
+                ),
+            ],
+            bond.id: [_resolved(bond.id, current_date, "100") for current_date in trading_dates],
+        }
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(),
+            price_panel=price_panel,
+        )
+
+    assert points[1].portfolio_state is not None
+    assert [position.etf_id for position in points[1].portfolio_state.positions] == [spy.id]
+    assert points[2].portfolio_state is not None
+    assert [position.etf_id for position in points[2].portfolio_state.positions] == [bond.id]
+
+
+def test_equity_curve_defers_empty_target_until_holding_is_tradable() -> None:
+    session_factory = _create_session_factory()
+    trading_dates = [date(2026, 1, 2), date(2026, 1, 3), date(2026, 1, 4)]
+
+    with session_factory() as session:
+        spy = _add_etf(session, symbol="SPY")
+        _add_signal(
+            session,
+            signal_date=date(2026, 1, 1),
+            positions=[StrategySignalPositionInput(etf_id=spy.id, target_weight=Decimal("1"))],
+        )
+        _add_signal(session, signal_date=date(2026, 1, 2), positions=[])
+        session.commit()
+        price_panel = {
+            spy.id: [
+                _resolved(spy.id, trading_dates[0], "100"),
+                _resolved(
+                    spy.id,
+                    trading_dates[1],
+                    "100",
+                    tradable=False,
+                    resolution="confirmed_non_trading_carry",
+                ),
+                _resolved(spy.id, trading_dates[2], "100"),
+            ]
+        }
+
+        points = calculate_strategy_equity_curve(
+            session,
+            trading_dates=trading_dates,
+            strategy_config=_strategy_config(transaction_cost_bps=10),
+            price_panel=price_panel,
+        )
+
+    assert points[1].portfolio_state is not None
+    assert [position.etf_id for position in points[1].portfolio_state.positions] == [spy.id]
+    assert points[2].portfolio_state is not None
+    assert points[2].portfolio_state.positions == ()
+    assert points[2].portfolio_state.cash == Decimal("0.999000")
 
 
 def test_calculate_strategy_equity_curve_sets_initial_net_value() -> None:
@@ -1446,6 +1640,26 @@ def _market_price(
         close_price=Decimal(close_price),
         factor_hfq=factor_hfq,
         volume=1000,
+    )
+
+
+def _resolved(
+    etf_id: int,
+    trade_date: date,
+    adjusted_value: str,
+    *,
+    tradable: bool = True,
+    resolution: str = "market_price",
+) -> ResolvedSessionPrice:
+    value = Decimal(adjusted_value)
+    return ResolvedSessionPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        adjusted_value=value,
+        raw_close=value if tradable else None,
+        raw_factor=Decimal("1") if tradable else None,
+        tradable=tradable,
+        resolution=resolution,
     )
 
 

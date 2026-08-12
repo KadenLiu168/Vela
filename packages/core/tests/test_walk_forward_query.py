@@ -246,7 +246,7 @@ def test_walk_forward_queries_fail_closed_on_corrupt_evidence(tmp_path) -> None:
             get_walk_forward_run(session, run_id=1, strategy_id="demo")
 
 
-@pytest.mark.parametrize("corruption", ["provenance", "manifest", "children"])
+@pytest.mark.parametrize("corruption", ["provenance", "manifest", "input_checksum", "children"])
 def test_walk_forward_queries_fail_closed_on_contract_drift(tmp_path, corruption: str) -> None:
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / f'{corruption}.db'}")
     Base.metadata.create_all(engine)
@@ -256,6 +256,8 @@ def test_walk_forward_queries_fail_closed_on_contract_drift(tmp_path, corruption
             row.provenance_version = "wf_provenance_v0"
         elif corruption == "manifest":
             row.input_data_snapshot_json = {"version": "wf_provenance_v1"}
+        elif corruption == "input_checksum":
+            row.input_data_checksum = "not-a-checksum"
         else:
             row.window_count = 1
         session.commit()

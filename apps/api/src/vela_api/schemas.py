@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypeAliasType
 from vela_core.config import ETFConfig
 from vela_core.strategy_config import StrategyConfig
@@ -554,8 +554,54 @@ class WalkForwardInputManifestResponse(ResponseModel):
     last_loaded_price_date: date | None
 
 
+class WalkForwardStatusEvidenceResponse(ResponseModel):
+    trade_date: date
+    status: Literal["full_day_suspension", "corporate_action_halt"]
+    reason: str
+    source_uri: str
+    source_published_date: date
+    share_ratio: str | None
+    resolution: Literal["confirmed_non_trading_carry"]
+    carried_adjusted_value: str
+    carry_from_trade_date: date
+
+
+class WalkForwardActiveETFManifestV2Response(ResponseModel):
+    etf_id: int
+    exchange: str
+    symbol: str
+    inception_date: date | None
+    listing_date: date
+    raw_price_row_count: int
+    first_raw_price_date: date | None
+    last_raw_price_date: date | None
+    derived_session_count: int
+    first_derived_session_date: date | None
+    last_derived_session_date: date | None
+    status_evidence: list[WalkForwardStatusEvidenceResponse]
+
+
+class WalkForwardInputManifestV2Response(ResponseModel):
+    version: Literal["wf_provenance_v2"]
+    resolution_policy_version: str
+    earliest_required_session: date
+    configured_end_date: date
+    following_session: date | None
+    official_sessions: list[date]
+    active_etfs: list[WalkForwardActiveETFManifestV2Response]
+    raw_price_row_count: int
+    first_raw_price_date: date | None
+    last_raw_price_date: date | None
+    derived_session_count: int
+    first_derived_session_date: date | None
+    last_derived_session_date: date | None
+
+
 class WalkForwardInputProvenanceResponse(ResponseModel):
-    manifest: WalkForwardInputManifestResponse
+    manifest: Annotated[
+        WalkForwardInputManifestResponse | WalkForwardInputManifestV2Response,
+        Field(discriminator="version"),
+    ]
     input_data_checksum: str
 
 

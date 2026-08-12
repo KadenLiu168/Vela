@@ -24,6 +24,7 @@ class ETFInfo(Base):
     issuer: Mapped[str | None] = mapped_column(String(255))
     category: Mapped[str | None] = mapped_column(String(128))
     inception_date: Mapped[date | None] = mapped_column(Date)
+    listing_date: Mapped[date | None] = mapped_column(Date)
     expense_ratio: Mapped[Decimal | None] = mapped_column(Numeric(8, 6))
     is_active: Mapped[bool] = mapped_column(
         Boolean,

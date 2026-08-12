@@ -11,11 +11,13 @@ from sqlalchemy.orm import Session
 from vela_core.adjusted_price_projection import forward_adjusted_prices
 from vela_core.models import MarketPrice
 from vela_core.portfolio_holdings import PortfolioHoldingSnapshot, calculate_portfolio_holdings
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_config import StrategyConfig
 
 _SIX_PLACES = Decimal("0.000001")
 _BASIS_POINTS = Decimal("10000")
 _PriceKey: TypeAlias = tuple[int, date]
+_SessionPrice: TypeAlias = MarketPrice | ResolvedSessionPrice
 
 
 @dataclass(frozen=True)
@@ -94,7 +96,7 @@ def calculate_strategy_equity_curve(
     trading_dates: list[date],
     strategy_config: StrategyConfig,
     signal_ids: Sequence[int] | None = None,
-    price_panel: dict[int, list[MarketPrice]] | None = None,
+    price_panel: dict[int, list[_SessionPrice]] | None = None,
 ) -> list[StrategyEquityCurvePoint]:
     if not trading_dates:
         return []
@@ -113,33 +115,61 @@ def calculate_strategy_equity_curve(
     )
     transaction_cost_rate = Decimal(str(strategy_config.costs.transaction_cost_bps)) / _BASIS_POINTS
 
-    active_signal_id = holding_snapshots[0].strategy_signal_id
-    cash, position_values = _allocate_target(Decimal("1"), holding_snapshots[0])
-    points = [_to_point(holding_snapshots[0], cash, position_values, Decimal("0"))]
+    desired_signal_id: int | None = None
+    pending_target: dict[int, Decimal] | None = None
+    cash = Decimal("1")
+    position_values: dict[int, Decimal] = {}
+    points: list[StrategyEquityCurvePoint] = []
 
-    for index, snapshot in enumerate(holding_snapshots[1:], start=1):
+    for index, snapshot in enumerate(holding_snapshots):
+        if snapshot.strategy_signal_id != desired_signal_id:
+            desired_signal_id = snapshot.strategy_signal_id
+            pending_target = _normalized_target_weights(snapshot)
+
         previous_total = cash + sum(position_values.values(), Decimal("0"))
-        position_values = _mark_to_market(
-            position_values=position_values,
-            previous_date=trading_dates[index - 1],
-            current_date=snapshot.trade_date,
-            prices_by_key=prices_by_key,
-        )
+        if index > 0:
+            position_values = _mark_to_market(
+                position_values=position_values,
+                previous_date=trading_dates[index - 1],
+                current_date=snapshot.trade_date,
+                prices_by_key=prices_by_key,
+            )
         marked_total = cash + sum(position_values.values(), Decimal("0"))
 
-        if snapshot.strategy_signal_id != active_signal_id:
-            cash, position_values = _rebalance(
-                total_assets=marked_total,
-                position_values=position_values,
-                snapshot=snapshot,
-                transaction_cost_rate=transaction_cost_rate,
-            )
-            active_signal_id = snapshot.strategy_signal_id
+        if pending_target is not None and _target_is_tradable(
+            total_assets=marked_total,
+            position_values=position_values,
+            target_weights=pending_target,
+            trade_date=snapshot.trade_date,
+            prices_by_key=prices_by_key,
+        ):
+            if index == 0:
+                cash, position_values = _allocate_target_weights(marked_total, pending_target)
+            else:
+                cash, position_values = _rebalance_target(
+                    total_assets=marked_total,
+                    position_values=position_values,
+                    target_weights=pending_target,
+                    transaction_cost_rate=transaction_cost_rate,
+                )
+            pending_target = None
 
         total_assets = cash + sum(position_values.values(), Decimal("0"))
-        if previous_total <= 0 or total_assets <= 0:
+        if total_assets <= 0 or (index > 0 and previous_total <= 0):
             raise ValueError("Portfolio assets must remain positive")
-        points.append(_to_point(snapshot, cash, position_values, total_assets / previous_total - 1))
+        daily_return = Decimal("0") if index == 0 else total_assets / previous_total - 1
+        display_target = (
+            pending_target if pending_target is not None else _normalized_target_weights(snapshot)
+        )
+        points.append(
+            _to_point(
+                snapshot,
+                cash,
+                position_values,
+                daily_return,
+                target_weights=display_target,
+            )
+        )
 
     return points
 
@@ -393,8 +423,8 @@ def _load_prices_by_key(
     session: Session,
     holding_snapshots: list[PortfolioHoldingSnapshot],
     *,
-    price_panel: dict[int, list[MarketPrice]] | None = None,
-) -> dict[_PriceKey, MarketPrice]:
+    price_panel: dict[int, list[_SessionPrice]] | None = None,
+) -> dict[_PriceKey, _SessionPrice]:
     etf_ids = {holding.etf_id for snapshot in holding_snapshots for holding in snapshot.holdings}
     trade_dates = {snapshot.trade_date for snapshot in holding_snapshots}
 
@@ -422,7 +452,13 @@ def _allocate_target(
     total_assets: Decimal,
     snapshot: PortfolioHoldingSnapshot,
 ) -> tuple[Decimal, dict[int, Decimal]]:
-    target_weights = _normalized_target_weights(snapshot)
+    return _allocate_target_weights(total_assets, _normalized_target_weights(snapshot))
+
+
+def _allocate_target_weights(
+    total_assets: Decimal,
+    target_weights: dict[int, Decimal],
+) -> tuple[Decimal, dict[int, Decimal]]:
     if not target_weights:
         return total_assets, {}
     return Decimal("0"), {
@@ -445,7 +481,7 @@ def _mark_to_market(
     position_values: dict[int, Decimal],
     previous_date: date,
     current_date: date,
-    prices_by_key: dict[_PriceKey, MarketPrice],
+    prices_by_key: dict[_PriceKey, _SessionPrice],
 ) -> dict[int, Decimal]:
     marked_values = dict(position_values)
     for etf_id, value in position_values.items():
@@ -471,6 +507,39 @@ def _mark_to_market(
     return marked_values
 
 
+def _target_is_tradable(
+    *,
+    total_assets: Decimal,
+    position_values: dict[int, Decimal],
+    target_weights: dict[int, Decimal],
+    trade_date: date,
+    prices_by_key: dict[_PriceKey, _SessionPrice],
+) -> bool:
+    if total_assets <= 0:
+        raise ValueError("Portfolio assets must be positive before target execution")
+    actual_weights = {etf_id: value / total_assets for etf_id, value in position_values.items()}
+    changed_etf_ids = {
+        etf_id
+        for etf_id in target_weights.keys() | actual_weights.keys()
+        if target_weights.get(etf_id, Decimal("0")) != actual_weights.get(etf_id, Decimal("0"))
+    }
+    for etf_id in changed_etf_ids:
+        price = prices_by_key.get((etf_id, trade_date))
+        if price is None:
+            raise ValueError(
+                f"Missing strategy price for target ETF {etf_id} on {trade_date.isoformat()}"
+            )
+        if not _is_tradable(price):
+            return False
+    return True
+
+
+def _is_tradable(price: _SessionPrice | None) -> bool:
+    return price is not None and (
+        price.tradable if isinstance(price, ResolvedSessionPrice) else True
+    )
+
+
 def _rebalance(
     *,
     total_assets: Decimal,
@@ -478,9 +547,23 @@ def _rebalance(
     snapshot: PortfolioHoldingSnapshot,
     transaction_cost_rate: Decimal,
 ) -> tuple[Decimal, dict[int, Decimal]]:
+    return _rebalance_target(
+        total_assets=total_assets,
+        position_values=position_values,
+        target_weights=_normalized_target_weights(snapshot),
+        transaction_cost_rate=transaction_cost_rate,
+    )
+
+
+def _rebalance_target(
+    *,
+    total_assets: Decimal,
+    position_values: dict[int, Decimal],
+    target_weights: dict[int, Decimal],
+    transaction_cost_rate: Decimal,
+) -> tuple[Decimal, dict[int, Decimal]]:
     if total_assets <= 0:
         raise ValueError("Portfolio assets must remain positive before rebalancing")
-    target_weights = _normalized_target_weights(snapshot)
     actual_weights = {etf_id: value / total_assets for etf_id, value in position_values.items()}
     turnover = sum(
         (
@@ -492,7 +575,7 @@ def _rebalance(
     post_cost_assets = total_assets * (Decimal("1") - turnover * transaction_cost_rate)
     if post_cost_assets <= 0:
         raise ValueError("Transaction costs exhausted portfolio assets")
-    return _allocate_target(post_cost_assets, snapshot)
+    return _allocate_target_weights(post_cost_assets, target_weights)
 
 
 def _to_point(
@@ -500,18 +583,22 @@ def _to_point(
     cash: Decimal,
     position_values: dict[int, Decimal],
     daily_return: Decimal,
+    *,
+    target_weights: dict[int, Decimal] | None = None,
 ) -> StrategyEquityCurvePoint:
     total_assets = cash + sum(position_values.values(), Decimal("0"))
     if total_assets <= 0:
         raise ValueError("Portfolio assets must remain positive")
-    target_weights = {holding.etf_id: holding.target_weight for holding in snapshot.holdings}
+    target_weights = target_weights or {
+        holding.etf_id: holding.target_weight for holding in snapshot.holdings
+    }
     total_output = total_assets.quantize(_SIX_PLACES)
     cash_output = cash.quantize(_SIX_PLACES)
     market_output = total_output - cash_output
     positions = tuple(
         StrategyPortfolioPosition(
             etf_id=etf_id,
-            target_weight=target_weights[etf_id].quantize(_SIX_PLACES),
+            target_weight=target_weights.get(etf_id, Decimal("0")).quantize(_SIX_PLACES),
             actual_weight=(value / total_assets).quantize(_SIX_PLACES),
         )
         for etf_id, value in sorted(position_values.items())

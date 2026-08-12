@@ -54,6 +54,11 @@ class LostWalkForwardClaim(RuntimeError):
     """Raised when a worker no longer owns the durable Walk-forward parent."""
 
 
+def _policy_version(manifest: dict[str, object]) -> str | None:
+    value = manifest.get("resolution_policy_version")
+    return value if isinstance(value, str) else None
+
+
 class WalkForwardRunner:
     def __init__(
         self,
@@ -187,6 +192,8 @@ class WalkForwardRunner:
         provenance_payload = canonical_provenance_payload(
             walk_forward_snapshot,
             base_strategy_snapshot,
+            version=str(prepared.manifest["version"]),
+            resolution_policy_version=_policy_version(prepared.manifest),
         )
         return enqueue_walk_forward_run(
             session,
@@ -214,6 +221,8 @@ class WalkForwardRunner:
         provenance_payload = canonical_provenance_payload(
             walk_forward_snapshot,
             base_strategy_snapshot,
+            version=str(prepared.manifest["version"]),
+            resolution_policy_version=_policy_version(prepared.manifest),
         )
         if (
             parent.strategy_id != self._base_strategy_config.strategy_id

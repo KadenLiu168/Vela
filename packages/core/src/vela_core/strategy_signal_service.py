@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import date
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from vela_core.errors import MissingMarketDataError
 from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, StrategySignal
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_signal_generation import (
     GenerateStrategySignalResult,
@@ -87,7 +89,7 @@ def generate_and_persist_strategy_signal(
     result = generate_strategy_signal(
         signal_date=resolved_signal_date,
         config=config,
-        price_panel=price_panel,
+        price_panel=cast(dict[int, list[MarketPrice | ResolvedSessionPrice]], price_panel),
         active_etfs=active_etfs,
         persist=_persist,
     )

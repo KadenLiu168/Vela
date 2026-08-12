@@ -9,6 +9,7 @@ from typing import Protocol, TypedDict
 
 from vela_core.models import ETFInfo, MarketPrice
 from vela_core.rebalance_dates import generate_rebalance_dates
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategies.types import GeneratedSignalPosition, Strategy, StrategyGenerationError
 from vela_core.strategy_config import StrategyConfig
@@ -51,7 +52,7 @@ def generate_strategy_signal(
     *,
     signal_date: date,
     config: StrategyConfig,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
     active_etfs: list[ETFInfo],
     generated_at: datetime | None = None,
     persist: PersistStrategySignalCallable | None = None,
@@ -59,12 +60,18 @@ def generate_strategy_signal(
     generated_at = generated_at or datetime.now(UTC)
     if not active_etfs:
         return _failed_result(signal_date, config, "No active ETFs found", generated_at, persist)
+    _require_listing_metadata(active_etfs)
+    eligible_etfs = [
+        etf
+        for etf in active_etfs
+        if etf.listing_date is not None and etf.listing_date <= signal_date
+    ]
     return _generate_strategy_signal(
         signal_date=signal_date,
         config=config,
         strategy=resolve_strategy(config),
         price_panel=price_panel,
-        active_etfs=active_etfs,
+        active_etfs=eligible_etfs,
         generated_at=generated_at,
         persist=persist,
     )
@@ -75,7 +82,7 @@ def _generate_strategy_signal(
     signal_date: date,
     config: StrategyConfig,
     strategy: Strategy,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
     active_etfs: list[ETFInfo],
     generated_at: datetime,
     persist: PersistStrategySignalCallable | None,
@@ -95,7 +102,7 @@ def generate_historical_strategy_signals(
     *,
     historical_trading_dates: Iterable[date],
     config: StrategyConfig,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
     active_etfs: list[ETFInfo],
     generated_at: datetime | None = None,
     persist: PersistStrategySignalCallable | None = None,
@@ -122,6 +129,8 @@ def generate_historical_strategy_signals(
             (time.perf_counter() - started) * 1000,
         )
         return []
+
+    _require_listing_metadata(active_etfs)
 
     strategy = resolve_strategy(config)
     lookback_days = strategy.lookback_days()
@@ -152,7 +161,7 @@ def generate_historical_strategy_signals(
             active_etfs=[
                 etf
                 for etf in active_etfs
-                if etf.inception_date is None or etf.inception_date <= rebalance_date
+                if etf.listing_date is not None and etf.listing_date <= rebalance_date
             ],
             generated_at=generated_at,
             persist=persist,
@@ -174,24 +183,28 @@ def _historical_price_window(
     *,
     rebalance_date: date,
     lookback_days: int,
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
     price_dates: dict[int, list[date]],
     etfs_by_id: dict[int, ETFInfo],
-) -> dict[int, list[MarketPrice]]:
+) -> dict[int, list[MarketPrice | ResolvedSessionPrice]]:
     window_size = lookback_days + 1
-    windows: dict[int, list[MarketPrice]] = {}
+    windows: dict[int, list[MarketPrice | ResolvedSessionPrice]] = {}
     for etf_id, prices in price_panel.items():
         etf = etfs_by_id.get(etf_id)
-        if etf is None or (etf.inception_date is not None and etf.inception_date > rebalance_date):
+        if etf is None or etf.listing_date is None or etf.listing_date > rebalance_date:
             continue
         dates = price_dates[etf_id]
         end = bisect_right(dates, rebalance_date)
-        inception_start = (
-            0 if etf.inception_date is None else bisect_left(dates, etf.inception_date)
-        )
-        start = max(inception_start, end - window_size)
+        listing_start = bisect_left(dates, etf.listing_date)
+        start = max(listing_start, end - window_size)
         windows[etf_id] = prices[start:end]
     return windows
+
+
+def _require_listing_metadata(active_etfs: list[ETFInfo]) -> None:
+    missing = [f"{etf.exchange}:{etf.symbol}" for etf in active_etfs if etf.listing_date is None]
+    if missing:
+        raise ValueError("missing listing_date for active ETF " + ", ".join(missing))
 
 
 def _success_result(

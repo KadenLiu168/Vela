@@ -4,27 +4,26 @@
 Defines how the daily strategy net-value equity curve is calculated from holding snapshots and market prices across trading dates.
 ## Requirements
 ### Requirement: Calculate strategy equity curve
-The system SHALL calculate a daily strategy net value curve for requested trading dates using a continuous normalized state of per-ETF market values and cash, SHALL attribute each close-to-close market-return interval to the actual economic holdings effective at the interval's start, SHALL require complete strategy prices for every economically held ETF at both official interval endpoints, and SHALL rebalance that state to a new target allocation only when a different strategy signal becomes effective.
+The system SHALL calculate a daily net-value curve on ordered official sessions using a continuous normalized state of per-ETF market values, cash, active signal identity, and at most one pending complete target. Each held ETF interval endpoint MUST have a resolved adjusted value. A confirmed full-day non-trading point SHALL retain the prior adjusted value and be non-tradable; an unexplained missing endpoint MUST fail. Market return SHALL be attributed to interval-start holdings before any executable rebalance. A target whose changed current/target trade-leg union contains a non-tradable ETF SHALL execute no legs, charge no cost, and remain pending until every leg is tradable; a newer effective target SHALL replace an older pending target.
 
 #### Scenario: Initial net value and state
-- **WHEN** backend code calculates an equity curve for a non-empty trading-date list
-- **THEN** the first curve point has net value `1.000000` and daily return `0.000000`
-- **AND** an empty first holding snapshot initializes cash to `1.000000`
-- **AND** a populated first holding snapshot initializes normalized target holdings without charging an initial-point entry cost
+- **WHEN** a non-empty curve begins without an immediately executable target
+- **THEN** its first point has net value `1.000000` and daily return `0.000000`
+- **AND** cash is `1.000000` until a complete target can execute
 
 #### Scenario: Initial net value
 - **WHEN** backend code calculates an equity curve for a non-empty trading-date list
 - **THEN** the first curve point has net value `1.000000`
 
 #### Scenario: Carry holdings through interval
-- **WHEN** consecutive holding snapshots carry the same successful strategy signal
-- **THEN** each close-to-close daily return uses the actual market values carried forward from the interval-start state
-- **AND** the system does not reset those values to the target weights
+- **WHEN** no executable different target applies across an interval
+- **THEN** the interval uses actual market values carried from its start
+- **AND** does not reset them to target weights
 
 #### Scenario: One daily weighted return
-- **WHEN** backend code calculates a curve interval with ETFs held in the interval-start state and those ETFs have prices on both dates
-- **THEN** each held ETF market value is multiplied by its forward-adjusted price ratio for that interval
-- **AND** the interval-end net value equals cash plus the marked-to-market ETF values before any interval-end rebalance cost
+- **WHEN** held ETFs have resolved values at both interval endpoints
+- **THEN** each held market value is multiplied by its resolved adjusted-value ratio
+- **AND** interval-end net value equals cash plus marked holdings before any rebalance cost
 
 #### Scenario: Actual weights drift without a new signal
 - **WHEN** consecutive holding snapshots carry the same `strategy_signal_id`
@@ -34,9 +33,9 @@ The system SHALL calculate a daily strategy net value curve for requested tradin
 - **AND** the drifted state is used as the starting state for the next interval
 
 #### Scenario: Single fully invested holding remains equivalent
-- **WHEN** one ETF has the full target allocation and no different strategy signal becomes effective
-- **THEN** its actual weight remains the full risky-asset allocation
-- **AND** the curve return equals that ETF's compounded interval returns
+- **WHEN** one ETF has full allocation and no executable different target applies
+- **THEN** its actual weight remains the full risky allocation
+- **AND** the curve equals its resolved-return compounding
 
 #### Scenario: Interval ending at a rebalance-effective date uses prior actual holdings
 - **WHEN** a different `strategy_signal_id` first appears in the holding snapshot for trading date T
@@ -60,8 +59,8 @@ The system SHALL calculate a daily strategy net value curve for requested tradin
 - **AND** the post-rebalance state holds the remaining total assets as cash
 
 #### Scenario: Empty prior holdings keep market return neutral
-- **WHEN** backend code calculates a curve point whose prior holding snapshot has no holdings
-- **THEN** the close-to-close market return contribution for that point is zero
+- **WHEN** the prior economic state has no risky holdings
+- **THEN** its interval market-return contribution is zero
 
 #### Scenario: Missing previous held price fails
 - **WHEN** an ETF held in the interval-start state lacks either the previous or current strategy price
@@ -74,13 +73,66 @@ The system SHALL calculate a daily strategy net value curve for requested tradin
 - **AND** the system does not carry the value, synthesize a price, or emit a zero return
 
 #### Scenario: Non-positive portfolio cannot continue
-- **WHEN** marked-to-market assets or transaction costs leave non-positive total assets before a required weight calculation
-- **THEN** equity-curve calculation fails explicitly
-- **AND** the system does not divide by zero or fabricate a later recovery
+- **WHEN** marked assets or transaction costs leave non-positive total assets
+- **THEN** calculation fails explicitly without fabricating recovery
 
 #### Scenario: Empty trading-date list
-- **WHEN** backend code calculates an equity curve for an empty trading-date list
+- **WHEN** requested trading dates are empty
 - **THEN** the returned curve is empty
+
+#### Scenario: Executable initial target
+- **WHEN** the initial target has only tradable changed legs
+- **THEN** the first point initializes normalized holdings without an initial entry cost
+
+#### Scenario: Non-tradable initial target remains cash
+- **WHEN** an initial target includes a non-tradable ETF
+- **THEN** no partial position is created
+- **AND** the portfolio remains cash with that complete target pending
+
+#### Scenario: Confirmed full-day halt has zero price return
+- **WHEN** a held ETF's current endpoint is `confirmed_non_trading_carry`
+- **THEN** its adjusted-value ratio for that session is exactly one
+- **AND** its position remains non-tradable without creating a raw price
+
+#### Scenario: Actual weights drift without executable rebalance
+- **WHEN** held ETFs earn different returns and no complete target executes
+- **THEN** actual weights derive from marked values and carry into the next interval
+- **AND** they are not reset to desired weights
+
+#### Scenario: Interval ending at target-effective date uses prior holdings
+- **WHEN** a different target first becomes effective on date T
+- **THEN** the interval ending on T uses prior actual holdings
+- **AND** new target ETFs receive no return from before T
+
+#### Scenario: Executable target applies after valuation
+- **WHEN** every changed leg of the effective or pending target is tradable on T
+- **THEN** the complete rebalance applies after the interval ending on T
+- **AND** the following interval uses the new state
+
+#### Scenario: Non-tradable leg defers complete target
+- **WHEN** any changed current/target leg is non-tradable on T
+- **THEN** no target leg executes and no cost is charged
+- **AND** the pre-existing portfolio remains the economic state after T
+
+#### Scenario: New target replaces pending target
+- **WHEN** a newer successful signal becomes effective while an older target is pending
+- **THEN** the newer complete target replaces the older one
+- **AND** the older target is never executed later
+
+#### Scenario: Empty target liquidation can be deferred
+- **WHEN** an empty target would liquidate a non-tradable holding
+- **THEN** liquidation remains pending until that changed leg is tradable
+- **AND** cash is not fabricated before execution
+
+#### Scenario: Unresolved previous held value fails
+- **WHEN** an interval-start holding lacks a resolved previous endpoint
+- **THEN** calculation raises with ETF/date context
+- **AND** it does not infer, synthesize, or silently carry the value
+
+#### Scenario: Unresolved current held value fails
+- **WHEN** an interval-start holding lacks a resolved current endpoint
+- **THEN** calculation raises with ETF/date context
+- **AND** it does not infer, synthesize, or silently carry the value
 
 ### Requirement: Test strategy equity curve calculation
 The system SHALL include regression tests for continuous portfolio-state calculation covering natural weight drift, the initial state, single-asset equivalence, missing held-price failure, precision, and both sides of a rebalance-effective boundary.
@@ -383,7 +435,7 @@ The strategy equity metric layer SHALL calculate Sortino using the configured ri
 #### Scenario: One curve produces consistent expanded metrics
 - **WHEN** a valid strategy curve has sufficient effective returns, non-zero downside deviation and a non-zero maximum drawdown
 - **THEN** the metric layer returns Sortino, Calmar and longest-duration fields from that same curve
-- **AND** does not change total return, CAGR, maximum drawdown, volatility or Sharpe
+ - **AND** does not change total return, CAGR, maximum drawdown, volatility or Sharpe
 
 #### Scenario: Flat curve preserves distinct null and zero values
 - **WHEN** a valid strategy curve never goes underwater and has zero downside deviation

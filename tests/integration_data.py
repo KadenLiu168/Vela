@@ -79,18 +79,21 @@ def canonical_etf_pool() -> ETFPoolConfig:
                 symbol="510300",
                 name="Strong risk ETF",
                 category="risk",
+                listing_date=date(2012, 5, 28),
             ),
             ETFConfig(
                 exchange="SZSE",
                 symbol="159915",
                 name="Unselected risk ETF",
                 category="risk",
+                listing_date=date(2011, 12, 9),
             ),
             ETFConfig(
                 exchange="SSE",
                 symbol="511010",
                 name="Defensive ETF",
                 category="defense",
+                listing_date=date(2013, 3, 25),
             ),
         ],
     )
@@ -267,6 +270,7 @@ def add_etf(
     exchange: str = "NYSEARCA",
     currency: str = "USD",
     category: str | None = None,
+    listing_date: date = date(1900, 1, 1),
 ) -> ETFInfo:
     etf = ETFInfo(
         exchange=exchange,
@@ -274,6 +278,7 @@ def add_etf(
         name=f"{symbol} ETF",
         currency=currency,
         category=category,
+        listing_date=listing_date,
     )
     session.add(etf)
     session.flush()

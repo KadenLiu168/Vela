@@ -1,4 +1,6 @@
+from decimal import Decimal
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 import yaml
@@ -6,13 +8,16 @@ from vela_core import (
     AppConfig,
     ConfigError,
     ETFPoolConfig,
+    ETFSessionStatusDocument,
     load_app_config,
     load_etf_pool_config,
+    load_etf_session_status_document,
 )
 from vela_core.strategy_config import DualMomentumStrategyConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ETF_POOL_PATH = REPO_ROOT / "config" / "etf_pool.yaml"
+ETF_SESSION_STATUS_PATH = REPO_ROOT / "config" / "etf_session_status.yaml"
 STRATEGY_PATH = REPO_ROOT / "config" / "strategy_v1.yaml"
 
 
@@ -30,6 +35,55 @@ def test_load_existing_etf_pool_yaml_returns_typed_config() -> None:
     assert isinstance(config.etfs[0].exchange, str)
 
 
+def test_reviewed_etf_pool_listing_dates_match_exchange_evidence() -> None:
+    config = load_etf_pool_config(ETF_POOL_PATH)
+
+    assert {
+        (etf.exchange, etf.symbol): etf.listing_date.isoformat()
+        for etf in config.etfs
+        if etf.listing_date is not None
+    } == {
+        ("SSE", "510300"): "2012-05-28",
+        ("SZSE", "159915"): "2011-12-09",
+        ("SSE", "512100"): "2016-11-04",
+        ("SSE", "588000"): "2020-11-16",
+        ("SSE", "515080"): "2019-12-27",
+        ("SSE", "513130"): "2021-06-01",
+        ("SSE", "513100"): "2013-05-15",
+        ("SSE", "513500"): "2014-01-15",
+        ("SSE", "518880"): "2013-07-29",
+        ("SSE", "511010"): "2013-03-25",
+        ("SSE", "511880"): "2013-04-18",
+    }
+
+
+def test_load_reviewed_etf_session_status_yaml_is_exact_and_typed() -> None:
+    config = load_etf_session_status_document(ETF_SESSION_STATUS_PATH)
+
+    assert isinstance(config, ETFSessionStatusDocument)
+    identities = [
+        (entry.exchange, entry.symbol, entry.trade_date.isoformat()) for entry in config.entries
+    ]
+    assert identities == [
+        ("SZSE", "159915", "2021-02-08"),
+        ("SSE", "513100", "2022-01-13"),
+        ("SSE", "513500", "2022-03-29"),
+        ("SSE", "512100", "2022-09-02"),
+    ]
+    assert [entry.share_ratio for entry in config.entries] == [
+        None,
+        Decimal("5"),
+        Decimal("2"),
+        Decimal("0.36555"),
+    ]
+    assert [urlparse(entry.source_uri).hostname for entry in config.entries] == [
+        "cdn.efunds.com.cn",
+        "www.sse.com.cn",
+        "www.sse.com.cn",
+        "www.sse.com.cn",
+    ]
+
+
 def test_etf_pool_rejects_duplicate_exchange_symbol(tmp_path: Path) -> None:
     config_path = tmp_path / "etf_pool.yaml"
     config_path.write_text(
@@ -42,9 +96,11 @@ etfs:
   - exchange: SSE
     symbol: "510300"
     name: First ETF
+    listing_date: 2020-01-01
   - exchange: SSE
     symbol: "510300"
     name: Duplicate ETF
+    listing_date: 2020-01-01
 """,
         encoding="utf-8",
     )
@@ -70,9 +126,11 @@ etfs:
   - exchange: SSE
     symbol: "510300"
     name: SSE ETF
+    listing_date: 2020-01-01
   - exchange: SZSE
     symbol: "510300"
     name: SZSE ETF
+    listing_date: 2020-01-01
 """,
         encoding="utf-8",
     )
@@ -206,6 +264,7 @@ etfs:
   - exchange: SSE
     symbol: "511010"
     name: 国债ETF
+    listing_date: 2020-01-01
 """,
         encoding="utf-8",
     )

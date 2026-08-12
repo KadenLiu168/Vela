@@ -17,23 +17,35 @@ The system SHALL calculate exactly two fixed reference benchmarks for each bench
 - **AND** it does not require or synthesize an index `000300` price series
 
 ### Requirement: Benchmark trading and valuation semantics
-Both benchmarks SHALL initialize at the first requested official session without an entry transaction cost and SHALL value holdings with the existing forward-adjusted price-ratio convention. The equal-weight benchmark SHALL rebalance only after valuation on subsequent last official sessions of a calendar month and SHALL apply the strategy configuration's `transaction_cost_bps`; the CSI 300 benchmark SHALL remain buy-and-hold after initialization.
+Both benchmarks SHALL use the shared resolved official-session panel. They SHALL initialize at the first session on which their complete target is executable without entry cost and SHALL value holdings by resolved adjusted-value ratios. A confirmed full-day non-trading holding SHALL retain unchanged adjusted value and remain non-tradable. Equal-weight monthly targets SHALL arise only on the existing schedule, use configured transaction costs, and defer atomically when any changed leg is non-tradable; a newer scheduled target replaces an older pending target. CSI 300 SHALL remain buy-and-hold after its initial executable allocation.
 
 #### Scenario: Initial allocation does not charge cost
-- **WHEN** either benchmark creates its first position on the first requested official session
-- **THEN** its initial net value is not reduced by transaction cost
+- **WHEN** either benchmark's initial target contains only tradable legs
+- **THEN** it initializes without transaction cost
 
 #### Scenario: Monthly equal-weight rebalance charges cost
-- **WHEN** a subsequent monthly rebalance changes the equal-weight benchmark's actual holdings
-- **THEN** it charges the configured transaction cost against turnover before allocating equal target weights
+- **WHEN** a scheduled equal-weight target becomes wholly tradable after being immediately executable or deferred
+- **THEN** it executes all changed legs once and charges configured cost against turnover once
 
 #### Scenario: CSI 300 has no later rebalance
-- **WHEN** the CSI 300 benchmark advances after its initial allocation
-- **THEN** it changes only through the `SSE:510300` price ratio
-- **AND** it incurs no later transaction cost
+- **WHEN** CSI 300 advances after initial allocation
+- **THEN** it changes only through resolved `SSE:510300` valuation
+- **AND** incurs no later transaction cost
+
+#### Scenario: Blocked initial allocation remains cash
+- **WHEN** an initial benchmark target includes a non-tradable ETF
+- **THEN** the complete target remains pending and the benchmark remains cash
+
+#### Scenario: New monthly target replaces pending target
+- **WHEN** another scheduled equal-weight target occurs before the prior target executes
+- **THEN** the newer complete target replaces the pending target
+
+#### Scenario: Confirmed non-trading benchmark session is explicit
+- **WHEN** a benchmark holding has authoritative full-day non-trading status
+- **THEN** that session contributes an unchanged adjusted valuation and remains present in the curve
 
 ### Requirement: Benchmark input completeness
-Benchmark-enabled backtests SHALL use the identical ordered official-session axis as the strategy and SHALL require a unique active `SSE:510300` row plus a stored price on every requested official session. The system MUST fail before signal generation or result persistence on any missing benchmark identity or price and MUST NOT shorten, forward-fill, or zero-fill the benchmark series.
+Benchmark-enabled backtests SHALL use the strategy's identical ordered official-session axis and shared resolver. They MUST require a unique listed active `SSE:510300` identity and exactly one admissible source state for every required benchmark ETF/session. Unknown gaps, absent listing metadata, conflicts, and missing carry anchors MUST fail before artifacts; confirmed full-day status MAY resolve through the shared non-trading policy. The system MUST NOT shorten a series, infer a status, or create raw zero/forward-filled prices.
 
 #### Scenario: Missing CSI 300 price fails before artifacts
 - **WHEN** `SSE:510300` lacks a price on an official session in the requested range
@@ -41,8 +53,16 @@ Benchmark-enabled backtests SHALL use the identical ordered official-session axi
 - **AND** it persists no signal, run, strategy curve, benchmark, or benchmark curve from that attempt
 
 #### Scenario: Complete benchmark inputs share strategy dates
-- **WHEN** all required strategy and benchmark prices are present
-- **THEN** each benchmark curve has one point for every strategy curve trade date
+- **WHEN** every strategy and benchmark ETF/session resolves
+- **THEN** each benchmark curve has one point for every strategy curve date
+
+#### Scenario: Unexplained CSI 300 gap fails before artifacts
+- **WHEN** listed `SSE:510300` has neither price nor authoritative status on a requested session
+- **THEN** the backtest fails with ETF/date context and persists no attempted artifact
+
+#### Scenario: Confirmed CSI 300 non-trading session resolves
+- **WHEN** `SSE:510300` has authoritative full-day status and a prior resolved value
+- **THEN** its benchmark curve retains that official session with unchanged adjusted valuation
 
 ### Requirement: Benchmark metrics and relative comparison
 The system SHALL calculate total return, calendar-time annualized return, maximum drawdown, annualized volatility, and Sharpe ratio for each benchmark using the same metric definitions as the strategy. It SHALL calculate strategy minus benchmark total-return and annualized-return differences without treating them as Tracking Error, Information Ratio, Alpha, or Beta.

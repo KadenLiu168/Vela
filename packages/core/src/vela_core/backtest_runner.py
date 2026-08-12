@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from vela_core.backtest_benchmarks import (
     calculate_backtest_benchmark_regime_metrics,
     calculate_backtest_benchmarks,
 )
+from vela_core.backtest_input import build_backtest_input_v2
 from vela_core.backtest_result_persistence import (
     BacktestBenchmarkInput,
     BacktestEquityCurveInput,
@@ -22,9 +24,10 @@ from vela_core.backtest_result_persistence import (
     persist_backtest_result,
 )
 from vela_core.errors import BacktestDataError, InvalidDateRangeError
-from vela_core.market_price_query import load_price_panel
 from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
 from vela_core.rebalance_dates import generate_rebalance_dates
+from vela_core.resolved_session_price import ResolvedSessionPrice
+from vela_core.resolved_session_price_query import load_resolved_session_price_panel
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
 from vela_core.strategy_equity_curve import (
@@ -132,12 +135,16 @@ def run_backtest(
     )
 
     started_at = started_at or datetime.now(UTC)
-    price_panel = load_price_panel(
-        session,
-        etf_ids=[etf.id for etf in active_etfs],
-        start_date=required_dates[0],
-        end_date=end_date,
+    price_panel = cast(
+        dict[int, list[MarketPrice | ResolvedSessionPrice]],
+        _load_resolved_price_panel(
+            session,
+            active_etfs=active_etfs,
+            required_dates=required_dates,
+            end_date=end_date,
+        ),
     )
+    following_trading_date = _load_following_trading_date(session, end_date=end_date)
     benchmarks = (
         calculate_backtest_benchmarks(
             trading_dates=trading_dates,
@@ -145,17 +152,17 @@ def run_backtest(
             price_panel=price_panel,
             transaction_cost_bps=config.costs.transaction_cost_bps,
             risk_free_rate=Decimal(str(config.performance.risk_free_rate)),
-            following_trading_date=_load_following_trading_date(session, end_date=end_date),
+            following_trading_date=following_trading_date,
         )
         if calculate_benchmarks
         else []
     )
-    _validate_required_prices(
+    data_snapshot_json = build_backtest_input_v2(
         active_etfs=active_etfs,
-        required_dates=required_dates,
+        official_sessions=required_dates,
+        following_session=following_trading_date,
         price_panel=price_panel,
     )
-    data_snapshot_json = build_data_snapshot(price_panel)
 
     def _persist_signal(
         *,
@@ -322,7 +329,9 @@ def run_backtest(
     return backtest_result
 
 
-def build_data_snapshot(price_panel: dict[int, list[MarketPrice]]) -> dict[str, object]:
+def build_data_snapshot(
+    price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
+) -> dict[str, object]:
     rows = sorted(
         (price for prices in price_panel.values() for price in prices),
         key=lambda price: (price.etf_id, price.trade_date),
@@ -333,17 +342,25 @@ def build_data_snapshot(price_panel: dict[int, list[MarketPrice]]) -> dict[str, 
     for price in rows:
         etf_id = str(price.etf_id)
         per_etf_row_counts[etf_id] = per_etf_row_counts.get(etf_id, 0) + 1
-        checksum.update(
-            json.dumps(
-                [
-                    price.etf_id,
-                    price.trade_date.isoformat(),
-                    str(price.close_price),
-                    str(price.factor_hfq),
-                ],
-                separators=(",", ":"),
-            ).encode("utf-8")
-        )
+        if isinstance(price, ResolvedSessionPrice):
+            close_price = price.raw_close
+            factor_hfq = price.raw_factor
+            derived_value = price.adjusted_value
+            resolution = price.resolution
+        else:
+            close_price = price.close_price
+            factor_hfq = price.factor_hfq
+            derived_value = None
+            resolution = None
+        checksum_fields = [
+            price.etf_id,
+            price.trade_date.isoformat(),
+            str(close_price),
+            str(factor_hfq),
+        ]
+        if isinstance(price, ResolvedSessionPrice):
+            checksum_fields.extend([str(derived_value), resolution])
+        checksum.update(json.dumps(checksum_fields, separators=(",", ":")).encode("utf-8"))
         checksum.update(b"\n")
 
     return {
@@ -382,6 +399,21 @@ def _list_active_etfs(session: Session) -> list[ETFInfo]:
     )
 
 
+def _load_resolved_price_panel(
+    session: Session,
+    *,
+    active_etfs: list[ETFInfo],
+    required_dates: list[date],
+    end_date: date,
+) -> dict[int, list[ResolvedSessionPrice]]:
+    del end_date
+    return load_resolved_session_price_panel(
+        session,
+        active_etfs=active_etfs,
+        official_sessions=required_dates,
+    )
+
+
 def _load_required_trading_dates(
     session: Session,
     *,
@@ -407,34 +439,6 @@ def _load_required_trading_dates(
             f"{first_rebalance_date.isoformat()}"
         )
     return sorted(set(preceding_dates) | set(trading_dates))
-
-
-def _validate_required_prices(
-    *,
-    active_etfs: list[ETFInfo],
-    required_dates: list[date],
-    price_panel: dict[int, list[MarketPrice]],
-) -> None:
-    available_keys = {
-        (price.etf_id, price.trade_date) for prices in price_panel.values() for price in prices
-    }
-    gaps = [
-        (etf.id, trade_date)
-        for etf in active_etfs
-        for trade_date in required_dates
-        if (etf.inception_date is None or trade_date >= etf.inception_date)
-        and (etf.id, trade_date) not in available_keys
-    ]
-    if not gaps:
-        return
-
-    sample = ", ".join(
-        f"ETF {etf_id} on {trade_date.isoformat()}" for etf_id, trade_date in gaps[:10]
-    )
-    suffix = "" if len(gaps) <= 10 else ", ..."
-    raise BacktestDataError(
-        f"Backtest input has {len(gaps)} missing active-universe price row(s): {sample}{suffix}"
-    )
 
 
 def _to_curve_inputs(points: list[StrategyEquityCurvePoint]) -> list[BacktestEquityCurveInput]:

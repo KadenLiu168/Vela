@@ -9,6 +9,7 @@ from vela_core.backtest_benchmarks import (
 )
 from vela_core.errors import BacktestDataError
 from vela_core.models import ETFInfo, MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategy_equity_curve import StrategyEquityCurvePoint
 
 
@@ -54,7 +55,7 @@ def test_equal_weight_benchmark_uses_the_dated_universe_at_month_end() -> None:
     dates = [date(2026, 1, 30), date(2026, 2, 2), date(2026, 2, 27), date(2026, 3, 2)]
     csi = _etf(1, "SSE", "510300")
     later = _etf(2, "SSE", "510500")
-    later.inception_date = date(2026, 2, 2)
+    later.listing_date = date(2026, 2, 2)
 
     equal, _ = calculate_backtest_benchmarks(
         trading_dates=dates,
@@ -120,6 +121,93 @@ def test_benchmarks_use_forward_adjusted_price_ratios() -> None:
     assert csi_300.points[-1].net_value == Decimal("1.000000")
 
 
+def test_equal_weight_benchmark_defers_non_tradable_target_without_early_cost() -> None:
+    dates = [date(2026, 1, 30), date(2026, 1, 31), date(2026, 2, 2)]
+    first = _etf(1, "SSE", "510300")
+    later = _etf(2, "SSE", "510500")
+    later.listing_date = dates[1]
+
+    equal, _ = calculate_backtest_benchmarks(
+        trading_dates=dates,
+        active_etfs=[first, later],
+        price_panel={
+            1: [_price(1, trade_date, 100, 1) for trade_date in dates],
+            2: [
+                _resolved(2, dates[1], "100", tradable=False),
+                _resolved(2, dates[2], "100", tradable=True),
+            ],
+        },
+        transaction_cost_bps=100,
+        risk_free_rate=Decimal("0"),
+        following_trading_date=date(2026, 2, 3),
+    )
+
+    assert [point.net_value for point in equal.points] == [
+        Decimal("1.000000"),
+        Decimal("1.000000"),
+        Decimal("0.990000"),
+    ]
+
+
+def test_equal_weight_benchmark_ignores_unchanged_non_tradable_leg() -> None:
+    dates = [date(2026, 1, 29), date(2026, 1, 30), date(2026, 2, 2)]
+    csi = _etf(1, "SSE", "510300")
+    rising = _etf(2, "SSE", "510500")
+    falling = _etf(3, "SSE", "510100")
+
+    equal, _ = calculate_backtest_benchmarks(
+        trading_dates=dates,
+        active_etfs=[csi, rising, falling],
+        price_panel={
+            1: [
+                _resolved(1, dates[0], "100", tradable=True),
+                _resolved(1, dates[1], "100", tradable=False),
+                _resolved(1, dates[2], "100", tradable=False),
+            ],
+            2: [
+                _resolved(2, item, value, tradable=True)
+                for item, value in zip(dates, ("100", "120", "120"), strict=True)
+            ],
+            3: [
+                _resolved(3, item, value, tradable=True)
+                for item, value in zip(dates, ("100", "80", "80"), strict=True)
+            ],
+        },
+        transaction_cost_bps=100,
+        risk_free_rate=Decimal("0"),
+        following_trading_date=date(2026, 2, 3),
+    )
+
+    assert [point.net_value for point in equal.points] == [
+        Decimal("1.000000"),
+        Decimal("0.998667"),
+        Decimal("0.998667"),
+    ]
+
+
+def test_csi_buy_hold_defers_blocked_initialization_until_reopen() -> None:
+    dates = [date(2026, 1, 2), date(2026, 1, 3)]
+    csi = _etf(1, "SSE", "510300")
+
+    _, buy_hold = calculate_backtest_benchmarks(
+        trading_dates=dates,
+        active_etfs=[csi],
+        price_panel={
+            1: [
+                _resolved(1, dates[0], "100", tradable=False),
+                _resolved(1, dates[1], "120", tradable=True),
+            ]
+        },
+        transaction_cost_bps=0,
+        risk_free_rate=Decimal("0"),
+    )
+
+    assert [point.net_value for point in buy_hold.points] == [
+        Decimal("1.000000"),
+        Decimal("1.000000"),
+    ]
+
+
 def test_benchmarks_reject_missing_csi_identity_and_required_price() -> None:
     trade_date = date(2026, 1, 2)
 
@@ -142,11 +230,30 @@ def test_benchmarks_reject_missing_csi_identity_and_required_price() -> None:
         )
 
 
+def test_benchmarks_reject_missing_listing_metadata_for_any_active_etf() -> None:
+    trade_date = date(2026, 1, 2)
+    csi = _etf(1, "SSE", "510300")
+    missing = _etf(2, "SSE", "510500")
+    missing.listing_date = None
+
+    with pytest.raises(BacktestDataError, match="listing_date.*510500"):
+        calculate_backtest_benchmarks(
+            trading_dates=[trade_date],
+            active_etfs=[csi, missing],
+            price_panel={
+                1: [_price(1, trade_date, 100, 1)],
+                2: [_price(2, trade_date, 100, 1)],
+            },
+            transaction_cost_bps=0,
+            risk_free_rate=Decimal("0"),
+        )
+
+
 def test_equal_weight_benchmark_rejects_costs_that_exhaust_assets() -> None:
     dates = [date(2026, 1, 30), date(2026, 2, 2)]
     csi = _etf(1, "SSE", "510300")
     later = _etf(2, "SSE", "510500")
-    later.inception_date = dates[1]
+    later.listing_date = dates[1]
 
     with pytest.raises(ValueError, match="Transaction costs exhausted benchmark assets"):
         calculate_backtest_benchmarks(
@@ -369,7 +476,14 @@ def test_benchmark_tail_metrics_keep_ownership_and_preserve_existing_fields() ->
 
 
 def _etf(identifier: int, exchange: str, symbol: str) -> ETFInfo:
-    return ETFInfo(id=identifier, exchange=exchange, symbol=symbol, name=symbol, is_active=True)
+    return ETFInfo(
+        id=identifier,
+        exchange=exchange,
+        symbol=symbol,
+        name=symbol,
+        is_active=True,
+        listing_date=date(1900, 1, 1),
+    )
 
 
 def _price(etf_id: int, trade_date: date, close: int, factor: int) -> MarketPrice:
@@ -378,4 +492,16 @@ def _price(etf_id: int, trade_date: date, close: int, factor: int) -> MarketPric
         trade_date=trade_date,
         close_price=Decimal(close),
         factor_hfq=Decimal(factor),
+    )
+
+
+def _resolved(etf_id: int, trade_date: date, value: str, *, tradable: bool) -> ResolvedSessionPrice:
+    return ResolvedSessionPrice(
+        etf_id=etf_id,
+        trade_date=trade_date,
+        adjusted_value=Decimal(value),
+        raw_close=Decimal(value) if tradable else None,
+        raw_factor=Decimal("1") if tradable else None,
+        tradable=tradable,
+        resolution="market_price" if tradable else "confirmed_non_trading_carry",
     )

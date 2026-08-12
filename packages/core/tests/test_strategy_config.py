@@ -587,6 +587,9 @@ def _write_strategy_config(tmp_path: Path, config: dict[str, Any]) -> Path:
 
 def _write_etf_pool_config(tmp_path: Path, etfs: list[dict[str, Any]]) -> Path:
     pool_path = tmp_path / "etf_pool.yaml"
+    normalized_etfs = [
+        {**etf, "listing_date": etf.get("listing_date", "2010-01-01")} for etf in etfs
+    ]
     pool_path.write_text(
         yaml.safe_dump(
             {
@@ -594,7 +597,7 @@ def _write_etf_pool_config(tmp_path: Path, etfs: list[dict[str, Any]]) -> Path:
                 "version": 1,
                 "provider": "tencent",
                 "currency": "CNY",
-                "etfs": etfs,
+                "etfs": normalized_etfs,
             },
             sort_keys=False,
         ),

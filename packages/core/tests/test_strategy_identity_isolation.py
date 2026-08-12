@@ -148,7 +148,13 @@ def _create_session_factory() -> sessionmaker[Session]:
 
 
 def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:
-    etf = ETFInfo(exchange=exchange, symbol=symbol, name=symbol, currency="CNY")
+    etf = ETFInfo(
+        exchange=exchange,
+        symbol=symbol,
+        name=symbol,
+        currency="CNY",
+        listing_date=date(1900, 1, 1),
+    )
     session.add(etf)
     session.flush()
     return etf

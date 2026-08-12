@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from sqlalchemy import case, func, select
@@ -15,7 +16,11 @@ from vela_core.walk_forward.evidence import (
     WalkForwardEvidenceV3,
     validate_wf_evidence,
 )
-from vela_core.walk_forward.provenance import WalkForwardInputManifestModel, validate_input_manifest
+from vela_core.walk_forward.provenance import (
+    WalkForwardInputManifestModel,
+    WalkForwardInputManifestV2Model,
+    validate_input_manifest,
+)
 from vela_core.walk_forward.regime_evidence_validation import (
     validate_v2_regime_source_evidence,
 )
@@ -27,6 +32,8 @@ from vela_core.walk_forward.stitched_oos import (
 from vela_core.walk_forward.tail_evidence_validation import (
     validate_v3_tail_source_evidence,
 )
+
+_CHECKSUM = re.compile(r"[0-9a-f]{64}")
 
 
 def list_walk_forward_runs(
@@ -109,11 +116,13 @@ def get_walk_forward_run(
     return row
 
 
-def validate_walk_forward_run(row: WalkForwardRun) -> WalkForwardInputManifestModel:
-    if row.provenance_version != "wf_provenance_v1":
-        raise PersistedDataContractError(
-            f"unsupported Walk-forward provenance version: {row.provenance_version}"
-        )
+def validate_walk_forward_run(
+    row: WalkForwardRun,
+) -> WalkForwardInputManifestModel | WalkForwardInputManifestV2Model:
+    if _CHECKSUM.fullmatch(row.config_checksum) is None:
+        raise PersistedDataContractError("invalid persisted Walk-forward config checksum")
+    if _CHECKSUM.fullmatch(row.input_data_checksum) is None:
+        raise PersistedDataContractError("invalid persisted Walk-forward input checksum")
     manifest = validate_input_manifest(row.provenance_version, row.input_data_snapshot_json)
     if row.status != "success":
         # Running and failed parents carry a placeholder evidence document and

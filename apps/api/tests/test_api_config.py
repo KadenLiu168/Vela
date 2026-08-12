@@ -39,7 +39,7 @@ def test_config_endpoint_returns_strategy_and_etf_pool_summary() -> None:
         "currency": etf_pool.currency,
         "total_etfs": len(etf_pool.etfs),
         "active_etfs": sum(1 for etf in etf_pool.etfs if etf.is_active),
-        "etfs": [etf.model_dump() for etf in etf_pool.etfs],
+        "etfs": [etf.model_dump(mode="json") for etf in etf_pool.etfs],
     }
 
 

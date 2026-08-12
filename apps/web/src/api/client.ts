@@ -670,7 +670,7 @@ export type WalkForwardPageResponse = {
   offset: number;
 };
 
-export type WalkForwardInputManifest = {
+export type WalkForwardInputManifestV1 = {
   version: "wf_provenance_v1";
   earliest_required_session: string;
   configured_end_date: string;
@@ -689,6 +689,47 @@ export type WalkForwardInputManifest = {
   first_loaded_price_date: string | null;
   last_loaded_price_date: string | null;
 };
+
+export type WalkForwardInputManifestV2 = {
+  version: "wf_provenance_v2";
+  resolution_policy_version: string;
+  earliest_required_session: string;
+  configured_end_date: string;
+  following_session: string | null;
+  official_sessions: string[];
+  active_etfs: Array<{
+    etf_id: number;
+    exchange: string;
+    symbol: string;
+    inception_date: string | null;
+    listing_date: string;
+    raw_price_row_count: number;
+    first_raw_price_date: string | null;
+    last_raw_price_date: string | null;
+    derived_session_count: number;
+    first_derived_session_date: string | null;
+    last_derived_session_date: string | null;
+    status_evidence: Array<{
+      trade_date: string;
+      status: "full_day_suspension" | "corporate_action_halt";
+      reason: string;
+      source_uri: string;
+      source_published_date: string;
+      share_ratio: string | null;
+      resolution: "confirmed_non_trading_carry";
+      carried_adjusted_value: string;
+      carry_from_trade_date: string;
+    }>;
+  }>;
+  raw_price_row_count: number;
+  first_raw_price_date: string | null;
+  last_raw_price_date: string | null;
+  derived_session_count: number;
+  first_derived_session_date: string | null;
+  last_derived_session_date: string | null;
+};
+
+export type WalkForwardInputManifest = WalkForwardInputManifestV1 | WalkForwardInputManifestV2;
 
 export type WalkForwardBenchmark = {
   key: WalkForwardBenchmarkKey;

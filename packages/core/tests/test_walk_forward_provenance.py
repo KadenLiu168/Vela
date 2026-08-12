@@ -6,6 +6,7 @@ from copy import deepcopy
 import pytest
 from vela_core.walk_forward.evidence import PersistedDataContractError
 from vela_core.walk_forward.provenance import (
+    PROVENANCE_VERSION_V2,
     canonical_provenance_bytes,
     input_record_stream,
     sha256_hex,
@@ -117,3 +118,63 @@ def test_input_manifest_rejects_unreconciled_order_counts_and_date_bounds() -> N
     for document in corrupt_documents:
         with pytest.raises(PersistedDataContractError):
             validate_input_manifest("wf_provenance_v1", document)
+
+
+def test_input_manifest_v2_reconciles_listing_status_and_derived_counts() -> None:
+    manifest = {
+        "version": PROVENANCE_VERSION_V2,
+        "resolution_policy_version": "resolved_session_price_v1",
+        "earliest_required_session": "2026-01-02",
+        "configured_end_date": "2026-01-05",
+        "following_session": "2026-01-06",
+        "official_sessions": ["2026-01-02", "2026-01-05"],
+        "active_etfs": [
+            {
+                "etf_id": 1,
+                "exchange": "SSE",
+                "symbol": "510300",
+                "inception_date": "2020-01-01",
+                "listing_date": "2020-01-01",
+                "raw_price_row_count": 1,
+                "first_raw_price_date": "2026-01-02",
+                "last_raw_price_date": "2026-01-02",
+                "derived_session_count": 1,
+                "first_derived_session_date": "2026-01-05",
+                "last_derived_session_date": "2026-01-05",
+                "status_evidence": [
+                    {
+                        "trade_date": "2026-01-05",
+                        "status": "full_day_suspension",
+                        "reason": "holder_meeting",
+                        "source_uri": "https://example.test/status",
+                        "source_published_date": "2026-01-04",
+                        "share_ratio": None,
+                        "resolution": "confirmed_non_trading_carry",
+                        "carried_adjusted_value": "100",
+                        "carry_from_trade_date": "2026-01-02",
+                    }
+                ],
+            }
+        ],
+        "raw_price_row_count": 1,
+        "first_raw_price_date": "2026-01-02",
+        "last_raw_price_date": "2026-01-02",
+        "derived_session_count": 1,
+        "first_derived_session_date": "2026-01-05",
+        "last_derived_session_date": "2026-01-05",
+    }
+
+    validated = validate_input_manifest(PROVENANCE_VERSION_V2, manifest)
+
+    assert validated.version == PROVENANCE_VERSION_V2
+    assert validated.active_etfs[0].listing_date == "2020-01-01"
+
+    corrupt = deepcopy(manifest)
+    corrupt["derived_session_count"] = 2
+    with pytest.raises(PersistedDataContractError):
+        validate_input_manifest(PROVENANCE_VERSION_V2, corrupt)
+
+    unsupported_policy = deepcopy(manifest)
+    unsupported_policy["resolution_policy_version"] = "unknown_policy"
+    with pytest.raises(PersistedDataContractError):
+        validate_input_manifest(PROVENANCE_VERSION_V2, unsupported_policy)

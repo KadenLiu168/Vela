@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from vela_core.models import ETFInfo, MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,6 @@ class Strategy(Protocol):
         self,
         *,
         signal_date: date,
-        price_panel: dict[int, list[MarketPrice]],
+        price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
         active_etfs: list[ETFInfo],
     ) -> list[GeneratedSignalPosition]: ...

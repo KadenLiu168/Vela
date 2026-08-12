@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from vela_core.models import ETFInfo, MarketPrice
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.strategies.types import GeneratedSignalPosition
 from vela_core.strategy_config import EqualWeightParams
 
@@ -17,7 +18,7 @@ class EqualWeightStrategy:
         self,
         *,
         signal_date: date,
-        price_panel: dict[int, list[MarketPrice]],
+        price_panel: dict[int, list[MarketPrice | ResolvedSessionPrice]],
         active_etfs: list[ETFInfo],
     ) -> list[GeneratedSignalPosition]:
         del signal_date, price_panel

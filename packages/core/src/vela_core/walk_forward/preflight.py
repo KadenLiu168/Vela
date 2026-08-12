@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -9,8 +10,10 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from vela_core.market_price_query import load_price_panel
-from vela_core.models import ETFInfo, MarketPrice, TradingCalendar
+from vela_core.backtest_input import build_backtest_input_v2
+from vela_core.models import ETFInfo, TradingCalendar
+from vela_core.resolved_session_price import ResolvedSessionPrice
+from vela_core.resolved_session_price_query import load_resolved_session_price_panel
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
 from vela_core.walk_forward.config import WalkForwardConfig
@@ -18,7 +21,12 @@ from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
     generate_combinations,
 )
-from vela_core.walk_forward.provenance import PROVENANCE_VERSION, input_record_stream, sha256_hex
+from vela_core.walk_forward.provenance import (
+    PROVENANCE_VERSION_V2,
+    STATUS_EVIDENCE_SAMPLE_LIMIT,
+    input_record_stream,
+    sha256_hex,
+)
 from vela_core.walk_forward.window_splitter import WalkForwardWindow, generate_windows
 
 
@@ -66,6 +74,7 @@ def prepare_walk_forward_inputs(
     active_etfs = list(
         session.scalars(select(ETFInfo).where(ETFInfo.is_active.is_(True)).order_by(ETFInfo.id))
     )
+    _validate_listing_metadata(active_etfs)
     preceding = list(
         session.scalars(
             select(TradingCalendar.trade_date)
@@ -86,13 +95,11 @@ def prepare_walk_forward_inputs(
         window_config.step_years,
     )
     earliest_required_session = official_sessions[0]
-    price_panel = load_price_panel(
+    resolved_panel = load_resolved_session_price_panel(
         session,
-        etf_ids=[etf.id for etf in active_etfs],
-        start_date=earliest_required_session,
-        end_date=window_config.end_date,
+        active_etfs=active_etfs,
+        official_sessions=official_sessions,
     )
-    _validate_required_prices(active_etfs, official_sessions, price_panel)
     following_session = session.scalar(
         select(TradingCalendar.trade_date)
         .where(TradingCalendar.trade_date > window_config.end_date)
@@ -101,7 +108,7 @@ def prepare_walk_forward_inputs(
     )
     manifest, records = _build_manifest(
         active_etfs=active_etfs,
-        price_panel=price_panel,
+        price_panel=resolved_panel,
         official_sessions=official_sessions,
         earliest_required_session=earliest_required_session,
         configured_end_date=window_config.end_date,
@@ -124,88 +131,140 @@ def _load_base_config(path: Path) -> dict[str, Any]:
     return data
 
 
-def _validate_required_prices(
-    active_etfs: list[ETFInfo],
-    official_sessions: list[date],
-    price_panel: dict[int, list[MarketPrice]],
-) -> None:
-    available = {
-        (price.etf_id, price.trade_date) for prices in price_panel.values() for price in prices
-    }
-    missing = [
-        (etf.id, trade_date)
-        for etf in active_etfs
-        for trade_date in official_sessions
-        if (etf.inception_date is None or trade_date >= etf.inception_date)
-        and (etf.id, trade_date) not in available
-    ]
+def _validate_listing_metadata(active_etfs: list[ETFInfo]) -> None:
+    missing = [f"{etf.exchange}:{etf.symbol}" for etf in active_etfs if etf.listing_date is None]
     if missing:
-        raise ValueError(f"missing required market price for ETF/session {missing[0]}")
+        raise ValueError("missing listing_date for active ETF " + ", ".join(missing))
 
 
 def _build_manifest(
     *,
     active_etfs: list[ETFInfo],
-    price_panel: dict[int, list[MarketPrice]],
+    price_panel: Mapping[int, Sequence[ResolvedSessionPrice]],
     official_sessions: list[date],
     earliest_required_session: date,
     configured_end_date: date,
     following_session: date | None,
 ) -> tuple[dict[str, object], list[list[Any]]]:
-    etf_records: list[list[Any]] = []
+    snapshot = build_backtest_input_v2(
+        active_etfs=active_etfs,
+        official_sessions=official_sessions,
+        following_session=following_session,
+        price_panel=price_panel,
+    )
+    raw_records = snapshot["raw_price_records"]
+    derived_records = snapshot["derived_sessions"]
+    assert isinstance(raw_records, list)
+    assert isinstance(derived_records, list)
     active_etf_manifest: list[dict[str, object]] = []
-    loaded_rows: list[MarketPrice] = []
+    etf_records: list[list[Any]] = []
     for etf in active_etfs:
-        rows = [
-            row
-            for row in price_panel.get(etf.id, [])
-            if (etf.inception_date is None or row.trade_date >= etf.inception_date)
-            and row.trade_date <= configured_end_date
-        ]
-        loaded_rows.extend(rows)
+        raw = [item for item in raw_records if item["etf_id"] == etf.id]
+        derived = [item for item in derived_records if item["etf_id"] == etf.id]
         active_etf_manifest.append(
             {
                 "etf_id": etf.id,
                 "exchange": etf.exchange,
                 "symbol": etf.symbol,
                 "inception_date": _iso(etf.inception_date),
-                "loaded_price_row_count": len(rows),
-                "first_loaded_price_date": _iso(
-                    min((row.trade_date for row in rows), default=None)
-                ),
-                "last_loaded_price_date": _iso(max((row.trade_date for row in rows), default=None)),
+                "listing_date": _iso(etf.listing_date),
+                "raw_price_row_count": len(raw),
+                "first_raw_price_date": _first_date(raw),
+                "last_raw_price_date": _last_date(raw),
+                "derived_session_count": len(derived),
+                "first_derived_session_date": _first_date(derived),
+                "last_derived_session_date": _last_date(derived),
+                "status_evidence": [
+                    {
+                        key: item[key]
+                        for key in (
+                            "trade_date",
+                            "status",
+                            "reason",
+                            "source_uri",
+                            "source_published_date",
+                            "share_ratio",
+                            "resolution",
+                            "carried_adjusted_value",
+                            "carry_from_trade_date",
+                        )
+                    }
+                    for item in derived[:STATUS_EVIDENCE_SAMPLE_LIMIT]
+                ],
             }
         )
-        etf_records.append(["etf", etf.id, etf.exchange, etf.symbol, _iso(etf.inception_date)])
-    loaded_rows.sort(key=lambda row: (row.etf_id, row.trade_date))
-    records: list[list[Any]] = [["version", PROVENANCE_VERSION], *etf_records]
+        etf_records.append(
+            [
+                "etf",
+                etf.id,
+                etf.exchange,
+                etf.symbol,
+                _iso(etf.inception_date),
+                _iso(etf.listing_date),
+            ]
+        )
+    records: list[list[Any]] = [
+        ["version", PROVENANCE_VERSION_V2],
+        ["policy", snapshot["resolution_policy_version"]],
+        *etf_records,
+    ]
     records.extend(["session", item] for item in (_iso(value) for value in official_sessions))
     records.append(["following_session", _iso(following_session)])
     records.extend(
         [
-            "price",
-            row.etf_id,
-            next(etf.exchange for etf in active_etfs if etf.id == row.etf_id),
-            next(etf.symbol for etf in active_etfs if etf.id == row.etf_id),
-            row.trade_date.isoformat(),
-            str(row.close_price),
-            str(row.factor_hfq),
+            "raw",
+            item["etf_id"],
+            item["exchange"],
+            item["symbol"],
+            item["trade_date"],
+            item["close_price"],
+            item["factor_hfq"],
         ]
-        for row in loaded_rows
+        for item in raw_records
+    )
+    records.extend(
+        [
+            "derived",
+            item["etf_id"],
+            item["exchange"],
+            item["symbol"],
+            item["trade_date"],
+            item["status"],
+            item["reason"],
+            item["source_uri"],
+            item["source_published_date"],
+            item["share_ratio"],
+            item["resolution"],
+            item["carried_adjusted_value"],
+            item["carry_from_trade_date"],
+        ]
+        for item in derived_records
     )
     manifest: dict[str, object] = {
-        "version": PROVENANCE_VERSION,
+        "version": PROVENANCE_VERSION_V2,
+        "resolution_policy_version": snapshot["resolution_policy_version"],
         "earliest_required_session": earliest_required_session.isoformat(),
         "configured_end_date": configured_end_date.isoformat(),
         "following_session": _iso(following_session),
         "official_sessions": [value.isoformat() for value in official_sessions],
         "active_etfs": active_etf_manifest,
-        "loaded_price_row_count": len(loaded_rows),
-        "first_loaded_price_date": _iso(min((row.trade_date for row in loaded_rows), default=None)),
-        "last_loaded_price_date": _iso(max((row.trade_date for row in loaded_rows), default=None)),
+        "raw_price_row_count": len(raw_records),
+        "first_raw_price_date": _first_date(raw_records),
+        "last_raw_price_date": _last_date(raw_records),
+        "derived_session_count": len(derived_records),
+        "first_derived_session_date": _first_date(derived_records),
+        "last_derived_session_date": _last_date(derived_records),
     }
     return manifest, records
 
 
 def _iso(value: date | None) -> str | None:
     return None if value is None else value.isoformat()
+
+
+def _first_date(records: list[dict[str, object]]) -> str | None:
+    return min((str(item["trade_date"]) for item in records), default=None)
+
+
+def _last_date(records: list[dict[str, object]]) -> str | None:
+    return max((str(item["trade_date"]) for item in records), default=None)

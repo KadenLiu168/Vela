@@ -21,7 +21,7 @@ from vela_core.walk_forward.evidence import (
     WalkForwardEvidenceV3,
     validate_wf_evidence,
 )
-from vela_core.walk_forward.provenance import PROVENANCE_VERSION, validate_input_manifest
+from vela_core.walk_forward.provenance import validate_input_manifest
 from vela_core.walk_forward.regime_evidence_validation import (
     validate_v2_regime_source_evidence,
 )
@@ -95,7 +95,8 @@ def enqueue_walk_forward_run(
 ) -> int:
     _validate_checksum(config_checksum, "config_checksum")
     _validate_checksum(input_data_checksum, "input_data_checksum")
-    validate_input_manifest(PROVENANCE_VERSION, input_data_snapshot)
+    provenance_version = _manifest_version(input_data_snapshot)
+    validate_input_manifest(provenance_version, input_data_snapshot)
     parent = WalkForwardRun(
         strategy_id=strategy_id,
         start_date=start_date,
@@ -103,7 +104,7 @@ def enqueue_walk_forward_run(
         window_count=0,
         walk_forward_config_json=walk_forward_config,
         base_strategy_config_json=base_strategy_config,
-        provenance_version=PROVENANCE_VERSION,
+        provenance_version=provenance_version,
         config_checksum=config_checksum,
         input_data_snapshot_json=input_data_snapshot,
         input_data_checksum=input_data_checksum,
@@ -298,7 +299,8 @@ def persist_walk_forward_run(
         raise ValueError("Walk-forward parent window count must equal child count")
     _validate_checksum(run.config_checksum, "config_checksum")
     _validate_checksum(run.input_data_checksum, "input_data_checksum")
-    validate_input_manifest(PROVENANCE_VERSION, run.input_data_snapshot)
+    provenance_version = _manifest_version(run.input_data_snapshot)
+    validate_input_manifest(provenance_version, run.input_data_snapshot)
     evidence = validate_wf_evidence(EVIDENCE_VERSION_V3, run.evidence)
     assert isinstance(evidence, WalkForwardEvidenceV3)
     children = _build_windows(run.windows)
@@ -315,7 +317,7 @@ def persist_walk_forward_run(
             window_count=run.window_count,
             walk_forward_config_json=run.walk_forward_config,
             base_strategy_config_json=run.base_strategy_config,
-            provenance_version=PROVENANCE_VERSION,
+            provenance_version=provenance_version,
             config_checksum=run.config_checksum,
             input_data_snapshot_json=run.input_data_snapshot,
             input_data_checksum=run.input_data_checksum,
@@ -377,6 +379,13 @@ def _build_windows(
 def _validate_checksum(value: str, field_name: str) -> None:
     if _CHECKSUM.fullmatch(value) is None:
         raise PersistedDataContractError(f"{field_name} must be a lowercase SHA-256 checksum")
+
+
+def _manifest_version(document: dict[str, Any]) -> str:
+    version = document.get("version")
+    if not isinstance(version, str):
+        raise PersistedDataContractError("Walk-forward input manifest version is required")
+    return version
 
 
 def _bound_error_message(value: str | None) -> str | None:

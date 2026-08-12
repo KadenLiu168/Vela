@@ -350,6 +350,13 @@ function ParameterStability({ evidence }: { evidence: PersistedWalkForwardEviden
 
 function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
   const manifest = data.input_provenance.manifest;
+  const isV2 = manifest.version === "wf_provenance_v2";
+  const firstLoadedDate = isV2
+    ? manifest.first_raw_price_date
+    : manifest.first_loaded_price_date;
+  const lastLoadedDate = isV2
+    ? manifest.last_raw_price_date
+    : manifest.last_loaded_price_date;
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-provenance-heading">
       <h2 id="walk-forward-provenance-heading">Configuration and input provenance</h2>
@@ -359,10 +366,40 @@ function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
       <dl className="compact-list">
         <DescriptionItem label="Config checksum" value={<code className="mono-compact">{data.configuration.config_checksum}</code>} />
         <DescriptionItem label="Input checksum" value={<code className="mono-compact">{data.input_provenance.input_data_checksum}</code>} />
-        <DescriptionItem label="First loaded price date" value={manifestString(manifest, "first_loaded_price_date")} />
-        <DescriptionItem label="Last loaded price date" value={manifestString(manifest, "last_loaded_price_date")} />
-        <DescriptionItem label="Following-session sentinel" value={manifestString(manifest, "following_session")} />
+        <DescriptionItem label="First loaded price date" value={formatNullableText(firstLoadedDate ?? undefined)} />
+        <DescriptionItem label="Last loaded price date" value={formatNullableText(lastLoadedDate ?? undefined)} />
+        <DescriptionItem label="Following-session sentinel" value={formatNullableText(manifest.following_session ?? undefined)} />
+        {isV2 ? (
+          <>
+            <DescriptionItem label="Resolution policy" value={manifest.resolution_policy_version} />
+            <DescriptionItem label="Raw / derived sessions" value={`${manifest.raw_price_row_count} / ${manifest.derived_session_count}`} />
+            {manifest.active_etfs.map((etf) => (
+              <DescriptionItem
+                key={`${etf.exchange}:${etf.symbol}`}
+                label={`${etf.exchange}:${etf.symbol} listing date`}
+                value={etf.listing_date}
+              />
+            ))}
+          </>
+        ) : null}
       </dl>
+      {isV2 ? (
+        <div aria-label="Non-trading evidence">
+          {manifest.active_etfs.flatMap((etf) => etf.status_evidence.map((evidence) => (
+            <article
+              className="detail-note"
+              key={`${etf.etf_id}-${evidence.trade_date}-${evidence.source_uri}`}
+              aria-label={`Derived non-trading valuation for ${etf.exchange}:${etf.symbol} on ${evidence.trade_date}`}
+            >
+              <strong>Derived non-trading valuation</strong>
+              <p>{evidence.trade_date}: {evidence.status}; {evidence.reason}</p>
+              <p>Carried adjusted value: {evidence.carried_adjusted_value}</p>
+              <p>Carried from: {evidence.carry_from_trade_date}</p>
+              <a href={evidence.source_uri} target="_blank" rel="noreferrer">Source evidence</a>
+            </article>
+          )))}
+        </div>
+      ) : null}
       <div className="walk-forward-json-grid">
         <JsonBlock label="Walk-forward configuration" value={data.configuration.walk_forward} />
         <JsonBlock label="Base strategy configuration" value={data.configuration.base_strategy} />
@@ -549,11 +586,6 @@ function formatRate(rate: {
 function formatSkipReasons(reasons: Record<string, number>): string {
   const entries = Object.entries(reasons);
   return entries.length === 0 ? "No skip reasons" : `Skip reasons: ${entries.map(([key, value]) => `${key}: ${value}`).join(", ")}`;
-}
-
-function manifestString(manifest: Record<string, unknown>, key: string): string {
-  const value = manifest[key];
-  return typeof value === "string" ? value : formatNullableText(undefined);
 }
 
 function formatDrawdownRecovery(

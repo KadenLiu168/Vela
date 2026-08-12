@@ -11,6 +11,7 @@ from vela_core import (
     BacktestReportNotFoundError,
     BacktestRunResult,
     ETFPoolSyncResult,
+    ETFSessionStatusSyncResult,
     GenerateStrategySignalResult,
     LatestStrategySignalReportNotFoundError,
     MarketDataFetchResult,
@@ -21,8 +22,10 @@ from vela_core import (
     fetch_incremental_market_prices,
     generate_and_persist_strategy_signal,
     load_app_config,
+    load_etf_session_status_document,
     run_alembic_upgrade,
     sync_etf_pool_to_db,
+    sync_etf_session_status_to_db,
     sync_trading_calendar_to_db,
 )
 from vela_core import (
@@ -96,6 +99,22 @@ def _build_parser() -> argparse.ArgumentParser:
         "--strategy-config",
         default=str(DEFAULT_STRATEGY_CONFIG_PATH),
         help="Strategy configuration YAML path",
+    )
+
+    sync_etf_session_status_parser = subparsers.add_parser(
+        "sync-etf-session-status",
+        help="Sync authoritative ETF non-trading session status data",
+    )
+    sync_etf_session_status_parser.add_argument(
+        "--database-url",
+        required=True,
+        help="Database URL to write ETF session status into",
+    )
+    sync_etf_session_status_parser.add_argument(
+        "--status-config",
+        type=Path,
+        required=True,
+        help="Versioned ETF session status YAML path",
     )
 
     sync_trading_calendar_parser = subparsers.add_parser(
@@ -274,6 +293,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         _print_etf_pool_sync_summary(sync_result)
         return 0
 
+    if args.command == "sync-etf-session-status":
+        try:
+            status_sync_result = sync_etf_session_status(
+                args.database_url,
+                status_config_path=args.status_config,
+            )
+        except Exception as exc:
+            print(
+                f"Failed to sync ETF session status into {args.database_url}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+
+        _print_etf_session_status_sync_summary(status_sync_result)
+        return 0
+
     if args.command == "sync-trading-calendar":
         try:
             calendar_result = sync_trading_calendar(args.database_url)
@@ -421,6 +456,18 @@ def sync_etf_pool(
         return sync_etf_pool_to_db(session, config.etf_pool)
 
 
+def sync_etf_session_status(
+    database_url: str,
+    *,
+    status_config_path: Path,
+) -> ETFSessionStatusSyncResult:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    document = load_etf_session_status_document(status_config_path)
+    with managed_session(session_factory) as session:
+        return sync_etf_session_status_to_db(session, document)
+
+
 def sync_trading_calendar(database_url: str) -> TradingCalendarSyncResult:
     engine = create_engine_from_url(database_url)
     session_factory = create_session_factory(engine)
@@ -516,6 +563,14 @@ def _print_etf_pool_sync_summary(result: ETFPoolSyncResult) -> None:
     print("ETF pool sync status: success")
     print(f"Pool: {result.pool_id}")
     print(f"Total ETFs: {result.total_etfs}")
+    print(f"Inserted: {result.inserted_count}")
+    print(f"Updated: {result.updated_count}")
+    print(f"Unchanged: {result.unchanged_count}")
+
+
+def _print_etf_session_status_sync_summary(result: ETFSessionStatusSyncResult) -> None:
+    print("ETF session status sync status: success")
+    print(f"Total entries: {result.total_entries}")
     print(f"Inserted: {result.inserted_count}")
     print(f"Updated: {result.updated_count}")
     print(f"Unchanged: {result.unchanged_count}")

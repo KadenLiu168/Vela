@@ -89,6 +89,7 @@ def _make_etf_pool_config() -> ETFPoolConfig:
                 name="沪深300ETF",
                 category="equity_cn_large",
                 is_active=True,
+                listing_date=date(2012, 5, 28),
             ),
         ],
     )

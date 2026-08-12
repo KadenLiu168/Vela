@@ -384,6 +384,76 @@ it.each([
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
 });
 
+it("presents status-aware v2 policy, counts, and source evidence", async () => {
+  const statusAwareDetail: WalkForwardDetailResponse = {
+    ...detail,
+    run: { ...detail.run, provenance_version: "wf_provenance_v2" },
+    input_provenance: {
+      ...detail.input_provenance,
+      manifest: {
+        version: "wf_provenance_v2",
+        resolution_policy_version: "resolved_session_price_v1",
+        earliest_required_session: "2025-09-01",
+        configured_end_date: "2026-12-31",
+        first_raw_price_date: "2025-09-01",
+        last_raw_price_date: "2026-12-31",
+        first_derived_session_date: "2026-02-08",
+        last_derived_session_date: "2026-02-08",
+        raw_price_row_count: 2,
+        derived_session_count: 1,
+        following_session: "2027-01-04",
+        official_sessions: ["2025-09-01", "2026-12-31"],
+        active_etfs: [
+          {
+            etf_id: 7,
+            exchange: "SZSE",
+            symbol: "159915",
+            inception_date: "2011-12-09",
+            listing_date: "2011-12-09",
+            raw_price_row_count: 2,
+            first_raw_price_date: "2025-09-01",
+            last_raw_price_date: "2026-12-31",
+            derived_session_count: 1,
+            first_derived_session_date: "2026-02-08",
+            last_derived_session_date: "2026-02-08",
+            status_evidence: [
+              {
+                trade_date: "2026-02-08",
+                status: "full_day_suspension",
+                reason: "holder_meeting",
+                source_uri: "https://example.test/status",
+                source_published_date: "2026-02-08",
+                share_ratio: null,
+                resolution: "confirmed_non_trading_carry",
+                carried_adjusted_value: "100",
+                carry_from_trade_date: "2026-02-05"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  };
+  detailMock.mockResolvedValue(statusAwareDetail);
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText("resolved_session_price_v1")).toBeInTheDocument();
+  expect(screen.getByText("Raw / derived sessions").nextElementSibling).toHaveTextContent("2 / 1");
+  expect(screen.getByRole("link", { name: "Source evidence" })).toHaveAttribute(
+    "href",
+    "https://example.test/status"
+  );
+  expect(screen.getByText("SZSE:159915 listing date").nextElementSibling).toHaveTextContent(
+    "2011-12-09"
+  );
+  const derivedEvidence = screen.getByLabelText(
+    "Derived non-trading valuation for SZSE:159915 on 2026-02-08"
+  );
+  expect(derivedEvidence).toHaveTextContent("Carried adjusted value: 100");
+  expect(derivedEvidence).toHaveTextContent("Carried from: 2026-02-05");
+});
+
 it("keeps legacy v1 evidence without fabricated regime values", async () => {
   detailMock.mockResolvedValue(detail);
 

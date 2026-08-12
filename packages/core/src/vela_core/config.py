@@ -1,8 +1,9 @@
+from datetime import date
 from pathlib import Path
 from typing import Any, TypeVar
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from yaml import YAMLError
 
 ConfigModel = TypeVar("ConfigModel", bound=BaseModel)
@@ -24,6 +25,8 @@ class ETFConfig(BaseModel):
     name: str
     category: str | None = None
     is_active: bool = True
+    inception_date: date | None = None
+    listing_date: date | None = None
 
 
 class ETFPoolConfig(BaseModel):
@@ -46,6 +49,17 @@ class ETFPoolConfig(BaseModel):
                 raise ValueError(f"duplicate ETF entry: {etf.exchange} {etf.symbol}")
             seen.add(key)
         return etfs
+
+    @model_validator(mode="after")
+    def validate_active_listing_dates(self) -> "ETFPoolConfig":
+        missing = [
+            f"{etf.exchange}:{etf.symbol}"
+            for etf in self.etfs
+            if etf.is_active and etf.listing_date is None
+        ]
+        if missing:
+            raise ValueError("active ETF entries require listing_date: " + ", ".join(missing))
+        return self
 
 
 def load_etf_pool_config(path: str | Path) -> ETFPoolConfig:

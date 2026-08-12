@@ -55,6 +55,7 @@ def _make_test_app_config() -> AppConfig:
                     name="沪深300ETF",
                     category="equity_cn_large",
                     is_active=True,
+                    listing_date=date(2012, 5, 28),
                 ),
             ],
         ),

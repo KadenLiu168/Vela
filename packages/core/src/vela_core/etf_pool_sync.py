@@ -36,6 +36,8 @@ def sync_etf_pool_to_db(session: Session, pool: ETFPoolConfig) -> ETFPoolSyncRes
                     name=configured_etf.name,
                     currency=pool.currency,
                     category=configured_etf.category,
+                    inception_date=configured_etf.inception_date,
+                    listing_date=configured_etf.listing_date,
                     is_active=configured_etf.is_active,
                 )
             )
@@ -64,6 +66,8 @@ def _update_existing_etf(etf: ETFInfo, *, pool: ETFPoolConfig, configured_etf: E
         "name": configured_etf.name,
         "currency": pool.currency,
         "category": configured_etf.category,
+        "inception_date": configured_etf.inception_date,
+        "listing_date": configured_etf.listing_date,
         "is_active": configured_etf.is_active,
     }
     for field_name, value in updates.items():

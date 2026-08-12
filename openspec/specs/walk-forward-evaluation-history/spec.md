@@ -31,25 +31,58 @@ The system SHALL persist one `WalkForwardRun` parent row as a durable job before
 - **AND** that row has a positive id before any worker window backtest runs
 
 ### Requirement: Configuration provenance uses an exact versioned identity
-The parent SHALL persist the exact versioned configuration/provenance document and SHA-256 identity. Display paths MAY be retained, but SHALL NOT affect the effective configuration checksum; equal effective inputs produce equal checksums and repeated executions receive distinct run identities.
+The parent SHALL persist the exact versioned configuration/provenance document and SHA-256 identity. New status-aware executions SHALL identify the resolved-session valuation/tradability policy version. Display paths MAY be retained but SHALL NOT affect identity; equal effective configuration and policy inputs produce equal checksums while repeated executions receive distinct run ids.
 
 #### Scenario: Display path does not change identity
-- **WHEN** equal effective configuration is loaded from different source paths
-- **THEN** the effective configuration checksum is equal
+- **WHEN** equal effective configuration and policy input are loaded from different source paths
+- **THEN** their effective configuration checksum is equal
+
+#### Scenario: Resolution policy changes identity
+- **WHEN** the status-aware valuation/tradability policy version differs
+- **THEN** configuration/provenance identity differs even if YAML strategy values match
 
 ### Requirement: Input provenance is a compact bounded manifest
-The manifest SHALL retain bounded ETF local ids, canonical identities, inception dates, official-session sequence, following-session sentinel, loaded-price counts/bounds and checksum metadata without copying the full raw price table.
+New executions SHALL persist `wf_provenance_v2`. Its manifest SHALL retain ordered ETF local ids and canonical identities, fund inception and listing dates, official sessions, following-session sentinel, raw and derived counts/bounds, supported status/source evidence summaries, resolution policy version, and checksum metadata without copying the complete raw price-value table. Query boundaries SHALL continue to accept valid `wf_provenance_v1` without fabricating v2 fields.
 
 #### Scenario: Manifest excludes raw price table
 - **WHEN** input provenance is persisted
 - **THEN** it contains bounded manifest data and no full raw price-value array
 
+#### Scenario: V2 manifest summarizes raw and derived sources
+- **WHEN** status-aware input provenance is persisted
+- **THEN** per-ETF and global raw/derived counts and bounds reconcile
+- **AND** every derived record corresponds to one supported authoritative status
+
+#### Scenario: Manifest excludes complete raw table
+- **WHEN** v2 provenance is persisted
+- **THEN** the bounded manifest contains no duplicate complete raw price array
+
+#### Scenario: Legacy v1 remains readable
+- **WHEN** history contains a valid `wf_provenance_v1` document
+- **THEN** queries preserve its original semantics and do not add listing/status claims
+
 ### Requirement: Input checksum covers every effective database input
-The input checksum SHALL cover execution-sensitive ETF-id mappings and strategy-visible `close_price`/`factor_hfq` rows, include observable non-official rows, and exclude output rows, pre-inception rows and future-price rows.
+For `wf_provenance_v2`, the canonical input checksum SHALL cover policy version; ETF id/exchange/symbol, fund inception and listing dates; ordered official sessions and following-session sentinel; every effective raw `close_price`/`factor_hfq` row; and every effective status, reason, source, share ratio, resolution, and carried adjusted value. It SHALL exclude generated outputs, pre-listing rows, and future inputs. Valid legacy v1 checksums remain governed by their original contract.
 
 #### Scenario: Effective input drift changes checksum
 - **WHEN** an execution-sensitive input row changes
 - **THEN** the input checksum changes
+
+#### Scenario: Raw input drift changes checksum
+- **WHEN** an effective raw price or factor changes
+- **THEN** the v2 checksum changes
+
+#### Scenario: Temporal evidence drift changes checksum
+- **WHEN** listing date, status evidence, share ratio, resolution, or carried adjusted value changes
+- **THEN** the v2 checksum changes
+
+#### Scenario: Equal v2 inputs have stable checksum
+- **WHEN** two executions have byte-equivalent canonical effective inputs under the same policy version
+- **THEN** their input checksums are equal
+
+#### Scenario: Invalid v2 reconciliation fails closed
+- **WHEN** raw/derived ownership, ordering, date bounds, source-state exclusivity, carry ancestry, counts, or checksum do not reconcile
+- **THEN** persistence and query validation reject the document
 
 ### Requirement: Versioned evidence round-trips without semantic loss
 Persisted `wf_evidence_v1` SHALL validate at persistence, query and API boundaries and preserve all eight strategy summaries, rates, benchmark return/Tracking Error/Information Ratio groups, generalization gap and parameter stability. Unsupported versions or corrupt documents SHALL fail closed.

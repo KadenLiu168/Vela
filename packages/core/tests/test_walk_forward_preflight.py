@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from vela_core.models import Base, ETFInfo, MarketPrice, TradingCalendar
+from vela_core.models import Base, ETFInfo, ETFSessionStatus, MarketPrice, TradingCalendar
+from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.walk_forward import preflight as preflight_module
 from vela_core.walk_forward.config import load_walk_forward_config
 from vela_core.walk_forward.preflight import prepare_walk_forward_inputs
@@ -48,6 +49,7 @@ def _seed(session) -> None:
             name="CSI 300",
             currency="CNY",
             inception_date=date(2019, 1, 1),
+            listing_date=date(2019, 1, 1),
             is_active=True,
         )
     )
@@ -59,6 +61,7 @@ def _seed(session) -> None:
             name="Post-window ETF",
             currency="CNY",
             inception_date=date(2022, 1, 1),
+            listing_date=date(2022, 1, 1),
             is_active=True,
         )
     )
@@ -93,18 +96,22 @@ def test_preflight_uses_calendar_axis_and_builds_compact_manifest(tmp_path: Path
     assert [window.test_start for window in prepared.windows] == [date(2021, 1, 4)]
     assert set(prepared.manifest) == {
         "version",
+        "resolution_policy_version",
         "earliest_required_session",
         "configured_end_date",
         "following_session",
         "official_sessions",
         "active_etfs",
-        "loaded_price_row_count",
-        "first_loaded_price_date",
-        "last_loaded_price_date",
+        "raw_price_row_count",
+        "first_raw_price_date",
+        "last_raw_price_date",
+        "derived_session_count",
+        "first_derived_session_date",
+        "last_derived_session_date",
     }
     assert prepared.manifest["following_session"] == "2022-01-04"
-    assert prepared.manifest["active_etfs"][0]["loaded_price_row_count"] == 5
-    assert prepared.manifest["active_etfs"][1]["loaded_price_row_count"] == 0
+    assert prepared.manifest["active_etfs"][0]["raw_price_row_count"] == 4
+    assert prepared.manifest["active_etfs"][1]["raw_price_row_count"] == 0
     assert prepared.maximum_lookback_days == 0
     assert "close_price" not in repr(prepared.manifest)
     assert prepared.input_data_checksum == prepared.input_data_checksum.lower()
@@ -117,7 +124,7 @@ def test_preflight_fails_on_missing_official_price_before_source_output(tmp_path
         _seed(session)
         session.query(MarketPrice).filter(MarketPrice.trade_date == date(2021, 12, 31)).delete()
         session.commit()
-        with pytest.raises(ValueError, match="missing required market price"):
+        with pytest.raises(ValueError, match="unexplained_gap=1"):
             prepare_walk_forward_inputs(session, config=load_walk_forward_config(_config(tmp_path)))
 
 
@@ -146,3 +153,87 @@ def test_preflight_rejects_no_valid_candidates_and_negative_declared_lookback(
         )
         with pytest.raises(ValueError, match="lookback_days must be non-negative"):
             prepare_walk_forward_inputs(session, config=load_walk_forward_config(config_path))
+
+
+def test_preflight_persists_status_aware_v2_manifest_without_future_rows(tmp_path: Path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'status.db'}")
+    Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as session:
+        _seed(session)
+        session.add(
+            ETFSessionStatus(
+                etf_id=1,
+                trade_date=date(2021, 12, 31),
+                status="full_day_suspension",
+                reason="holder_meeting",
+                source_uri="https://example.test/status",
+                source_published_date=date(2021, 12, 30),
+            )
+        )
+        session.query(MarketPrice).filter(MarketPrice.trade_date == date(2021, 12, 31)).delete()
+        session.commit()
+
+        prepared = prepare_walk_forward_inputs(
+            session, config=load_walk_forward_config(_config(tmp_path))
+        )
+
+    assert prepared.manifest["version"] == "wf_provenance_v2"
+    assert prepared.manifest["derived_session_count"] == 1
+    assert prepared.manifest["active_etfs"][0]["status_evidence"][0]["status"] == (
+        "full_day_suspension"
+    )
+    assert prepared.manifest["active_etfs"][0]["status_evidence"][0]["trade_date"] == ("2021-12-31")
+    assert "close_price" not in repr(prepared.manifest)
+
+
+def test_v2_manifest_bounds_status_evidence_without_losing_derived_count() -> None:
+    etf = ETFInfo(
+        id=1,
+        exchange="SSE",
+        symbol="510300",
+        name="CSI 300",
+        currency="CNY",
+        listing_date=date(2026, 1, 1),
+        is_active=True,
+    )
+    sessions = [date(2026, 1, day) for day in range(1, 13)]
+    points = [
+        ResolvedSessionPrice(
+            etf_id=1,
+            trade_date=sessions[0],
+            adjusted_value=Decimal("100"),
+            raw_close=Decimal("100"),
+            raw_factor=Decimal("1"),
+            tradable=True,
+            resolution="market_price",
+        )
+    ]
+    points.extend(
+        ResolvedSessionPrice(
+            etf_id=1,
+            trade_date=trade_date,
+            adjusted_value=Decimal("100"),
+            raw_close=None,
+            raw_factor=None,
+            tradable=False,
+            resolution="confirmed_non_trading_carry",
+            status="full_day_suspension",
+            reason="holder_meeting",
+            source_uri=f"https://example.test/status/{index}",
+            source_published_date=sessions[0],
+            carry_from_trade_date=sessions[index - 1],
+        )
+        for index, trade_date in enumerate(sessions[1:], start=1)
+    )
+
+    manifest, _ = preflight_module._build_manifest(
+        active_etfs=[etf],
+        price_panel={1: points},
+        official_sessions=sessions,
+        earliest_required_session=sessions[0],
+        configured_end_date=sessions[-1],
+        following_session=None,
+    )
+
+    assert manifest["derived_session_count"] == 11
+    assert len(manifest["active_etfs"][0]["status_evidence"]) == 10

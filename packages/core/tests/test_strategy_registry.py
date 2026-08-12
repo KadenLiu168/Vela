@@ -258,7 +258,7 @@ def test_historical_generation_excludes_pre_inception_etfs_and_prices(
             return []
 
     late = _etf(2, "LATE")
-    late.inception_date = second_date
+    late.listing_date = second_date
     monkeypatch.setattr(generation, "resolve_strategy", lambda config: InspectingStrategy())
     generation.generate_historical_strategy_signals(
         historical_trading_dates=[first_date, second_date],
@@ -355,7 +355,14 @@ def _dual_config():
 
 
 def _etf(etf_id: int, symbol: str) -> ETFInfo:
-    return ETFInfo(id=etf_id, exchange="X", symbol=symbol, name=symbol, currency="CNY")
+    return ETFInfo(
+        id=etf_id,
+        exchange="X",
+        symbol=symbol,
+        name=symbol,
+        currency="CNY",
+        listing_date=date(1900, 1, 1),
+    )
 
 
 def _price(etf_id: int, trade_date: date) -> MarketPrice:

@@ -183,6 +183,7 @@ def _add_etf(session: Session, *, exchange: str, symbol: str) -> ETFInfo:
         symbol=symbol,
         name=f"{symbol} ETF",
         currency="CNY",
+        listing_date=date(2000, 1, 1),
     )
     session.add(etf)
     session.flush()

@@ -1,3 +1,5 @@
+from datetime import date
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from vela_core import ETFConfig, ETFPoolConfig, sync_etf_pool_to_db
@@ -22,6 +24,10 @@ def test_sync_etf_pool_inserts_configured_etfs() -> None:
             ("SZSE", "159915", "创业板ETF", "CNY"),
             ("SSE", "510300", "沪深300ETF", "CNY"),
         ]
+        assert etfs[0].inception_date == date(2011, 9, 20)
+        assert etfs[0].listing_date == date(2011, 12, 9)
+        assert etfs[1].inception_date == date(2012, 5, 1)
+        assert etfs[1].listing_date == date(2012, 5, 28)
 
 
 def test_sync_etf_pool_reports_unchanged_on_second_run() -> None:
@@ -70,6 +76,47 @@ def test_sync_etf_pool_updates_yaml_owned_fields() -> None:
         assert etf.is_active is True
 
 
+def test_sync_etf_pool_updates_inception_and_listing_dates_independently() -> None:
+    session_factory = _create_session_factory()
+
+    with session_factory() as session:
+        session.add(
+            ETFInfo(
+                exchange="SSE",
+                symbol="510300",
+                name="沪深300ETF",
+                currency="CNY",
+                inception_date=date(2012, 5, 1),
+                listing_date=date(2012, 5, 28),
+                is_active=True,
+            )
+        )
+        session.commit()
+
+        updated_pool = _pool().model_copy(
+            update={
+                "etfs": [
+                    _pool()
+                    .etfs[0]
+                    .model_copy(
+                        update={
+                            "inception_date": date(2012, 5, 2),
+                            "listing_date": date(2012, 5, 29),
+                        }
+                    ),
+                    _pool().etfs[1],
+                ]
+            }
+        )
+        result = sync_etf_pool_to_db(session, updated_pool)
+        session.commit()
+
+        etf = session.query(ETFInfo).filter_by(symbol="510300").one()
+        assert result.updated_count == 1
+        assert etf.inception_date == date(2012, 5, 2)
+        assert etf.listing_date == date(2012, 5, 29)
+
+
 def test_sync_etf_pool_preserves_rows_outside_configured_pool() -> None:
     session_factory = _create_session_factory()
 
@@ -110,6 +157,8 @@ def _pool() -> ETFPoolConfig:
                 name="沪深300ETF",
                 category="equity_cn_large",
                 is_active=True,
+                inception_date=date(2012, 5, 1),
+                listing_date=date(2012, 5, 28),
             ),
             ETFConfig(
                 exchange="SZSE",
@@ -117,6 +166,8 @@ def _pool() -> ETFPoolConfig:
                 name="创业板ETF",
                 category="equity_cn_growth",
                 is_active=True,
+                inception_date=date(2011, 9, 20),
+                listing_date=date(2011, 12, 9),
             ),
         ],
     )
