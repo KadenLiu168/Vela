@@ -1718,33 +1718,35 @@ it("loads backtest detail data through the shared client", async () => {
 
   expect(screen.getByRole("heading", { name: "Backtest Detail" })).toBeInTheDocument();
   expect(await screen.findByText("Backtest #8")).toBeInTheDocument();
-  expect(screen.getByText("dual_momentum")).toBeInTheDocument();
+  // The run summary line and the Experiment Config metadata both surface the
+  // strategy id, date range, and status, so multi-match queries are required.
+  expect(screen.getAllByText("dual_momentum").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("v1")).toBeInTheDocument();
-  expect(screen.getByText("2026-01-01 to 2026-01-31")).toBeInTheDocument();
-  expect(screen.getByText("success")).toBeInTheDocument();
+  expect(screen.getAllByText("2026-01-01 to 2026-01-31").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("success").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("2026-02-01T09:00:00")).toBeInTheDocument();
   expect(screen.getByText("2026-02-01T09:05:00")).toBeInTheDocument();
-  // Hero and comparison matrix both surface the headline metrics; the
-  // strategy values appear in the hero cards and in the matrix's strategy
-  // column, so multi-match queries are required.
+  // Decision Summary and the core comparison matrix both surface the headline
+  // metrics; the strategy values appear in the decision cards and in the
+  // matrix's strategy column, so multi-match queries are required.
   expect(screen.getAllByText("12.00%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("144.00%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("-5.00%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("20.00%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("1.10").length).toBeGreaterThanOrEqual(1);
-  const metricsSection = screen.getByRole("heading", { name: "Metrics" }).closest("section");
-  expect(metricsSection).not.toBeNull();
-  const metrics = within(metricsSection as HTMLElement);
-  expect(metrics.getAllByText("Total return").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("12.00%").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("CAGR (calendar-time)").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("144.00%").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("Max drawdown").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("-5.00%").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getByText("Annualized volatility (252D)")).toBeInTheDocument();
-  expect(metrics.getByText("20.00%")).toBeInTheDocument();
-  expect(metrics.getAllByText("Sharpe (daily returns, 252D)").length).toBeGreaterThanOrEqual(1);
-  expect(metrics.getAllByText("1.10").length).toBeGreaterThanOrEqual(1);
+  const decisionSection = screen.getByRole("region", { name: "Decision summary" });
+  const decision = within(decisionSection);
+  expect(decision.getAllByText("Total return").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("12.00%").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("CAGR (calendar-time)").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("144.00%").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("Max drawdown").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("-5.00%").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("Sharpe (daily returns, 252D)").length).toBeGreaterThanOrEqual(1);
+  expect(decision.getAllByText("1.10").length).toBeGreaterThanOrEqual(1);
+  const coreTable = screen.getByRole("table", { name: "Strategy vs benchmark comparison matrix" });
+  expect(within(coreTable).getByText("Annualized volatility (252D)")).toBeInTheDocument();
+  expect(within(coreTable).getByText("20.00%")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("tab", { name: "Signals (2)" }));
   const signalsSection = (await screen.findByRole("columnheader", { name: "Signal #" })).closest("section");
   expect(signalsSection).not.toBeNull();
@@ -1856,7 +1858,7 @@ it("renders a single-point equity curve state on the backtest detail route", asy
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
 });
 
-it("renders n/a for nullable backtest metric cards", async () => {
+it("renders n/a for nullable backtest metrics", async () => {
   window.history.pushState({}, "", "/backtests/8");
   const fixture = {
     ...createBacktestDetailResponse(),
@@ -1878,14 +1880,12 @@ it("renders n/a for nullable backtest metric cards", async () => {
 
   render(<App />);
 
-  const metricsSection = (await screen.findByRole("heading", { name: "Metrics" })).closest(
-    "section"
-  );
-  expect(metricsSection).not.toBeNull();
-  const metricsEl = metricsSection as HTMLElement;
-  expect(within(metricsEl).getAllByText("n/a").length).toBeGreaterThanOrEqual(20);
+  const decisionSection = (await screen.findByRole("region", { name: "Decision summary" })) as HTMLElement;
+  // The four headline values all fall back to n/a.
+  expect(within(decisionSection).getAllByText("n/a").length).toBeGreaterThanOrEqual(4);
   expect(screen.getByText("Backtest #8")).toBeInTheDocument();
   expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("NaN")).not.toBeInTheDocument();
 });
 
 it("renders a loading state on the backtest detail route", () => {

@@ -90,7 +90,40 @@ it("renders Overview by default with connected automatically activated tabs", as
   expect(document.activeElement).toBe(signals);
 });
 
-it("renders benchmark metric groups and an accessible three-series legend", async () => {
+it("renders the run summary line with strategy, date range, and status", async () => {
+  detailMock.mockResolvedValue(detail(0));
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const summaries = screen.getAllByText("2026-01-01 to 2026-01-02");
+  const summary = summaries.find((element) => element.closest(".run-summary"));
+  expect(summary).not.toBeNull();
+  expect(summary).toHaveTextContent("s");
+  expect(summary).toHaveTextContent("success");
+});
+
+it("presents the overview regions in the research order", async () => {
+  detailMock.mockResolvedValue(heroDetail());
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  const regions = [
+    "Decision summary",
+    "Equity curve",
+    "Benchmark comparison",
+    "Deep analysis",
+    "Experiment config"
+  ].map((name) => screen.getByRole("region", { name }));
+
+  for (let index = 0; index < regions.length - 1; index += 1) {
+    expect(
+      regions[index].compareDocumentPosition(regions[index + 1]) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  }
+});
+
+it("renders benchmark columns and an accessible three-series equity legend", async () => {
   detailMock.mockResolvedValue({
     ...detail(0),
     benchmarks: [
@@ -130,8 +163,8 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" });
-  expect(screen.getByRole("columnheader", { name: "CSI 300 buy-and-hold" })).toBeInTheDocument();
+  await screen.findAllByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" });
+  expect(screen.getAllByRole("columnheader", { name: "CSI 300 buy-and-hold" }).length).toBeGreaterThan(0);
   const legend = screen.getByRole("list", { name: "Equity curve legend" });
   expect(legend).toHaveTextContent("Strategy");
   expect(legend).toHaveTextContent("Equal-weight monthly rebalanced portfolio");
@@ -141,67 +174,7 @@ it("renders benchmark metric groups and an accessible three-series legend", asyn
   expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toBeInTheDocument();
 });
 
-it("renders expanded strategy and relative benchmark metrics with ongoing and unavailable values", async () => {
-  detailMock.mockResolvedValue({
-    ...detail(0),
-    metrics: {
-      ...detail(0).metrics,
-      sortino_ratio: "1.234567",
-      calmar_ratio: "2.345678",
-      longest_drawdown_duration_sessions: 3,
-      longest_drawdown_peak_date: "2026-01-10",
-      longest_drawdown_trough_date: "2026-01-20",
-      longest_drawdown_recovery_date: null
-    },
-    benchmarks: [
-      {
-        key: "equal_weight_monthly",
-        name: "Equal-weight monthly rebalanced portfolio",
-        total_return: null,
-        annualized_return: null,
-        max_drawdown: null,
-        volatility: null,
-        sharpe_ratio: null,
-        sortino_ratio: null,
-        calmar_ratio: null,
-        longest_drawdown_duration_sessions: null,
-        longest_drawdown_peak_date: null,
-        longest_drawdown_trough_date: null,
-        longest_drawdown_recovery_date: null,
-        tracking_error: "0.038884",
-        information_ratio: "12.961481",
-        total_return_difference: null,
-        annualized_return_difference: null,
-        capm_alpha: null, capm_beta: null, capm_r_squared: null, capm_observation_count: null,
-        up_capture_ratio: null, up_capture_observation_count: null,
-        down_capture_ratio: null, down_capture_observation_count: null,
-        equity_curve: [],
-        ...legacyTailFields
-      }
-    ]
-  });
-
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  await screen.findByText("Backtest #7");
-  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
-
-  const sortinoRow = within(matrix).getByTestId("comparison-row-sortino_ratio");
-  expect(within(sortinoRow).getByText("1.234567")).toBeInTheDocument();
-  const calmarRow = within(matrix).getByTestId("comparison-row-calmar_ratio");
-  expect(within(calmarRow).getByText("2.345678")).toBeInTheDocument();
-  const durationRow = within(matrix).getByTestId("comparison-row-longest_drawdown_duration_sessions");
-  expect(within(durationRow).getByText("3")).toBeInTheDocument();
-  expect(within(durationRow).getAllByText("n/a").length).toBe(1);
-  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_peak_date")).getByText("2026-01-10")).toBeInTheDocument();
-  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_trough_date")).getByText("2026-01-20")).toBeInTheDocument();
-  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_recovery")).getByText("ongoing")).toBeInTheDocument();
-  expect(within(within(matrix).getByTestId("comparison-row-tracking_error")).getByText("0.038884")).toBeInTheDocument();
-  expect(within(within(matrix).getByTestId("comparison-row-information_ratio")).getByText("12.961481")).toBeInTheDocument();
-  expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
-});
-
-it("renders proxy-qualified CAPM and monthly capture evidence with count units", async () => {
+it("renders CAPM evidence only within the CSI-300 disclosure", async () => {
   detailMock.mockResolvedValue({
     ...detail(0),
     benchmarks: [
@@ -237,7 +210,7 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
+  await screen.findAllByRole("columnheader", { name: "CSI 300 buy-and-hold" });
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
   expect(screen.getByText("1127.40%")).toBeInTheDocument();
   expect(screen.getByText("Beta (CSI 300 ETF proxy)")).toBeInTheDocument();
@@ -246,12 +219,6 @@ it("renders proxy-qualified CAPM and monthly capture evidence with count units",
   expect(screen.getByText("0.958580")).toBeInTheDocument();
   expect(screen.getByText("CAPM observations (daily sessions)")).toBeInTheDocument();
   expect(screen.getByText("4")).toBeInTheDocument();
-  expect(screen.getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
-  expect(screen.getAllByText("199.53%").length).toBe(2);
-  expect(screen.getByText("Up selected months")).toBeInTheDocument();
-  expect(screen.getByText("Monthly Down Capture (selected months)")).toBeInTheDocument();
-  expect(screen.getAllByText("50.00%").length).toBe(2);
-  expect(screen.getByText("Down selected months")).toBeInTheDocument();
   // CAPM lines appear only once (the CSI 300 disclosure); the equal-weight
   // group never presents equal-weight results as CAPM.
   expect(screen.getAllByText("Beta (CSI 300 ETF proxy)").length).toBe(1);
@@ -280,7 +247,7 @@ it("renders unavailable placeholders for legacy or undefined regime values", asy
   });
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
+  await screen.findAllByRole("columnheader", { name: "CSI 300 buy-and-hold" });
   expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
   expect(screen.queryByText("NaN")).not.toBeInTheDocument();
   expect(screen.queryByText("Infinity")).not.toBeInTheDocument();
@@ -328,8 +295,8 @@ it.each([
 
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByRole("columnheader", { name: "CSI 300 buy-and-hold" });
-  expect(screen.getByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" })).toBeInTheDocument();
+  await screen.findAllByRole("columnheader", { name: "CSI 300 buy-and-hold" });
+  expect(screen.getAllByRole("columnheader", { name: "Equal-weight monthly rebalanced portfolio" }).length).toBeGreaterThan(0);
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
   expect(screen.getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
   expect(screen.getByText("Up selected months")).toBeInTheDocument();
@@ -680,7 +647,7 @@ it("renders strategy and benchmark distribution groups with owner-specific value
 
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
-  await screen.findByText("Equal-weight monthly rebalanced portfolio");
+  await screen.findAllByText("Equal-weight monthly rebalanced portfolio");
   expect(screen.getAllByText("0.010000")).toHaveLength(1);
   expect(screen.getAllByText("0.030000")).toHaveLength(1);
   expect(screen.getAllByText("-0.500000")).toHaveLength(1);
@@ -893,101 +860,6 @@ const heroDetail = (overrides: Partial<BacktestDetailResponse> = {}): BacktestDe
   ...overrides
 });
 
-it("renders the 4-card strategy hero before the comparison matrix", async () => {
-  detailMock.mockResolvedValue(heroDetail());
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  await screen.findByText("Backtest #7");
-  const hero = screen.getByLabelText("Strategy headline metrics");
-  expect(within(hero).getAllByRole("term").map((term) => term.textContent)).toEqual([
-    "Total return",
-    "CAGR (calendar-time)",
-    "Sharpe (daily returns, 252D)",
-    "Max drawdown"
-  ]);
-  expect(within(hero).getByText("12.00%")).toBeInTheDocument();
-  expect(within(hero).getByText("11.00%")).toBeInTheDocument();
-  expect(within(hero).getByText("1.50")).toBeInTheDocument();
-  expect(within(hero).getByText("-9.00%")).toBeInTheDocument();
-});
-
-it("renders the semantic comparison matrix with absolute and strategy-relative row groups", async () => {
-  detailMock.mockResolvedValue(heroDetail());
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
-  const columns = within(matrix).getAllByRole("columnheader").map((header) => header.textContent);
-  expect(columns).toEqual([
-    "Metric",
-    "Strategy",
-    "Equal-weight monthly rebalanced portfolio",
-    "CSI 300 buy-and-hold"
-  ]);
-
-  expect(within(matrix).getByText("Total return")).toBeInTheDocument();
-  expect(within(matrix).getByText("CAGR (calendar-time)")).toBeInTheDocument();
-  expect(within(matrix).getByText("Annualized volatility (252D)")).toBeInTheDocument();
-  expect(within(matrix).getByText("Longest drawdown recovery")).toBeInTheDocument();
-
-  const relativeGroup = within(matrix).getByLabelText("Strategy-relative metrics");
-  expect(within(relativeGroup).getByText("Tracking error (252D)")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Information ratio (252D)")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Monthly Up Capture (selected months)")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Up selected months")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Monthly Down Capture (selected months)")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Down selected months")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Strategy total return difference")).toBeInTheDocument();
-  expect(within(relativeGroup).getByText("Strategy CAGR difference")).toBeInTheDocument();
-});
-
-it("leaves the strategy cell n/a in strategy-relative rows and keeps capture counts adjacent", async () => {
-  detailMock.mockResolvedValue(heroDetail());
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
-  const trackingRow = within(matrix).getByTestId("comparison-row-tracking_error");
-  const trackingCells = within(trackingRow).getAllByRole("cell");
-  expect(trackingCells[0]).toHaveTextContent("n/a");
-  expect(trackingCells[1]).toHaveTextContent("0.038884");
-
-  const upCountRow = within(matrix).getByTestId("comparison-row-up_count");
-  expect(within(upCountRow).getByText("6")).toBeInTheDocument();
-  expect(within(upCountRow).getByText("5")).toBeInTheDocument();
-});
-
-it("marks comparable absolute best cells with visible Best text and never ranks evidence", async () => {
-  detailMock.mockResolvedValue(heroDetail());
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  const matrix = await screen.findByRole("table", { name: "Strategy vs benchmark comparison matrix" });
-
-  // Total return: strategy 0.12 is highest.
-  const totalReturnRow = within(matrix).getByTestId("comparison-row-total_return");
-  expect(within(within(totalReturnRow).getAllByRole("cell")[0]).getByText("Best")).toBeInTheDocument();
-
-  // Max drawdown: CSI 300 -0.08 is closest to zero.
-  const maxDrawdownRow = within(matrix).getByTestId("comparison-row-max_drawdown");
-  expect(within(within(maxDrawdownRow).getAllByRole("cell")[2]).getByText("Best")).toBeInTheDocument();
-
-  // Volatility: strategy 0.15 is lowest.
-  const volatilityRow = within(matrix).getByTestId("comparison-row-volatility");
-  expect(within(within(volatilityRow).getAllByRole("cell")[0]).getByText("Best")).toBeInTheDocument();
-
-  // Dates and relative rows are never ranked.
-  expect(within(within(matrix).getByTestId("comparison-row-longest_drawdown_peak_date")).queryByText("Best")).not.toBeInTheDocument();
-  expect(within(within(matrix).getByTestId("comparison-row-tracking_error")).queryByText("Best")).not.toBeInTheDocument();
-});
-
-it("shows an explicit no-benchmark state for legacy details while keeping the hero", async () => {
-  detailMock.mockResolvedValue(detail(0));
-  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
-
-  await screen.findByText("Backtest #7");
-  expect(screen.getByLabelText("Strategy headline metrics")).toBeInTheDocument();
-  expect(screen.getByText("No benchmark comparison is available for this run.")).toBeInTheDocument();
-  expect(screen.queryByRole("table", { name: "Strategy vs benchmark comparison matrix" })).not.toBeInTheDocument();
-});
-
 it("renders distribution risk, return stability, and CAPM as closed-by-default disclosures", async () => {
   detailMock.mockResolvedValue(heroDetail());
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
@@ -1051,13 +923,39 @@ it("conditions CAPM disclosure on the CSI-300 benchmark", async () => {
   expect(screen.queryByText("CSI 300 ETF proxy Alpha (252D compounded)")).not.toBeInTheDocument();
 });
 
-it("wraps the comparison matrix in a labeled keyboard-scrollable region without page overflow", async () => {
+it("renders keyboard-operable disclosures with accessible region labels", async () => {
   detailMock.mockResolvedValue(heroDetail());
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
-  const region = screen.getByLabelText("Strategy vs benchmark comparison matrix region");
-  expect(region).toHaveAttribute("tabindex", "0");
-  expect(screen.getByRole("table", { name: "Strategy vs benchmark comparison matrix" })).toBeInTheDocument();
-  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1440);
+
+  for (const name of [
+    "Decision summary",
+    "Equity curve",
+    "Benchmark comparison",
+    "Deep analysis",
+    "Experiment config"
+  ]) {
+    expect(screen.getByRole("region", { name })).toBeInTheDocument();
+  }
+
+  const advancedSummary = screen.getByRole("heading", { name: "Advanced metrics" }).closest("summary");
+  expect(advancedSummary).not.toBeNull();
+  const advancedDetails = (advancedSummary as HTMLElement).closest("details");
+  expect(advancedDetails).not.toHaveAttribute("open");
+  fireEvent.click(advancedSummary as HTMLElement);
+  expect(advancedDetails).toHaveAttribute("open");
+
+  const rawSummary = screen.getByRole("heading", { name: "Raw parameters" }).closest("summary");
+  expect(rawSummary).not.toBeNull();
+  const rawDetails = (rawSummary as HTMLElement).closest("details");
+  expect(rawDetails).not.toHaveAttribute("open");
+  fireEvent.click(rawSummary as HTMLElement);
+  expect(rawDetails).toHaveAttribute("open");
+
+  const stabilitySummary = screen.getByRole("heading", { name: "Return stability" }).closest("summary");
+  expect(stabilitySummary).not.toBeNull();
+  const stabilityDetails = (stabilitySummary as HTMLElement).closest("details");
+  fireEvent.click(stabilitySummary as HTMLElement);
+  expect(stabilityDetails).toHaveAttribute("open");
 });

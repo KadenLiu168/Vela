@@ -1,8 +1,7 @@
-# backtest-results-ui Specification
+# backtest-results-ui Specification Delta
 
-## Purpose
-TBD - created by archiving change redesign-backtest-results-ui. Update Purpose after archive.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Backtest detail shows a side-by-side strategy versus benchmark comparison matrix
 The Backtest Detail Overview SHALL present benchmark comparison in two groups: a core metrics table that is always visible, and an Advanced Metrics disclosure that is closed by default. The core metrics table SHALL render columns Metric, Strategy, Equal-weight monthly rebalanced portfolio, and CSI 300 buy-and-hold when both fixed benchmarks are available, with rows Total return, CAGR (calendar-time), Max drawdown, Annualized volatility (252D), Sharpe (daily returns, 252D), Sortino (rf MAR, 252D), and Calmar (calendar CAGR / |MaxDD|). Best-value markers SHALL follow the existing documented direction rules on comparable absolute numeric rows. The Advanced Metrics disclosure SHALL contain the remaining matrix evidence: longest-drawdown duration/peak/trough/recovery, Tracking Error (252D), Information Ratio (252D), Monthly Up/Down Capture (selected months) with selected-month counts, and strategy total/annualized-return differences in the corresponding benchmark column while the Strategy cell is `n/a`. Null API values SHALL render through existing unavailable formatting and SHALL NOT be financially derived in the browser.
 
@@ -61,6 +60,8 @@ The Backtest Detail Overview SHALL render distribution-risk evidence, return sta
 - **THEN** the distribution, rolling-stability, and CAPM sections each sit in a closed-by-default disclosure with an accessible `<summary>` label
 - **AND** every disclosure is operable by keyboard and reveals its complete existing evidence when expanded
 
+## ADDED Requirements
+
 ### Requirement: Backtest detail presents overview sections in the research order
 The Backtest Detail Overview SHALL order its content regions top-to-bottom as: run summary line, Decision Summary, Equity Curve, Benchmark Comparison, Deep Analysis, and Experiment Config. The run summary line SHALL show strategy id, date range, and status in one line. The full run metadata (config version, started/finished timestamps, error message) SHALL be presented in the Experiment Config region. The Signals tab and its lazy loading behavior SHALL remain unchanged.
 
@@ -88,58 +89,3 @@ The Experiment Config region SHALL render the run's `parameters_json` as a human
 #### Scenario: Raw parameters remain available
 - **WHEN** the Experiment Config region renders
 - **THEN** a closed-by-default Raw Parameters disclosure contains the original JSON via the existing parameter summary formatting
-
-### Requirement: Equity curve legend identifies each series by color and label
-The equity-curve chart SHALL render a legend where each entry shows a color swatch whose fill matches the corresponding line stroke, and SHALL render a readable direct label of the series name at the end of each line. Colors SHALL be assigned from the explicit stable mapping for `strategy`, `equal_weight_monthly`, and `csi_300_buy_hold`, not from array position. The same mapping SHALL be used by Return Stability rolling charts.
-
-#### Scenario: Legend swatch matches line color
-- **WHEN** the equity-curve legend lists a series
-- **THEN** its swatch fill equals the stroke color of that series line
-- **AND** the series name is shown as text alongside the swatch
-
-#### Scenario: Each line carries a direct end-label
-- **WHEN** the equity curve renders a series line
-- **THEN** the series name is drawn at the line's end point
-- **AND** the label color matches the line stroke
-- **AND** labels are deterministically separated when endpoints converge and remain inside the SVG viewBox
-
-#### Scenario: Missing series does not reassign identity
-- **WHEN** one fixed benchmark has no plottable points
-- **THEN** every remaining current series keeps the token assigned to its key
-- **AND** strategy and the other fixed benchmark do not shift to another series color
-
-### Requirement: Equity curve renders axes
-The equity-curve chart SHALL render an x-axis with date ticks and a y-axis with net-value ticks. Return Stability rolling charts SHALL use the same shared tick geometry while formatting the y-axis for the selected Return, Volatility, or Sharpe metric. All tick and endpoint geometry SHALL derive from `EQUITY_CURVE_CHART` and the same shared sorted-date/value scale as the line paths.
-
-#### Scenario: Axes and ticks are present
-- **WHEN** the equity curve renders
-- **THEN** it shows date ticks along the x-axis and net-value ticks along the y-axis
-- **AND** the geometry derives from the `EQUITY_CURVE_CHART` dimensions constant
-
-#### Scenario: Rolling chart uses metric-correct axes and exact fallback
-- **WHEN** the user selects a rolling Return, Volatility, or Sharpe chart
-- **THEN** its x-axis shows dates and its y-axis labels use the selected metric's format without mixing metric scales
-- **AND** the accessible exact-value table remains available
-
-#### Scenario: Existing chart fallback states remain safe
-- **WHEN** the strategy curve is empty, contains one valid point, or all plotted values are equal
-- **THEN** the existing empty/single-point feedback or deterministic equal-range geometry remains available
-- **AND** no tick, path, endpoint label, or summary value is non-finite or outside the SVG viewBox
-
-### Requirement: Backtest list shows key metric columns
-The Backtest List table SHALL include Total return, CAGR (calendar-time), and Sharpe (daily returns, 252D) columns sourced from the already-returned `BacktestListItem` fields, in addition to the existing Run / Date range / Status / Started at columns.
-
-#### Scenario: List columns use existing item fields
-- **WHEN** the backtest list renders a row
-- **THEN** it shows Total return, CAGR (calendar-time), and Sharpe (daily returns, 252D) derived from `total_return`, `annualized_return`, and `sharpe_ratio` on the list item
-- **AND** no new API field is required to populate those columns
-- **AND** completed and legacy/null rows use the existing percent/decimal/unavailable formatters without browser-side financial derivation
-
-### Requirement: Dense result views remain responsive and keyboard accessible
-The comparison matrix and expanded Backtest List table SHALL use labeled, keyboard-scrollable local horizontal-overflow regions when needed. The comparison matrix metric-name column SHALL remain sticky within its local region. At 1440×1000 and 390×844 the pages SHALL have no page-level horizontal overflow, and chart ticks/end-labels SHALL remain readable and inside their SVG viewBoxes.
-
-#### Scenario: Desktop and narrow browser acceptance
-- **WHEN** benchmark-enabled Backtest Detail and populated Backtest List states render at 1440×1000 or 390×844
-- **THEN** hero metrics, matrix/list columns, disclosures, chart axes, labels, legends, and existing navigation remain reachable and readable
-- **AND** horizontal scrolling, when necessary, is confined to a labeled local region operable by keyboard
-

@@ -926,6 +926,89 @@ main {
   margin: 0;
 }
 
+/* Backtest Detail overview — one-line run summary, Decision Summary, Deep
+ * Analysis, and Experiment Config. Reuses metric-card / disclosure /
+ * comparison-matrix and the holdings-section rhythm. */
+.detail-page .run-summary {
+  align-items: baseline;
+  color: var(--color-fog);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  gap: var(--spacing-8);
+  line-height: var(--leading-body-card);
+  margin: 0 0 var(--spacing-8);
+}
+
+.detail-page .run-summary strong {
+  color: var(--color-paper);
+  font-weight: var(--font-weight-semibold);
+}
+
+.detail-page .run-summary-status {
+  color: var(--color-mist);
+  font-variant-caps: all-small-caps;
+  letter-spacing: var(--tracking-meta);
+}
+
+.detail-page .decision-summary-section {
+  margin-top: calc(var(--section-gap) * 0.75);
+}
+
+.detail-page .decision-summary-header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-12);
+  margin: 0 0 var(--spacing-12);
+}
+
+.detail-page .decision-summary-header h3 {
+  margin: 0;
+}
+
+.detail-page .decision-difference {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  line-height: var(--leading-meta);
+  margin: var(--spacing-12) 0 0;
+}
+
+.detail-page .verdict-badge {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-pills);
+  color: var(--color-mist);
+  font-family: var(--font-inter-variable);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  line-height: var(--leading-display);
+  padding: 4px 10px;
+  text-transform: uppercase;
+}
+
+.detail-page .verdict-badge-outperforming {
+  border-color: var(--color-acid-lime);
+  color: var(--color-acid-lime);
+}
+
+.detail-page .verdict-badge-underperforming {
+  border-color: var(--feedback-accent);
+  color: var(--feedback-accent);
+}
+
+.detail-page .verdict-badge-mixed {
+  border-color: var(--color-fog);
+  color: var(--color-fog);
+}
+
+.detail-page .config-list + .config-list {
+  margin-top: var(--spacing-24);
+}
+
 .detail-page,
 .signal-detail-page {
   display: grid;
