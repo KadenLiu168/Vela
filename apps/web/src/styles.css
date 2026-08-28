@@ -952,6 +952,65 @@ main {
   letter-spacing: var(--tracking-meta);
 }
 
+/* Walk-forward Detail — Run Header, OOS Summary headline cards, and the
+ * explained fact line. Reuses metric-card / holdings-section / run-summary
+ * and the detail-page typography conventions. */
+.detail-page .run-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+  margin: 0 0 var(--section-gap);
+}
+
+.detail-page .run-header .operation-link {
+  margin-top: 0;
+}
+
+.detail-page .run-header .run-summary {
+  margin-bottom: 0;
+}
+
+.detail-page .oos-summary-grid {
+  display: grid;
+  gap: var(--spacing-16);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: var(--spacing-12) 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.detail-page .oos-summary-card-sub {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
+  margin: var(--spacing-8) 0 0;
+}
+
+.detail-page .oos-summary-card-meta {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  line-height: var(--leading-meta);
+  margin: var(--spacing-8) 0 0;
+}
+
+.detail-page .fact-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  margin: var(--spacing-24) 0 0;
+}
+
+.detail-page .fact-line p {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
+  margin: 0;
+}
+
 .detail-page .decision-summary-section {
   margin-top: calc(var(--section-gap) * 0.75);
 }
@@ -2216,7 +2275,8 @@ main {
     padding: var(--spacing-32);
   }
 
-  .detail-page .metric-card-grid {
+  .detail-page .metric-card-grid,
+  .detail-page .oos-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -2254,7 +2314,8 @@ main {
   }
 
   .metric-row,
-  .detail-page .metric-card-grid {
+  .detail-page .metric-card-grid,
+  .detail-page .oos-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2361,6 +2422,7 @@ main {
 
   .metric-row,
   .detail-page .metric-card-grid,
+  .detail-page .oos-summary-grid,
   .equity-curve-summary,
   .compact-list,
   .walk-forward-json-grid {

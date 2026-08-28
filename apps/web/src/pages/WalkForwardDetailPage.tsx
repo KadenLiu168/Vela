@@ -16,7 +16,10 @@ import {
   formatNullableText,
   formatTimestamp
 } from "../utils/formatters";
-import { computeEquityCurveGeometry, EQUITY_CURVE_CHART, normalizeEquityCurvePoints } from "./equityCurveChart";
+import { StitchedOosSection } from "./StitchedOosSection";
+import { WalkForwardOosSummarySection } from "./WalkForwardOosSummarySection";
+import { WalkForwardRunHeaderSection } from "./WalkForwardRunHeaderSection";
+import { TAIL_OWNER_LABELS } from "./walkForwardFormatters";
 
 type WalkForwardDetailPageProps = {
   runId: string;
@@ -108,54 +111,13 @@ function renderDetail(state: WalkForwardDetailState, runId: string) {
   const { data } = state;
   return (
     <article className="dashboard-panel">
-      <strong className="panel-primary">Persisted evaluation evidence</strong>
-      <RunSummary data={data} />
-      <EvidenceSection data={data} />
+      <WalkForwardRunHeaderSection run={data.run} />
+      <WalkForwardOosSummarySection evidence={data.evidence} status={data.run.status} />
       <StitchedOosSection data={data} />
-      <ProvenanceSection data={data} />
+      <EvidenceSection data={data} />
       <WindowSection data={data} />
+      <ProvenanceSection data={data} />
     </article>
-  );
-}
-
-function StitchedOosSection({ data }: { data: WalkForwardDetailResponse }) {
-  const stitched = data.stitched_oos;
-  if (stitched === null) {
-    return null;
-  }
-  if (stitched.status === "unavailable_non_contiguous_windows") {
-    return <section className="holdings-section" aria-labelledby="stitched-oos-heading"><h2 id="stitched-oos-heading">Stitched OOS capital path</h2><p className="detail-note">Gap or overlap windows cannot form one chronological capital path. Independent OOS evidence remains available below.</p></section>;
-  }
-  const chartPoints = normalizeEquityCurvePoints(stitched.points);
-  const geometry = chartPoints.length > 1 ? computeEquityCurveGeometry(chartPoints) : null;
-  const resets = stitched.points.filter((point) => point.is_window_start);
-  return <section className="holdings-section" aria-labelledby="stitched-oos-heading">
-    <h2 id="stitched-oos-heading">Stitched OOS capital path</h2>
-    <p className="detail-note">Compounds separately initialized OOS segments. No seam return, holdings carry, turnover, or transaction cost is synthesized.</p>
-    <dl className="compact-list"><DescriptionItem label="Ending net value" value={stitched.ending_net_value ?? "n/a"} /><DescriptionItem label="Cumulative total return" value={stitched.total_return ?? "n/a"} /></dl>
-    {geometry ? <svg aria-label="Stitched OOS equity curve" className="equity-curve-chart" role="img" viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}><path className="equity-curve-line" d={geometry.linePath} fill="none" stroke="var(--color-acid-lime)" /></svg> : <EmptyState>No valid stitched OOS curve points are available for this run.</EmptyState>}
-    <ul aria-label="Stitched OOS window resets">{resets.map((point) => <li key={`${point.window_ordinal}-${point.trade_date}`}>Window {point.window_ordinal + 1} reset: {formatDate(point.trade_date)}</li>)}</ul>
-  </section>;
-}
-
-function RunSummary({ data }: { data: WalkForwardDetailResponse }) {
-  const { run } = data;
-  return (
-    <section className="holdings-section" aria-labelledby="walk-forward-run-heading">
-      <h2 id="walk-forward-run-heading">Execution</h2>
-      <dl className="compact-list">
-        <DescriptionItem label="Strategy" value={run.strategy_id} />
-        <DescriptionItem label="Date range" value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`} />
-        <DescriptionItem label="Windows" value={formatInteger(run.window_count)} />
-        <DescriptionItem label="Provenance version" value={run.provenance_version} />
-        <DescriptionItem label="Evidence version" value={run.evidence_version} />
-        <DescriptionItem label="Started at" value={formatTimestamp(run.started_at)} />
-        <DescriptionItem label="Finished at" value={formatTimestamp(run.finished_at)} />
-        <DescriptionItem label="Created at" value={formatTimestamp(run.created_at)} />
-        <DescriptionItem label="Config checksum" value={<code className="mono-compact">{run.config_checksum}</code>} />
-        <DescriptionItem label="Input checksum" value={<code className="mono-compact">{run.input_data_checksum}</code>} />
-      </dl>
-    </section>
   );
 }
 
@@ -195,12 +157,6 @@ function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
     </section>
   );
 }
-
-const TAIL_OWNER_LABELS: Record<string, string> = {
-  strategy: "Strategy",
-  equal_weight_monthly: "Equal-weight monthly",
-  csi_300_buy_hold: "CSI 300 buy-and-hold"
-};
 
 const TAIL_METRIC_LABELS: Record<string, string> = {
   historical_var_95: "Historical VaR 95% (1D loss)",
@@ -360,6 +316,16 @@ function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-provenance-heading">
       <h2 id="walk-forward-provenance-heading">Configuration and input provenance</h2>
+      <div className="walk-forward-subsection">
+        <h3>Execution</h3>
+        <dl className="compact-list">
+          <DescriptionItem label="Provenance version" value={data.run.provenance_version} />
+          <DescriptionItem label="Evidence version" value={data.run.evidence_version} />
+          <DescriptionItem label="Started at" value={formatTimestamp(data.run.started_at)} />
+          <DescriptionItem label="Finished at" value={formatTimestamp(data.run.finished_at)} />
+          <DescriptionItem label="Created at" value={formatTimestamp(data.run.created_at)} />
+        </dl>
+      </div>
       <p className="detail-note">
         Configuration paths are display metadata; checksum identity uses validated effective content.
       </p>

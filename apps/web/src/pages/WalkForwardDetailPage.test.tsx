@@ -238,6 +238,55 @@ const detail: WalkForwardDetailResponse = {
 
 const detailEvidence = detail.evidence as NonNullable<WalkForwardDetailResponse["evidence"]>;
 
+it("opens with a Run Header carrying navigation, status, and a one-line summary", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
+  const panel = document.querySelector(".dashboard-panel");
+  const header = panel?.firstElementChild;
+  expect(header?.tagName).toBe("HEADER");
+  expect(header).toHaveClass("run-header");
+  const headerScope = within(header as HTMLElement);
+  expect(headerScope.getByRole("link", { name: /back to walk-forward history/i })).toHaveAttribute(
+    "href",
+    "/walk-forwards"
+  );
+  expect(headerScope.getByText("success")).toBeInTheDocument();
+  expect(headerScope.getByText("dual_momentum")).toBeInTheDocument();
+  expect(headerScope.getByText(/2026-01-01 to 2026-12-31/)).toBeInTheDocument();
+  expect(headerScope.getByText(/2 windows/)).toBeInTheDocument();
+  // Execution metadata is off the first screen, in the provenance region.
+  expect(header).not.toHaveTextContent("wf_provenance_v1");
+  const provenance = screen
+    .getByRole("heading", { name: "Configuration and input provenance" })
+    .closest("section");
+  const provenanceScope = within(provenance as HTMLElement);
+  expect(provenanceScope.getByRole("heading", { name: "Execution" })).toBeInTheDocument();
+  expect(provenanceScope.getByText("wf_provenance_v1")).toBeInTheDocument();
+  expect(provenanceScope.getByText("wf_evidence_v1")).toBeInTheDocument();
+  expect(provenanceScope.getByText("2026-12-01T00:00:00")).toBeInTheDocument();
+});
+
+it("orders regions in research order: Header → OOS Summary → Stitched → Aggregated evidence → Windows → Provenance", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText("Walk-forward #42")).toBeInTheDocument();
+  const panel = document.querySelector(".dashboard-panel") as HTMLElement;
+  expect(panel.firstElementChild).toHaveClass("run-header");
+  const headings = Array.from(panel.querySelectorAll("h2")).map((heading) => heading.textContent);
+  expect(headings).toEqual([
+    "OOS summary",
+    "Stitched OOS capital path",
+    "Aggregated evidence",
+    "Window evidence",
+    "Configuration and input provenance"
+  ]);
+});
+
 it("presents persisted evidence, provenance, candidates, and stitched OOS reset semantics", async () => {
   detailMock.mockResolvedValue(detail);
 
@@ -544,7 +593,8 @@ it("does not fabricate stitched OOS evidence for an active run", async () => {
 
   render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
-  expect(await screen.findByText(/Evidence is unavailable until this queued run/)).toBeInTheDocument();
+  // The pre-terminal note appears in both the OOS Summary and Aggregated evidence regions.
+  expect(await screen.findAllByText(/Evidence is unavailable until this queued run/)).toHaveLength(2);
   expect(
     screen.queryByRole("heading", { name: "Stitched OOS capital path" })
   ).not.toBeInTheDocument();
