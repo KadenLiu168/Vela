@@ -22,12 +22,11 @@ import { ExperimentConfigSection } from "./ExperimentConfigSection";
 import {
   computeEquityCurveGeometry,
   computeMultiEquityCurveGeometry,
-  computeSeriesEndLabels,
-  EQUITY_CURVE_CHART,
   normalizeEquityCurvePoints,
   type EquityCurveChartSeries
 } from "./equityCurveChart";
-import { seriesColor } from "./seriesColor";
+import { EquityCurvePlot } from "./EquityCurvePlot";
+import { TableCells, TableHeader } from "./tablePrimitives";
 
 type BacktestDetailPageProps = {
   backtestId: string;
@@ -193,13 +192,31 @@ function renderBacktestDetail(
     selectTab(tab);
     document.getElementById(`backtest-${tab}-tab`)?.focus();
   };
+  const tabs = [
+    ["overview", "Overview"],
+    ["signals", `Signals (${signalCount})`]
+  ] as const;
 
   return (
     <article className="dashboard-panel">
       <strong className="panel-primary">Backtest #{run.run_id}</strong>
       <div aria-label="Backtest detail sections" className="backtest-tabs" role="tablist">
-        <button aria-controls="backtest-overview-panel" aria-selected={activeTab === "overview"} className="backtest-tab" id="backtest-overview-tab" onClick={() => selectTab("overview")} onKeyDown={onTabKeyDown} role="tab" tabIndex={activeTab === "overview" ? 0 : -1} type="button">Overview</button>
-        <button aria-controls="backtest-signals-panel" aria-selected={activeTab === "signals"} className="backtest-tab" id="backtest-signals-tab" onClick={() => selectTab("signals")} onKeyDown={onTabKeyDown} role="tab" tabIndex={activeTab === "signals" ? 0 : -1} type="button">Signals ({signalCount})</button>
+        {tabs.map(([tab, label]) => (
+          <button
+            aria-controls={`backtest-${tab}-panel`}
+            aria-selected={activeTab === tab}
+            className="backtest-tab"
+            id={`backtest-${tab}-tab`}
+            key={tab}
+            onClick={() => selectTab(tab)}
+            onKeyDown={onTabKeyDown}
+            role="tab"
+            tabIndex={activeTab === tab ? 0 : -1}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {activeTab === "overview" ? (
       <div aria-labelledby="backtest-overview-tab" id="backtest-overview-panel" role="tabpanel">
@@ -241,7 +258,7 @@ function renderBacktestDetail(
 
 function SignalsPanel({ count, offset, setOffset, state }: { count: number; offset: number; setOffset: (offset: number) => void; state: SignalsState }) {
   return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
-    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><thead><tr><th scope="col">Signal #</th><th scope="col">Signal date</th><th scope="col">Result</th><th scope="col">Action</th></tr></thead><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><td>{signal.signal_id}</td><td>{formatDate(signal.signal_date)}</td><td>{formatNullableText(signal.result)}</td><td><Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link></td></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
   </section>;
 }
 
@@ -273,134 +290,46 @@ function EquityCurveChart({
       <div className="equity-curve-single-point">
         <EmptyState>Only one equity curve point is available.</EmptyState>
         <dl className="equity-curve-summary">
-          <DescriptionItem label="Point count" value={formatInteger(1)} />
-          <DescriptionItem label="Trade date" value={formatDate(point.tradeDate)} />
-          <DescriptionItem label="Net value" value={formatNetValue(point.netValue)} />
+          {[
+            ["Point count", formatInteger(1)],
+            ["Trade date", formatDate(point.tradeDate)],
+            ["Net value", formatNetValue(point.netValue)]
+          ].map(([label, value]) => (
+            <DescriptionItem key={label} label={label} value={value} />
+          ))}
         </dl>
       </div>
     );
   }
 
-  const { maxNetValue, minNetValue, series, dateTicks, valueTicks } = computeMultiEquityCurveGeometry(chartSeries);
-  const legacyGeometry = series.length === 1 ? computeEquityCurveGeometry(chartPoints) : null;
-  const endLabels = computeSeriesEndLabels(series);
+  const geometry = computeMultiEquityCurveGeometry(chartSeries);
+  const legacyGeometry = geometry.series.length === 1 ? computeEquityCurveGeometry(chartPoints) : null;
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
   return (
     <div className="equity-curve-card">
-      <svg
-        aria-labelledby="equity-curve-chart-title"
-        className="equity-curve-chart"
-        role="img"
-        viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}
-      >
-        <title id="equity-curve-chart-title">Equity curve net value chart</title>
-        <line
-          className="equity-curve-grid-line"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.paddingTop}
-          y2={EQUITY_CURVE_CHART.paddingTop}
-        />
-        <line
-          className="equity-curve-grid-line"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        <line
-          aria-hidden="true"
-          className="equity-curve-axis"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        <line
-          aria-hidden="true"
-          className="equity-curve-axis"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.paddingLeft}
-          y1={EQUITY_CURVE_CHART.paddingTop}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        {dateTicks.map((tick) => (
-          <text
-            className="equity-curve-axis-tick"
-            data-testid="equity-curve-x-tick"
-            key={tick.value}
-            textAnchor="middle"
-            x={tick.x}
-            y={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom + 16}
-          >
-            {tick.value}
-          </text>
-        ))}
-        {valueTicks.map((tick) => (
-          <text
-            className="equity-curve-axis-tick"
-            data-testid="equity-curve-y-tick"
-            key={tick.value}
-            textAnchor="end"
-            x={EQUITY_CURVE_CHART.paddingLeft - 8}
-            y={tick.y + 4}
-          >
-            {tick.value.toFixed(2)}
-          </text>
-        ))}
-        {series.map((item) => (
-          <path
-            className="equity-curve-line"
-            d={item.linePath}
-            data-testid={series.length === 1 ? "equity-curve-line" : `equity-curve-line-${item.key}`}
-            key={item.key}
-            stroke={seriesColor(item.key)}
-          />
-        ))}
-        {endLabels.map((label) => (
-          <text
-            className="equity-curve-end-label"
-            data-testid={`equity-curve-end-label-${label.key}`}
-            fill={seriesColor(label.key)}
-            key={label.key}
-            textAnchor="end"
-            x={label.x}
-            y={label.y}
-          >
-            {label.name}
-          </text>
-        ))}
-        {legacyGeometry?.highlightCoordinates.map((coordinate) => (
-          <circle
-            className="equity-curve-highlight"
-            cx={coordinate.x}
-            cy={coordinate.y}
-            data-testid="equity-curve-highlight"
-            key={coordinate.index}
-            r="4"
-          />
-        ))}
-      </svg>
-      <ul aria-label="Equity curve legend" className="equity-curve-legend">
-        {series.map((item) => (
-          <li className="equity-curve-legend-item" key={item.key}>
-            <span
-              aria-hidden="true"
-              className="equity-curve-swatch"
-              data-testid={`equity-curve-swatch-${item.key}`}
-              style={{ backgroundColor: seriesColor(item.key) }}
-            />
-            {item.name}
-          </li>
-        ))}
-      </ul>
+      <EquityCurvePlot
+        endLabelTestIdPrefix="equity-curve-end-label-"
+        geometry={geometry}
+        highlightCoordinates={legacyGeometry?.highlightCoordinates}
+        labelledBy="equity-curve-chart-title"
+        legendLabel="Equity curve legend"
+        lineTestIdPrefix="equity-curve-line-"
+        singleLineTestId="equity-curve-line"
+        title="Equity curve net value chart"
+        xTickTestId="equity-curve-x-tick"
+        yTickTestId="equity-curve-y-tick"
+      />
       <dl className="equity-curve-summary">
-        <DescriptionItem label="Point count" value={formatInteger(chartPoints.length)} />
-        <DescriptionItem label="Start point" value={formatEquityCurvePoint(firstPoint)} />
-        <DescriptionItem label="End point" value={formatEquityCurvePoint(lastPoint)} />
-        <DescriptionItem label="Min net value" value={formatNetValue(minNetValue)} />
-        <DescriptionItem label="Max net value" value={formatNetValue(maxNetValue)} />
+        {[
+          ["Point count", formatInteger(chartPoints.length)],
+          ["Start point", formatEquityCurvePoint(firstPoint)],
+          ["End point", formatEquityCurvePoint(lastPoint)],
+          ["Min net value", formatNetValue(geometry.minNetValue)],
+          ["Max net value", formatNetValue(geometry.maxNetValue)]
+        ].map(([label, value]) => (
+          <DescriptionItem key={label} label={label} value={value} />
+        ))}
       </dl>
     </div>
   );

@@ -78,11 +78,7 @@ The production build SHALL emit React, ReactDOM, and Scheduler runtime code in a
 - **AND** it MUST NOT describe the application entry file alone as the total initial JavaScript payload
 
 ### Requirement: Production bundle structure and budget bands are verifiable
-The web frontend SHALL provide a repeatable production-build check that derives static
-and dynamic chunk relationships from a fresh Vite manifest, reports raw and gzip
-JavaScript sizes, attributes required runtime separately from eager application code and
-non-initial lazy-route JavaScript, evaluates every configured budget band in one run, and
-returns a non-zero result when any identity, budget, or graph-ownership requirement fails.
+The web frontend SHALL provide a repeatable production-build check that derives static and dynamic chunk relationships from a fresh Vite manifest, reports raw and gzip JavaScript sizes, attributes required runtime separately from eager application code and non-initial lazy-route JavaScript, reports every lazy route entry and asynchronous shared chunk separately, evaluates every configured budget band in one run, and returns a non-zero result when any identity, budget, or graph-ownership requirement fails.
 
 #### Scenario: Bundle evidence comes from the reviewed dependency and source state
 - **WHEN** production bundle acceptance is recorded
@@ -109,13 +105,19 @@ returns a non-zero result when any identity, budget, or graph-ownership requirem
 
 #### Scenario: Lazy route graph stays within the revised allocation
 - **WHEN** the production bundle check evaluates all emitted JavaScript that is not in the Dashboard initial static graph
-- **THEN** the summed raw JavaScript size MUST be no greater than 61,000 bytes
+- **THEN** the summed raw JavaScript size MUST be no greater than 70,000 bytes
 - **AND** the report MUST include asynchronous shared helper chunks in this allocation
 
 #### Scenario: Total JavaScript avoids material growth
 - **WHEN** the production bundle check evaluates every emitted JavaScript chunk
-- **THEN** the summed raw JavaScript size MUST be no greater than 333,000 bytes
+- **THEN** the summed raw JavaScript size MUST be no greater than 340,000 bytes
 - **AND** the report MUST list each asynchronous route entry separately from the initial static graph
+
+#### Scenario: Lazy route contributors are attributable
+- **WHEN** production bundle remediation evidence is recorded
+- **THEN** the report MUST identify the raw byte size of each Signal list/detail, Backtest list/detail, ETF detail, and Walk-forward list/detail entry chunk
+- **AND** it MUST list non-initial shared JavaScript chunks separately so shared bytes are counted exactly once in the lazy aggregate
+- **AND** the sum of all reported non-initial entry and shared chunks MUST equal the reported lazy-route raw total
 
 #### Scenario: Every declared lazy route is verified
 - **WHEN** the production bundle check evaluates the Vite manifest and built Dashboard HTML

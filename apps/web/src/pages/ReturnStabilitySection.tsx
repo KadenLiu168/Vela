@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   type ReturnStability,
   type ReturnStabilityCalendarBucket,
@@ -6,15 +6,15 @@ import {
   type ReturnStabilityRollingPoint
 } from "../api/client";
 import { EmptyState } from "../components";
-import { formatDate } from "../utils/formatters";
+import { formatDate, formatNullableText } from "../utils/formatters";
 import {
   computeMultiEquityCurveGeometry,
-  computeSeriesEndLabels,
-  EQUITY_CURVE_CHART,
   type EquityCurveChartPoint,
   type EquityCurveChartSeries
 } from "./equityCurveChart";
-import { seriesColor } from "./seriesColor";
+import { EquityCurvePlot } from "./EquityCurvePlot";
+import { SimpleMetricGrid } from "./SimpleMetricGrid";
+import { TableCells, TableHeader } from "./tablePrimitives";
 
 export type RollingMetric = "return" | "volatility" | "sharpe";
 
@@ -24,8 +24,18 @@ const ROLLING_METRIC_OPTIONS: { value: RollingMetric; label: string }[] = [
   { value: "sharpe", label: "Rolling Sharpe" }
 ];
 
+const ROLLING_TABLE_COLUMNS = ["Entity", "Window start", "Trade date"];
+const CALENDAR_TABLE_COLUMNS = [
+  "Period",
+  "First date",
+  "Last date",
+  "Observations",
+  "Total return",
+  "Scope"
+];
+
 function metricValue(point: ReturnStabilityRollingPoint, metric: RollingMetric): number | null {
-  const raw = point[metric === "return" ? "total_return" : metric === "volatility" ? "volatility" : "sharpe_ratio"];
+  const raw = metricValueString(point, metric);
   if (raw === null) {
     return null;
   }
@@ -35,10 +45,6 @@ function metricValue(point: ReturnStabilityRollingPoint, metric: RollingMetric):
 
 function metricAccessibleLabel(metric: RollingMetric): string {
   return ROLLING_METRIC_OPTIONS.find((option) => option.value === metric)?.label ?? metric;
-}
-
-function formatMetricValue(raw: string | null): string {
-  return raw ?? "n/a";
 }
 
 /** Y-axis tick labels use the selected metric's own scale: Return and
@@ -197,124 +203,38 @@ function RollingChart({
       <div className="equity-curve-single-point">
         <EmptyState>Only one rolling point is available for {metricAccessibleLabel(metric)}.</EmptyState>
         <dl className="equity-curve-summary">
-          {single.points.map((point) => (
-            <DescriptionItem
-              key={point.tradeDate}
-              label={`${single.name} ${formatDate(point.tradeDate)}`}
-              value={point.netValue.toFixed(6)}
-            />
-          ))}
+          <SimpleMetricGrid
+            items={single.points.map((point) => [
+              `${single.name} ${formatDate(point.tradeDate)}`,
+              point.netValue.toFixed(6)
+            ])}
+          />
         </dl>
       </div>
     );
   }
 
   const lastPoint = geometry.series[0].points[geometry.series[0].points.length - 1];
-  const endLabels = computeSeriesEndLabels(geometry.series);
   return (
     <div className="equity-curve-card">
-      <svg
-        aria-labelledby={`rolling-chart-${metric}`}
-        className="equity-curve-chart"
-        role="img"
-        viewBox={`0 0 ${EQUITY_CURVE_CHART.width} ${EQUITY_CURVE_CHART.height}`}
-      >
-        <title id={`rolling-chart-${metric}`}>
-          {metricAccessibleLabel(metric)} comparison chart
-        </title>
-        <line
-          className="equity-curve-grid-line"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.paddingTop}
-          y2={EQUITY_CURVE_CHART.paddingTop}
-        />
-        <line
-          className="equity-curve-grid-line"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        <line
-          aria-hidden="true"
-          className="equity-curve-axis"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight}
-          y1={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        <line
-          aria-hidden="true"
-          className="equity-curve-axis"
-          x1={EQUITY_CURVE_CHART.paddingLeft}
-          x2={EQUITY_CURVE_CHART.paddingLeft}
-          y1={EQUITY_CURVE_CHART.paddingTop}
-          y2={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom}
-        />
-        {geometry.dateTicks.map((tick) => (
-          <text
-            className="equity-curve-axis-tick"
-            data-testid="rolling-x-tick"
-            key={tick.value}
-            textAnchor="middle"
-            x={tick.x}
-            y={EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom + 16}
-          >
-            {tick.value}
-          </text>
-        ))}
-        {geometry.valueTicks.map((tick) => (
-          <text
-            className="equity-curve-axis-tick"
-            data-testid="rolling-y-tick"
-            key={tick.value}
-            textAnchor="end"
-            x={EQUITY_CURVE_CHART.paddingLeft - 8}
-            y={tick.y + 4}
-          >
-            {formatRollingTick(metric, tick.value)}
-          </text>
-        ))}
-        {geometry.series.map((series) => (
-          <path
-            className="equity-curve-line"
-            d={series.linePath}
-            data-testid={`rolling-line-${metric}-${series.key}`}
-            key={series.key}
-            stroke={seriesColor(series.key)}
-          />
-        ))}
-        {endLabels.map((label) => (
-          <text
-            className="equity-curve-end-label"
-            data-testid={`rolling-end-label-${metric}-${label.key}`}
-            fill={seriesColor(label.key)}
-            key={label.key}
-            textAnchor="end"
-            x={label.x}
-            y={label.y}
-          >
-            {label.name}
-          </text>
-        ))}
-      </svg>
-      <ul aria-label={`${metricAccessibleLabel(metric)} legend`} className="equity-curve-legend">
-        {geometry.series.map((series) => (
-          <li className="equity-curve-legend-item" key={series.key}>
-            <span
-              aria-hidden="true"
-              className="equity-curve-swatch"
-              data-testid={`equity-curve-swatch-${series.key}`}
-              style={{ backgroundColor: seriesColor(series.key) }}
-            />
-            {series.name}
-          </li>
-        ))}
-      </ul>
+      <EquityCurvePlot
+        endLabelTestIdPrefix={`rolling-end-label-${metric}-`}
+        formatValueTick={(value) => formatRollingTick(metric, value)}
+        geometry={geometry}
+        labelledBy={`rolling-chart-${metric}`}
+        legendLabel={`${metricAccessibleLabel(metric)} legend`}
+        lineTestIdPrefix={`rolling-line-${metric}-`}
+        title={`${metricAccessibleLabel(metric)} comparison chart`}
+        xTickTestId="rolling-x-tick"
+        yTickTestId="rolling-y-tick"
+      />
       <dl className="equity-curve-summary">
-        <DescriptionItem label="Last window end" value={formatDate(lastPoint.tradeDate)} />
-        <DescriptionItem label="Last value" value={lastPoint.netValue.toFixed(6)} />
+        <SimpleMetricGrid
+          items={[
+            ["Last window end", formatDate(lastPoint.tradeDate)],
+            ["Last value", lastPoint.netValue.toFixed(6)]
+          ]}
+        />
       </dl>
     </div>
   );
@@ -328,31 +248,25 @@ function RollingTable({
   metric: RollingMetric;
 }) {
   return (
-    <div className="holdings-table-wrap stability-table-wrap">
-      <table className="holdings-table">
-        <caption className="sr-only">Exact {metricAccessibleLabel(metric)} values by window</caption>
-        <thead>
-          <tr>
-            <th scope="col">Entity</th>
-            <th scope="col">Window start</th>
-            <th scope="col">Trade date</th>
-            <th scope="col">{metricAccessibleLabel(metric)}</th>
+    <StabilityTable
+      columns={[...ROLLING_TABLE_COLUMNS, metricAccessibleLabel(metric)]}
+      caption={`Exact ${metricAccessibleLabel(metric)} values by window`}
+    >
+      {entities.flatMap((entity) =>
+        entity.data.rolling.map((point) => (
+          <tr key={`${entity.key}-${point.trade_date}`}>
+            <TableCells
+              cells={[
+                entity.name,
+                formatDate(point.window_start_date),
+                formatDate(point.trade_date),
+                metricValueString(point, metric) ?? "n/a"
+              ]}
+            />
           </tr>
-        </thead>
-        <tbody>
-          {entities.flatMap((entity) =>
-            entity.data.rolling.map((point) => (
-              <tr key={`${entity.key}-${point.trade_date}`}>
-                <td>{entity.name}</td>
-                <td>{formatDate(point.window_start_date)}</td>
-                <td>{formatDate(point.trade_date)}</td>
-                <td>{formatMetricValue(metricValueString(point, metric))}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+        ))
+      )}
+    </StabilityTable>
   );
 }
 
@@ -433,39 +347,30 @@ function CalendarTable({
   }
 
   return (
-    <div className="holdings-table-wrap stability-table-wrap">
-      <table className="holdings-table">
-        <caption className="sr-only">{entityName} {granularity} returns</caption>
-        <thead>
-          <tr>
-            <th scope="col">Period</th>
-            <th scope="col">First date</th>
-            <th scope="col">Last date</th>
-            <th scope="col">Observations</th>
-            <th scope="col">Total return</th>
-            <th scope="col">Scope</th>
+    <>
+      <StabilityTable columns={CALENDAR_TABLE_COLUMNS} caption={`${entityName} ${granularity} returns`}>
+        {buckets.map((bucket) => (
+          <tr key={`${granularity}-${bucket.period}`}>
+            <TableCells
+              cells={[
+                bucket.period,
+                formatDate(bucket.first_date),
+                formatDate(bucket.last_date),
+                bucket.observation_count
+              ]}
+            />
+            <td className={returnCellClass(bucket.total_return)}>
+              {formatNullableText(bucket.total_return)}
+            </td>
+            <TableCells cells={[bucket.is_partial ? "partial" : "complete"]} />
           </tr>
-        </thead>
-        <tbody>
-          {buckets.map((bucket) => (
-            <tr key={`${granularity}-${bucket.period}`}>
-              <td>{bucket.period}</td>
-              <td>{formatDate(bucket.first_date)}</td>
-              <td>{formatDate(bucket.last_date)}</td>
-              <td>{bucket.observation_count}</td>
-              <td className={returnCellClass(bucket.total_return)}>
-                {formatMetricValue(bucket.total_return)}
-              </td>
-              <td>{bucket.is_partial ? "partial" : "complete"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </StabilityTable>
       <p className="detail-note">
         “Partial” marks periods the requested run bounds do not fully cover; it does not
         certify that every official session is present in the persisted curve.
       </p>
-    </div>
+    </>
   );
 }
 
@@ -483,11 +388,22 @@ function returnCellClass(totalReturn: string): string {
   return "stability-return-neutral";
 }
 
-function DescriptionItem({ label, value }: { label: string; value: string }) {
+function StabilityTable({
+  caption,
+  columns,
+  children
+}: {
+  caption: string;
+  columns: string[];
+  children: ReactNode;
+}) {
   return (
-    <div className="metric-card">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="holdings-table-wrap stability-table-wrap">
+      <table className="holdings-table">
+        <caption className="sr-only">{caption}</caption>
+        <TableHeader columns={columns} />
+        <tbody>{children}</tbody>
+      </table>
     </div>
   );
 }

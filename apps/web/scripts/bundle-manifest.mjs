@@ -8,10 +8,7 @@ function isJavaScript(file) {
 
 async function measureFiles(outputDirectory, files) {
   const measurements = await Promise.all(
-    files.map(async (file) => {
-      const contents = await readFile(join(outputDirectory, file));
-      return { file, gzipBytes: gzipSync(contents).length, rawBytes: contents.length };
-    })
+    files.map((file) => measureFile(outputDirectory, file))
   );
 
   return {
@@ -19,6 +16,11 @@ async function measureFiles(outputDirectory, files) {
     gzipBytes: measurements.reduce((total, measurement) => total + measurement.gzipBytes, 0),
     rawBytes: measurements.reduce((total, measurement) => total + measurement.rawBytes, 0)
   };
+}
+
+async function measureFile(outputDirectory, file) {
+  const contents = await readFile(join(outputDirectory, file));
+  return { file, gzipBytes: gzipSync(contents).length, rawBytes: contents.length };
 }
 
 export async function analyzeManifest({
@@ -50,16 +52,30 @@ export async function analyzeManifest({
     .filter(isJavaScript);
   const allJavaScriptFiles = [...new Set(entries.map(([, entry]) => entry.file).filter(isJavaScript))];
   const initial = await measureFiles(outputDirectory, initialFiles);
-  const lazyJavaScript = await measureFiles(
-    outputDirectory,
-    allJavaScriptFiles.filter((file) => !initial.files.includes(file))
+  const dynamicEntries = await Promise.all(
+    entries
+      .filter(([, entry]) => entry.isDynamicEntry)
+      .map(async ([key, entry]) => ({
+        source: entry.src ?? key,
+        ...(await measureFile(outputDirectory, entry.file))
+      }))
   );
-  const dynamicEntries = entries
-    .filter(([, entry]) => entry.isDynamicEntry)
-    .map(([key, entry]) => ({ file: entry.file, source: entry.src ?? key }));
+  const dynamicEntryFiles = new Set(dynamicEntries.map((entry) => entry.file));
+  const nonInitialSharedChunks = await Promise.all(
+    allJavaScriptFiles
+      .filter((file) => !initial.files.includes(file) && !dynamicEntryFiles.has(file))
+      .map((file) => measureFile(outputDirectory, file))
+  );
+  const lazyJavaScript = await measureFiles(outputDirectory, [
+    ...new Set([
+      ...dynamicEntries.map((entry) => entry.file),
+      ...nonInitialSharedChunks.map((chunk) => chunk.file)
+    ])
+  ]);
 
   return {
     dynamicEntries,
+    nonInitialSharedChunks,
     identity,
     requiredRuntime,
     runtimeMeasurement,

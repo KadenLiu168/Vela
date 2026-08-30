@@ -5,19 +5,53 @@ import {
   formatNullableInteger,
   formatRatioAsPercent
 } from "../utils/formatters";
+import { parseMetricNumber } from "./backtestFormatters";
 import { bestCellIndexes, type ComparisonRow } from "./comparisonMatrix";
+import { formatDrawdownRecovery } from "./drawdownFormatters";
 
 type BenchmarkComparisonSectionProps = {
   metrics: BacktestDetailMetrics;
   benchmarks: BacktestBenchmark[];
 };
 
-function toComparableNumber(value: string | null): number | null {
-  if (value === null) {
-    return null;
+type CoreMetricKey =
+  | "total_return"
+  | "annualized_return"
+  | "max_drawdown"
+  | "volatility"
+  | "sharpe_ratio"
+  | "sortino_ratio"
+  | "calmar_ratio";
+
+const CORE_METRICS: readonly [CoreMetricKey, string, "higher" | "lower" | "closest-to-zero"][] = [
+  ["total_return", "Total return", "higher"],
+  ["annualized_return", "CAGR (calendar-time)", "higher"],
+  ["max_drawdown", "Max drawdown", "closest-to-zero"],
+  ["volatility", "Annualized volatility (252D)", "lower"],
+  ["sharpe_ratio", "Sharpe (daily returns, 252D)", "higher"],
+  ["sortino_ratio", "Sortino (rf MAR, 252D)", "higher"],
+  ["calmar_ratio", "Calmar (calendar CAGR / |MaxDD|)", "higher"]
+];
+
+type ComparisonValue = (entity: BacktestDetailMetrics) => string;
+type ComparisonNumber = (entity: BacktestDetailMetrics) => number | null;
+
+type ComparisonDefinition = {
+  key: string;
+  label: string;
+  format: ComparisonValue;
+  numeric?: ComparisonNumber;
+  direction?: ComparisonRow["direction"];
+};
+
+function formatCoreMetric(key: CoreMetricKey, value: string | null): string {
+  if (key === "sharpe_ratio") {
+    return formatDecimal(value, 2, false);
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  if (key === "sortino_ratio" || key === "calmar_ratio") {
+    return formatDecimal(value, 6, false);
+  }
+  return formatRatioAsPercent(value);
 }
 
 /**
@@ -43,137 +77,85 @@ export function BenchmarkComparisonSection({
   }
 
   const entities: BacktestDetailMetrics[] = [metrics, ...benchmarks];
-  const toNumber = toComparableNumber;
+  const coreRows: ComparisonRow[] = CORE_METRICS.map(([key, label, direction]) => {
+    const values = entities.map((entity) => entity[key]);
+    return {
+      key,
+      label,
+      cells: values.map((value) => formatCoreMetric(key, value)),
+      numeric: values.map(parseMetricNumber),
+      direction,
+      rankable: true
+    };
+  });
 
-  const coreRows: ComparisonRow[] = [
-    {
-      key: "total_return",
-      label: "Total return",
-      cells: entities.map((entity) => formatRatioAsPercent(entity.total_return)),
-      numeric: entities.map((entity) => toNumber(entity.total_return)),
-      direction: "higher",
-      rankable: true
-    },
-    {
-      key: "annualized_return",
-      label: "CAGR (calendar-time)",
-      cells: entities.map((entity) => formatRatioAsPercent(entity.annualized_return)),
-      numeric: entities.map((entity) => toNumber(entity.annualized_return)),
-      direction: "higher",
-      rankable: true
-    },
-    {
-      key: "max_drawdown",
-      label: "Max drawdown",
-      cells: entities.map((entity) => formatRatioAsPercent(entity.max_drawdown)),
-      numeric: entities.map((entity) => toNumber(entity.max_drawdown)),
-      direction: "closest-to-zero",
-      rankable: true
-    },
-    {
-      key: "volatility",
-      label: "Annualized volatility (252D)",
-      cells: entities.map((entity) => formatRatioAsPercent(entity.volatility)),
-      numeric: entities.map((entity) => toNumber(entity.volatility)),
-      direction: "lower",
-      rankable: true
-    },
-    {
-      key: "sharpe_ratio",
-      label: "Sharpe (daily returns, 252D)",
-      cells: entities.map((entity) => formatDecimal(entity.sharpe_ratio, 2, false)),
-      numeric: entities.map((entity) => toNumber(entity.sharpe_ratio)),
-      direction: "higher",
-      rankable: true
-    },
-    {
-      key: "sortino_ratio",
-      label: "Sortino (rf MAR, 252D)",
-      cells: entities.map((entity) => formatDecimal(entity.sortino_ratio, 6, false)),
-      numeric: entities.map((entity) => toNumber(entity.sortino_ratio)),
-      direction: "higher",
-      rankable: true
-    },
-    {
-      key: "calmar_ratio",
-      label: "Calmar (calendar CAGR / |MaxDD|)",
-      cells: entities.map((entity) => formatDecimal(entity.calmar_ratio, 6, false)),
-      numeric: entities.map((entity) => toNumber(entity.calmar_ratio)),
-      direction: "higher",
-      rankable: true
-    }
-  ];
-
-  const drawdownRows: ComparisonRow[] = [
+  const drawdownRows = buildRows(entities, [
     {
       key: "longest_drawdown_duration_sessions",
       label: "Longest drawdown duration (official sessions)",
-      cells: entities.map((entity) =>
-        formatNullableInteger(entity.longest_drawdown_duration_sessions)
-      ),
-      numeric: entities.map((entity) => entity.longest_drawdown_duration_sessions),
-      direction: "lower",
-      rankable: true
+      format: (entity) => formatNullableInteger(entity.longest_drawdown_duration_sessions),
+      numeric: (entity) => entity.longest_drawdown_duration_sessions,
+      direction: "lower"
     },
     {
       key: "longest_drawdown_peak_date",
       label: "Longest drawdown peak date",
-      cells: entities.map((entity) => formatDate(entity.longest_drawdown_peak_date))
+      format: (entity) => formatDate(entity.longest_drawdown_peak_date)
     },
     {
       key: "longest_drawdown_trough_date",
       label: "Longest drawdown trough date",
-      cells: entities.map((entity) => formatDate(entity.longest_drawdown_trough_date))
+      format: (entity) => formatDate(entity.longest_drawdown_trough_date)
     },
     {
       key: "longest_drawdown_recovery",
       label: "Longest drawdown recovery",
-      cells: entities.map((entity) => formatDrawdownRecovery(entity))
+      format: formatDrawdownRecovery
     }
-  ];
+  ]);
 
-  const relativeRows: ComparisonRow[] = [
-    {
-      key: "tracking_error",
-      label: "Tracking error (252D)",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatDecimal(benchmark.tracking_error, 6, false))]
-    },
-    {
-      key: "information_ratio",
-      label: "Information ratio (252D)",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatDecimal(benchmark.information_ratio, 6, false))]
-    },
-    {
-      key: "up_capture_ratio",
-      label: "Monthly Up Capture (selected months)",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.up_capture_ratio))]
-    },
-    {
-      key: "up_count",
-      label: "Up selected months",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatNullableInteger(benchmark.up_capture_observation_count))]
-    },
-    {
-      key: "down_capture_ratio",
-      label: "Monthly Down Capture (selected months)",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.down_capture_ratio))]
-    },
-    {
-      key: "down_count",
-      label: "Down selected months",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatNullableInteger(benchmark.down_capture_observation_count))]
-    },
-    {
-      key: "total_return_difference",
-      label: "Strategy total return difference",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.total_return_difference))]
-    },
-    {
-      key: "annualized_return_difference",
-      label: "Strategy CAGR difference",
-      cells: ["n/a", ...benchmarks.map((benchmark) => formatRatioAsPercent(benchmark.annualized_return_difference))]
-    }
-  ];
+  const relativeRows = buildRelativeRows(benchmarks, [
+    [
+      "tracking_error",
+      "Tracking error (252D)",
+      (benchmark) => formatDecimal(benchmark.tracking_error, 6, false)
+    ],
+    [
+      "information_ratio",
+      "Information ratio (252D)",
+      (benchmark) => formatDecimal(benchmark.information_ratio, 6, false)
+    ],
+    [
+      "up_capture_ratio",
+      "Monthly Up Capture (selected months)",
+      (benchmark) => formatRatioAsPercent(benchmark.up_capture_ratio)
+    ],
+    [
+      "up_count",
+      "Up selected months",
+      (benchmark) => formatNullableInteger(benchmark.up_capture_observation_count)
+    ],
+    [
+      "down_capture_ratio",
+      "Monthly Down Capture (selected months)",
+      (benchmark) => formatRatioAsPercent(benchmark.down_capture_ratio)
+    ],
+    [
+      "down_count",
+      "Down selected months",
+      (benchmark) => formatNullableInteger(benchmark.down_capture_observation_count)
+    ],
+    [
+      "total_return_difference",
+      "Strategy total return difference",
+      (benchmark) => formatRatioAsPercent(benchmark.total_return_difference)
+    ],
+    [
+      "annualized_return_difference",
+      "Strategy CAGR difference",
+      (benchmark) => formatRatioAsPercent(benchmark.annualized_return_difference)
+    ]
+  ]);
 
   return (
     <section
@@ -181,31 +163,12 @@ export function BenchmarkComparisonSection({
       className="holdings-section"
     >
       <h3 id="benchmark-comparison-heading">Benchmark comparison</h3>
-      <div
-        aria-label="Strategy vs benchmark comparison matrix region"
-        className="comparison-matrix-wrap"
-        tabIndex={0}
-      >
-        <table className="comparison-matrix holdings-table">
-          <caption className="sr-only">Strategy vs benchmark comparison matrix</caption>
-          <thead>
-            <tr>
-              <th scope="col">Metric</th>
-              <th scope="col">Strategy</th>
-              {benchmarks.map((benchmark) => (
-                <th scope="col" key={benchmark.key}>
-                  {benchmark.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody aria-label="Absolute metrics">
-            {coreRows.map((row) => (
-              <MatrixRow key={row.key} row={row} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ComparisonTable
+        benchmarks={benchmarks}
+        caption="Strategy vs benchmark comparison matrix"
+        groups={[{ label: "Absolute metrics", rows: coreRows }]}
+        regionLabel="Strategy vs benchmark comparison matrix region"
+      />
       <details className="disclosure">
         <summary className="disclosure-summary">
           <h4 className="disclosure-heading" id="advanced-metrics-heading">
@@ -213,41 +176,84 @@ export function BenchmarkComparisonSection({
           </h4>
         </summary>
         <div className="disclosure-body">
-          <div
-            aria-label="Advanced strategy vs benchmark comparison matrix region"
-            className="comparison-matrix-wrap"
-            tabIndex={0}
-          >
-            <table className="comparison-matrix holdings-table">
-              <caption className="sr-only">
-                Advanced strategy vs benchmark comparison metrics
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Metric</th>
-                  <th scope="col">Strategy</th>
-                  {benchmarks.map((benchmark) => (
-                    <th scope="col" key={benchmark.key}>
-                      {benchmark.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody aria-label="Drawdown evidence">
-                {drawdownRows.map((row) => (
-                  <MatrixRow key={row.key} row={row} />
-                ))}
-              </tbody>
-              <tbody aria-label="Strategy-relative metrics">
-                {relativeRows.map((row) => (
-                  <MatrixRow key={row.key} row={row} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ComparisonTable
+            benchmarks={benchmarks}
+            caption="Advanced strategy vs benchmark comparison metrics"
+            groups={[
+              { label: "Drawdown evidence", rows: drawdownRows },
+              { label: "Strategy-relative metrics", rows: relativeRows }
+            ]}
+            regionLabel="Advanced strategy vs benchmark comparison matrix region"
+          />
         </div>
       </details>
     </section>
+  );
+}
+
+function buildRows(
+  entities: BacktestDetailMetrics[],
+  definitions: ComparisonDefinition[]
+): ComparisonRow[] {
+  return definitions.map(({ key, label, format, numeric, direction }) => {
+    const row: ComparisonRow = { key, label, cells: entities.map(format) };
+    if (numeric && direction) {
+      row.numeric = entities.map(numeric);
+      row.direction = direction;
+      row.rankable = true;
+    }
+    return row;
+  });
+}
+
+type RelativeValue = (benchmark: BacktestBenchmark) => string;
+
+function buildRelativeRows(
+  benchmarks: BacktestBenchmark[],
+  definitions: [string, string, RelativeValue][]
+): ComparisonRow[] {
+  return definitions.map(([key, label, format]) => ({
+    key,
+    label,
+    cells: ["n/a", ...benchmarks.map(format)]
+  }));
+}
+
+function ComparisonTable({
+  benchmarks,
+  caption,
+  groups,
+  regionLabel
+}: {
+  benchmarks: BacktestBenchmark[];
+  caption: string;
+  groups: { label: string; rows: ComparisonRow[] }[];
+  regionLabel: string;
+}) {
+  return (
+    <div aria-label={regionLabel} className="comparison-matrix-wrap" tabIndex={0}>
+      <table className="comparison-matrix holdings-table">
+        <caption className="sr-only">{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">Strategy</th>
+            {benchmarks.map((benchmark) => (
+              <th scope="col" key={benchmark.key}>
+                {benchmark.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody aria-label={group.label} key={group.label}>
+            {group.rows.map((row) => (
+              <MatrixRow key={row.key} row={row} />
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
   );
 }
 
@@ -264,25 +270,4 @@ function MatrixRow({ row }: { row: ComparisonRow }) {
       ))}
     </tr>
   );
-}
-
-function formatDrawdownRecovery(
-  metrics: Pick<
-    BacktestDetailMetrics,
-    | "longest_drawdown_duration_sessions"
-    | "longest_drawdown_peak_date"
-    | "longest_drawdown_trough_date"
-    | "longest_drawdown_recovery_date"
-  >
-): string {
-  if (metrics.longest_drawdown_recovery_date) {
-    return formatDate(metrics.longest_drawdown_recovery_date);
-  }
-
-  return metrics.longest_drawdown_duration_sessions !== null &&
-    metrics.longest_drawdown_duration_sessions > 0 &&
-    metrics.longest_drawdown_peak_date !== null &&
-    metrics.longest_drawdown_trough_date !== null
-    ? "ongoing"
-    : "n/a";
 }

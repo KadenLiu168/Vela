@@ -7,6 +7,19 @@ export const EQUITY_CURVE_CHART = {
   width: 640
 };
 
+const {
+  height,
+  paddingBottom,
+  paddingLeft,
+  paddingRight,
+  paddingTop,
+  width
+} = EQUITY_CURVE_CHART;
+const DRAWABLE_WIDTH =
+  width - paddingLeft - paddingRight;
+const DRAWABLE_HEIGHT =
+  height - paddingTop - paddingBottom;
+
 export type EquityCurveChartPoint = {
   tradeDate: string;
   netValue: number;
@@ -74,21 +87,21 @@ export function normalizeEquityCurvePoints(points: EquityCurveApiPoint[]): Equit
 }
 
 export function computeEquityCurveGeometry(points: EquityCurveChartPoint[]) {
-  const drawableWidth = EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingLeft - EQUITY_CURVE_CHART.paddingRight;
-  const drawableHeight = EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingTop - EQUITY_CURVE_CHART.paddingBottom;
   const netValues = points.map((point) => point.netValue);
   const minNetValue = Math.min(...netValues);
   const maxNetValue = Math.max(...netValues);
   const netValueRange = maxNetValue - minNetValue;
   const coordinates = points.map((point, index) => {
-    const x = EQUITY_CURVE_CHART.paddingLeft + (drawableWidth * index) / (points.length - 1);
-    const normalizedY = netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
-    const y = EQUITY_CURVE_CHART.paddingTop + normalizedY * drawableHeight;
-    return { index, x, y };
+    return toCoordinate(
+      index,
+      index,
+      points.length - 1,
+      point.netValue,
+      maxNetValue,
+      netValueRange
+    );
   });
-  const linePath = coordinates
-    .map((coordinate, index) => `${index === 0 ? "M" : "L"} ${coordinate.x.toFixed(2)} ${coordinate.y.toFixed(2)}`)
-    .join(" ");
+  const linePath = toLinePath(coordinates);
   const highlightIndexes = new Set([
     points.length - 1,
     points.findIndex((point) => point.netValue === minNetValue),
@@ -113,9 +126,6 @@ export function computeMultiEquityCurveGeometry(series: EquityCurveChartSeries[]
   const netValueRange = maxNetValue - minNetValue;
   const dates = [...new Set(allPoints.map((point) => point.tradeDate))].sort();
   const dateIndexes = new Map(dates.map((tradeDate, index) => [tradeDate, index]));
-  const drawableWidth = EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingLeft - EQUITY_CURVE_CHART.paddingRight;
-  const drawableHeight = EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingTop - EQUITY_CURVE_CHART.paddingBottom;
-
   if (validSeries.length === 0) {
     return { minNetValue: 0, maxNetValue: 0, dateTicks: [], valueTicks: [], series: [] };
   }
@@ -123,27 +133,51 @@ export function computeMultiEquityCurveGeometry(series: EquityCurveChartSeries[]
   return {
     minNetValue,
     maxNetValue,
-    dateTicks: computeDateTicks(dates, drawableWidth),
-    valueTicks: computeValueTicks(minNetValue, maxNetValue, netValueRange, drawableHeight),
+    dateTicks: computeDateTicks(dates, DRAWABLE_WIDTH),
+    valueTicks: computeValueTicks(minNetValue, maxNetValue, netValueRange, DRAWABLE_HEIGHT),
     series: validSeries.map((item) => {
       const coordinates = item.points.map((point) => {
         const dateIndex = dateIndexes.get(point.tradeDate) ?? 0;
-        const x = EQUITY_CURVE_CHART.paddingLeft + (drawableWidth * dateIndex) / Math.max(dates.length - 1, 1);
-        const normalizedY = netValueRange === 0 ? 0.5 : (maxNetValue - point.netValue) / netValueRange;
-        const y = EQUITY_CURVE_CHART.paddingTop + normalizedY * drawableHeight;
-        return { index: 0, x, y };
+        return toCoordinate(
+          0,
+          dateIndex,
+          Math.max(dates.length - 1, 1),
+          point.netValue,
+          maxNetValue,
+          netValueRange
+        );
       });
       return {
         ...item,
-        linePath: coordinates
-          .map((coordinate, index) => `${index === 0 ? "M" : "L"} ${coordinate.x.toFixed(2)} ${coordinate.y.toFixed(2)}`)
-          .join(" "),
+        linePath: toLinePath(coordinates),
         endpoints: {
           first: { index: 0, x: coordinates[0].x, y: coordinates[0].y },
           last: { index: coordinates.length - 1, x: coordinates[coordinates.length - 1].x, y: coordinates[coordinates.length - 1].y }
         }
       };
     })
+  };
+}
+
+function toLinePath(coordinates: { x: number; y: number }[]): string {
+  return coordinates
+    .map((coordinate, index) => `${index === 0 ? "M" : "L"} ${coordinate.x.toFixed(2)} ${coordinate.y.toFixed(2)}`)
+    .join(" ");
+}
+
+function toCoordinate(
+  index: number,
+  xIndex: number,
+  xDenominator: number,
+  netValue: number,
+  maxNetValue: number,
+  netValueRange: number
+) {
+  const normalizedY = netValueRange === 0 ? 0.5 : (maxNetValue - netValue) / netValueRange;
+  return {
+    index,
+    x: paddingLeft + (DRAWABLE_WIDTH * xIndex) / xDenominator,
+    y: paddingTop + normalizedY * DRAWABLE_HEIGHT
   };
 }
 
@@ -157,7 +191,7 @@ function computeDateTicks(dates: string[], drawableWidth: number): EquityCurveCh
   if (dates.length <= MAX_DATE_TICKS) {
     return dates.map((value, index) => ({
       value,
-      x: EQUITY_CURVE_CHART.paddingLeft + (drawableWidth * index) / Math.max(dates.length - 1, 1)
+      x: paddingLeft + (drawableWidth * index) / Math.max(dates.length - 1, 1)
     }));
   }
 
@@ -170,7 +204,7 @@ function computeDateTicks(dates: string[], drawableWidth: number): EquityCurveCh
   );
   return indexes.map((index) => ({
     value: dates[index],
-    x: EQUITY_CURVE_CHART.paddingLeft + (drawableWidth * index) / (dates.length - 1)
+    x: paddingLeft + (drawableWidth * index) / (dates.length - 1)
   }));
 }
 
@@ -184,7 +218,7 @@ function computeValueTicks(
     return [
       {
         value: minNetValue,
-        y: EQUITY_CURVE_CHART.paddingTop + drawableHeight / 2
+        y: paddingTop + drawableHeight / 2
       }
     ];
   }
@@ -206,7 +240,7 @@ function computeValueTicks(
 
   return values.map((value) => ({
     value,
-    y: EQUITY_CURVE_CHART.paddingTop + ((maxNetValue - value) / netValueRange) * drawableHeight
+    y: paddingTop + ((maxNetValue - value) / netValueRange) * drawableHeight
   }));
 }
 
@@ -218,9 +252,9 @@ const MIN_END_LABEL_GAP = 16;
  *  the last label lands on the boundary; the current three-series contract
  *  keeps the shifted group inside the top boundary as well. */
 export function computeSeriesEndLabels(series: EquityCurveChartSeriesGeometry[]): EquityCurveChartEndLabel[] {
-  const rightX = EQUITY_CURVE_CHART.width - EQUITY_CURVE_CHART.paddingRight;
-  const minY = EQUITY_CURVE_CHART.paddingTop + 4;
-  const maxY = EQUITY_CURVE_CHART.height - EQUITY_CURVE_CHART.paddingBottom - 4;
+  const rightX = width - paddingRight;
+  const minY = paddingTop + 4;
+  const maxY = height - paddingBottom - 4;
 
   const ordered = series
     .map((item) => ({ key: item.key, name: item.name, y: item.endpoints.last.y }))

@@ -44,52 +44,52 @@ export function WalkForwardOosSummarySection({
   const positiveRate = evidence.positive_window_rate;
   const primary = resolvePrimaryBenchmark(evidence.benchmarks);
   const transition = aggregateTransitionRate(evidence.parameter_stability);
+  const headlineCards = [
+    {
+      label: "OOS total return",
+      value: formatPercentNumber(totalReturn.median),
+      sub: `mean ${formatPercentNumber(totalReturn.mean)}`,
+      meta: `median across ${totalReturn.window_count} windows`
+    },
+    {
+      label: "OOS median Sharpe",
+      value: formatRatio(evidence.metrics.sharpe_ratio.median)
+    },
+    {
+      label: "OOS max drawdown",
+      value: formatPercentNumber(evidence.metrics.max_drawdown.median)
+    },
+    {
+      label: "Positive window rate",
+      value: formatPercentNumber(positiveRate.value),
+      meta: `${positiveRate.numerator}/${positiveRate.denominator} windows`
+    },
+    {
+      label: "Benchmark outperformance",
+      value: primary ? formatPercentNumber(primary.benchmark.outperformance_rate.value) : "n/a",
+      meta: primary
+        ? `vs ${TAIL_OWNER_LABELS[primary.key] ?? primary.key} · ${primary.benchmark.outperformance_rate.numerator}/${primary.benchmark.outperformance_rate.denominator} windows`
+        : undefined
+    },
+    {
+      label: "Max parameter transition",
+      value: transition ? formatPercentNumber(transition.rate) : "n/a",
+      meta: transition ? `${transition.parameterName} · ${transition.comparisonCount} comparisons` : undefined
+    }
+  ];
 
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-oos-summary-heading">
       <h2 id="walk-forward-oos-summary-heading">OOS summary</h2>
       <dl aria-label="OOS summary headline metrics" className="oos-summary-grid">
-        <div className="metric-card">
-          <dt>OOS total return</dt>
-          <dd>{formatPercentNumber(totalReturn.median)}</dd>
-          <p className="oos-summary-card-sub">mean {formatPercentNumber(totalReturn.mean)}</p>
-          <p className="oos-summary-card-meta">median across {totalReturn.window_count} windows</p>
-        </div>
-        <div className="metric-card">
-          <dt>OOS median Sharpe</dt>
-          <dd>{formatRatio(evidence.metrics.sharpe_ratio.median)}</dd>
-        </div>
-        <div className="metric-card">
-          <dt>OOS max drawdown</dt>
-          <dd>{formatPercentNumber(evidence.metrics.max_drawdown.median)}</dd>
-        </div>
-        <div className="metric-card">
-          <dt>Positive window rate</dt>
-          <dd>{formatPercentNumber(positiveRate.value)}</dd>
-          <p className="oos-summary-card-meta">
-            {positiveRate.numerator}/{positiveRate.denominator} windows
-          </p>
-        </div>
-        <div className="metric-card">
-          <dt>Benchmark outperformance</dt>
-          <dd>{primary ? formatPercentNumber(primary.benchmark.outperformance_rate.value) : "n/a"}</dd>
-          {primary ? (
-            <p className="oos-summary-card-meta">
-              vs {TAIL_OWNER_LABELS[primary.key] ?? primary.key} ·{" "}
-              {primary.benchmark.outperformance_rate.numerator}/
-              {primary.benchmark.outperformance_rate.denominator} windows
-            </p>
-          ) : null}
-        </div>
-        <div className="metric-card">
-          <dt>Max parameter transition</dt>
-          <dd>{transition ? formatPercentNumber(transition.rate) : "n/a"}</dd>
-          {transition ? (
-            <p className="oos-summary-card-meta">
-              {transition.parameterName} · {transition.comparisonCount} comparisons
-            </p>
-          ) : null}
-        </div>
+        {headlineCards.map((card) => (
+          <div className="metric-card" key={card.label}>
+            <dt>{card.label}</dt>
+            <dd>{card.value}</dd>
+            {card.sub ? <p className="oos-summary-card-sub">{card.sub}</p> : null}
+            {card.meta ? <p className="oos-summary-card-meta">{card.meta}</p> : null}
+          </div>
+        ))}
       </dl>
       <div className="fact-line">
         <p>{generalizationGapText(evidence.generalization_gap)}</p>

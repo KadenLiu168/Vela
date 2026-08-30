@@ -113,6 +113,7 @@ console.log(JSON.stringify({
   eagerApplication: report.eagerApplication,
   initialJavaScript: report.initial,
   lazyJavaScript: report.lazyJavaScript,
+  nonInitialSharedChunks: report.nonInitialSharedChunks,
   requiredRuntime: report.requiredRuntime,
   runtimeMeasurement: report.runtimeMeasurement,
   reviewedRuntimeComponents,

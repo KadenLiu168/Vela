@@ -45,7 +45,12 @@ it("separates dynamic entries from the recursive initial graph and measures indi
 
   expect(result.initial.files).toEqual(["assets/entry.js", "assets/react-vendor.js"]);
   expect(result.dynamicEntries).toEqual([
-    { file: "assets/signals.js", source: "src/pages/SignalListPage.tsx" }
+    {
+      file: "assets/signals.js",
+      source: "src/pages/SignalListPage.tsx",
+      rawBytes: Buffer.byteLength(files["assets/signals.js"]),
+      gzipBytes: gzipSync(files["assets/signals.js"]).length
+    }
   ]);
   expect(result.initial.rawBytes).toBe(Buffer.byteLength(files["assets/entry.js"]) + Buffer.byteLength(files["assets/react-vendor.js"]));
   expect(result.initial.gzipBytes).toBe(gzipSync(files["assets/entry.js"]).length + gzipSync(files["assets/react-vendor.js"]).length);
@@ -117,6 +122,68 @@ it("traverses nested static imports recursively and keeps dynamic-entry chains o
   expect(result.totalJavaScript.files).toContain("assets/dynamic-shared.js");
   expect(result.totalJavaScript.rawBytes).toBe(
     Object.values(files).reduce((total, contents) => total + Buffer.byteLength(contents), 0)
+  );
+});
+
+it("reports route entries and non-initial shared chunks with exact lazy reconciliation", async () => {
+  const outputDirectory = await mkdtemp(join(tmpdir(), "vela-bundle-route-attribution-"));
+  temporaryDirectories.push(outputDirectory);
+  await mkdir(join(outputDirectory, "assets"));
+  const files = {
+    "assets/entry.js": "entry",
+    "assets/vendor.js": "vendor",
+    "assets/route-a.js": "route a",
+    "assets/route-b.js": "route b",
+    "assets/shared.js": "shared"
+  };
+  await Promise.all(
+    Object.entries(files).map(([file, contents]) => writeFile(join(outputDirectory, file), contents))
+  );
+
+  const measurement = (file) => ({
+    file,
+    rawBytes: Buffer.byteLength(files[file]),
+    gzipBytes: gzipSync(files[file]).length
+  });
+  const result = await analyzeManifest({
+    manifest: {
+      "index.html": {
+        file: "assets/entry.js",
+        imports: ["_vendor.js"],
+        isEntry: true,
+        dynamicImports: ["src/pages/RouteA.tsx", "src/pages/RouteB.tsx"]
+      },
+      "_vendor.js": { file: "assets/vendor.js" },
+      "src/pages/RouteA.tsx": {
+        file: "assets/route-a.js",
+        imports: ["_shared.js"],
+        isDynamicEntry: true,
+        src: "src/pages/RouteA.tsx"
+      },
+      "src/pages/RouteB.tsx": {
+        file: "assets/route-b.js",
+        imports: ["_shared.js"],
+        isDynamicEntry: true,
+        src: "src/pages/RouteB.tsx"
+      },
+      "_shared.js": { file: "assets/shared.js" }
+    },
+    outputDirectory
+  });
+
+  expect(result.dynamicEntries).toEqual([
+    { source: "src/pages/RouteA.tsx", ...measurement("assets/route-a.js") },
+    { source: "src/pages/RouteB.tsx", ...measurement("assets/route-b.js") }
+  ]);
+  expect(result.nonInitialSharedChunks).toEqual([measurement("assets/shared.js")]);
+  expect(result.lazyJavaScript.files).toEqual([
+    "assets/route-a.js",
+    "assets/route-b.js",
+    "assets/shared.js"
+  ]);
+  expect(result.lazyJavaScript.rawBytes).toBe(
+    result.dynamicEntries.reduce((total, entry) => total + entry.rawBytes, 0) +
+      result.nonInitialSharedChunks.reduce((total, chunk) => total + chunk.rawBytes, 0)
   );
 });
 

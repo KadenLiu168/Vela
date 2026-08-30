@@ -18,6 +18,15 @@ type ExperimentConfigSectionProps = {
  */
 export function ExperimentConfigSection({ run }: ExperimentConfigSectionProps) {
   const parameterEntries = formatParametersHumanReadable(run.parameters_json);
+  const runFields = [
+    ["Strategy", run.strategy_id],
+    ["Config version", run.config_version],
+    ["Date range", `${formatDate(run.start_date)} to ${formatDate(run.end_date)}`],
+    ["Status", run.status],
+    ["Started at", formatTimestamp(run.started_at)],
+    ["Finished at", formatTimestamp(run.finished_at)],
+    ["Error message", formatNullableText(run.error_message)]
+  ];
 
   return (
     <section
@@ -26,19 +35,9 @@ export function ExperimentConfigSection({ run }: ExperimentConfigSectionProps) {
     >
       <h3 id="experiment-config-heading">Experiment config</h3>
       <dl className="compact-list config-list">
-        <DescriptionItem label="Strategy" value={run.strategy_id} />
-        <DescriptionItem label="Config version" value={run.config_version} />
-        <DescriptionItem
-          label="Date range"
-          value={`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}
-        />
-        <DescriptionItem label="Status" value={run.status} />
-        <DescriptionItem label="Started at" value={formatTimestamp(run.started_at)} />
-        <DescriptionItem label="Finished at" value={formatTimestamp(run.finished_at)} />
-        <DescriptionItem
-          label="Error message"
-          value={formatNullableText(run.error_message)}
-        />
+        {runFields.map(([label, value]) => (
+          <DescriptionItem key={label} label={label} value={value} />
+        ))}
       </dl>
       {parameterEntries.length > 0 ? (
         <dl className="compact-list config-list parameter-list">

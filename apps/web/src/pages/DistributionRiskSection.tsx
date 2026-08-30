@@ -1,5 +1,6 @@
 import type { TailDistributionFields } from "../api/client";
 import { formatDecimal, formatNullableInteger } from "../utils/formatters";
+import { SimpleMetricGrid } from "./SimpleMetricGrid";
 
 /**
  * Presents stored one-day historical distribution-risk evidence (VaR/CVaR as
@@ -22,6 +23,14 @@ export function DistributionRiskSection({
     ? `One-day historical distribution risk (95%) — ${ownerName}`
     : "One-day historical distribution risk (95%)";
   const headingId = ownerName ? `distribution-risk-heading-${ownerName}` : "distribution-risk-heading";
+  const metricCards = [
+    ["Historical VaR 95% (1D loss)", formatDecimal(fields.historical_var_95, 6, false)],
+    ["Historical CVaR 95% (1D loss)", formatDecimal(fields.historical_cvar_95, 6, false)],
+    ["Skewness", formatDecimal(fields.return_skewness, 6, false)],
+    ["Excess kurtosis (normal = 0)", formatDecimal(fields.return_excess_kurtosis, 6, false)],
+    ["Effective observations", formatNullableInteger(fields.distribution_observation_count)],
+    ["Tail observations (5% rank rule)", formatNullableInteger(fields.tail_observation_count)]
+  ] as const;
 
   return (
     <details className="disclosure">
@@ -32,34 +41,11 @@ export function DistributionRiskSection({
       </summary>
       <div className="disclosure-body">
         <dl className="metric-card-grid">
-          <MetricCard label="Historical VaR 95% (1D loss)" value={formatDecimal(fields.historical_var_95, 6, false)} />
-          <MetricCard label="Historical CVaR 95% (1D loss)" value={formatDecimal(fields.historical_cvar_95, 6, false)} />
-          <MetricCard label="Skewness" value={formatDecimal(fields.return_skewness, 6, false)} />
-          <MetricCard
-            label="Excess kurtosis (normal = 0)"
-            value={formatDecimal(fields.return_excess_kurtosis, 6, false)}
-          />
-          <MetricCard
-            label="Effective observations"
-            value={formatNullableInteger(fields.distribution_observation_count)}
-          />
-          <MetricCard
-            label="Tail observations (5% rank rule)"
-            value={formatNullableInteger(fields.tail_observation_count)}
-          />
+          <SimpleMetricGrid items={metricCards} />
         </dl>
         <p className="distribution-evidence-note">{distributionNote(fields)}</p>
       </div>
     </details>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric-card">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
   );
 }
 

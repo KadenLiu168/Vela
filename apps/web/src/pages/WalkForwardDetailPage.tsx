@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ApiClientError,
   type WalkForwardBenchmark,
   type WalkForwardDetailResponse,
   type WalkForwardMetricSummary,
+  type WalkForwardOosBacktest,
   getWalkForwardDetail
 } from "../api/client";
 import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
@@ -19,6 +20,8 @@ import {
 import { StitchedOosSection } from "./StitchedOosSection";
 import { WalkForwardOosSummarySection } from "./WalkForwardOosSummarySection";
 import { WalkForwardRunHeaderSection } from "./WalkForwardRunHeaderSection";
+import { formatDrawdownRecovery } from "./drawdownFormatters";
+import { TableCells, TableHeader } from "./tablePrimitives";
 import { TAIL_OWNER_LABELS } from "./walkForwardFormatters";
 
 type WalkForwardDetailPageProps = {
@@ -43,6 +46,74 @@ const metricLabels: Record<string, string> = {
   calmar_ratio: "Calmar ratio",
   longest_drawdown_duration_sessions: "Longest drawdown duration"
 };
+
+const WINDOW_METRIC_FIELDS = [
+  ["Total return", "total_return"],
+  ["Annualized return", "annualized_return"],
+  ["Max drawdown", "max_drawdown"],
+  ["Volatility", "volatility"],
+  ["Sharpe", "sharpe_ratio"],
+  ["Sortino", "sortino_ratio"],
+  ["Calmar", "calmar_ratio"]
+] as const satisfies ReadonlyArray<[
+  string,
+  keyof Pick<
+    WalkForwardOosBacktest,
+    "total_return" | "annualized_return" | "max_drawdown" | "volatility" | "sharpe_ratio" | "sortino_ratio" | "calmar_ratio"
+  >
+]>;
+
+const BENCHMARK_METRIC_FIELDS = [
+  ["Total-return difference", "total_return_difference"],
+  ["Annualized-return difference", "annualized_return_difference"],
+  ["Tracking error", "tracking_error"],
+  ["Information ratio", "information_ratio"]
+] as const;
+
+const CAPM_FIELDS = [
+  ["CSI 300 ETF proxy Alpha (252D compounded)", "capm_alpha"],
+  ["Beta (CSI 300 ETF proxy)", "capm_beta"],
+  ["R-squared (CSI 300 ETF proxy)", "capm_r_squared"]
+] as const;
+
+const CAPTURE_RATIO_FIELDS = [
+  ["Monthly Up Capture (selected months)", "up_capture_ratio"],
+  ["Monthly Down Capture (selected months)", "down_capture_ratio"]
+] as const;
+
+const CAPTURE_COUNT_FIELDS = [
+  ["Up selected months", "up_capture_observation_count"],
+  ["Down selected months", "down_capture_observation_count"]
+] as const;
+
+const TAIL_VALUE_FIELDS = [
+  "historical_var_95",
+  "historical_cvar_95",
+  "return_skewness",
+  "return_excess_kurtosis"
+] as const;
+
+const TAIL_TABLE_COLUMNS = [
+  "Window",
+  "Owner",
+  "VaR 95% (1D loss)",
+  "CVaR 95% (1D loss)",
+  "Skewness",
+  "Excess kurtosis (normal = 0)",
+  "Observations",
+  "Tail (5%)",
+  "Evidence"
+];
+
+const WINDOW_TABLE_COLUMNS = [
+  "Window",
+  "Train / test",
+  "Candidates",
+  "Selected parameters",
+  "Train Sharpe",
+  "OOS strategy",
+  "Fixed benchmarks"
+];
 
 export function WalkForwardDetailPage({ runId }: WalkForwardDetailPageProps) {
   const [state, setState] = useState<WalkForwardDetailState>({ status: "loading" });
@@ -194,32 +265,21 @@ function TailDistributionEvidence({ evidence }: { evidence: PersistedWalkForward
           <caption className="sr-only">
             Persisted one-day historical distribution evidence by window and owner
           </caption>
-          <thead>
-            <tr>
-              <th scope="col">Window</th>
-              <th scope="col">Owner</th>
-              <th scope="col">VaR 95% (1D loss)</th>
-              <th scope="col">CVaR 95% (1D loss)</th>
-              <th scope="col">Skewness</th>
-              <th scope="col">Excess kurtosis (normal = 0)</th>
-              <th scope="col">Observations</th>
-              <th scope="col">Tail (5%)</th>
-              <th scope="col">Evidence</th>
-            </tr>
-          </thead>
+          <TableHeader columns={TAIL_TABLE_COLUMNS} />
           <tbody>
             {tail.per_window.flatMap((window) =>
               Object.entries(window.owners).map(([owner, ownerEvidence]) => (
                 <tr key={`${window.ordinal}-${owner}`}>
-                  <td>{window.ordinal}</td>
-                  <td>{TAIL_OWNER_LABELS[owner] ?? owner}</td>
-                  <td>{formatTailValue(ownerEvidence.historical_var_95)}</td>
-                  <td>{formatTailValue(ownerEvidence.historical_cvar_95)}</td>
-                  <td>{formatTailValue(ownerEvidence.return_skewness)}</td>
-                  <td>{formatTailValue(ownerEvidence.return_excess_kurtosis)}</td>
-                  <td>{ownerEvidence.observation_count}</td>
-                  <td>{ownerEvidence.tail_observation_count}</td>
-                  <td>{ownerEvidence.evidence_status}</td>
+                  <TableCells
+                    cells={[
+                      window.ordinal,
+                      TAIL_OWNER_LABELS[owner] ?? owner,
+                      ...TAIL_VALUE_FIELDS.map((field) => formatTailValue(ownerEvidence[field])),
+                      ownerEvidence.observation_count,
+                      ownerEvidence.tail_observation_count,
+                      ownerEvidence.evidence_status
+                    ]}
+                  />
                 </tr>
               ))
             )}
@@ -260,27 +320,23 @@ function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
         <section aria-label={`Benchmark ${key}`} className="benchmark-metrics" key={key}>
           <h4>{key}</h4>
           <dl className="compact-list">
-            <DescriptionItem label="Total-return difference" value={formatMetricSummary(benchmark.total_return_difference)} />
-            <DescriptionItem label="Annualized-return difference" value={formatMetricSummary(benchmark.annualized_return_difference)} />
-            <DescriptionItem label="Tracking error" value={formatMetricSummary(benchmark.tracking_error)} />
-            <DescriptionItem label="Information ratio" value={formatMetricSummary(benchmark.information_ratio)} />
+            {BENCHMARK_METRIC_FIELDS.map(([label, field]) => (
+              <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field])} />
+            ))}
             <DescriptionItem label="Outperformance rate" value={formatRate(benchmark.outperformance_rate)} />
             {key === "csi_300_buy_hold" &&
             benchmark.capm_alpha &&
             benchmark.capm_beta &&
             benchmark.capm_r_squared ? (
-              <>
-                <DescriptionItem label="CSI 300 ETF proxy Alpha (252D compounded)" value={formatMetricSummary(benchmark.capm_alpha)} />
-                <DescriptionItem label="Beta (CSI 300 ETF proxy)" value={formatMetricSummary(benchmark.capm_beta)} />
-                <DescriptionItem label="R-squared (CSI 300 ETF proxy)" value={formatMetricSummary(benchmark.capm_r_squared)} />
-              </>
+              CAPM_FIELDS.map(([label, field]) => (
+                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} />
+              ))
             ) : null}
-            {benchmark.up_capture_ratio ? (
-              <DescriptionItem label="Monthly Up Capture (selected months)" value={formatMetricSummary(benchmark.up_capture_ratio)} />
-            ) : null}
-            {benchmark.down_capture_ratio ? (
-              <DescriptionItem label="Monthly Down Capture (selected months)" value={formatMetricSummary(benchmark.down_capture_ratio)} />
-            ) : null}
+            {CAPTURE_RATIO_FIELDS.map(([label, field]) =>
+              benchmark[field] ? (
+                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} />
+              ) : null
+            )}
           </dl>
         </section>
       ))}
@@ -294,10 +350,14 @@ function ParameterStability({ evidence }: { evidence: PersistedWalkForwardEviden
       <h3>Parameter stability</h3>
       {Object.entries(evidence.parameter_stability).map(([key, value]) => (
         <dl className="compact-list" key={key}>
-          <DescriptionItem label={key} value={JSON.stringify(value.value_frequencies)} />
-          <DescriptionItem label="Transition rate" value={formatDecimal(value.transition_rate === null ? null : String(value.transition_rate), 4)} />
-          <DescriptionItem label="Transitions" value={`${formatInteger(value.transition_count)}/${formatInteger(value.comparison_count)}`} />
-          <DescriptionItem label="Comparisons" value={formatInteger(value.comparison_count)} />
+          {[
+            [key, JSON.stringify(value.value_frequencies)],
+            ["Transition rate", formatDecimal(value.transition_rate === null ? null : String(value.transition_rate), 4)],
+            ["Transitions", `${formatInteger(value.transition_count)}/${formatInteger(value.comparison_count)}`],
+            ["Comparisons", formatInteger(value.comparison_count)]
+          ].map(([label, itemValue]) => (
+            <DescriptionItem key={label} label={label} value={itemValue} />
+          ))}
         </dl>
       ))}
     </div>
@@ -313,28 +373,37 @@ function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
   const lastLoadedDate = isV2
     ? manifest.last_raw_price_date
     : manifest.last_loaded_price_date;
+  const inputFields: [string, ReactNode][] = [
+    ["Config checksum", <code className="mono-compact">{data.configuration.config_checksum}</code>],
+    ["Input checksum", <code className="mono-compact">{data.input_provenance.input_data_checksum}</code>],
+    ["First loaded price date", formatNullableText(firstLoadedDate ?? undefined)],
+    ["Last loaded price date", formatNullableText(lastLoadedDate ?? undefined)],
+    ["Following-session sentinel", formatNullableText(manifest.following_session ?? undefined)]
+  ];
   return (
     <section className="holdings-section" aria-labelledby="walk-forward-provenance-heading">
       <h2 id="walk-forward-provenance-heading">Configuration and input provenance</h2>
       <div className="walk-forward-subsection">
         <h3>Execution</h3>
         <dl className="compact-list">
-          <DescriptionItem label="Provenance version" value={data.run.provenance_version} />
-          <DescriptionItem label="Evidence version" value={data.run.evidence_version} />
-          <DescriptionItem label="Started at" value={formatTimestamp(data.run.started_at)} />
-          <DescriptionItem label="Finished at" value={formatTimestamp(data.run.finished_at)} />
-          <DescriptionItem label="Created at" value={formatTimestamp(data.run.created_at)} />
+          {[
+            ["Provenance version", data.run.provenance_version],
+            ["Evidence version", data.run.evidence_version],
+            ["Started at", formatTimestamp(data.run.started_at)],
+            ["Finished at", formatTimestamp(data.run.finished_at)],
+            ["Created at", formatTimestamp(data.run.created_at)]
+          ].map(([label, value]) => (
+            <DescriptionItem key={label} label={label} value={value} />
+          ))}
         </dl>
       </div>
       <p className="detail-note">
         Configuration paths are display metadata; checksum identity uses validated effective content.
       </p>
       <dl className="compact-list">
-        <DescriptionItem label="Config checksum" value={<code className="mono-compact">{data.configuration.config_checksum}</code>} />
-        <DescriptionItem label="Input checksum" value={<code className="mono-compact">{data.input_provenance.input_data_checksum}</code>} />
-        <DescriptionItem label="First loaded price date" value={formatNullableText(firstLoadedDate ?? undefined)} />
-        <DescriptionItem label="Last loaded price date" value={formatNullableText(lastLoadedDate ?? undefined)} />
-        <DescriptionItem label="Following-session sentinel" value={formatNullableText(manifest.following_session ?? undefined)} />
+        {inputFields.map(([label, value]) => (
+          <DescriptionItem key={label} label={label} value={value} />
+        ))}
         {isV2 ? (
           <>
             <DescriptionItem label="Resolution policy" value={manifest.resolution_policy_version} />
@@ -403,44 +472,49 @@ function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
       <div aria-label="Walk-forward window evidence" className="walk-forward-window-scroll" tabIndex={0}>
         <table className="holdings-table">
           <caption className="sr-only">Persisted train, candidate, and OOS evidence by window</caption>
-          <thead>
-            <tr>
-              <th scope="col">Window</th>
-              <th scope="col">Train / test</th>
-              <th scope="col">Candidates</th>
-              <th scope="col">Selected parameters</th>
-              <th scope="col">Train Sharpe</th>
-              <th scope="col">OOS strategy</th>
-              <th scope="col">Fixed benchmarks</th>
-            </tr>
-          </thead>
+          <TableHeader columns={WINDOW_TABLE_COLUMNS} />
           <tbody>
-            {data.windows.map((window) => (
-              <tr key={window.ordinal}>
-                <td>{window.ordinal}</td>
-                <td>{`${formatDate(window.train_start)} to ${formatDate(window.train_end)} / ${formatDate(window.test_start)} to ${formatDate(window.test_end)}`}</td>
-                <td>
-                  <div>Candidates: {formatInteger(window.candidate_count)}</div>
-                  <div>Eligible: {formatInteger(window.eligible_count)}</div>
-                  <div>Skipped: {formatInteger(window.skipped_count)}</div>
+            {data.windows.map((window) => {
+              const candidateSummary = (
+                <>
+                  {([
+                    ["Candidates", window.candidate_count],
+                    ["Eligible", window.eligible_count],
+                    ["Skipped", window.skipped_count]
+                  ] as [string, number][]).map(([label, count]) => (
+                    <div key={label}>{label}: {formatInteger(count)}</div>
+                  ))}
                   <div>{formatSkipReasons(window.skip_reason_counts)}</div>
-                </td>
-                <td><code className="mono-compact">{JSON.stringify(window.selected_parameters)}</code></td>
-                <td>{formatNullableText(window.train_sharpe)}</td>
-                <td>
+                </>
+              );
+              const oosSummary = (
+                <>
                   <Link className="operation-link" to={`/backtests/${window.oos_backtest.run_id}`}>
                     Backtest #{window.oos_backtest.run_id}
                   </Link>
                   <div>{window.oos_version} · {window.oos_backtest.status}</div>
                   <OosStrategyMetrics backtest={window.oos_backtest} ordinal={window.ordinal} />
-                </td>
-                <td>
-                  {window.oos_backtest.benchmarks.map((benchmark) => (
-                    <BenchmarkMetrics benchmark={benchmark} key={benchmark.key} ordinal={window.ordinal} />
-                  ))}
-                </td>
-              </tr>
-            ))}
+                </>
+              );
+              const benchmarkSummary = window.oos_backtest.benchmarks.map((benchmark) => (
+                <BenchmarkMetrics benchmark={benchmark} key={benchmark.key} ordinal={window.ordinal} />
+              ));
+              return (
+                <tr key={window.ordinal}>
+                  <TableCells
+                    cells={[
+                      window.ordinal,
+                      `${formatDate(window.train_start)} to ${formatDate(window.train_end)} / ${formatDate(window.test_start)} to ${formatDate(window.test_end)}`,
+                      candidateSummary,
+                      <code className="mono-compact">{JSON.stringify(window.selected_parameters)}</code>,
+                      formatNullableText(window.train_sharpe),
+                      oosSummary,
+                      benchmarkSummary
+                    ]}
+                  />
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -457,13 +531,7 @@ function OosStrategyMetrics({
 }) {
   return (
     <div aria-label={`OOS strategy metrics for window ${ordinal}`} className="walk-forward-window-metrics">
-      <div>Total return: {formatDecimal(backtest.total_return, 4)}</div>
-      <div>Annualized return: {formatDecimal(backtest.annualized_return, 4)}</div>
-      <div>Max drawdown: {formatDecimal(backtest.max_drawdown, 4)}</div>
-      <div>Volatility: {formatDecimal(backtest.volatility, 4)}</div>
-      <div>Sharpe: {formatDecimal(backtest.sharpe_ratio, 4)}</div>
-      <div>Sortino: {formatDecimal(backtest.sortino_ratio, 4)}</div>
-      <div>Calmar: {formatDecimal(backtest.calmar_ratio, 4)}</div>
+      <WindowMetricRows value={backtest} />
       <DrawdownDuration value={backtest} />
     </div>
   );
@@ -482,32 +550,33 @@ function BenchmarkMetrics({
       className="walk-forward-window-metrics"
     >
       <strong>{benchmark.name}</strong>
-      <div>Total return: {formatDecimal(benchmark.total_return, 4)}</div>
-      <div>Annualized return: {formatDecimal(benchmark.annualized_return, 4)}</div>
-      <div>Max drawdown: {formatDecimal(benchmark.max_drawdown, 4)}</div>
-      <div>Volatility: {formatDecimal(benchmark.volatility, 4)}</div>
-      <div>Sharpe: {formatDecimal(benchmark.sharpe_ratio, 4)}</div>
-      <div>Sortino: {formatDecimal(benchmark.sortino_ratio, 4)}</div>
-      <div>Calmar: {formatDecimal(benchmark.calmar_ratio, 4)}</div>
+      <WindowMetricRows value={benchmark} />
       <DrawdownDuration value={benchmark} />
-      <div>Total-return difference: {formatDecimal(benchmark.total_return_difference, 4)}</div>
-      <div>Annualized-return difference: {formatDecimal(benchmark.annualized_return_difference, 4)}</div>
-      <div>Tracking error: {formatDecimal(benchmark.tracking_error, 4)}</div>
-      <div>Information ratio: {formatDecimal(benchmark.information_ratio, 4)}</div>
+      {BENCHMARK_METRIC_FIELDS.map(([label, key]) => (
+        <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+      ))}
       {benchmark.key === "csi_300_buy_hold" ? (
         <>
-          <div>CSI 300 ETF proxy Alpha (252D compounded): {formatDecimal(benchmark.capm_alpha, 4)}</div>
-          <div>Beta (CSI 300 ETF proxy): {formatDecimal(benchmark.capm_beta, 4)}</div>
-          <div>R-squared (CSI 300 ETF proxy): {formatDecimal(benchmark.capm_r_squared, 4)}</div>
+          {CAPM_FIELDS.map(([label, key]) => (
+            <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+          ))}
           <div>CAPM observations (daily sessions): {formatNullableInteger(benchmark.capm_observation_count)}</div>
         </>
       ) : null}
-      <div>Monthly Up Capture (selected months): {formatDecimal(benchmark.up_capture_ratio, 4)}</div>
-      <div>Up selected months: {formatNullableInteger(benchmark.up_capture_observation_count)}</div>
-      <div>Monthly Down Capture (selected months): {formatDecimal(benchmark.down_capture_ratio, 4)}</div>
-      <div>Down selected months: {formatNullableInteger(benchmark.down_capture_observation_count)}</div>
+      {CAPTURE_RATIO_FIELDS.map(([label, key]) => (
+        <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+      ))}
+      {CAPTURE_COUNT_FIELDS.map(([label, key]) => (
+        <div key={key}>{label}: {formatNullableInteger(benchmark[key])}</div>
+      ))}
     </section>
   );
+}
+
+function WindowMetricRows({ value }: { value: Pick<WalkForwardOosBacktest, (typeof WINDOW_METRIC_FIELDS)[number][1]> }) {
+  return WINDOW_METRIC_FIELDS.map(([label, key]) => (
+    <div key={key}>{label}: {formatDecimal(value[key], 4)}</div>
+  ));
 }
 
 type DrawdownDurationValue = Pick<
@@ -519,14 +588,12 @@ type DrawdownDurationValue = Pick<
 >;
 
 function DrawdownDuration({ value }: { value: DrawdownDurationValue }) {
-  return (
-    <>
-      <div>Longest drawdown: {formatNullableInteger(value.longest_drawdown_duration_sessions)} sessions</div>
-      <div>Peak: {formatDate(value.longest_drawdown_peak_date)}</div>
-      <div>Trough: {formatDate(value.longest_drawdown_trough_date)}</div>
-      <div>Recovery: {formatDrawdownRecovery(value)}</div>
-    </>
-  );
+  return [
+    `Longest drawdown: ${formatNullableInteger(value.longest_drawdown_duration_sessions)} sessions`,
+    `Peak: ${formatDate(value.longest_drawdown_peak_date)}`,
+    `Trough: ${formatDate(value.longest_drawdown_trough_date)}`,
+    `Recovery: ${formatDrawdownRecovery(value)}`
+  ].map((text) => <div key={text}>{text}</div>);
 }
 
 function formatMetricValue(value: number | null): string {
@@ -552,19 +619,4 @@ function formatRate(rate: {
 function formatSkipReasons(reasons: Record<string, number>): string {
   const entries = Object.entries(reasons);
   return entries.length === 0 ? "No skip reasons" : `Skip reasons: ${entries.map(([key, value]) => `${key}: ${value}`).join(", ")}`;
-}
-
-function formatDrawdownRecovery(
-  backtest: DrawdownDurationValue
-): string {
-  if (backtest.longest_drawdown_recovery_date) {
-    return formatDate(backtest.longest_drawdown_recovery_date);
-  }
-
-  return backtest.longest_drawdown_duration_sessions !== null &&
-    backtest.longest_drawdown_duration_sessions > 0 &&
-    backtest.longest_drawdown_peak_date !== null &&
-    backtest.longest_drawdown_trough_date !== null
-    ? "ongoing"
-    : "n/a";
 }
