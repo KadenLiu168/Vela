@@ -8,10 +8,8 @@ dependencies = [
     "akshare>=1.18.64",
     "alembic>=1.18.4",
     "fastapi>=0.138.0",
-    "numpy",
     "pandas",
     "pydantic",
-    "pydantic-settings",
     "python-dotenv",
     "pyyaml>=6.0.3",
     "sqlalchemy",
@@ -30,7 +28,6 @@ dev = [
     "pandas-stubs",
     "pre-commit",
     "pytest",
-    "pytest-cov",
     "ruff",
     "types-pyyaml>=6.0.12.20260518",
 ]

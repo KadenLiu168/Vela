@@ -25,7 +25,7 @@ Backend:
 - Python 3.11+ / uv
 - FastAPI + uvicorn
 - SQLAlchemy + Alembic
-- pandas / pydantic / pydantic-settings
+- pandas / pydantic
 - akshare / tenacity (Tencent data provider); jqdatasdk optional (JoinQuant)
 
 Frontend (apps/web):
