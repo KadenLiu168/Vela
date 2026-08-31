@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from vela_core.config import ConfigError, _format_validation_error, _load_yaml
@@ -51,6 +52,14 @@ ParameterSpec: TypeAlias = Annotated[
     Field(discriminator="type"),
 ]
 PARAMETER_SPEC_ADAPTER: TypeAdapter[ParameterSpec] = TypeAdapter(ParameterSpec)
+
+
+def load_base_config(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as file:
+        data = yaml.safe_load(file)
+    if not isinstance(data, dict):
+        raise ValueError(f"base strategy configuration {path} must be a mapping")
+    return data
 
 
 class StrategySource(BaseModel):

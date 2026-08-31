@@ -2,8 +2,47 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 from vela_core.config import ConfigError
-from vela_core.walk_forward.config import load_walk_forward_config
+from vela_core.walk_forward.config import load_base_config, load_walk_forward_config
+
+
+def test_load_base_config_returns_raw_mapping(tmp_path: Path) -> None:
+    path = tmp_path / "strategy.yaml"
+    path.write_text("strategy_id: demo\nparameters: {}\n", encoding="utf-8")
+
+    assert load_base_config(path) == {
+        "strategy_id": "demo",
+        "parameters": {},
+    }
+
+
+@pytest.mark.parametrize("content", ["- item\n", "scalar\n", "null\n"])
+def test_load_base_config_rejects_non_mapping_documents(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "invalid.yaml"
+    path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(
+        ValueError, match="base strategy configuration.*must be a mapping"
+    ) as exc_info:
+        load_base_config(path)
+
+    assert str(path) in str(exc_info.value)
+
+
+def test_load_base_config_preserves_missing_file_error(tmp_path: Path) -> None:
+    path = tmp_path / "missing.yaml"
+
+    with pytest.raises(FileNotFoundError):
+        load_base_config(path)
+
+
+def test_load_base_config_preserves_yaml_parser_error(tmp_path: Path) -> None:
+    path = tmp_path / "malformed.yaml"
+    path.write_text("strategy_id: [unterminated\n", encoding="utf-8")
+
+    with pytest.raises(yaml.YAMLError):
+        load_base_config(path)
 
 
 def test_load_walk_forward_config_resolves_base_strategy_path(tmp_path: Path) -> None:

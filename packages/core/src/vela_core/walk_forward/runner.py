@@ -7,11 +7,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -19,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 from vela_core.backtest_runner import run_backtest
 from vela_core.models import WalkForwardRun
 from vela_core.strategy_config import validate_strategy_config
-from vela_core.walk_forward.config import WalkForwardConfig
+from vela_core.walk_forward.config import WalkForwardConfig, load_base_config
 from vela_core.walk_forward.evidence import WalkForwardEvidenceV3
 from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
@@ -70,7 +68,7 @@ class WalkForwardRunner:
         self._base_config = (
             base_strategy_config
             if base_strategy_config is not None
-            else _load_base_config(config.strategy.base_config)
+            else load_base_config(config.strategy.base_config)
         )
         self._base_strategy_config = validate_strategy_config(self._base_config)
         self._version_contents: dict[str, str] = {}
@@ -429,14 +427,6 @@ class WalkForwardRunner:
             skipped_count=len(combinations) - len(scored),
             skip_reason_counts=skip_reason_counts,
         )
-
-
-def _load_base_config(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-    if not isinstance(data, dict):
-        raise ValueError(f"base strategy configuration {path} must be a mapping")
-    return data
 
 
 @contextmanager

@@ -177,14 +177,14 @@ def load_strategy_config(path: str | Path) -> StrategyConfig:
     except ValidationError as exc:
         raise ConfigError(_format_validation_error(config_path, exc), path=config_path) from exc
     if isinstance(config, DualMomentumStrategyConfig):
-        universe_path = _resolve_universe_config_path(config_path, config.universe_config)
+        universe_path = resolve_universe_config_path(config_path, config.universe_config)
         _validate_defensive_assets(
             config, load_etf_pool_config(universe_path), universe_path, config_path
         )
     return config
 
 
-def _resolve_universe_config_path(strategy_path: Path, universe_config: str) -> Path:
+def resolve_universe_config_path(strategy_path: Path, universe_config: str) -> Path:
     universe_path = Path(universe_config)
     if universe_path.is_absolute() or universe_path.exists():
         return universe_path

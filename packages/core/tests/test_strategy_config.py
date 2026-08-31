@@ -9,10 +9,59 @@ from vela_core import ConfigError, strategy_config
 from vela_core.strategy_config import (
     DualMomentumStrategyConfig,
     load_strategy_config,
+    resolve_universe_config_path,
     validate_strategy_config,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_resolve_universe_config_path_preserves_absolute_path(
+    tmp_path: Path,
+) -> None:
+    universe_path = tmp_path / "pool.yaml"
+
+    assert (
+        resolve_universe_config_path(tmp_path / "strategy.yaml", str(universe_path))
+        == universe_path
+    )
+
+
+def test_resolve_universe_config_path_prefers_existing_cwd_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "pool.yaml").write_text("cwd", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert resolve_universe_config_path(tmp_path / "config" / "strategy.yaml", "pool.yaml") == Path(
+        "pool.yaml"
+    )
+
+
+def test_resolve_universe_config_path_falls_back_to_strategy_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    strategy_path = config_dir / "strategy.yaml"
+    (config_dir / "pool.yaml").write_text("strategy directory", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert resolve_universe_config_path(strategy_path, "pool.yaml") == config_dir / "pool.yaml"
+
+
+def test_resolve_universe_config_path_prefers_cwd_when_both_candidates_exist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (tmp_path / "pool.yaml").write_text("cwd", encoding="utf-8")
+    (config_dir / "pool.yaml").write_text("strategy directory", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert resolve_universe_config_path(config_dir / "strategy.yaml", "pool.yaml") == Path(
+        "pool.yaml"
+    )
 
 
 def test_strategy_v1_config_loads_and_validates() -> None:

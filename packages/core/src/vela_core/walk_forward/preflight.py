@@ -3,10 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
 from typing import Any
 
-import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +14,7 @@ from vela_core.resolved_session_price import ResolvedSessionPrice
 from vela_core.resolved_session_price_query import load_resolved_session_price_panel
 from vela_core.strategies.registry import resolve_strategy
 from vela_core.strategy_config import StrategyConfig
-from vela_core.walk_forward.config import WalkForwardConfig
+from vela_core.walk_forward.config import WalkForwardConfig, load_base_config
 from vela_core.walk_forward.parameter_space import (
     build_strategy_config,
     generate_combinations,
@@ -43,7 +41,7 @@ def prepare_walk_forward_inputs(
     session: Session, *, config: WalkForwardConfig, base_config: dict[str, Any] | None = None
 ) -> WalkForwardPreflight:
     base_config = (
-        base_config if base_config is not None else _load_base_config(config.strategy.base_config)
+        base_config if base_config is not None else load_base_config(config.strategy.base_config)
     )
     combinations = generate_combinations(config.parameter_space)
     valid_candidates: list[StrategyConfig] = []
@@ -121,14 +119,6 @@ def prepare_walk_forward_inputs(
         maximum_lookback_days=maximum_lookback_days,
         valid_candidates=tuple(valid_candidates),
     )
-
-
-def _load_base_config(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-    if not isinstance(data, dict):
-        raise ValueError(f"base strategy configuration {path} must be a mapping")
-    return data
 
 
 def _validate_listing_metadata(active_etfs: list[ETFInfo]) -> None:
