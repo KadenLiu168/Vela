@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from contextlib import AbstractContextManager
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from sqlalchemy.orm import Session
 from vela_core import (
     BacktestReportNotFoundError,
     BacktestRunResult,
@@ -58,6 +60,12 @@ def init_db(
     script_location: Path = DEFAULT_ALEMBIC_SCRIPT_LOCATION,
 ) -> None:
     run_alembic_upgrade(database_url, script_location)
+
+
+def _managed_cli_session(database_url: str) -> AbstractContextManager[Session]:
+    engine = create_engine_from_url(database_url)
+    session_factory = create_session_factory(engine)
+    return managed_session(session_factory)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -431,16 +439,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def fetch_full_market_data(database_url: str) -> MarketDataFetchResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    with managed_session(session_factory) as session:
+    with _managed_cli_session(database_url) as session:
         return fetch_full_market_prices(session, provider=TencentMarketDataProvider())
 
 
 def fetch_incremental_market_data(database_url: str) -> MarketDataFetchResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    with managed_session(session_factory) as session:
+    with _managed_cli_session(database_url) as session:
         return fetch_incremental_market_prices(session, provider=TencentMarketDataProvider())
 
 
@@ -449,10 +453,9 @@ def sync_etf_pool(
     *,
     strategy_config_path: Path,
 ) -> ETFPoolSyncResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     config = load_app_config(strategy_config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return sync_etf_pool_to_db(session, config.etf_pool)
 
 
@@ -461,17 +464,14 @@ def sync_etf_session_status(
     *,
     status_config_path: Path,
 ) -> ETFSessionStatusSyncResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     document = load_etf_session_status_document(status_config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return sync_etf_session_status_to_db(session, document)
 
 
 def sync_trading_calendar(database_url: str) -> TradingCalendarSyncResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    with managed_session(session_factory) as session:
+    with _managed_cli_session(database_url) as session:
         return sync_trading_calendar_to_db(session)
 
 
@@ -482,10 +482,9 @@ def generate_signal(
     signal_date: date | None,
     source: str = "manual",
 ) -> GenerateStrategySignalResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     config = load_strategy_config(strategy_config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return generate_and_persist_strategy_signal(
             session,
             config=config,
@@ -500,10 +499,9 @@ def export_signal_report(
     strategy_config_path: Path,
     signal_date: date | None,
 ) -> str:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     config = load_strategy_config(strategy_config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return export_latest_strategy_signal_report(
             session,
             strategy_id=config.strategy_id,
@@ -519,10 +517,9 @@ def run_backtest(
     start_date: date,
     end_date: date,
 ) -> BacktestRunResult:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     config = load_strategy_config(strategy_config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return run_core_backtest(
             session,
             config=config,
@@ -533,17 +530,14 @@ def run_backtest(
 
 
 def run_walk_forward(database_url: str, *, config_path: Path):
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
+    session_context = _managed_cli_session(database_url)
     config = load_walk_forward_config(config_path)
-    with managed_session(session_factory) as session:
+    with session_context as session:
         return WalkForwardRunner(config).run(session)
 
 
 def export_backtest_report(database_url: str, *, run_id: int) -> str:
-    engine = create_engine_from_url(database_url)
-    session_factory = create_session_factory(engine)
-    with managed_session(session_factory) as session:
+    with _managed_cli_session(database_url) as session:
         return export_core_backtest_report(session, run_id=run_id)
 
 

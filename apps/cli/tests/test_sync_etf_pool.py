@@ -102,6 +102,24 @@ def test_sync_etf_pool_reports_failure(
     )
 
 
+def test_sync_etf_pool_preserves_engine_creation_before_config_loading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli,
+        "create_engine_from_url",
+        lambda _database_url: (_ for _ in ()).throw(RuntimeError("engine unavailable")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_app_config",
+        lambda _path: (_ for _ in ()).throw(AssertionError("config loaded first")),
+    )
+
+    with pytest.raises(RuntimeError, match="engine unavailable"):
+        cli.sync_etf_pool("invalid", strategy_config_path=Path("missing.yaml"))
+
+
 def test_sync_etf_pool_populates_active_etfs_after_init_db(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
