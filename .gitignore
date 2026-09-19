@@ -60,6 +60,8 @@ dist/
 
 # Agent 
 
+.agents/
+
 .claude/
 
 .codex/
