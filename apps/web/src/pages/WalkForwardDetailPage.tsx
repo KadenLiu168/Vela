@@ -1,14 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
-  ApiClientError,
   type WalkForwardBenchmark,
   type WalkForwardDetailResponse,
   type WalkForwardMetricSummary,
   type WalkForwardOosBacktest,
   getWalkForwardDetail
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { useResource, type ResourceState } from "../utils/useResource";
+import { listReturnHref } from "../utils/listReturn";
 import {
   formatDate,
   formatDecimal,
@@ -27,12 +29,6 @@ import { TAIL_OWNER_LABELS } from "./walkForwardFormatters";
 type WalkForwardDetailPageProps = {
   runId: string;
 };
-
-type WalkForwardDetailState =
-  | { status: "loading"; data?: never; error?: never; runId?: never }
-  | { status: "ready"; data: WalkForwardDetailResponse; error?: never; runId: string }
-  | { status: "not-found"; data?: never; error?: never; runId: string }
-  | { status: "error"; data?: never; error: string; runId: string };
 
 type PersistedWalkForwardEvidence = NonNullable<WalkForwardDetailResponse["evidence"]>;
 
@@ -116,40 +112,15 @@ const WINDOW_TABLE_COLUMNS = [
 ];
 
 export function WalkForwardDetailPage({ runId }: WalkForwardDetailPageProps) {
-  const [state, setState] = useState<WalkForwardDetailState>({ status: "loading" });
+  const location = useLocation();
+  const backHref = listReturnHref(location.state, "/walk-forwards");
+  const { state, reload } = useResource({
+    hasNotFoundState: true,
+    key: runId,
+    load: () => getWalkForwardDetail(runId)
+  });
 
-  useEffect(() => {
-    let isCurrent = true;
-
-    getWalkForwardDetail(runId)
-      .then((data) => {
-        if (isCurrent) {
-          setState({ status: "ready", data, runId });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof ApiClientError && error.status === 404) {
-          setState({ status: "not-found", runId });
-          return;
-        }
-
-        setState({
-          status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable",
-          runId
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [runId]);
-
-  const currentState = state.status === "loading" || state.runId === runId ? state : { status: "loading" as const };
+  useDocumentTitle(`Walk-forward #${runId}`);
 
   return (
     <section className="page detail-page walk-forward-detail-page">
@@ -157,12 +128,17 @@ export function WalkForwardDetailPage({ runId }: WalkForwardDetailPageProps) {
         <p>Walk-forward research workspace</p>
         <h1>Walk-forward #{runId}</h1>
       </div>
-      {renderDetail(currentState, runId)}
+      {renderDetail(state, runId, reload, backHref)}
     </section>
   );
 }
 
-function renderDetail(state: WalkForwardDetailState, runId: string) {
+function renderDetail(
+  state: ResourceState<WalkForwardDetailResponse>,
+  runId: string,
+  retry: () => void,
+  backHref: string
+) {
   if (state.status === "loading") {
     return <FeedbackMessage variant="loading">Loading Walk-forward detail.</FeedbackMessage>;
   }
@@ -172,17 +148,13 @@ function renderDetail(state: WalkForwardDetailState, runId: string) {
   }
 
   if (state.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Walk-forward detail API unavailable: {state.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={state.error} label="Walk-forward detail" onRetry={retry} />;
   }
 
   const { data } = state;
   return (
     <article className="dashboard-panel">
-      <WalkForwardRunHeaderSection run={data.run} />
+      <WalkForwardRunHeaderSection backHref={backHref} run={data.run} />
       <WalkForwardOosSummarySection evidence={data.evidence} status={data.run.status} />
       <StitchedOosSection data={data} />
       <EvidenceSection data={data} />
@@ -198,7 +170,7 @@ function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
       <section className="holdings-section" aria-labelledby="walk-forward-evidence-heading">
         <h2 id="walk-forward-evidence-heading">Aggregated evidence</h2>
         <p className="detail-note">
-          Evidence is unavailable until this {data.run.status} run reaches a terminal state.
+          No aggregated OOS metrics have been published for this {data.run.status} run yet.
         </p>
         {data.run.error_message ? <FeedbackMessage variant="error">{data.run.error_message}</FeedbackMessage> : null}
       </section>

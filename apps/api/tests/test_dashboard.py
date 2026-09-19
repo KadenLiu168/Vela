@@ -138,7 +138,21 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
         "generated_at": "2026-06-23T09:30:00",
         "is_fallback": True,
         "position_count": 1,
+        "source": "manual",
+        "backtest_run_id": None,
+        "positions": [
+            {
+                "exchange": "NYSEARCA",
+                "symbol": "SPY",
+                "name": "SPY ETF",
+                "target_weight": "1.000000",
+                "rank": None,
+                "score": None,
+                "is_fallback": True,
+            }
+        ],
     }
+    assert body["latest_walk_forward"] is None
     assert body["recent_backtest"]["run_id"] == 1
     assert body["recent_backtest"]["start_date"] == "2026-01-01"
     assert body["recent_backtest"]["end_date"] == "2026-01-31"
@@ -146,6 +160,7 @@ def test_dashboard_endpoint_reads_persisted_sqlite_rows(tmp_path) -> None:
     assert body["recent_backtest"]["total_return"] == "0.120000"
     assert body["recent_backtest"]["max_drawdown"] == "-0.050000"
     assert body["recent_backtest"]["sharpe_ratio"] == "1.100000"
+    assert body["recent_backtest"]["benchmarks"] == []
     assert body["recent_fetch_logs"] == [
         {
             "fetch_log_id": 1,
@@ -192,4 +207,5 @@ def test_dashboard_endpoint_returns_empty_workflow_data_from_empty_sqlite(tmp_pa
     }
     assert body["latest_signal"] is None
     assert body["recent_backtest"] is None
+    assert body["latest_walk_forward"] is None
     assert body["recent_fetch_logs"] == []

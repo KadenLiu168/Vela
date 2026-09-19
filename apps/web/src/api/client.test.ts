@@ -254,7 +254,29 @@ it("calls dashboard through the shared client", async () => {
       result: "rebalance",
       generated_at: "2026-06-23T09:30:00",
       is_fallback: false,
-      position_count: 2
+      position_count: 2,
+      source: "manual",
+      backtest_run_id: null,
+      positions: [
+        {
+          exchange: "SSE",
+          symbol: "510300",
+          name: "沪深300ETF",
+          target_weight: "0.500000",
+          rank: 1,
+          score: "0.800000",
+          is_fallback: false
+        },
+        {
+          exchange: "SZSE",
+          symbol: "159915",
+          name: "创业板ETF",
+          target_weight: "0.500000",
+          rank: 2,
+          score: "0.700000",
+          is_fallback: false
+        }
+      ]
     },
     recent_backtest: {
       run_id: 7,
@@ -264,10 +286,13 @@ it("calls dashboard through the shared client", async () => {
       end_date: "2026-06-01",
       status: "success",
       total_return: "0.120000",
+      annualized_return: "0.100000",
       max_drawdown: "-0.050000",
       sharpe_ratio: "1.100000",
-      started_at: "2026-06-02T09:00:00"
+      started_at: "2026-06-02T09:00:00",
+      benchmarks: []
     },
+    latest_walk_forward: null,
     recent_fetch_logs: [
       {
         fetch_log_id: 11,

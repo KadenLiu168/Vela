@@ -42,7 +42,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(await screen.findByText("Dashboard loaded")).toBeInTheDocument();
   expect(await screen.findByText("1,200 rows")).toBeInTheDocument();
   expect(screen.getByText("8 ETFs")).toBeInTheDocument();
-  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  const marketPanel = screen.getByRole("heading", { name: "Price data" }).closest("article");
   expect(marketPanel).not.toBeNull();
   const market = within(marketPanel as HTMLElement);
   expect(market.getByText("Price rows")).toBeInTheDocument();
@@ -57,7 +57,7 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(market.getByText("SPY ETF")).toBeInTheDocument();
   expect(market.getByText("QQQ")).toBeInTheDocument();
   expect(market.getByText("QQQ ETF")).toBeInTheDocument();
-  const strategyPanel = screen.getByRole("heading", { name: "Strategy" }).closest("article");
+  const strategyPanel = screen.getByRole("heading", { name: "Parameters" }).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
   expect(strategy.getAllByText("dual_momentum")).toHaveLength(2);
@@ -75,7 +75,10 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(signal.getByText("success")).toBeInTheDocument();
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("Yes")).toBeInTheDocument();
-  expect(signal.getByText("2")).toBeInTheDocument();
+  const signalHoldings = signal.getByRole("table", { name: "Latest signal target holdings" });
+  expect(within(signalHoldings).getByText("510300")).toBeInTheDocument();
+  expect(within(signalHoldings).getByText("沪深300ETF")).toBeInTheDocument();
+  expect(within(signalHoldings).getAllByText("50%")).toHaveLength(2);
   expect(signal.getByRole("link", { name: "View signal detail" })).toHaveAttribute(
     "href",
     "/signals/42"
@@ -89,14 +92,14 @@ it("loads dashboard aggregate data through the shared client", async () => {
   expect(backtest.getByText("12.00%")).toBeInTheDocument();
   expect(backtest.getByText("-5.00%")).toBeInTheDocument();
   expect(backtest.getByText("Sharpe (daily returns, 252D)")).toBeInTheDocument();
-  expect(backtest.getByText("1.100000")).toBeInTheDocument();
+  expect(backtest.getByText("1.10")).toBeInTheDocument();
   expect(backtest.queryByText("Sortino (rf MAR, 252D)")).not.toBeInTheDocument();
   expect(backtest.queryByText("Tracking error (252D)")).not.toBeInTheDocument();
   expect(backtest.getByRole("link", { name: "View backtest detail" })).toHaveAttribute(
     "href",
     "/backtests/7"
   );
-  const fetchLogPanel = screen.getByRole("heading", { name: "Data fetches" }).closest("article");
+  const fetchLogPanel = screen.getByRole("heading", { name: "Fetch history" }).closest("article");
   expect(fetchLogPanel).not.toBeNull();
   const fetchLogs = within(fetchLogPanel as HTMLElement);
   const firstFetchLog = within((fetchLogPanel as HTMLElement).querySelector(".fetch-log-entry") as HTMLElement);
@@ -136,7 +139,7 @@ it("renders equal weight strategy details without dual-momentum fields", async (
 
   render(<App />);
 
-  const strategyPanel = (await screen.findByRole("heading", { name: "Strategy" })).closest("article");
+  const strategyPanel = (await screen.findByRole("heading", { name: "Parameters" })).closest("article");
   expect(strategyPanel).not.toBeNull();
   const strategy = within(strategyPanel as HTMLElement);
   expect(strategy.getByText("equal_weight")).toBeInTheDocument();
@@ -198,7 +201,7 @@ it("renders empty dashboard states without treating the response as a failure", 
   expect(
     within(backtestPanel as HTMLElement).queryByRole("button", { name: "Run backtest" })
   ).not.toBeInTheDocument();
-  expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard could not be loaded/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
 
@@ -222,7 +225,7 @@ it("renders an empty fetch history state without treating the response as a fail
   render(<App />);
 
   expect(await screen.findByText("No market data fetch history exists yet.")).toBeInTheDocument();
-  expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders an explicit empty state when local market data is missing", async () => {
@@ -257,7 +260,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(
     screen.getByText("No local market data is available yet. Fetch market data to start using the dashboard.")
   ).toBeInTheDocument();
-  const marketPanel = screen.getByRole("heading", { name: "Market data" }).closest("article");
+  const marketPanel = screen.getByRole("heading", { name: "Price data" }).closest("article");
   expect(marketPanel).not.toBeNull();
   expect(within(marketPanel as HTMLElement).getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.getAllByRole("button", { name: "Fetch market data" })).toHaveLength(2);
@@ -265,7 +268,7 @@ it("renders an explicit empty state when local market data is missing", async ()
   expect(screen.getByText("0 ETFs")).toBeInTheDocument();
   expect(within(marketPanel as HTMLElement).queryAllByText("n/a")).toHaveLength(0);
   expect(within(marketPanel as HTMLElement).queryByText("SPY")).not.toBeInTheDocument();
-  expect(screen.queryByText(/Dashboard API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Dashboard could not be loaded/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
 });
 
@@ -274,16 +277,34 @@ it("keeps the dashboard layout visible when dashboard loading fails", async () =
 
   render(<App />);
 
-  expect(await screen.findByText("Dashboard API unavailable: network")).toBeInTheDocument();
+  expect(await screen.findByText(/Dashboard could not be loaded\. The local API could not be reached/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "First run setup" })).toBeInTheDocument();
   expect(
     screen.getByText("Run vela init-db to initialize the local database, then fetch market data.")
   ).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Market data" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Price data" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Operations" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeEnabled();
   expect(screen.queryByText(/login|sign up|account|team|deploy|production|hosting|remote/i)).not.toBeInTheDocument();
+});
+
+it("recovers the dashboard read through Retry without reloading the document", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("failed"))
+      .mockResolvedValue(jsonResponse(createDashboardResponse()))
+  );
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+  expect(await screen.findByText("Dashboard loaded")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
 });
 
 it("does not render first-run guidance after local market data exists", async () => {
@@ -619,7 +640,7 @@ it("keeps market data fetch success visible when the follow-up Dashboard refresh
   fireEvent.click(await screen.findByRole("button", { name: "Fetch market data" }));
 
   expect(await screen.findByText("Market data fetch success")).toBeInTheDocument();
-  expect(screen.getByText("Dashboard API unavailable: network")).toBeInTheDocument();
+  expect(screen.getByText(/Dashboard could not be loaded\. The local API could not be reached/)).toBeInTheDocument();
   expect(screen.queryByText("Market data fetch failed")).not.toBeInTheDocument();
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
 });
@@ -951,6 +972,7 @@ it("triggers signal generation and refreshes latest signal data", async () => {
       status: "success",
       result: "rebalance",
       error_message: null,
+      source: "manual",
       positions: [
         {
           etf_id: 1,
@@ -975,6 +997,12 @@ it("triggers signal generation and refreshes latest signal data", async () => {
   expect(await within(signalArticle as HTMLElement).findByText("Signal #43")).toBeInTheDocument();
   expect(within(signalArticle as HTMLElement).getByText("2026-06-24")).toBeInTheDocument();
   expect(within(signalArticle as HTMLElement).getByText("No")).toBeInTheDocument();
+  // A freshly generated signal is a live instruction: the summary states its
+  // source and carries no simulation caveat.
+  expect(within(signalArticle as HTMLElement).getByText("Manual")).toBeInTheDocument();
+  expect(
+    within(signalArticle as HTMLElement).queryByText(/simulated positions/)
+  ).not.toBeInTheDocument();
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/dashboard")).toHaveLength(2);
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/strategy-signals/latest")).toHaveLength(1);
   const operationsPanel = screen.getByRole("heading", { name: "Operations" }).closest("article");
@@ -1012,7 +1040,10 @@ it("restores Dashboard latest signal status from backend data after browser refr
             result: "rebalance",
             generated_at: "2026-06-24T09:30:00",
             is_fallback: false,
-            position_count: 2
+            position_count: 2,
+            source: "manual",
+            backtest_run_id: null,
+            positions: []
           }
         })
       );
@@ -1031,7 +1062,7 @@ it("restores Dashboard latest signal status from backend data after browser refr
   expect(signal.getByText("2026-06-24")).toBeInTheDocument();
   expect(signal.getByText("rebalance")).toBeInTheDocument();
   expect(signal.getByText("No")).toBeInTheDocument();
-  expect(signal.getByText("2")).toBeInTheDocument();
+  expect(signal.getByText("No target holdings were stored for this signal.")).toBeInTheDocument();
   expect(signal.getByRole("link", { name: "View signal detail" })).toHaveAttribute(
     "href",
     "/signals/43"
@@ -1149,9 +1180,11 @@ it("submits a Dashboard backtest date range through the shared API", async () =>
                   end_date: "2026-01-31",
                   status: "success",
                   total_return: "0.120000",
+                  annualized_return: "0.100000",
                   max_drawdown: "-0.050000",
                   sharpe_ratio: "1.100000",
-                  started_at: "2026-06-25T09:00:00"
+                  started_at: "2026-06-25T09:00:00",
+                  benchmarks: []
                 }
         })
       );
@@ -1636,7 +1669,7 @@ it("renders an empty target holdings state on the signal detail route", async ()
   expect(await screen.findByText("Signal #42")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Target holdings" })).toBeInTheDocument();
   expect(screen.getByText("No target holdings were stored for this signal.")).toBeInTheDocument();
-  expect(screen.queryByText(/Signal detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Signal detail could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("shows loading instead of stale signal detail when the route id changes", async () => {
@@ -1691,7 +1724,7 @@ it("renders a not-found state on the signal detail route when the id is unknown"
   render(<App />);
 
   expect(await screen.findByText("Signal 999 was not found.")).toBeInTheDocument();
-  expect(screen.queryByText(/Signal detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Signal detail could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders an API failure state on the signal detail route", async () => {
@@ -1700,7 +1733,50 @@ it("renders an API failure state on the signal detail route", async () => {
 
   render(<App />);
 
-  expect(await screen.findByText("Signal detail API unavailable: network")).toBeInTheDocument();
+  expect(await screen.findByText(/Signal detail could not be loaded\. The local API could not be reached/)).toBeInTheDocument();
+});
+
+it("keeps a way back to the list when the signal detail read fails", async () => {
+  window.history.pushState({}, "", "/signals/42");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  await screen.findByRole("button", { name: "Retry" });
+  expect(screen.getByRole("link", { name: /Back to Signals/ })).toHaveAttribute("href", "/signals");
+});
+
+it("recovers the signal detail read through Retry", async () => {
+  window.history.pushState({}, "", "/signals/42");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("failed"))
+      .mockResolvedValue(
+        jsonResponse({
+          signal: {
+            backtest_run_id: null,
+            config_version: "v1",
+            generated_at: "2026-07-20T09:30:00",
+            is_fallback: false,
+            result: "rebalance",
+            signal_date: "2026-07-20",
+            signal_id: 42,
+            source: "manual",
+            strategy_id: "dual_momentum"
+          },
+          positions: []
+        })
+      )
+  );
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+  expect(await screen.findByText("Signal #42")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
 it("loads backtest detail data through the shared client", async () => {
@@ -1825,7 +1901,7 @@ it("renders an empty equity curve state on the backtest detail route", async () 
   expect(equityCurve.getByText("No valid equity curve points are available for this run.")).toBeInTheDocument();
   expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
   expect(equityCurve.queryAllByTestId("equity-curve-highlight")).toHaveLength(0);
-  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders a single-point equity curve state on the backtest detail route", async () => {
@@ -1855,7 +1931,7 @@ it("renders a single-point equity curve state on the backtest detail route", asy
   expect(equityCurve.getByText("1.0100")).toBeInTheDocument();
   expect(equityCurve.queryByTestId("equity-curve-line")).not.toBeInTheDocument();
   expect(equityCurve.queryAllByTestId("equity-curve-highlight")).toHaveLength(0);
-  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders n/a for nullable backtest metrics", async () => {
@@ -1884,7 +1960,7 @@ it("renders n/a for nullable backtest metrics", async () => {
   // The four headline values all fall back to n/a.
   expect(within(decisionSection).getAllByText("n/a").length).toBeGreaterThanOrEqual(4);
   expect(screen.getByText("Backtest #8")).toBeInTheDocument();
-  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail could not be loaded/i)).not.toBeInTheDocument();
   expect(screen.queryByText("NaN")).not.toBeInTheDocument();
 });
 
@@ -1910,7 +1986,7 @@ it("renders a missing state on the backtest detail route", async () => {
   render(<App />);
 
   expect(await screen.findByText("Backtest run 999 was not found.")).toBeInTheDocument();
-  expect(screen.queryByText(/Backtest detail API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Backtest detail could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders an API failure state on the backtest detail route", async () => {
@@ -1919,7 +1995,9 @@ it("renders an API failure state on the backtest detail route", async () => {
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest detail API unavailable: network")).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Backtest detail could not be loaded\. The local API could not be reached/)
+  ).toBeInTheDocument();
 });
 
 it("renders backtest list rows on the /backtests route", async () => {
@@ -2064,7 +2142,9 @@ it("shows an error state on /backtests when the backtests list API fails", async
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest history API unavailable: network")).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Backtest history could not be loaded\. The local API could not be reached/)
+  ).toBeInTheDocument();
 });
 
 it("shows an error state on /backtests when the backtests list API returns a server error", async () => {
@@ -2087,7 +2167,11 @@ it("shows an error state on /backtests when the backtests list API returns a ser
 
   render(<App />);
 
-  expect(await screen.findByText("Backtest history API unavailable: http")).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      /Backtest history could not be loaded\. The API returned an error response \(500\)\./
+    )
+  ).toBeInTheDocument();
 });
 
 it("renders an etf-row entry control linking to the ETF price trend page", async () => {
@@ -2296,7 +2380,7 @@ it("renders a not-found state on the ETF detail route when the id is unknown", a
   render(<App />);
 
   expect(await screen.findByText("ETF 999 was not found.")).toBeInTheDocument();
-  expect(screen.queryByText(/ETF trend API unavailable/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/ETF price trend could not be loaded/i)).not.toBeInTheDocument();
 });
 
 it("renders an API failure state on the ETF detail route", async () => {
@@ -2305,7 +2389,37 @@ it("renders an API failure state on the ETF detail route", async () => {
 
   render(<App />);
 
-  expect(await screen.findByText("ETF trend API unavailable: network")).toBeInTheDocument();
+  expect(
+    await screen.findByText(/ETF price trend could not be loaded\. The local API could not be reached/)
+  ).toBeInTheDocument();
+});
+
+it("keeps a way back to Dashboard when the ETF detail read fails", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+
+  render(<App />);
+
+  await screen.findByRole("button", { name: "Retry" });
+  expect(screen.getByRole("link", { name: /Back to Dashboard/ })).toHaveAttribute("href", "/");
+});
+
+it("recovers the ETF detail read through Retry", async () => {
+  window.history.pushState({}, "", "/etfs/1");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("failed"))
+      .mockResolvedValue(jsonResponse(createEtfPriceTrendResponse()))
+  );
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+  expect(await screen.findByRole("heading", { level: 1, name: "ETF Detail" })).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
 });
 
 it("exposes local research navigation without production account entry points", () => {
@@ -2377,7 +2491,29 @@ function createDashboardResponse(): DashboardResponse {
       result: "rebalance",
       generated_at: "2026-06-23T09:30:00",
       is_fallback: true,
-      position_count: 2
+      position_count: 2,
+      source: "manual",
+      backtest_run_id: null,
+      positions: [
+        {
+          exchange: "SSE",
+          symbol: "510300",
+          name: "沪深300ETF",
+          target_weight: "0.500000",
+          rank: 1,
+          score: "0.800000",
+          is_fallback: false
+        },
+        {
+          exchange: "SZSE",
+          symbol: "159915",
+          name: "创业板ETF",
+          target_weight: "0.500000",
+          rank: 2,
+          score: "0.700000",
+          is_fallback: false
+        }
+      ]
     },
     recent_backtest: {
       run_id: 7,
@@ -2387,10 +2523,13 @@ function createDashboardResponse(): DashboardResponse {
       end_date: "2026-06-01",
       status: "success",
       total_return: "0.120000",
+      annualized_return: "0.100000",
       max_drawdown: "-0.050000",
       sharpe_ratio: "1.100000",
-      started_at: "2026-06-02T09:00:00"
+      started_at: "2026-06-02T09:00:00",
+      benchmarks: []
     },
+    latest_walk_forward: null,
     recent_fetch_logs: [
       {
         fetch_log_id: 11,
@@ -2642,3 +2781,66 @@ function createDeferred<T>() {
 
   return { promise, reject, resolve };
 }
+
+it("returns to the same list page through the detail page's own back link", async () => {
+  window.history.pushState({}, "", "/signals?offset=20");
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url === "/api/strategy-signals?limit=20&offset=20") {
+      return Promise.resolve(
+        jsonResponse({
+          signals: [
+            {
+              backtest_run_id: null,
+              config_version: "v1",
+              generated_at: "2026-07-20T09:30:00",
+              is_fallback: false,
+              position_count: 1,
+              result: "rebalance",
+              signal_date: "2026-07-20",
+              signal_id: 41,
+              source: "manual"
+            }
+          ]
+        })
+      );
+    }
+
+    if (url === "/api/strategy-signals/41") {
+      return Promise.resolve(jsonResponse(createSignalDetailResponse()));
+    }
+
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("link", { name: "#41" }));
+  await screen.findByRole("heading", { level: 1, name: "Signal Detail" });
+
+  fireEvent.click(screen.getByRole("link", { name: /Back to Signals/ }));
+
+  await screen.findByRole("heading", { level: 1, name: "Signals" });
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith("/api/strategy-signals?limit=20&offset=20", undefined)
+  );
+});
+
+it("falls back to the plain list path when a detail page was opened directly", async () => {
+  window.history.pushState({}, "", "/signals/41");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/strategy-signals/41"
+        ? Promise.resolve(jsonResponse(createSignalDetailResponse()))
+        : Promise.reject(new Error(`Unexpected request: ${String(input)}`))
+    )
+  );
+
+  render(<App />);
+
+  await screen.findByRole("heading", { level: 1, name: "Signal Detail" });
+  expect(screen.getByRole("link", { name: /Back to Signals/ })).toHaveAttribute("href", "/signals");
+});

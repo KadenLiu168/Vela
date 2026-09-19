@@ -19,17 +19,29 @@ const reviewedIdentity = {
 const budgets = {
   requiredRuntimeRaw: 229187,
   requiredRuntimeGzip: 73544,
-  eagerApplicationRaw: 40000,
-  eagerApplicationGzip: 12000,
+  // Eager application and the initial/total bands were last raised for
+  // `improve-navigation-and-recovery-ux`, which adds the route-transition
+  // reset (reading position + focus + document title), the read-failure
+  // retry primitive, and the AppShell skip link to the eager application
+  // graph. Measured on the 2026-09-19 fresh build: eager 54364 raw /
+  // 15458 gzip, initial 283551 raw / 89002 gzip, total 352926 raw, each
+  // rounded up to the next 1000. Initial gzip is the band that forced a
+  // revision on its own: the route-transition effect's StrictMode guard added
+  // the last few bytes, taking it 2 bytes past its previous 89000 allocation.
+  // Lazy held, but only just: the recorded-list-location work took it to
+  // 69964 raw against its 70000 band, 36 bytes of headroom.
+  eagerApplicationRaw: 55000,
+  eagerApplicationGzip: 16000,
   // Lazy-route allocation raised for `redesign-backtest-results-ui`:
   // BacktestDetailPage now carries the hero, comparison matrix, and chart
   // enhancements (measured 68062 raw bytes on the 2026-08-12 fresh build).
   lazyRouteRaw: 70000,
-  initialRaw: 273000,
-  initialGzip: 86000,
-  // Total-JavaScript budget raised for the same change (measured 337206 raw
-  // bytes on the 2026-08-12 fresh build).
-  totalRaw: 340000
+  initialRaw: 284000,
+  initialGzip: 90000,
+  // Total-JavaScript budget raised alongside the eager and initial bands
+  // (measured 353554 raw bytes on the 2026-09-19 fresh build, after the
+  // history rows started recording the list location they were clicked from).
+  totalRaw: 354000
 };
 const reviewedRuntimeComponents = {
   reactVendor: { rawBytes: 192347, gzipBytes: 60212 },

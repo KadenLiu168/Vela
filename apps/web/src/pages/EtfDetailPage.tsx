@@ -1,19 +1,20 @@
 import {
   memo,
   useCallback,
-  useEffect,
   useMemo,
   useState,
   type MouseEvent as ReactMouseEvent
 } from "react";
+import { Link } from "react-router-dom";
 import {
-  ApiClientError,
   type EtfPriceTrendPoint,
   type EtfPriceTrendResponse,
   type PriceTrendRange,
   getEtfPriceTrend
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { useResource, type ResourceState } from "../utils/useResource";
 import { formatDate, formatDecimal } from "../utils/formatters";
 import {
   computeTrendGeometry,
@@ -40,79 +41,36 @@ const HORIZONS: Horizon[] = [
   { label: "Max", range: "max" }
 ];
 
-type EtfDetailRequestKey = `${string}:${PriceTrendRange}`;
-
-type EtfDetailState =
-  | { status: "loading"; data?: never; error?: never; requestKey?: never }
-  | { status: "ready"; data: EtfPriceTrendResponse; error?: never; requestKey: EtfDetailRequestKey }
-  | { status: "not-found"; data?: never; error?: never; requestKey: EtfDetailRequestKey }
-  | { status: "error"; data?: never; error: string; requestKey: EtfDetailRequestKey };
-
 export function EtfDetailPage({ etfId }: EtfDetailPageProps) {
   const [range, setRange] = useState<PriceTrendRange>("1y");
-  const [state, setState] = useState<EtfDetailState>({ status: "loading" });
+  const { state, reload } = useResource({
+    hasNotFoundState: true,
+    key: `${etfId}:${range}`,
+    load: () => getEtfPriceTrend(etfId, range)
+  });
 
-  useEffect(() => {
-    let isCurrent = true;
-    const requestKey = getEtfDetailRequestKey(etfId, range);
-
-    getEtfPriceTrend(etfId, range)
-      .then((data) => {
-        if (isCurrent) {
-          setState({ status: "ready", data, requestKey });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof ApiClientError && error.status === 404) {
-          setState({ status: "not-found", requestKey });
-          return;
-        }
-
-        setState({
-          status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable",
-          requestKey
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [etfId, range]);
+  useDocumentTitle(`ETF Detail #${etfId}`);
 
   return (
     <section className="page detail-page etf-detail-page">
       <div className="page-heading">
+        <Link className="operation-link detail-back-link" to="/">
+          ← Back to Dashboard
+        </Link>
         <p>ETF price trend</p>
         <h1>ETF Detail</h1>
       </div>
-      {renderEtfDetail(getEtfDetailState(state, etfId, range), etfId, range, setRange)}
+      {renderEtfDetail(state, etfId, range, setRange, reload)}
     </section>
   );
 }
 
-function getEtfDetailRequestKey(etfId: string, range: PriceTrendRange): EtfDetailRequestKey {
-  return `${etfId}:${range}`;
-}
-
-function getEtfDetailState(
-  state: EtfDetailState,
-  etfId: string,
-  range: PriceTrendRange
-): EtfDetailState {
-  const requestKey = getEtfDetailRequestKey(etfId, range);
-  return state.status === "loading" || state.requestKey === requestKey ? state : { status: "loading" };
-}
-
 function renderEtfDetail(
-  state: EtfDetailState,
+  state: ResourceState<EtfPriceTrendResponse>,
   etfId: string,
   range: PriceTrendRange,
-  setRange: (range: PriceTrendRange) => void
+  setRange: (range: PriceTrendRange) => void,
+  retry: () => void
 ) {
   if (state.status === "loading") {
     return <FeedbackMessage variant="loading">Loading ETF price trend.</FeedbackMessage>;
@@ -123,11 +81,7 @@ function renderEtfDetail(
   }
 
   if (state.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        ETF trend API unavailable: {state.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={state.error} label="ETF price trend" onRetry={retry} />;
   }
 
   const { etf, points } = state.data;
@@ -140,11 +94,7 @@ function renderEtfDetail(
         {HORIZONS.map((horizon) => (
           <button
             aria-pressed={horizon.range === range}
-            className={
-              horizon.range === range
-                ? "trend-horizon-button trend-horizon-button-active"
-                : "trend-horizon-button"
-            }
+            className="button-secondary"
             key={horizon.range}
             type="button"
             onClick={() => setRange(horizon.range)}

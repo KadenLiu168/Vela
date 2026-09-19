@@ -96,12 +96,12 @@ The web frontend SHALL provide a repeatable production-build check that derives 
 - **WHEN** the production bundle check evaluates the Dashboard initial static JavaScript graph
 - **THEN** it MUST report the isolated required React 19 + React Router runtime baseline separately from eager application code
 - **AND** the required runtime baseline MUST be `229,187` raw bytes and `73,544` gzip bytes for the reviewed identity
-- **AND** eager application code MUST be no greater than `40,000` raw bytes and `12,000` gzip bytes
+- **AND** eager application code MUST be no greater than `55,000` raw bytes and `16,000` gzip bytes
 
 #### Scenario: Dashboard initial graph stays within the revised budget
 - **WHEN** the production bundle check evaluates the Dashboard initial static JavaScript graph
-- **THEN** the summed raw JavaScript size MUST be no greater than 273,000 bytes
-- **AND** the summed gzip JavaScript size MUST be no greater than 86,000 bytes
+- **THEN** the summed raw JavaScript size MUST be no greater than 284,000 bytes
+- **AND** the summed gzip JavaScript size MUST be no greater than 90,000 bytes
 
 #### Scenario: Lazy route graph stays within the revised allocation
 - **WHEN** the production bundle check evaluates all emitted JavaScript that is not in the Dashboard initial static graph
@@ -110,8 +110,14 @@ The web frontend SHALL provide a repeatable production-build check that derives 
 
 #### Scenario: Total JavaScript avoids material growth
 - **WHEN** the production bundle check evaluates every emitted JavaScript chunk
-- **THEN** the summed raw JavaScript size MUST be no greater than 340,000 bytes
+- **THEN** the summed raw JavaScript size MUST be no greater than 354,000 bytes
 - **AND** the report MUST list each asynchronous route entry separately from the initial static graph
+
+#### Scenario: Eager-band revision is evidence-backed
+- **WHEN** the eager application, initial, or total band is revised
+- **THEN** the change that revised it MUST record, in a bundle-evidence document, the pre-change and post-change measurement for every revised band, the build identity that produced the post-change measurement, and the reason the added eager code is required on the first screen
+- **AND** a revised band MUST NOT be set below the recorded measurement
+- **AND** the revision MUST be accompanied by the same change's specification delta rather than applied to the checker alone
 
 #### Scenario: Lazy route contributors are attributable
 - **WHEN** production bundle remediation evidence is recorded

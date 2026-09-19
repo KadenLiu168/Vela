@@ -1,12 +1,11 @@
 import type { BacktestBenchmark, BacktestDetailMetrics } from "../api/client";
-import {
-  EMPTY_VALUE,
-  formatDecimal,
-  formatRatioAsPercent
-} from "../utils/formatters";
+import { formatDecimal, formatRatioAsPercent } from "../utils/formatters";
 import {
   computeMetricDifference,
   computeVerdict,
+  formatDrawdownDifference,
+  formatSignedDecimal,
+  formatSignedPercent,
   parseMetricNumber,
   resolvePrimaryBenchmark,
   type Verdict
@@ -22,45 +21,6 @@ type HeadlineMetric = {
   label: string;
   value: string;
 };
-
-/** Signed percent difference (return-style evidence), e.g. "+2.00%". */
-function formatSignedPercent(value: string | null): string {
-  const parsed = parseMetricNumber(value);
-  if (parsed === null) {
-    return EMPTY_VALUE;
-  }
-  const percent = parsed * 100;
-  const sign = percent > 0 ? "+" : "";
-  return `${sign}${percent.toFixed(2)}%`;
-}
-
-/** Signed decimal difference (Sharpe-style evidence), e.g. "+0.70". */
-function formatSignedDecimal(value: number | null): string {
-  if (value === null) {
-    return EMPTY_VALUE;
-  }
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}`;
-}
-
-/** Max drawdown difference framed as shallower/deeper: a value closer to zero
- *  is favorable, so a positive difference means the strategy drawdown is
- *  shallower than the primary benchmark's. The sign never stands alone as a
- *  naked difference. */
-function formatDrawdownDifference(
-  strategyValue: string | null,
-  benchmarkValue: string | null
-): string {
-  const difference = computeMetricDifference(strategyValue, benchmarkValue);
-  if (difference === null) {
-    return EMPTY_VALUE;
-  }
-  const magnitude = `${(Math.abs(difference) * 100).toFixed(2)}%`;
-  if (difference === 0) {
-    return "in line";
-  }
-  return difference > 0 ? `shallower by ${magnitude}` : `deeper by ${magnitude}`;
-}
 
 /**
  * First-screen Decision Summary: the strategy's four headline values plus their

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -42,6 +42,7 @@ const dashboardFixture = (): DashboardResponse => ({
   },
   latest_signal: null,
   recent_backtest: null,
+  latest_walk_forward: null,
   recent_fetch_logs: []
 });
 
@@ -269,5 +270,175 @@ describe("DashboardPage market data fetch actions", () => {
       expect(screen.getByText("250 rows")).toBeInTheDocument();
     });
     expect(dashboardCallCount).toBe(2);
+  });
+});
+
+describe("DashboardPage decision-first research path", () => {
+  const populatedFixture = (): DashboardResponse => ({
+    ...dashboardFixture(),
+    latest_signal: {
+      signal_id: 307,
+      signal_date: "2024-12-31",
+      config_version: "v1",
+      status: "success",
+      result: "rebalance",
+      generated_at: "2026-08-12T03:11:57",
+      is_fallback: false,
+      position_count: 2,
+      source: "backtest",
+      backtest_run_id: 1,
+      positions: [
+        {
+          exchange: "SSE",
+          symbol: "588000",
+          name: "科创50ETF",
+          target_weight: "0.500000",
+          rank: 1,
+          score: "0.409997",
+          is_fallback: false
+        },
+        {
+          exchange: "SZSE",
+          symbol: "159915",
+          name: "创业板ETF",
+          target_weight: "0.500000",
+          rank: 2,
+          score: "0.253804",
+          is_fallback: false
+        }
+      ]
+    },
+    recent_backtest: {
+      run_id: 1,
+      strategy_id: "Dual_momentum",
+      config_version: "v1",
+      start_date: "2019-01-01",
+      end_date: "2024-12-31",
+      status: "success",
+      total_return: "-0.173422",
+      annualized_return: "-0.031245",
+      max_drawdown: "-0.418520",
+      sharpe_ratio: "-0.154367",
+      started_at: "2026-08-12T03:11:57",
+      benchmarks: [
+        {
+          key: "csi_300_buy_hold",
+          name: "CSI 300 buy-and-hold",
+          total_return: "0.427400",
+          total_return_difference: "-0.600822",
+          annualized_return_difference: "-0.092348",
+          sharpe_ratio: "0.322564",
+          max_drawdown: "-0.384516"
+        }
+      ]
+    },
+    latest_walk_forward: {
+      run_id: 1,
+      strategy_id: "Dual_momentum",
+      status: "queued",
+      start_date: "2019-01-01",
+      end_date: "2024-12-31",
+      window_count: 0,
+      finished_at: null,
+      error_message: null,
+      oos: null
+    }
+  });
+
+  const renderPopulated = async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL): Promise<Response> => {
+        const url = typeof input === "string" ? input : String(input);
+        if (url === "/api/dashboard") {
+          return Promise.resolve(jsonResponse(populatedFixture()));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      })
+    );
+
+    render(<DashboardPage />, { wrapper: RouterWrapper });
+    await screen.findByText("Current state");
+  };
+
+  it("renders the five decision layers ahead of the reference region", async () => {
+    await renderPopulated();
+
+    const page = screen.getByRole("heading", { name: "Dashboard" }).closest("section") as HTMLElement;
+    const decisionPath = page.querySelector(".research-decision-path") as HTMLElement;
+    const referenceGrid = page.querySelector(".dashboard-grid") as HTMLElement;
+
+    expect(decisionPath.compareDocumentPosition(referenceGrid)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    const headings = Array.from(
+      decisionPath.querySelectorAll(".panel-heading h3")
+    ).map((node) => node.textContent);
+    expect(headings).toEqual([
+      "Current state",
+      "Latest result",
+      "Latest result",
+      "OOS evidence",
+      "Drill down"
+    ]);
+  });
+
+  it("renders the latest signal target holdings in the decision path", async () => {
+    await renderPopulated();
+
+    const holdings = screen.getByRole("table", { name: "Latest signal target holdings" });
+    expect(within(holdings).getByText("588000")).toBeInTheDocument();
+    expect(within(holdings).getByText("科创50ETF")).toBeInTheDocument();
+  });
+
+  it("states that a backtest-sourced signal is a simulation, not a live instruction", async () => {
+    await renderPopulated();
+
+    const signalPanel = screen.getByTestId("workflow-panel-signal");
+    expect(within(signalPanel).getByText("Source")).toBeInTheDocument();
+    expect(within(signalPanel).getByText("Backtest")).toBeInTheDocument();
+    expect(
+      within(signalPanel).getByText(/these holdings are simulated positions, not a current instruction/)
+    ).toBeInTheDocument();
+    expect(
+      within(signalPanel).getByRole("link", { name: "backtest #1" })
+    ).toHaveAttribute("href", "/backtests/1");
+  });
+
+  it("contrasts the latest backtest with its primary benchmark", async () => {
+    await renderPopulated();
+
+    expect(screen.getByText("vs CSI 300 buy-and-hold: -60.08%")).toBeInTheDocument();
+    expect(screen.getByText("vs CSI 300 buy-and-hold: deeper by 3.40%")).toBeInTheDocument();
+  });
+
+  it("states which config version produced the shown performance", async () => {
+    await renderPopulated();
+
+    const backtestPanel = screen.getByTestId("workflow-panel-backtest");
+    expect(within(backtestPanel).getByText("Config version")).toBeInTheDocument();
+    expect(within(backtestPanel).getByText("v1")).toBeInTheDocument();
+  });
+
+  it("reports the latest walk-forward state without scoring it", async () => {
+    await renderPopulated();
+
+    expect(screen.getByText("Walk-forward #1")).toBeInTheDocument();
+    expect(
+      screen.getByText("Evidence is unavailable until this queued run reaches a terminal state.")
+    ).toBeInTheDocument();
+  });
+
+  it("indexes the existing research routes from the deep-evidence layer", async () => {
+    await renderPopulated();
+
+    expect(screen.getByRole("link", { name: "Signal history" })).toHaveAttribute("href", "/signals");
+    expect(screen.getByRole("link", { name: "Backtest history" })).toHaveAttribute(
+      "href",
+      "/backtests"
+    );
+    expect(
+      screen.getByRole("link", { name: "Walk-forward history and stitched OOS evidence" })
+    ).toHaveAttribute("href", "/walk-forwards");
   });
 });

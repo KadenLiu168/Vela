@@ -69,9 +69,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-:where(a, button, input):focus-visible {
+:where(a, button, input, select):focus-visible {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 3px;
+}
+
+/* The page heading receives programmatic focus on route transitions; it is
+ * not a tab stop, so no focus ring is shown for it. */
+.page-heading h1:focus {
+  outline: none;
 }
 
 .app-shell {
@@ -573,6 +579,156 @@ main {
   min-height: auto;
 }
 
+/* ── Decision path — layers 1..5 in research order ──
+   Layer 1 states the current research facts, layers 2..4 present the latest
+   signal, the latest strategy performance and the out-of-sample evidence, and
+   layer 5 indexes the drill-down routes. The reference and operations region
+   follows the whole path. */
+.research-decision-path {
+  display: grid;
+  gap: var(--spacing-16);
+  margin-top: calc(var(--section-gap) * 0.5);
+}
+
+.research-panel {
+  min-height: auto;
+}
+
+/* Layer 1 — current state. */
+.research-fact-list {
+  display: grid;
+  gap: var(--spacing-16);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin: var(--spacing-16) 0 0;
+}
+
+.research-fact dt {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  text-transform: uppercase;
+}
+
+.research-fact dd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  margin: var(--spacing-8) 0 0;
+}
+
+.research-fact-value {
+  color: var(--color-paper);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-body-size);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-body-card);
+}
+
+.research-fact-lag {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  line-height: var(--leading-meta);
+}
+
+.research-next-action {
+  align-items: baseline;
+  color: var(--color-fog);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  gap: var(--spacing-4);
+  line-height: var(--leading-body-card);
+  margin: var(--spacing-16) 0 0;
+}
+
+/* Layers 2 and 3 — latest signal holdings and strategy performance. */
+.research-note {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
+  margin: var(--spacing-16) 0 0;
+}
+
+.research-headline-grid,
+.research-oos-grid {
+  display: grid;
+  gap: var(--spacing-16);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: var(--spacing-16) 0 0;
+}
+
+.research-headline,
+.research-oos-card {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-16);
+}
+
+.research-headline dt,
+.research-oos-card dt {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-meta);
+  line-height: var(--leading-meta);
+  text-transform: uppercase;
+}
+
+.research-headline dd,
+.research-oos-card dd {
+  color: var(--color-paper);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-emphasis-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-numeral);
+  line-height: var(--leading-emphasis);
+  margin: var(--spacing-8) 0 0;
+}
+
+.research-headline-difference,
+.research-oos-meta {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-meta-size);
+  line-height: var(--leading-meta);
+  margin: var(--spacing-8) 0 0;
+}
+
+/* Layer 4 — out-of-sample evidence notes. */
+.research-note-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  margin: var(--spacing-16) 0 0;
+}
+
+.research-note-group p {
+  color: var(--color-fog);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  line-height: var(--leading-body-card);
+  margin: 0;
+}
+
+/* Layer 5 — deep-evidence index. */
+.evidence-index-list {
+  display: grid;
+  gap: var(--spacing-8);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  list-style: none;
+  margin: var(--spacing-16) 0 0;
+  padding: 0;
+}
+
 .panel-heading {
   align-items: baseline;
   display: flex;
@@ -968,6 +1124,13 @@ main {
 
 .detail-page .run-header .run-summary {
   margin-bottom: 0;
+}
+
+/* Detail pages render their back link in every load state. It lives inside
+ * the page identity block so that `.detail-page`'s section-gap grid rhythm
+ * (96px between direct children) is not doubled by an extra grid row. */
+.page-heading > .detail-back-link {
+  margin: 0 0 var(--spacing-12);
 }
 
 .detail-page .oos-summary-grid {
@@ -1706,26 +1869,6 @@ main {
   margin: 0 0 var(--spacing-20);
 }
 
-.trend-horizon-button {
-  background: var(--surface-carbon);
-  border: 1px solid var(--color-graphite);
-  border-radius: var(--radius-buttons);
-  color: var(--color-fog);
-  cursor: pointer;
-  font-family: var(--font-berkeley-mono);
-  line-height: var(--leading-body-sm);
-  padding: var(--spacing-8) var(--spacing-16);
-}
-
-.trend-horizon-button:hover {
-  border-color: var(--color-smoke);
-}
-
-.trend-horizon-button-active {
-  border-color: var(--color-acid-lime);
-  color: var(--color-acid-lime);
-}
-
 .trend-chart-card,
 .trend-single-point {
   background: var(--surface-obsidian);
@@ -1884,29 +2027,6 @@ main {
   gap: var(--spacing-8);
 }
 
-.stability-selector-button {
-  background: var(--surface-carbon);
-  border: 1px solid var(--color-graphite);
-  border-radius: var(--radius-md);
-  color: var(--color-paper);
-  cursor: pointer;
-  font-family: var(--font-inter-variable);
-  font-size: var(--card-meta-size);
-  font-weight: var(--font-weight-semibold);
-  padding: var(--spacing-8) var(--spacing-12);
-}
-
-.stability-selector-button[aria-pressed="true"] {
-  background: var(--color-iris-violet);
-  border-color: var(--color-iris-violet);
-  color: var(--color-paper);
-}
-
-.stability-selector-button:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
-  outline-offset: 2px;
-}
-
 .stability-select {
   align-items: center;
   display: inline-flex;
@@ -1949,6 +2069,61 @@ main {
   width: 1px;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+}
+
+/* AppShell keyboard skip link: hidden until it takes focus, then revealed
+ * above the banner so it does not displace the header while unfocused. */
+.skip-link {
+  background: var(--surface-carbon);
+  border: 1px solid var(--color-graphite);
+  border-radius: var(--radius-md);
+  color: var(--color-paper);
+  font-family: var(--font-inter-variable);
+  font-size: var(--card-body-size);
+  font-weight: var(--font-weight-medium);
+  left: var(--spacing-32);
+  padding: var(--spacing-12) var(--spacing-20);
+  position: absolute;
+  text-decoration: none;
+  top: var(--spacing-12);
+  transform: translateY(-200%);
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* The main region is a programmatic focus target for the skip link and for
+ * route transitions; it is not an interactive control, so it shows no ring. */
+.app-shell main:focus {
+  outline: none;
+}
+
+/* Read failures pair a cause sentence with an in-page retry. */
+.read-failure-message {
+  margin: 0;
+}
+
+/* Pagination controls and the row range they cover. */
+.list-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-12);
+  margin-top: var(--spacing-20);
+}
+
+.list-pagination-position {
+  color: var(--color-fog);
+  font-family: var(--font-berkeley-mono);
+  font-size: var(--card-meta-size);
+  line-height: var(--leading-meta);
+  margin: 0 0 0 auto;
+}
+
+.read-failure-retry {
+  margin-top: var(--spacing-16);
 }
 
 .signal-detail-page .holdings-table-wrap {

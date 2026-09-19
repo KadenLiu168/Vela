@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { ApiClientError, type BacktestListItem, listBacktests } from "../api/client";
+import { renderWithRouter } from "../test/renderWithRouter";
 import { BacktestListPage } from "./BacktestListPage";
 
 function RouterWrapper({ children }: { children: ReactNode }) {
@@ -88,13 +89,33 @@ it("renders loading, error, and empty states", async () => {
 
   listMock.mockRejectedValue(new ApiClientError("offline", { kind: "network" }));
   render(<BacktestListPage />, { wrapper: RouterWrapper });
-  expect(await screen.findByText("Backtest history API unavailable: network")).toBeInTheDocument();
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Backtest history could not be loaded.");
+  expect(alert).toHaveTextContent("The local API could not be reached");
+  expect(alert).not.toHaveTextContent(/network/);
 
   listMock.mockResolvedValue({ runs: [] });
   render(<BacktestListPage />, { wrapper: RouterWrapper });
   expect(
     await screen.findByText(/No local backtest run exists yet/)
   ).toBeInTheDocument();
+});
+
+it("reports an error response with its status code and recovers through Retry", async () => {
+  listMock.mockRejectedValueOnce(
+    new ApiClientError("boom", { kind: "http", status: 503, category: "unexpected" })
+  );
+  listMock.mockResolvedValueOnce({ runs: [item({ run_id: 7 })] });
+  render(<BacktestListPage />, { wrapper: RouterWrapper });
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("The API returned an error response (503).");
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+  await screen.findByRole("link", { name: "#7" });
+  expect(listMock).toHaveBeenLastCalledWith(10, 0);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
 it("requests the next page through pagination", async () => {
@@ -120,4 +141,82 @@ it("keeps metric columns inside a labeled keyboard-scrollable region without pag
   expect(region).toHaveAttribute("tabindex", "0");
   expect(screen.getByRole("columnheader", { name: "Sharpe (daily returns, 252D)" })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <span data-testid="location-probe">{`${location.pathname}${location.search}${location.hash}`}</span>
+      <button onClick={() => navigate(-1)} type="button">
+        go back
+      </button>
+    </>
+  );
+}
+
+function renderRoutes(initialEntry: string) {
+  return renderWithRouter(
+    <>
+      <Routes>
+        <Route element={<BacktestListPage />} path="/backtests" />
+        <Route element={<p>detail stub</p>} path="/backtests/:backtestId" />
+      </Routes>
+      <LocationProbe />
+    </>,
+    initialEntry
+  );
+}
+
+it("initializes the list from a valid offset in the URL", async () => {
+  listMock.mockResolvedValue({ runs: [item({ run_id: 7 })] });
+  renderRoutes("/backtests?offset=20");
+
+  await screen.findByRole("link", { name: "#7" });
+  expect(listMock).toHaveBeenCalledWith(10, 20);
+  expect(screen.getByRole("button", { name: "Previous" })).not.toBeDisabled();
+});
+
+it("writes the offset to the URL while preserving unrelated query parameters and the hash", async () => {
+  listMock.mockResolvedValue({
+    runs: Array.from({ length: 10 }, (_, index) => item({ run_id: 30 + index }))
+  });
+  renderRoutes("/backtests?view=compact#runs");
+
+  await screen.findByRole("link", { name: "#30" });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  await waitFor(() => expect(listMock).toHaveBeenLastCalledWith(10, 10));
+  expect(screen.getByTestId("location-probe")).toHaveTextContent("/backtests?view=compact&offset=10#runs");
+});
+
+it("normalizes an invalid offset and loads the first page", async () => {
+  listMock.mockResolvedValue({ runs: [item({ run_id: 7 })] });
+  renderRoutes("/backtests?offset=abc&view=compact#runs");
+
+  await screen.findByRole("link", { name: "#7" });
+  expect(listMock).toHaveBeenCalledWith(10, 0);
+  await waitFor(() =>
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/backtests?view=compact#runs")
+  );
+});
+
+it("restores the list offset when returning from a detail page", async () => {
+  listMock.mockResolvedValue({
+    runs: Array.from({ length: 10 }, (_, index) => item({ run_id: 30 + index }))
+  });
+  renderRoutes("/backtests");
+
+  await screen.findByRole("link", { name: "#30" });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await waitFor(() => expect(listMock).toHaveBeenLastCalledWith(10, 10));
+
+  fireEvent.click(await screen.findByRole("link", { name: "#30" }));
+  await screen.findByText("detail stub");
+
+  fireEvent.click(screen.getByRole("button", { name: "go back" }));
+
+  await screen.findByRole("link", { name: "#30" });
+  expect(listMock).toHaveBeenLastCalledWith(10, 10);
 });

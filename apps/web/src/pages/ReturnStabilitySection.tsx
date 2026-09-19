@@ -141,7 +141,7 @@ function RollingPanel({
           {ROLLING_METRIC_OPTIONS.map((option) => (
             <button
               aria-pressed={metric === option.value}
-              className="stability-selector-button"
+              className="button-secondary"
               key={option.value}
               onClick={() => onMetricChange(option.value)}
               type="button"

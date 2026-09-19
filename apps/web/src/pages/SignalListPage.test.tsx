@@ -137,3 +137,49 @@ it("does not show the previous source rows while the next source is loading", as
   resolveBacktest({ signals: [] });
   await screen.findByText("No successful signals are available for Backtest.");
 });
+
+it("initializes the list from a valid offset and requests it together with the source filter", async () => {
+  listSignalsMock.mockResolvedValue({ signals: [] });
+
+  renderSignals("/signals?source=manual&offset=40");
+
+  await waitFor(() => expect(listSignalsMock).toHaveBeenCalledWith(20, 40, "manual"));
+  expect(screen.getByRole("button", { name: "Previous" })).not.toBeDisabled();
+});
+
+it("normalizes an invalid offset without dropping the source or unrelated parameters", async () => {
+  listSignalsMock.mockResolvedValue({ signals: [] });
+
+  renderSignals("/signals?source=manual&offset=-5&keep=yes#notes");
+
+  await waitFor(() => expect(listSignalsMock).toHaveBeenCalledWith(20, 0, "manual"));
+  await waitFor(() => {
+    expect(screen.getByTestId("location-probe")).toHaveTextContent(
+      "/signals?source=manual&keep=yes#notes"
+    );
+  });
+});
+
+it("writes the offset to the URL and keeps it out of the way of the source filter", async () => {
+  listSignalsMock.mockResolvedValue({
+    signals: Array.from({ length: 20 }, (_, index) => ({ ...manualSignal, signal_id: 100 + index }))
+  });
+  renderSignals("/signals?keep=yes#notes");
+
+  await screen.findByRole("link", { name: "#100" });
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  await waitFor(() => expect(listSignalsMock).toHaveBeenLastCalledWith(20, 20, undefined));
+  expect(screen.getByTestId("location-probe")).toHaveTextContent("/signals?keep=yes&offset=20#notes");
+});
+
+it("returns to the first page when the source filter changes", async () => {
+  listSignalsMock.mockResolvedValue({ signals: [manualSignal] });
+  renderSignals("/signals?offset=20");
+
+  await screen.findByRole("link", { name: "#7" });
+  fireEvent.click(screen.getByRole("button", { name: "Backtest" }));
+
+  await waitFor(() => expect(listSignalsMock).toHaveBeenLastCalledWith(20, 0, "backtest"));
+  expect(screen.getByTestId("location-probe")).toHaveTextContent("/signals?source=backtest");
+});

@@ -22,7 +22,13 @@ const detailMock = vi.mocked(getWalkForwardDetail);
 
 function LocationProbe() {
   const location = useLocation();
-  return <span data-testid="location-probe">{location.pathname}</span>;
+  return (
+    <span data-testid="location-probe">
+      {location.pathname}
+      {location.search}
+      {location.hash}
+    </span>
+  );
 }
 
 function renderList() {
@@ -89,12 +95,30 @@ it("uses the exact total at the final page boundary", async () => {
 
 it("shows an explicit error and suppresses stale results after a failed request", async () => {
   listMock.mockResolvedValueOnce({ runs: [summary(8)], total: 11, limit: 10, offset: 0 });
-  listMock.mockRejectedValueOnce(new ApiClientError("unavailable", { kind: "network" }));
+  listMock.mockRejectedValueOnce(new ApiClientError("offline", { kind: "network" }));
   renderList();
   await screen.findByText("#8");
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("unavailable"));
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent("The local API could not be reached")
+  );
   expect(screen.queryByText("#8")).not.toBeInTheDocument();
+});
+
+it("retries the failed page in place and renders the recovered list", async () => {
+  listMock.mockResolvedValueOnce({ runs: [summary(8)], total: 11, limit: 10, offset: 0 });
+  listMock.mockRejectedValueOnce(new ApiClientError("offline", { kind: "network" }));
+  listMock.mockResolvedValueOnce({ runs: [summary(18)], total: 11, limit: 10, offset: 10 });
+  renderList();
+  await screen.findByText("#8");
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByRole("button", { name: "Retry" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+  await screen.findByText("#18");
+  expect(listMock).toHaveBeenLastCalledWith(10, 10);
+  expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
 });
 
 const runningDetail = (runId: number) => ({
@@ -283,4 +307,45 @@ it("discovers a queued run after reload and resumes polling without reposting", 
     vi.advanceTimersByTime(5000);
   });
   expect(detailMock).toHaveBeenCalledWith("8");
+});
+
+it("initializes the list from a valid offset and writes later offsets to the URL", async () => {
+  listMock.mockImplementation(async (_limit, offset = 0) => ({
+    runs: [summary(offset === 10 ? 18 : 8)],
+    total: 11,
+    limit: 10,
+    offset
+  }));
+  renderWithRouter(
+    <>
+      <WalkForwardListPage />
+      <LocationProbe />
+    </>,
+    "/walk-forwards?offset=10"
+  );
+
+  await screen.findByText("#18");
+  expect(listMock).toHaveBeenCalledWith(10, 10);
+
+  fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+
+  await waitFor(() => expect(listMock).toHaveBeenLastCalledWith(10, 0));
+  expect(screen.getByTestId("location-probe")).toHaveTextContent("/walk-forwards");
+});
+
+it("normalizes an invalid offset and loads the first page", async () => {
+  listMock.mockResolvedValue({ runs: [summary(8)], total: 11, limit: 10, offset: 0 });
+  renderWithRouter(
+    <>
+      <WalkForwardListPage />
+      <LocationProbe />
+    </>,
+    "/walk-forwards?offset=abc&keep=yes"
+  );
+
+  await screen.findByText("#8");
+  expect(listMock).toHaveBeenCalledWith(10, 0);
+  await waitFor(() =>
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/walk-forwards?keep=yes")
+  );
 });

@@ -37,6 +37,7 @@ export type DashboardResponse = {
   market_data: DashboardMarketDataStatus;
   latest_signal: DashboardSignalSummary | null;
   recent_backtest: DashboardBacktestSummary | null;
+  latest_walk_forward: DashboardWalkForwardSummary | null;
   recent_fetch_logs: DashboardFetchLogSummary[];
 };
 
@@ -96,6 +97,16 @@ export type DashboardMarketDataStatus = {
   etf_list: EtfBrief[];
 };
 
+export type DashboardSignalPosition = {
+  exchange: string;
+  symbol: string;
+  name: string;
+  target_weight: string | null;
+  rank: number | null;
+  score: string | null;
+  is_fallback: boolean;
+};
+
 export type DashboardSignalSummary = {
   signal_id: number;
   signal_date: string;
@@ -105,6 +116,19 @@ export type DashboardSignalSummary = {
   generated_at: string;
   is_fallback: boolean;
   position_count: number;
+  source: string;
+  backtest_run_id: number | null;
+  positions: DashboardSignalPosition[];
+};
+
+export type DashboardBenchmark = {
+  key: string;
+  name: string;
+  total_return: string | null;
+  total_return_difference: string | null;
+  annualized_return_difference: string | null;
+  sharpe_ratio: string | null;
+  max_drawdown: string | null;
 };
 
 export type DashboardBacktestSummary = {
@@ -115,9 +139,56 @@ export type DashboardBacktestSummary = {
   end_date: string;
   status: string;
   total_return: string | null;
+  annualized_return: string | null;
   max_drawdown: string | null;
   sharpe_ratio: string | null;
   started_at: string;
+  benchmarks: DashboardBenchmark[];
+};
+
+export type DashboardWalkForwardEvidenceStatus = "sufficient" | "insufficient_evidence";
+
+export type DashboardWalkForwardMetricSummary = {
+  median: number | null;
+  mean: number | null;
+  window_count: number;
+  valid_count: number;
+  evidence_status: DashboardWalkForwardEvidenceStatus;
+};
+
+export type DashboardWalkForwardRateSummary = {
+  value: number | null;
+  numerator: number;
+  denominator: number;
+  window_count: number;
+  valid_count: number;
+  evidence_status: DashboardWalkForwardEvidenceStatus;
+};
+
+/** Narrow cross-window OOS projection: only the headline aggregates the
+ *  Dashboard decision layer renders. Deep evidence stays in the Walk-forward
+ *  detail flow. */
+export type DashboardWalkForwardOos = {
+  metrics: {
+    total_return: DashboardWalkForwardMetricSummary;
+    sharpe_ratio: DashboardWalkForwardMetricSummary;
+    max_drawdown: DashboardWalkForwardMetricSummary;
+  };
+  positive_window_rate: DashboardWalkForwardRateSummary;
+  generalization_gap: DashboardWalkForwardMetricSummary;
+  benchmarks: Record<string, { outperformance_rate: DashboardWalkForwardRateSummary }>;
+};
+
+export type DashboardWalkForwardSummary = {
+  run_id: number;
+  strategy_id: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  window_count: number;
+  finished_at: string | null;
+  error_message: string | null;
+  oos: DashboardWalkForwardOos | null;
 };
 
 export type DashboardFetchLogSummary = {

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
-  ApiClientError,
   type BacktestDetailResponse,
   type BacktestSignalSummary,
   getBacktestDetail,
   listBacktestSignals
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage, Pagination } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, Pagination, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { useResource, type ResourceState } from "../utils/useResource";
+import { listReturnHref } from "../utils/listReturn";
 import {
   formatDate,
   formatInteger,
@@ -32,17 +34,11 @@ type BacktestDetailPageProps = {
   backtestId: string;
 };
 
-type BacktestDetailState =
-  | { status: "loading"; data?: never; error?: never; backtestId?: never }
-  | { status: "ready"; data: BacktestDetailResponse; error?: never; backtestId: string }
-  | { status: "not-found"; data?: never; error?: never; backtestId: string }
-  | { status: "error"; data?: never; error: string; backtestId: string };
-
 type SignalsState =
   | { status: "idle"; data?: never; error?: never; offset?: never }
   | { status: "loading"; data?: never; error?: never; offset: number }
   | { status: "ready"; data: BacktestSignalSummary[]; error?: never; offset: number }
-  | { status: "error"; data?: never; error: string; offset: number };
+  | { status: "error"; data?: never; error: unknown; offset: number };
 
 const PAGE_SIZE = 20;
 
@@ -51,48 +47,24 @@ export function BacktestDetailPage({ backtestId }: BacktestDetailPageProps) {
 }
 
 function BacktestDetailPageForId({ backtestId }: BacktestDetailPageProps) {
-  const [backtestState, setBacktestState] = useState<BacktestDetailState>({
-    status: "loading"
+  const location = useLocation();
+  const backHref = listReturnHref(location.state, "/backtests");
+  const { state: backtestState, reload: reloadBacktest } = useResource({
+    hasNotFoundState: true,
+    key: backtestId,
+    load: () => getBacktestDetail(backtestId)
   });
   const [activeTab, setActiveTab] = useState<"overview" | "signals">("overview");
   const [signalOffset, setSignalOffset] = useState(0);
   const [signalsState, setSignalsState] = useState<SignalsState>({ status: "idle" });
+  const [signalReloadToken, setSignalReloadToken] = useState(0);
   const signalRequestKey = useRef(0);
   const loadedSignalOffset = useRef<number | null>(null);
 
-  useEffect(() => {
-    let isCurrent = true;
-
-    getBacktestDetail(backtestId)
-      .then((data) => {
-        if (isCurrent) {
-          setBacktestState({ status: "ready", data, backtestId });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof ApiClientError && error.status === 404) {
-          setBacktestState({ status: "not-found", backtestId });
-          return;
-        }
-
-        setBacktestState({
-          status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable",
-          backtestId
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [backtestId]);
+  useDocumentTitle(`Backtest Detail #${backtestId}`);
 
   useEffect(() => {
-    if (activeTab !== "signals" || backtestState.status !== "ready" || backtestState.backtestId !== backtestId || backtestState.data.signal_count === 0) {
+    if (activeTab !== "signals" || backtestState.status !== "ready" || backtestState.data.signal_count === 0) {
       return;
     }
     if (loadedSignalOffset.current === signalOffset) {
@@ -108,23 +80,27 @@ function BacktestDetailPageForId({ backtestId }: BacktestDetailPageProps) {
       })
       .catch((error: unknown) => {
         if (signalRequestKey.current === requestKey) {
-          setSignalsState({
-            status: "error",
-            error: error instanceof ApiClientError ? error.kind : "unavailable",
-            offset: signalOffset
-          });
+          setSignalsState({ status: "error", error, offset: signalOffset });
         }
       });
-  }, [activeTab, backtestId, backtestState, signalOffset]);
+  }, [activeTab, backtestId, backtestState, signalOffset, signalReloadToken]);
+
+  function retrySignals() {
+    setSignalsState({ status: "loading", offset: signalOffset });
+    setSignalReloadToken((value) => value + 1);
+  }
 
   return (
     <section className="page detail-page">
       <div className="page-heading">
+        <Link className="operation-link detail-back-link" to={backHref}>
+          ← Back to Backtests
+        </Link>
         <p>Backtest research workspace</p>
         <h1>Backtest Detail</h1>
       </div>
       {renderBacktestDetail(
-        getBacktestDetailState(backtestState, backtestId),
+        backtestState,
         backtestId,
         activeTab,
         (tab) => {
@@ -138,24 +114,24 @@ function BacktestDetailPageForId({ backtestId }: BacktestDetailPageProps) {
           setSignalOffset(offset);
           setSignalsState({ status: "loading", offset });
         },
-        signalsState
+        signalsState,
+        reloadBacktest,
+        retrySignals
       )}
     </section>
   );
 }
 
-function getBacktestDetailState(state: BacktestDetailState, backtestId: string): BacktestDetailState {
-  return state.status === "loading" || state.backtestId === backtestId ? state : { status: "loading" };
-}
-
 function renderBacktestDetail(
-  backtestState: BacktestDetailState,
+  backtestState: ResourceState<BacktestDetailResponse>,
   backtestId: string,
   activeTab: "overview" | "signals",
   setActiveTab: (tab: "overview" | "signals") => void,
   signalOffset: number,
   setSignalOffset: (offset: number) => void,
-  signalsState: SignalsState
+  signalsState: SignalsState,
+  retry: () => void,
+  retrySignals: () => void
 ) {
   if (backtestState.status === "loading") {
     return <FeedbackMessage variant="loading">Loading backtest detail.</FeedbackMessage>;
@@ -166,11 +142,7 @@ function renderBacktestDetail(
   }
 
   if (backtestState.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Backtest detail API unavailable: {backtestState.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={backtestState.error} label="Backtest detail" onRetry={retry} />;
   }
 
   const { metrics, run } = backtestState.data;
@@ -250,15 +222,15 @@ function renderBacktestDetail(
       <ExperimentConfigSection run={run} />
       </div>
       ) : (
-        <SignalsPanel count={signalCount} offset={signalOffset} setOffset={setSignalOffset} state={signalsState} />
+        <SignalsPanel count={signalCount} offset={signalOffset} retry={retrySignals} setOffset={setSignalOffset} state={signalsState} />
       )}
     </article>
   );
 }
 
-function SignalsPanel({ count, offset, setOffset, state }: { count: number; offset: number; setOffset: (offset: number) => void; state: SignalsState }) {
+function SignalsPanel({ count, offset, retry, setOffset, state }: { count: number; offset: number; retry: () => void; setOffset: (offset: number) => void; state: SignalsState }) {
   return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
-    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <FeedbackMessage variant="error">Backtest signals API unavailable: {state.error}</FeedbackMessage> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <ReadFailure error={state.error} label="Backtest signals" onRetry={retry} /> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
   </section>;
 }
 

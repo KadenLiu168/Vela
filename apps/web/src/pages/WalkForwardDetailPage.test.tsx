@@ -520,9 +520,12 @@ it("renders explicit not-found and unexpected-error states", async () => {
   expect(await screen.findByText("Walk-forward run 404 was not found.")).toBeInTheDocument();
   unmount();
 
-  detailMock.mockRejectedValueOnce(new ApiClientError("network", { kind: "network" }));
+  detailMock.mockRejectedValueOnce(new ApiClientError("offline", { kind: "network" }));
   render(<WalkForwardDetailPage runId="500" />, { wrapper: RouterWrapper });
-  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("network"));
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent("The local API could not be reached")
+  );
+  expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
 });
 
 it("ignores a stale detail response when the route id changes", async () => {
@@ -593,8 +596,14 @@ it("does not fabricate stitched OOS evidence for an active run", async () => {
 
   render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
 
-  // The pre-terminal note appears in both the OOS Summary and Aggregated evidence regions.
-  expect(await screen.findAllByText(/Evidence is unavailable until this queued run/)).toHaveLength(2);
+  // The OOS Summary carries the pre-terminal note; the Aggregated evidence
+  // region states what it is missing in its own terms rather than repeating it.
+  expect(
+    await screen.findByText(/Evidence is unavailable until this queued run/)
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/No aggregated OOS metrics have been published for this queued run yet\./)
+  ).toBeInTheDocument();
   expect(
     screen.queryByRole("heading", { name: "Stitched OOS capital path" })
   ).not.toBeInTheDocument();
@@ -814,4 +823,49 @@ it.each([
   expect(screen.getByRole("heading", { name: "Per-window evidence" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Backtest #100" })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+});
+
+it("tells the user what moves a queued run forward", async () => {
+  detailMock.mockResolvedValue({
+    ...detail,
+    run: { ...detail.run, status: "queued", window_count: 0, finished_at: null, error_message: null },
+    evidence: null,
+    windows: [],
+    stitched_oos: null
+  });
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Walk-forward #42");
+  const header = document.querySelector(".run-header") as HTMLElement;
+  const note = within(header).getByText(/vela walk-forward-worker/);
+  expect(note).toBeInTheDocument();
+  expect(note).toHaveTextContent("executed by a separate local worker");
+});
+
+it("states that a running run's page does not refresh itself", async () => {
+  detailMock.mockResolvedValue({
+    ...detail,
+    run: { ...detail.run, status: "running", window_count: 0, finished_at: null, error_message: null },
+    evidence: null,
+    windows: [],
+    stitched_oos: null
+  });
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Walk-forward #42");
+  const header = document.querySelector(".run-header") as HTMLElement;
+  expect(within(header).getByText(/does not refresh itself/)).toBeInTheDocument();
+});
+
+it("does not add a next-step note to a terminal run", async () => {
+  detailMock.mockResolvedValue(detail);
+
+  render(<WalkForwardDetailPage runId="42" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Walk-forward #42");
+  const header = document.querySelector(".run-header") as HTMLElement;
+  expect(within(header).queryByText(/vela walk-forward-worker/)).not.toBeInTheDocument();
+  expect(within(header).queryByText(/does not refresh itself/)).not.toBeInTheDocument();
 });

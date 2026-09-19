@@ -50,9 +50,11 @@ it("preserves Dashboard backtest form dates across an internal detail transition
             result: "rebalance",
             generated_at: "2026-06-23T09:30:00",
             is_fallback: false,
-            position_count: 2
+            position_count: 2,
+            positions: []
           },
           recent_backtest: null,
+          latest_walk_forward: null,
           recent_fetch_logs: []
         })
       );

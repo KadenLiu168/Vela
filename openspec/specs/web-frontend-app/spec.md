@@ -2,7 +2,9 @@
 
 ## Purpose
 Defines the web frontend's Dashboard setup-bootstrap action and its three-step status display, wired to `POST /api/setup/bootstrap`.
+
 ## Requirements
+
 ### Requirement: Walk-forward history page lists persisted evaluations
 The Web application SHALL add a lazy-loaded `/walk-forwards` page and primary navigation entry, request the current-strategy API with fixed page size 10, render persisted run metadata and compact provenance, and use the exact API total for pagination with loading, error and empty states.
 
@@ -47,12 +49,27 @@ History/detail SHALL reuse existing presentation primitives and design tokens, r
 - **WHEN** detail renders at 390x844
 - **THEN** the page has no horizontal overflow outside any labeled local table region
 
-### Requirement: Walk-forward presentation does not expand Dashboard
-Walk-forward history and evidence SHALL be available only through the dedicated navigation/list/detail flow; Dashboard SHALL remain unchanged by this Change.
+### Requirement: Walk-forward evidence stays in the dedicated flow and Dashboard adds no walk-forward score
+The dedicated navigation/list/detail flow SHALL remain the only surface for complete Walk-forward evidence: per-window records, parameter stability, benchmark-regime metrics, distribution evidence, the stitched out-of-sample capital path, and provenance. The Dashboard SHALL remain free of a walk-forward score, ranking, threshold alert, or pass/fail result, and SHALL NOT reproduce any of those complete-evidence sections or add a Walk-forward entry to its reference and operations region. The Dashboard MAY present one compact OOS-robustness decision layer inside its decision-layer sequence, as defined by the `research-workbench-ui` capability, that states the latest run's status, test range, and window count and, for a successful run, the cross-window aggregate headline values with their sufficiency statement, together with links into the Walk-forward flow. That layer SHALL present persisted evidence values only and SHALL NOT compute any walk-forward value in the browser.
 
 #### Scenario: Dashboard has no WF card
 - **WHEN** successful Walk-forward history exists
-- **THEN** Dashboard does not add a Walk-forward card or score
+- **THEN** the Dashboard's reference and operations region does not add a Walk-forward card
+- **AND** the Dashboard does not render a walk-forward score, ranking, threshold alert, or pass/fail result
+
+#### Scenario: Dashboard OOS layer stays compact
+- **WHEN** the Dashboard renders its OOS-robustness decision layer for a successful run
+- **THEN** it shows only the run's status, date range, window count, the cross-window aggregate headline values, the generalization-gap and sufficiency statements, and links into the Walk-forward flow
+- **AND** it does not render per-window records, parameter stability, benchmark-regime evidence, distribution evidence, stitched capital path, or provenance
+
+#### Scenario: Detailed evidence stays in the dedicated flow
+- **WHEN** a user wants the complete walk-forward evidence for a run
+- **THEN** the Dashboard layer links to the existing Walk-forward list or detail route
+- **AND** the dedicated detail page remains the only surface for per-window, stitched, provenance, and deep-risk evidence
+
+#### Scenario: OOS detail links remain navigable
+- **WHEN** the Dashboard OOS layer renders a link to `/walk-forwards` or `/walk-forwards/{id}`
+- **THEN** activating it opens the existing Walk-forward list or detail route through client-side navigation
 
 ### Requirement: Dashboard setup bootstrap action
 The web frontend SHALL expose a Dashboard action that triggers the local setup bootstrap endpoint through the shared frontend API client and renders a three-step status display.
@@ -719,4 +736,3 @@ The Web application SHALL consume the typed v1/v2 input-provenance union. For v2
 - **WHEN** status-aware provenance is available
 - **THEN** it appears only in the existing Walk-forward Detail route
 - **AND** no Dashboard card, management route, or reference-data edit control is added
-

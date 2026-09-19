@@ -379,7 +379,27 @@ it("renders a stable error state when the signals request fails", async () => {
   await screen.findByText("Backtest #7");
   fireEvent.click(screen.getByRole("tab", { name: "Signals (1)" }));
 
-  expect(await screen.findByText("Backtest signals API unavailable: network")).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Backtest signals could not be loaded\. The local API could not be reached/)
+  ).toBeInTheDocument();
+});
+
+it("recovers the failed signals request through Retry", async () => {
+  detailMock.mockResolvedValue(detail(1));
+  signalsMock.mockRejectedValueOnce(new ApiClientError("offline", { kind: "network" }));
+  signalsMock.mockResolvedValueOnce({
+    signals: [{ backtest_run_id: 7, result: "rebalance", signal_date: "2026-01-02", signal_id: 11 }]
+  });
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  await screen.findByText("Backtest #7");
+  fireEvent.click(screen.getByRole("tab", { name: "Signals (1)" }));
+  await screen.findByRole("button", { name: "Retry" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+  expect(await screen.findByRole("link", { name: "Signal #11" })).toBeInTheDocument();
+  expect(signalsMock).toHaveBeenLastCalledWith("7", 20, 0);
 });
 
 it("requests the next offset and disables Next at the exact known total", async () => {
@@ -958,4 +978,34 @@ it("renders keyboard-operable disclosures with accessible region labels", async 
   const stabilityDetails = (stabilitySummary as HTMLElement).closest("details");
   fireEvent.click(stabilitySummary as HTMLElement);
   expect(stabilityDetails).toHaveAttribute("open");
+});
+
+it("links back to the Backtest list before the detail content", async () => {
+  detailMock.mockResolvedValue(detail(1));
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  const backLink = await screen.findByRole("link", { name: /Back to Backtests/ });
+  expect(backLink).toHaveAttribute("href", "/backtests");
+
+  const panel = document.querySelector(".dashboard-panel") as HTMLElement;
+  expect(backLink.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("keeps the back link when the detail read fails and recovers through Retry", async () => {
+  detailMock.mockRejectedValueOnce(
+    new ApiClientError("boom", { kind: "http", status: 503, category: "unexpected" })
+  );
+  detailMock.mockResolvedValueOnce(detail(7));
+  render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
+
+  expect(await screen.findByText(/The API returned an error response \(503\)\./)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Back to Backtests/ })).toHaveAttribute(
+    "href",
+    "/backtests"
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+  expect(await screen.findByText("Backtest #7")).toBeInTheDocument();
+  expect(detailMock).toHaveBeenLastCalledWith("7");
 });

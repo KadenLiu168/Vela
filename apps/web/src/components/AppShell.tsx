@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 export type NavItem = {
@@ -14,8 +14,23 @@ type AppShellProps = {
 };
 
 export function AppShell({ apiBaseUrl, children, commandPalette, navItems }: AppShellProps) {
+  const mainRef = useRef<HTMLElement>(null);
+
   return (
     <div className="app-shell">
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          // Focus the region directly: the fragment target is focusable, but
+          // moving focus here is what makes the skip link work in every
+          // browser rather than only where fragment focus is implemented.
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
+        Skip to main content
+      </a>
       <header className="app-header">
         <div className="app-brand">
           <p className="app-brand-title">Vela Research</p>
@@ -34,7 +49,9 @@ export function AppShell({ apiBaseUrl, children, commandPalette, navItems }: App
           ))}
         </nav>
       </header>
-      <main>{children}</main>
+      <main id="main-content" ref={mainRef} tabIndex={-1}>
+        {children}
+      </main>
       {commandPalette}
     </div>
   );

@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode
+} from "react";
 import {
   BrowserRouter,
   Link,
@@ -24,6 +33,7 @@ import { type NavItem, AppShell } from "./components/AppShell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Skeleton } from "./components/Skeleton";
 import { DashboardPage } from "./pages/DashboardPage";
+import { useDocumentTitle } from "./utils/documentTitle";
 
 const SignalListPage = lazy(async () => {
   const module = await import("./pages/SignalListPage");
@@ -83,6 +93,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const transitionMountCountRef = useRef(0);
 
   // Lifted backtest form state from DashboardPage
   const [backtestStartDate, setBacktestStartDate] = useState("");
@@ -186,34 +197,86 @@ function AppContent() {
     >
       <ErrorBoundary key={location.pathname} fallback={<RouteLoadFailureFallback />}>
         <Suspense fallback={<RouteLoadingFallback />}>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <DashboardPage
-                  backtestForm={{ startDate: backtestStartDate, endDate: backtestEndDate }}
-                  onBacktestFormChange={(form) => {
-                    backtestStartDateRef.current = form.startDate;
-                    backtestEndDateRef.current = form.endDate;
-                    setBacktestStartDate(form.startDate);
-                    setBacktestEndDate(form.endDate);
-                  }}
-                />
-              }
-            />
-            <Route path="/signals" element={<SignalListPage />} />
-            <Route path="/signals/:signalId" element={<SignalDetailRoute />} />
-            <Route path="/backtests" element={<BacktestListPage />} />
-            <Route path="/backtests/:backtestId" element={<BacktestDetailRoute />} />
-            <Route path="/walk-forwards" element={<WalkForwardListPage />} />
-            <Route path="/walk-forwards/:runId" element={<WalkForwardDetailRoute />} />
-            <Route path="/etfs/:etfId" element={<EtfDetailRoute />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+          <RouteTransition mountOrderRef={transitionMountCountRef}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <DashboardPage
+                    backtestForm={{ startDate: backtestStartDate, endDate: backtestEndDate }}
+                    onBacktestFormChange={(form) => {
+                      backtestStartDateRef.current = form.startDate;
+                      backtestEndDateRef.current = form.endDate;
+                      setBacktestStartDate(form.startDate);
+                      setBacktestEndDate(form.endDate);
+                    }}
+                  />
+                }
+              />
+              <Route path="/signals" element={<SignalListPage />} />
+              <Route path="/signals/:signalId" element={<SignalDetailRoute />} />
+              <Route path="/backtests" element={<BacktestListPage />} />
+              <Route path="/backtests/:backtestId" element={<BacktestDetailRoute />} />
+              <Route path="/walk-forwards" element={<WalkForwardListPage />} />
+              <Route path="/walk-forwards/:runId" element={<WalkForwardDetailRoute />} />
+              <Route path="/etfs/:etfId" element={<EtfDetailRoute />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </RouteTransition>
         </Suspense>
       </ErrorBoundary>
     </AppShell>
   );
+}
+
+/**
+ * Resets the reading position and moves focus to the destination page's
+ * heading on every in-application navigation. It renders inside the Suspense
+ * boundary and is remounted per path by the ErrorBoundary's key, so its effect
+ * runs exactly when the destination page's content has committed — including
+ * after a lazy route module resolves, when the destination `<h1>` first exists.
+ */
+function RouteTransition({
+  children,
+  mountOrderRef
+}: {
+  children: ReactNode;
+  mountOrderRef: MutableRefObject<number>;
+}) {
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    // StrictMode invokes a mount's effects twice on the same instance. The
+    // guard keeps that second invocation from being read as a navigation; a
+    // real navigation remounts this component and so starts unhandled.
+    if (handledRef.current) {
+      return;
+    }
+    handledRef.current = true;
+
+    // The first mount of the application is the document load, not an
+    // in-application navigation: it must not move focus, and the browser's own
+    // scroll restoration applies.
+    const isDocumentLoad = mountOrderRef.current === 0;
+    mountOrderRef.current += 1;
+
+    // A hash navigation has its own in-document target; resetting the reading
+    // position would immediately cancel it.
+    if (isDocumentLoad || window.location.hash !== "") {
+      return;
+    }
+
+    window.scrollTo(0, 0);
+
+    const heading = document.querySelector<HTMLElement>("main h1");
+    if (heading === null) {
+      return;
+    }
+    heading.setAttribute("tabindex", "-1");
+    heading.focus({ preventScroll: true });
+  }, [mountOrderRef]);
+
+  return <>{children}</>;
 }
 
 function SignalDetailRoute() {
@@ -254,6 +317,8 @@ function useNumericParam(name: string): string | null {
 }
 
 function NotFoundPage() {
+  useDocumentTitle("Page not found");
+
   return (
     <section className="page not-found-page">
       <div className="page-heading">
@@ -282,7 +347,7 @@ function RouteLoadFailureFallback() {
   return (
     <div className="route-load-failure">
       <p>Unable to load this page.</p>
-      <button onClick={() => window.location.reload()} type="button">
+      <button className="button-secondary" onClick={() => window.location.reload()} type="button">
         Reload page
       </button>
     </div>

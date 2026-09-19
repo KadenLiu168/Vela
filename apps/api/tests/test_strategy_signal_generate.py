@@ -186,6 +186,9 @@ def test_strategy_signal_generate_endpoint_updates_latest_signal_and_dashboard(t
         "generated_at": latest["signal"]["generated_at"],
         "is_fallback": latest["signal"]["is_fallback"],
         "position_count": len(latest["positions"]),
+        "source": generated["source"],
+        "backtest_run_id": None,
+        "positions": latest["positions"],
     }
 
 

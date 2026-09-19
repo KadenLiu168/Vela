@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 from datetime import date
+from typing import Any
 
-from sqlalchemy import case, func, select
+from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from vela_core.models import BacktestRun, WalkForwardRun, WalkForwardRunWindow
@@ -36,6 +37,23 @@ from vela_core.walk_forward.tail_evidence_validation import (
 _CHECKSUM = re.compile(r"[0-9a-f]{64}")
 
 
+def walk_forward_run_ordering() -> tuple[ColumnElement[Any], ...]:
+    """Canonical "latest run" ordering: non-terminal runs first, then terminal
+    runs by finish time, with the id as the final tie-breaker. Shared so every
+    surface that reports the latest run agrees on which run that is."""
+    return (
+        case(
+            (WalkForwardRun.status.in_(("queued", "running")), 0),
+            else_=1,
+        ),
+        case(
+            (WalkForwardRun.status.in_(("queued", "running")), WalkForwardRun.started_at),
+            else_=WalkForwardRun.finished_at,
+        ).desc(),
+        WalkForwardRun.id.desc(),
+    )
+
+
 def list_walk_forward_runs(
     session: Session, *, strategy_id: str, limit: int, offset: int = 0
 ) -> tuple[list[WalkForwardRun], int]:
@@ -49,17 +67,7 @@ def list_walk_forward_runs(
         session.scalars(
             select(WalkForwardRun)
             .where(WalkForwardRun.strategy_id == strategy_id)
-            .order_by(
-                case(
-                    (WalkForwardRun.status.in_(("queued", "running")), 0),
-                    else_=1,
-                ),
-                case(
-                    (WalkForwardRun.status.in_(("queued", "running")), WalkForwardRun.started_at),
-                    else_=WalkForwardRun.finished_at,
-                ).desc(),
-                WalkForwardRun.id.desc(),
-            )
+            .order_by(*walk_forward_run_ordering())
             .offset(offset)
             .limit(limit)
         ).all()

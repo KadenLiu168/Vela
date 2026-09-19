@@ -1,51 +1,41 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  ApiClientError,
   type BacktestListItem,
   listBacktests
 } from "../api/client";
-import { EmptyState, FeedbackMessage, Pagination } from "../components";
+import { EmptyState, FeedbackMessage, Pagination, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { isValidListOffset, listHrefWith, listOffsetFrom } from "../utils/listQuery";
+import { useResource, type LoadableResourceState } from "../utils/useResource";
 import { formatDate, formatDecimal, formatRatioAsPercent, formatTimestamp } from "../utils/formatters";
 
 const PAGE_SIZE = 10;
 
-type BacktestListState =
-  | { status: "loading"; data?: never; error?: never; offset?: never }
-  | { status: "ready"; data: BacktestListItem[]; error?: never; offset: number }
-  | { status: "error"; data?: never; error: string; offset: number };
-
 export function BacktestListPage() {
-  const [offset, setOffset] = useState(0);
-  const [backtestState, setBacktestState] = useState<BacktestListState>({
-    status: "loading"
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const rawOffset = searchParams.get("offset");
+  const offset = listOffsetFrom(rawOffset);
+  const listHref = `${location.pathname}${location.search}`;
+  const { state: backtestState, reload } = useResource({
+    key: offset,
+    load: () => listBacktests(PAGE_SIZE, offset).then((data) => data.runs)
   });
 
+  useDocumentTitle("Backtests");
+
   useEffect(() => {
-    let isCurrent = true;
+    if (rawOffset !== null && !isValidListOffset(rawOffset)) {
+      navigate(listHrefWith(location, { offset: null }), { replace: true });
+    }
+  }, [rawOffset, location, navigate]);
 
-    listBacktests(PAGE_SIZE, offset)
-      .then((data) => {
-        if (isCurrent) {
-          setBacktestState({ status: "ready", data: data.runs, offset });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        setBacktestState({
-          status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable",
-          offset
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [offset]);
+  function selectOffset(nextOffset: number) {
+    const next = Math.max(0, nextOffset);
+    navigate(listHrefWith(location, { offset: next === 0 ? null : String(next) }));
+  }
 
   return (
     <section className="page list-page backtest-list-page">
@@ -53,30 +43,24 @@ export function BacktestListPage() {
         <p>Backtest research workspace</p>
         <h1>Backtests</h1>
       </div>
-      {renderBacktestList(getBacktestListState(backtestState, offset), offset, setOffset)}
+      {renderBacktestList(backtestState, offset, selectOffset, reload, listHref)}
     </section>
   );
 }
 
-function getBacktestListState(state: BacktestListState, offset: number): BacktestListState {
-  return state.status === "loading" || state.offset === offset ? state : { status: "loading" };
-}
-
 function renderBacktestList(
-  state: BacktestListState,
+  state: LoadableResourceState<BacktestListItem[]>,
   offset: number,
-  setOffset: (value: number) => void
+  setOffset: (value: number) => void,
+  retry: () => void,
+  listHref: string
 ) {
   if (state.status === "loading") {
     return <FeedbackMessage variant="loading">Loading backtest history.</FeedbackMessage>;
   }
 
   if (state.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Backtest history API unavailable: {state.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={state.error} label="Backtest history" onRetry={retry} />;
   }
 
   if (state.data.length === 0 && offset === 0) {
@@ -106,7 +90,11 @@ function renderBacktestList(
             {state.data.map((run) => (
               <tr key={run.run_id}>
                 <td>
-                  <Link className="operation-link" to={`/backtests/${run.run_id}`}>
+                  <Link
+                    className="operation-link"
+                    state={{ listHref }}
+                    to={`/backtests/${run.run_id}`}
+                  >
                     #{run.run_id}
                   </Link>
                 </td>

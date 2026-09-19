@@ -8,6 +8,7 @@ import {
   type DashboardBacktestSummary,
   type DashboardFetchLogSummary,
   type DashboardResponse,
+  type DashboardSignalPosition,
   type DashboardSignalSummary,
   type LatestStrategySignalResponse,
   type MarketDataFetchResponse,
@@ -20,15 +21,20 @@ import {
   getLatestStrategySignal,
   runBacktest
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
 import {
+  EMPTY_VALUE,
   formatBoolean,
   formatCompactNumber,
   formatDate,
+  formatDecimal,
   formatInteger,
+  formatNullableInteger,
   formatNullableText,
   formatRatioAsPercent,
-  formatRows
+  formatRows,
+  formatTargetWeight
 } from "../utils/formatters";
 import {
   formatDefensiveAssets,
@@ -36,11 +42,16 @@ import {
   formatMomentumWindows,
   formatScoreWeights
 } from "./dashboardFormatters";
+import { PanelHeading, StatusPillBadge, type StatusPill } from "./panelHeading";
+import { sourceLabel } from "./signalSourceLabels";
+import { derivePerformanceEvidence, type PerformanceHeadline } from "./researchWorkbench";
+import { OosRobustnessSection } from "./OosRobustnessSection";
+import { ResearchStatusSection } from "./ResearchStatusSection";
 
 type DashboardState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "ready"; data: DashboardResponse; error?: never }
-  | { status: "error"; data?: never; error: string };
+  | { status: "error"; data?: never; error: unknown };
 
 type MarketDataFetchMode = "incremental" | "full";
 type ActiveOperation = "backtestRun" | "bootstrap" | "marketDataFetch" | "signalGeneration";
@@ -82,6 +93,8 @@ export function DashboardPage({
   const updateBacktestForm = onBacktestFormChange ?? setInternalForm;
   const [backtestValidationError, setBacktestValidationError] = useState<string | null>(null);
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapResponse | null>(null);
+
+  useDocumentTitle("Dashboard");
 
   useEffect(() => {
     let isCurrent = true;
@@ -267,9 +280,11 @@ export function DashboardPage({
       </div>
 
       {dashboardState.status === "error" ? (
-        <FeedbackMessage className="dashboard-alert" variant="error">
-          Dashboard API unavailable: {dashboardState.error}
-        </FeedbackMessage>
+        <ReadFailure
+          error={dashboardState.error}
+          label="Dashboard"
+          onRetry={handleDashboardRefresh}
+        />
       ) : null}
 
       {dashboardState.status === "loading" ? (
@@ -278,9 +293,47 @@ export function DashboardPage({
 
       {firstRunGuidance ? <FirstRunGuidance message={firstRunGuidance} /> : null}
 
-      <div className="dashboard-grid" aria-label="Dashboard workflow summary">
-        <article className="dashboard-panel market-panel">
-          <PanelHeading eyebrow="Price" title="Market data" />
+      <div className="research-decision-path" aria-label="Research decision path">
+        {data ? <ResearchStatusSection data={data} /> : null}
+
+        <article
+          aria-label="Latest signal"
+          className="dashboard-panel research-panel signal-panel"
+          data-testid="workflow-panel-signal"
+        >
+          <PanelHeading eyebrow="Signal" statusPill={signalStatusPill} title="Latest result" />
+          <SignalSummary
+            isDisabled={signalGenerationAction.isDisabled}
+            isGeneratingSignal={signalGenerationAction.isLoading}
+            isLoading={dashboardState.status === "loading"}
+            onGenerateSignal={signalGenerationAction.onClick}
+            signal={data?.latest_signal}
+          />
+        </article>
+
+        <article
+          aria-label="Strategy performance"
+          className="dashboard-panel research-panel backtest-panel"
+          data-testid="workflow-panel-backtest"
+        >
+          <PanelHeading eyebrow="Backtest" statusPill={backtestStatusPill} title="Latest result" />
+          <BacktestSummary
+            backtest={data?.recent_backtest}
+            isLoading={dashboardState.status === "loading"}
+          />
+        </article>
+
+        <OosRobustnessSection
+          isLoading={dashboardState.status === "loading"}
+          walkForward={data?.latest_walk_forward ?? null}
+        />
+
+        <EvidenceIndexSection />
+      </div>
+
+      <div className="dashboard-grid" aria-label="Dashboard reference and operations">
+        <article className="dashboard-panel market-panel" id="dashboard-etf-coverage">
+          <PanelHeading eyebrow="Market" title="Price data" />
           <div className="metric-row">
             <Metric
               label="Price rows"
@@ -335,7 +388,7 @@ export function DashboardPage({
         </article>
 
         <article className="dashboard-panel strategy-panel">
-          <PanelHeading eyebrow="Config" title="Strategy" />
+          <PanelHeading eyebrow="Strategy" title="Parameters" />
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
             <DescriptionItem label="Version" value={data?.strategy.version ?? "Loading"} />
@@ -381,6 +434,7 @@ export function DashboardPage({
           <div className="operation-list">
             <button
               className="button-secondary"
+              id="dashboard-fetch-market-data"
               type="button"
               disabled={marketFetchAction.isDisabled}
               onClick={marketFetchAction.onClick}
@@ -398,6 +452,7 @@ export function DashboardPage({
             </button>
             <button
               className="button-secondary"
+              id="dashboard-generate-signal"
               type="button"
               disabled={signalGenerationAction.isDisabled}
               onClick={signalGenerationAction.onClick}
@@ -447,6 +502,7 @@ export function DashboardPage({
             <div className="operation-list">
               <button
                 className="button-secondary"
+                id="dashboard-run-backtest"
                 type="submit"
                 disabled={hasActiveOperation}
               >
@@ -456,27 +512,8 @@ export function DashboardPage({
           </form>
         </article>
 
-        <article className="dashboard-panel signal-panel" data-testid="workflow-panel-signal">
-          <PanelHeading title="Latest signal" statusPill={signalStatusPill} />
-          <SignalSummary
-            signal={data?.latest_signal}
-            isDisabled={signalGenerationAction.isDisabled}
-            isGeneratingSignal={signalGenerationAction.isLoading}
-            isLoading={dashboardState.status === "loading"}
-            onGenerateSignal={signalGenerationAction.onClick}
-          />
-        </article>
-
-        <article className="dashboard-panel backtest-panel" data-testid="workflow-panel-backtest">
-          <PanelHeading title="Latest backtest" statusPill={backtestStatusPill} />
-          <BacktestSummary
-            backtest={data?.recent_backtest}
-            isLoading={dashboardState.status === "loading"}
-          />
-        </article>
-
         <article className="dashboard-panel fetch-log-panel" data-testid="workflow-panel-fetches">
-          <PanelHeading title="Data fetches" statusPill={fetchStatusPill} />
+          <PanelHeading eyebrow="Data" title="Fetch history" statusPill={fetchStatusPill} />
           <FetchLogSummary logs={data?.recent_fetch_logs} isLoading={dashboardState.status === "loading"} />
         </article>
       </div>
@@ -708,13 +745,70 @@ function SignalSummary({
         <DescriptionItem label="Signal date" value={formatDate(signal.signal_date)} />
         <DescriptionItem label="Status" value={signal.status} />
         <DescriptionItem label="Result" value={formatNullableText(signal.result)} />
+        <DescriptionItem
+          label="Source"
+          value={
+            <span className={`source-badge source-badge-${signal.source}`}>
+              {sourceLabel(signal.source)}
+            </span>
+          }
+        />
         <DescriptionItem label="Fallback" value={formatBoolean(signal.is_fallback)} />
-        <DescriptionItem label="Target holdings" value={formatInteger(signal.position_count)} />
       </dl>
+      {/* A `backtest` source always carries its producing run id (enforced by
+          ck_strategy_signal_backtest_link), so the link needs no null branch. */}
+      {signal.source === "backtest" && signal.backtest_run_id !== null ? (
+        <p className="research-note">
+          Produced by{" "}
+          <Link className="operation-link" to={`/backtests/${signal.backtest_run_id}`}>
+            {`backtest #${signal.backtest_run_id}`}
+          </Link>
+          : these holdings are simulated positions, not a current instruction.
+        </p>
+      ) : null}
+      <TargetHoldings positions={signal.positions} />
       <Link className="operation-link" to={`/signals/${signal.signal_id}`}>
         View signal detail
       </Link>
     </>
+  );
+}
+
+/** Target holdings of the latest signal: what the strategy says to hold now. */
+function TargetHoldings({ positions }: { positions: DashboardSignalPosition[] }) {
+  if (positions.length === 0) {
+    return (
+      <p className="research-note">
+        No target holdings were stored for this signal.
+      </p>
+    );
+  }
+
+  return (
+    <div className="holdings-table-wrap">
+      <table className="holdings-table" aria-label="Latest signal target holdings">
+        <thead>
+          <tr>
+            <th scope="col">Symbol</th>
+            <th scope="col">Name</th>
+            <th scope="col">Target weight</th>
+            <th scope="col">Rank</th>
+            <th scope="col">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((position) => (
+            <tr key={`${position.exchange}:${position.symbol}`}>
+              <td>{position.symbol}</td>
+              <td>{position.name}</td>
+              <td>{position.target_weight === null ? EMPTY_VALUE : formatTargetWeight(position.target_weight)}</td>
+              <td>{formatNullableInteger(position.rank)}</td>
+              <td>{formatDecimal(position.score, 6)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -737,20 +831,75 @@ function BacktestSummary({
     );
   }
 
+  const { primaryBenchmarkName, headlines } = derivePerformanceEvidence(backtest);
+
   return (
     <>
       <strong className="panel-primary">Backtest #{backtest.run_id}</strong>
       <dl className="compact-list">
         <DescriptionItem label="Range" value={`${formatDate(backtest.start_date)} to ${formatDate(backtest.end_date)}`} />
         <DescriptionItem label="Status" value={backtest.status} />
-        <DescriptionItem label="Total return" value={formatRatioAsPercent(backtest.total_return)} />
-        <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(backtest.max_drawdown)} />
-        <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(backtest.sharpe_ratio)} />
+        <DescriptionItem label="Config version" value={backtest.config_version} />
       </dl>
+      <dl
+        aria-label="Strategy performance headline metrics"
+        className="research-headline-grid"
+      >
+        {headlines.map((headline: PerformanceHeadline) => (
+          <div className="research-headline" key={headline.key}>
+            <dt>{headline.label}</dt>
+            <dd>{headline.value}</dd>
+            {headline.difference === null || primaryBenchmarkName === null ? null : (
+              <p className="research-headline-difference">
+                {`vs ${primaryBenchmarkName}: ${headline.difference}`}
+              </p>
+            )}
+          </div>
+        ))}
+      </dl>
+      <p className="research-note">
+        {primaryBenchmarkName === null
+          ? "This run has no benchmark evidence; the four strategy values stand alone."
+          : `Differences are signed against the primary benchmark (${primaryBenchmarkName}). Full comparison evidence is in the backtest detail.`}
+      </p>
       <Link className="operation-link" to={`/backtests/${backtest.run_id}`}>
         View backtest detail
       </Link>
     </>
+  );
+}
+
+/** Layer 5 — drill-down index into the existing research routes. */
+function EvidenceIndexSection() {
+  return (
+    <section
+      aria-label="Deep evidence"
+      className="dashboard-panel research-panel evidence-index-panel"
+    >
+      <PanelHeading eyebrow="Evidence" title="Drill down" />
+      <ul className="evidence-index-list">
+        <li>
+          <Link className="operation-link" to="/signals">
+            Signal history
+          </Link>
+        </li>
+        <li>
+          <Link className="operation-link" to="/backtests">
+            Backtest history
+          </Link>
+        </li>
+        <li>
+          <Link className="operation-link" to="/walk-forwards">
+            Walk-forward history and stitched OOS evidence
+          </Link>
+        </li>
+        <li>
+          <a className="operation-link" href="#dashboard-etf-coverage">
+            ETF price coverage
+          </a>
+        </li>
+      </ul>
+    </section>
   );
 }
 
@@ -837,35 +986,6 @@ function deriveFetchStatusPill(
   }
 
   return { label: "No data", variant: "neutral" };
-}
-
-type StatusPillVariant = "success" | "partial" | "error" | "neutral" | "loading";
-
-type StatusPill = {
-  label: string;
-  variant: StatusPillVariant;
-};
-
-function StatusPillBadge({ label, variant }: StatusPill) {
-  return (
-    <span className={`status-pill status-pill-${variant}`} aria-label={`Status: ${label}`}>
-      {label}
-    </span>
-  );
-}
-
-function PanelHeading({ eyebrow, title, statusPill }: { eyebrow?: string; title: string; statusPill?: StatusPill }) {
-  return (
-    <div className="panel-heading">
-      <h3>{title}</h3>
-      {eyebrow || statusPill ? (
-        <div className="panel-heading-end">
-          {statusPill ? <StatusPillBadge {...statusPill} /> : null}
-          {eyebrow ? <span>{eyebrow}</span> : null}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 function getFirstRunGuidance(state: DashboardState): string | null {
@@ -983,10 +1103,7 @@ async function loadDashboard(setState: (state: DashboardState) => void) {
     const dashboard = await getDashboard();
     setState({ status: "ready", data: dashboard });
   } catch (error: unknown) {
-    setState({
-      status: "error",
-      error: error instanceof ApiClientError ? error.kind : "unavailable"
-    });
+    setState({ status: "error", error });
   }
 }
 
@@ -1020,7 +1137,10 @@ function backfillLatestSignalSummary(
       result: latestSignal.signal.result,
       generated_at: latestSignal.signal.generated_at,
       is_fallback: latestSignal.signal.is_fallback,
-      position_count: latestSignal.positions.length
+      position_count: latestSignal.positions.length,
+      source: generationResult.source,
+      backtest_run_id: null,
+      positions: latestSignal.positions
     }
   };
 }

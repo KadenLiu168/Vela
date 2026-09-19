@@ -61,6 +61,16 @@ class DashboardMarketDataResponse(ResponseModel):
     etf_list: list[DashboardMarketDataEtfResponse]
 
 
+class DashboardSignalPositionResponse(ResponseModel):
+    exchange: str
+    symbol: str
+    name: str
+    target_weight: str | None
+    rank: int | None
+    score: str | None
+    is_fallback: bool
+
+
 class DashboardSignalResponse(ResponseModel):
     signal_id: int
     signal_date: date
@@ -70,6 +80,19 @@ class DashboardSignalResponse(ResponseModel):
     generated_at: datetime
     is_fallback: bool
     position_count: int
+    source: str
+    backtest_run_id: int | None
+    positions: list[DashboardSignalPositionResponse]
+
+
+class DashboardBenchmarkResponse(ResponseModel):
+    key: str
+    name: str
+    total_return: str | None
+    total_return_difference: str | None
+    annualized_return_difference: str | None
+    sharpe_ratio: str | None
+    max_drawdown: str | None
 
 
 class DashboardBacktestResponse(ResponseModel):
@@ -80,9 +103,57 @@ class DashboardBacktestResponse(ResponseModel):
     end_date: date
     status: str
     total_return: str | None
+    annualized_return: str | None
     max_drawdown: str | None
     sharpe_ratio: str | None
     started_at: datetime
+    benchmarks: list[DashboardBenchmarkResponse]
+
+
+class DashboardWalkForwardMetricSummaryResponse(ResponseModel):
+    median: float | None
+    mean: float | None
+    window_count: int
+    valid_count: int
+    evidence_status: Literal["sufficient", "insufficient_evidence"]
+
+
+class DashboardWalkForwardRateSummaryResponse(ResponseModel):
+    value: float | None
+    numerator: int
+    denominator: int
+    window_count: int
+    valid_count: int
+    evidence_status: Literal["sufficient", "insufficient_evidence"]
+
+
+class DashboardWalkForwardOosMetricsResponse(ResponseModel):
+    total_return: DashboardWalkForwardMetricSummaryResponse
+    sharpe_ratio: DashboardWalkForwardMetricSummaryResponse
+    max_drawdown: DashboardWalkForwardMetricSummaryResponse
+
+
+class DashboardWalkForwardOosBenchmarkResponse(ResponseModel):
+    outperformance_rate: DashboardWalkForwardRateSummaryResponse
+
+
+class DashboardWalkForwardOosResponse(ResponseModel):
+    metrics: DashboardWalkForwardOosMetricsResponse
+    positive_window_rate: DashboardWalkForwardRateSummaryResponse
+    generalization_gap: DashboardWalkForwardMetricSummaryResponse
+    benchmarks: dict[str, DashboardWalkForwardOosBenchmarkResponse]
+
+
+class DashboardWalkForwardResponse(ResponseModel):
+    run_id: int
+    strategy_id: str
+    status: str
+    start_date: date
+    end_date: date
+    window_count: int
+    finished_at: datetime | None
+    error_message: str | None
+    oos: DashboardWalkForwardOosResponse | None
 
 
 class DashboardFetchLogResponse(ResponseModel):
@@ -101,6 +172,7 @@ class DashboardResponse(ResponseModel):
     market_data: DashboardMarketDataResponse
     latest_signal: DashboardSignalResponse | None
     recent_backtest: DashboardBacktestResponse | None
+    latest_walk_forward: DashboardWalkForwardResponse | None
     recent_fetch_logs: list[DashboardFetchLogResponse]
 
 

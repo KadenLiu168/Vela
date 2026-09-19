@@ -1,5 +1,4 @@
-import type { BacktestBenchmark } from "../api/client";
-import { formatDate, formatNetValue, formatNullableText } from "../utils/formatters";
+import { EMPTY_VALUE, formatDate, formatNetValue, formatNullableText } from "../utils/formatters";
 
 type EquityCurvePointReadout = {
   tradeDate: string;
@@ -77,19 +76,69 @@ export function computeVerdict(differences: (number | null)[]): Verdict | null {
   return "Mixed";
 }
 
+/** The benchmark key that wins the primary-benchmark priority rule. Shared by
+ *  the Backtest Detail and Walk-forward primary-benchmark resolvers so the
+ *  surfaces cannot drift apart. */
+export const PRIMARY_BENCHMARK_KEY = "csi_300_buy_hold";
+
 /** Primary benchmark for Decision Summary difference evidence: the CSI-300
  *  buy-and-hold key when present, otherwise the first benchmark in the API
- *  collection, otherwise null (no benchmarks). */
-export function resolvePrimaryBenchmark(
-  benchmarks: BacktestBenchmark[]
-): BacktestBenchmark | null {
+ *  collection, otherwise null (no benchmarks). Generic over the benchmark
+ *  record shape so the Backtest Detail and Dashboard surfaces share one
+ *  priority rule. */
+export function resolvePrimaryBenchmark<T extends { key: string }>(
+  benchmarks: T[]
+): T | null {
   if (benchmarks.length === 0) {
     return null;
   }
   return (
-    benchmarks.find((benchmark) => benchmark.key === "csi_300_buy_hold") ??
+    benchmarks.find((benchmark) => benchmark.key === PRIMARY_BENCHMARK_KEY) ??
     benchmarks[0]
   );
+}
+
+/** Signed percent difference (return-style evidence), e.g. "+2.00%". The input
+ *  is an API-published difference value; null or non-numeric input renders the
+ *  established unavailable placeholder. */
+export function formatSignedPercent(value: string | null): string {
+  const parsed = parseMetricNumber(value);
+  if (parsed === null) {
+    return EMPTY_VALUE;
+  }
+  const percent = parsed * 100;
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${percent.toFixed(2)}%`;
+}
+
+/** Signed decimal difference (Sharpe-style evidence), e.g. "+0.70". The input is
+ *  an API-published value or display-level subtraction of two published values;
+ *  null renders the established unavailable placeholder. */
+export function formatSignedDecimal(value: number | null): string {
+  if (value === null) {
+    return EMPTY_VALUE;
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}`;
+}
+
+/** Max drawdown difference framed as shallower/deeper: a value closer to zero
+ *  is favorable, so a positive difference means the strategy drawdown is
+ *  shallower than the benchmark's. The sign never stands alone as a naked
+ *  difference. */
+export function formatDrawdownDifference(
+  strategyValue: string | null,
+  benchmarkValue: string | null
+): string {
+  const difference = computeMetricDifference(strategyValue, benchmarkValue);
+  if (difference === null) {
+    return EMPTY_VALUE;
+  }
+  const magnitude = `${(Math.abs(difference) * 100).toFixed(2)}%`;
+  if (difference === 0) {
+    return "in line";
+  }
+  return difference > 0 ? `shallower by ${magnitude}` : `deeper by ${magnitude}`;
 }
 
 export type ParameterEntry = {

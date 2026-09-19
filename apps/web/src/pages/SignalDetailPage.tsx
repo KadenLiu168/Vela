@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
-  ApiClientError,
   type StrategySignalDetailPosition,
   type StrategySignalDetailResponse,
   getStrategySignalDetail
 } from "../api/client";
-import { DescriptionItem, EmptyState, FeedbackMessage } from "../components";
+import { DescriptionItem, EmptyState, FeedbackMessage, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { listReturnHref } from "../utils/listReturn";
+import { useResource, type ResourceState } from "../utils/useResource";
 import {
   formatBoolean,
   formatDate,
@@ -21,64 +22,36 @@ type SignalDetailPageProps = {
   signalId: string;
 };
 
-type SignalDetailState =
-  | { status: "loading"; data?: never; error?: never; signalId?: never }
-  | { status: "ready"; data: StrategySignalDetailResponse; error?: never; signalId: string }
-  | { status: "not-found"; data?: never; error?: never; signalId: string }
-  | { status: "error"; data?: never; error: string; signalId: string };
-
 export function SignalDetailPage({ signalId }: SignalDetailPageProps) {
-  const [signalState, setSignalState] = useState<SignalDetailState>({
-    status: "loading"
+  const location = useLocation();
+  const backHref = listReturnHref(location.state, "/signals");
+  const { state, reload } = useResource({
+    hasNotFoundState: true,
+    key: signalId,
+    load: () => getStrategySignalDetail(signalId)
   });
 
-  useEffect(() => {
-    let isCurrent = true;
-
-    getStrategySignalDetail(signalId)
-      .then((data) => {
-        if (isCurrent) {
-          setSignalState({ status: "ready", data, signalId });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof ApiClientError && error.status === 404) {
-          setSignalState({ status: "not-found", signalId });
-          return;
-        }
-
-        setSignalState({
-          status: "error",
-          error: error instanceof ApiClientError ? error.kind : "unavailable",
-          signalId
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [signalId]);
+  useDocumentTitle(`Signal Detail #${signalId}`);
 
   return (
     <section className="page detail-page signal-detail-page">
       <div className="page-heading">
+        <Link className="operation-link detail-back-link" to={backHref}>
+          ← Back to Signals
+        </Link>
         <p>Signal research workspace</p>
         <h1>Signal Detail</h1>
       </div>
-      {renderSignalDetail(getSignalDetailState(signalState, signalId), signalId)}
+      {renderSignalDetail(state, signalId, reload)}
     </section>
   );
 }
 
-function getSignalDetailState(state: SignalDetailState, signalId: string): SignalDetailState {
-  return state.status === "loading" || state.signalId === signalId ? state : { status: "loading" };
-}
-
-function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
+function renderSignalDetail(
+  signalState: ResourceState<StrategySignalDetailResponse>,
+  signalId: string,
+  retry: () => void
+) {
   if (signalState.status === "loading") {
     return <FeedbackMessage variant="loading">Loading signal detail.</FeedbackMessage>;
   }
@@ -88,11 +61,7 @@ function renderSignalDetail(signalState: SignalDetailState, signalId: string) {
   }
 
   if (signalState.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Signal detail API unavailable: {signalState.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={signalState.error} label="Signal detail" onRetry={retry} />;
   }
 
   const signal = signalState.data.signal;

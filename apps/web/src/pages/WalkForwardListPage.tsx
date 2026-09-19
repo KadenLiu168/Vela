@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ApiClientError,
   type WalkForwardPageResponse,
@@ -7,7 +7,9 @@ import {
   listWalkForwards,
   runWalkForward
 } from "../api/client";
-import { EmptyState, FeedbackMessage, Pagination } from "../components";
+import { EmptyState, FeedbackMessage, Pagination, ReadFailure } from "../components";
+import { useDocumentTitle } from "../utils/documentTitle";
+import { isValidListOffset, listHrefWith, listOffsetFrom } from "../utils/listQuery";
 import { formatDate, formatTimestamp } from "../utils/formatters";
 
 const PAGE_SIZE = 10;
@@ -16,7 +18,7 @@ const POLL_INTERVAL_MS = 5000;
 type WalkForwardListState =
   | { status: "loading"; data?: never; error?: never; offset?: never }
   | { status: "ready"; data: WalkForwardPageResponse; error?: never; offset: number }
-  | { status: "error"; data?: never; error: string; offset: number };
+  | { status: "error"; data?: never; error: unknown; offset: number };
 
 type RunTriggerState =
   | { status: "idle" }
@@ -27,13 +29,25 @@ type RunTriggerState =
   | { status: "failed"; message: string };
 
 export function WalkForwardListPage() {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [offset, setOffset] = useState(0);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const rawOffset = searchParams.get("offset");
+  const offset = listOffsetFrom(rawOffset);
+  const listHref = `${location.pathname}${location.search}`;
   const [state, setState] = useState<WalkForwardListState>({ status: "loading" });
   const [runState, setRunState] = useState<RunTriggerState>({ status: "idle" });
   const [refreshToken, setRefreshToken] = useState(0);
   const activeRunId =
     runState.status === "queued" || runState.status === "running" ? runState.runId : null;
+
+  useDocumentTitle("Walk-forward History");
+
+  useEffect(() => {
+    if (rawOffset !== null && !isValidListOffset(rawOffset)) {
+      navigate(listHrefWith(location, { offset: null }), { replace: true });
+    }
+  }, [rawOffset, location, navigate]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -61,11 +75,7 @@ export function WalkForwardListPage() {
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          setState({
-            status: "error",
-            error: error instanceof ApiClientError ? error.kind : "unavailable",
-            offset
-          });
+          setState({ status: "error", error, offset });
         }
       });
 
@@ -173,6 +183,16 @@ export function WalkForwardListPage() {
     }
   }
 
+  function selectOffset(nextOffset: number) {
+    const next = Math.max(0, nextOffset);
+    navigate(listHrefWith(location, { offset: next === 0 ? null : String(next) }));
+  }
+
+  function retry() {
+    setState({ status: "loading" });
+    setRefreshToken((value) => value + 1);
+  }
+
   return (
     <section className="page list-page walk-forward-list-page">
       <div className="page-heading">
@@ -180,7 +200,7 @@ export function WalkForwardListPage() {
         <h1>Walk-forward History</h1>
       </div>
       {renderRunTrigger(runState, handleRunClick)}
-      {renderWalkForwardList(getCurrentListState(state, offset), offset, setOffset)}
+      {renderWalkForwardList(getCurrentListState(state, offset), offset, selectOffset, retry, listHref)}
     </section>
   );
 }
@@ -233,18 +253,16 @@ function getCurrentListState(state: WalkForwardListState, offset: number): WalkF
 function renderWalkForwardList(
   state: WalkForwardListState,
   offset: number,
-  setOffset: (value: number) => void
+  setOffset: (value: number) => void,
+  retry: () => void,
+  listHref: string
 ) {
   if (state.status === "loading") {
     return <FeedbackMessage variant="loading">Loading Walk-forward history.</FeedbackMessage>;
   }
 
   if (state.status === "error") {
-    return (
-      <FeedbackMessage className="dashboard-alert" variant="error">
-        Walk-forward history API unavailable: {state.error}
-      </FeedbackMessage>
-    );
+    return <ReadFailure error={state.error} label="Walk-forward history" onRetry={retry} />;
   }
 
   if (state.data.runs.length === 0 && offset === 0) {
@@ -276,7 +294,11 @@ function renderWalkForwardList(
             {state.data.runs.map((run) => (
               <tr key={run.run_id}>
                 <td>
-                  <Link className="operation-link" to={`/walk-forwards/${run.run_id}`}>
+                  <Link
+                    className="operation-link"
+                    state={{ listHref }}
+                    to={`/walk-forwards/${run.run_id}`}
+                  >
                     #{run.run_id}
                   </Link>
                 </td>

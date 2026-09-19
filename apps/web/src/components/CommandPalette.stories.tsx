@@ -32,6 +32,7 @@ function dashboardWithEtfs(etf_list: DashboardMarketDataStatus["etf_list"]): Das
     },
     latest_signal: null,
     recent_backtest: null,
+    latest_walk_forward: null,
     recent_fetch_logs: []
   };
 }

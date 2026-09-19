@@ -1,9 +1,5 @@
-import type {
-  WalkForwardBenchmarkEvidence,
-  WalkForwardBenchmarkKey,
-  WalkForwardEvidence,
-  WalkForwardMetricSummary
-} from "../api/client";
+import type { WalkForwardEvidence } from "../api/client";
+import { PRIMARY_BENCHMARK_KEY } from "./backtestFormatters";
 
 export const TAIL_OWNER_LABELS: Record<string, string> = {
   strategy: "Strategy",
@@ -21,23 +17,18 @@ export function formatPercentNumber(value: number | null, digits = 2): string {
   return `${(value * 100).toFixed(digits)}%`;
 }
 
-export type WalkForwardPrimaryBenchmark = {
-  key: WalkForwardBenchmarkKey;
-  benchmark: WalkForwardBenchmarkEvidence;
-};
-
 /** Primary benchmark for the OOS Summary outperformance card: the CSI-300
  *  buy-and-hold key when present, otherwise the first benchmark in the
  *  collection, otherwise null (no benchmarks). Mirrors the backtest detail
  *  priority rule, adapted to the walk-forward record input shape. */
-export function resolvePrimaryBenchmark(
-  benchmarks: Record<WalkForwardBenchmarkKey, WalkForwardBenchmarkEvidence>
-): WalkForwardPrimaryBenchmark | null {
-  const keys = Object.keys(benchmarks) as WalkForwardBenchmarkKey[];
+export function resolvePrimaryBenchmark<T>(
+  benchmarks: Record<string, T>
+): { key: string; benchmark: T } | null {
+  const keys = Object.keys(benchmarks);
   if (keys.length === 0) {
     return null;
   }
-  const key = keys.includes("csi_300_buy_hold") ? "csi_300_buy_hold" : keys[0];
+  const key = keys.includes(PRIMARY_BENCHMARK_KEY) ? PRIMARY_BENCHMARK_KEY : keys[0];
   return { key, benchmark: benchmarks[key] };
 }
 
@@ -77,7 +68,7 @@ export function aggregateTransitionRate(
  *  difference, ratio units, not a percentage); a positive value means
  *  in-sample selection performed better than out-of-sample and a larger
  *  gap indicates weaker generalization. */
-export function generalizationGapText(summary: WalkForwardMetricSummary): string {
+export function generalizationGapText(summary: { median: number | null }): string {
   const median = summary.median === null ? "n/a" : summary.median.toFixed(2);
   return (
     `Generalization gap (IS Sharpe − OOS Sharpe): median ${median} — ` +

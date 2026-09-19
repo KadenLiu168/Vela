@@ -11,7 +11,8 @@ The web application SHALL use a `BrowserRouter`-backed declarative route tree as
 #### Scenario: Direct valid path renders its established page
 - **WHEN** a user opens any declared list path or a declared detail path with a decimal identifier
 - **THEN** the Router renders the page associated with that exact path
-- **AND** the page retains its existing API request, loading, success, empty, error, and valid-id API-not-found behavior
+- **AND** the page retains its existing API request, loading, success, empty, and valid-id API-not-found behavior
+- **AND** a failed read keeps the Router-rendered page mounted and may present an actionable cause and an in-page retry as specified by `web-read-failure-recovery`
 
 #### Scenario: Browser history changes render through the route tree
 - **WHEN** a user uses the browser Back or Forward control between declared application paths

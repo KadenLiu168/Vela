@@ -77,6 +77,7 @@ def test_config_and_dashboard_endpoints_serialize_equal_weight_shape(
             },
             "latest_signal": None,
             "recent_backtest": None,
+            "latest_walk_forward": None,
             "recent_fetch_logs": [],
         },
     )
