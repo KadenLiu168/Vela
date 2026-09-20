@@ -27,31 +27,6 @@ class ForwardAdjustedPrice:
     price: Decimal
 
 
-@dataclass(frozen=True)
-class ResolvedAdjustedPrice:
-    """A resolved adjusted valuation with its execution-state evidence."""
-
-    trade_date: date
-    adjusted_value: Decimal
-    tradable: bool
-    resolution: str
-
-
-def resolved_adjusted_prices(
-    prices: Sequence[ResolvedSessionPrice],
-) -> list[ResolvedAdjustedPrice]:
-    """Project resolved session values without creating or mutating raw rows."""
-    return [
-        ResolvedAdjustedPrice(
-            trade_date=price.trade_date,
-            adjusted_value=price.adjusted_value,
-            tradable=price.tradable,
-            resolution=price.resolution,
-        )
-        for price in prices
-    ]
-
-
 def forward_adjusted_prices(
     prices: Sequence[MarketPrice | ResolvedSessionPrice],
     *,

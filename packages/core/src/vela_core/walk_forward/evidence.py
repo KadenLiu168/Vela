@@ -13,7 +13,6 @@ MINIMUM_PUBLICATION_OBSERVATIONS = 100
 EVIDENCE_VERSION = "wf_evidence_v1"
 EVIDENCE_VERSION_V2 = "wf_evidence_v2"
 EVIDENCE_VERSION_V3 = "wf_evidence_v3"
-SUPPORTED_EVIDENCE_VERSIONS = (EVIDENCE_VERSION, EVIDENCE_VERSION_V2, EVIDENCE_VERSION_V3)
 BenchmarkKey = Literal["equal_weight_monthly", "csi_300_buy_hold"]
 TailOwnerKey = Literal["strategy", "equal_weight_monthly", "csi_300_buy_hold"]
 TAIL_OWNER_KEYS: tuple[TailOwnerKey, ...] = (
@@ -287,12 +286,3 @@ def validate_wf_evidence(
         raise PersistedDataContractError(
             "invalid persisted Walk-forward evidence document"
         ) from exc
-
-
-# Stable aliases for callers that prefer the unversioned domain names.
-WalkForwardMetricSummary = WalkForwardMetricSummaryModel
-WalkForwardRateSummary = WalkForwardRateSummaryModel
-WalkForwardParameterStability = WalkForwardParameterStabilityModel
-WalkForwardBenchmarkEvidence = WalkForwardBenchmarkEvidenceModel
-WalkForwardBenchmarkEvidenceV2 = WalkForwardBenchmarkEvidenceV2Model
-WalkForwardEvidence = WalkForwardEvidenceV1

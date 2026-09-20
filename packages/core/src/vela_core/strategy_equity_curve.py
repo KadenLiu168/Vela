@@ -448,13 +448,6 @@ def _load_prices_by_key(
     return {(price.etf_id, price.trade_date): price for price in prices}
 
 
-def _allocate_target(
-    total_assets: Decimal,
-    snapshot: PortfolioHoldingSnapshot,
-) -> tuple[Decimal, dict[int, Decimal]]:
-    return _allocate_target_weights(total_assets, _normalized_target_weights(snapshot))
-
-
 def _allocate_target_weights(
     total_assets: Decimal,
     target_weights: dict[int, Decimal],
@@ -537,21 +530,6 @@ def _target_is_tradable(
 def _is_tradable(price: _SessionPrice | None) -> bool:
     return price is not None and (
         price.tradable if isinstance(price, ResolvedSessionPrice) else True
-    )
-
-
-def _rebalance(
-    *,
-    total_assets: Decimal,
-    position_values: dict[int, Decimal],
-    snapshot: PortfolioHoldingSnapshot,
-    transaction_cost_rate: Decimal,
-) -> tuple[Decimal, dict[int, Decimal]]:
-    return _rebalance_target(
-        total_assets=total_assets,
-        position_values=position_values,
-        target_weights=_normalized_target_weights(snapshot),
-        transaction_cost_rate=transaction_cost_rate,
     )
 
 
