@@ -2,19 +2,21 @@
 
 Development and automation scripts for the Vela repository.
 
-## Generate the Inter Variable subset
+## Geist font runtime
 
-The committed public webfont is generated from the vendored Inter 4.0 source,
-its reviewed Unicode manifest, and the locked FontTools WOFF2 toolchain. From
-the repository root, regenerate it with:
+The web frontend serves the official Geist v1.7.2 variable WOFF2 resources
+(SIL Open Font License 1.1) from `apps/web/public/fonts/`:
 
-```bash
-uv run python scripts/fonts/inter/subset_inter_variable.py
-```
+- `Geist-Variable.woff2` — Geist Sans (product-facing family `"Geist Sans"`)
+- `GeistMono-Variable.woff2` — Geist Mono (product-facing family `"Geist Mono"`)
 
-The script verifies the canonical source SHA-256 and fails if the generated
-font exceeds the 98,304-byte budget. Pass an optional output path to generate
-into a temporary location for validation without overwriting the public asset.
+Provenance (source URLs, release tag, SHA-256 values, and the vendored
+`OFL-1.1.txt`) is recorded in `scripts/fonts/geist/PROVENANCE.md`; the
+`tests/test_geist_font.py` contract verifies the binaries, metadata, and
+font/preload declarations. Note that the GitHub release zip was repackaged
+after the tag: the pinned hashes correspond to the v1.7.2 **git tag** sources
+(see the provenance record). Re-verifying a future font upgrade requires its
+own reviewed OpenSpec change; there is no subset-generation tooling for Geist.
 
 ## dev.sh — local dev orchestrator
 

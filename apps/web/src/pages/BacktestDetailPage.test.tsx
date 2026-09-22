@@ -95,9 +95,9 @@ it("renders the run summary line with strategy, date range, and status", async (
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   await screen.findByText("Backtest #7");
-  const summaries = screen.getAllByText("2026-01-01 to 2026-01-02");
-  const summary = summaries.find((element) => element.closest(".run-summary"));
+  const summary = document.querySelector(".run-summary");
   expect(summary).not.toBeNull();
+  expect(summary).toHaveTextContent("2026-01-01 to 2026-01-02");
   expect(summary).toHaveTextContent("s");
   expect(summary).toHaveTextContent("success");
 });
@@ -350,6 +350,12 @@ it("renders the signals table and uses signal_count for an exact final-page boun
   expect(screen.getByRole("columnheader", { name: "Result" })).toBeInTheDocument();
   expect(screen.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Signal #99" })).toHaveAttribute("href", "/signals/99");
+  const signalCells = within(screen.getByRole("table")).getAllByRole("row")[1];
+  const signalDataCells = within(signalCells).getAllByRole("cell");
+  expect(signalDataCells[0]).toHaveClass("mono-compact");
+  expect(signalDataCells[1]).toHaveClass("mono-compact");
+  expect(signalDataCells[2]).not.toHaveClass("mono-compact");
+  expect(signalDataCells[3]).toHaveClass("mono-compact");
   expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 });
 
@@ -740,21 +746,21 @@ it("assigns explicit key colors to lines, swatches, and end-labels", async () =>
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   const strategyLine = await screen.findByTestId("equity-curve-line-strategy");
-  expect(strategyLine).toHaveAttribute("stroke", "var(--color-series-1)");
-  expect(screen.getByTestId("equity-curve-line-equal_weight_monthly")).toHaveAttribute("stroke", "var(--color-series-2)");
-  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--color-series-3)");
+  expect(strategyLine).toHaveAttribute("stroke", "var(--chart-series-1)");
+  expect(screen.getByTestId("equity-curve-line-equal_weight_monthly")).toHaveAttribute("stroke", "var(--chart-series-2)");
+  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--chart-series-3)");
 
   const legend = screen.getByRole("list", { name: "Equity curve legend" });
   const strategySwatch = within(legend).getByTestId("equity-curve-swatch-strategy");
-  expect(strategySwatch).toHaveStyle({ backgroundColor: "var(--color-series-1)" });
+  expect(strategySwatch).toHaveStyle({ backgroundColor: "var(--chart-series-1)" });
   const equalSwatch = within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly");
-  expect(equalSwatch).toHaveStyle({ backgroundColor: "var(--color-series-2)" });
+  expect(equalSwatch).toHaveStyle({ backgroundColor: "var(--chart-series-2)" });
   const csiSwatch = within(legend).getByTestId("equity-curve-swatch-csi_300_buy_hold");
-  expect(csiSwatch).toHaveStyle({ backgroundColor: "var(--color-series-3)" });
+  expect(csiSwatch).toHaveStyle({ backgroundColor: "var(--chart-series-3)" });
 
-  expect(screen.getByTestId("equity-curve-end-label-strategy")).toHaveAttribute("fill", "var(--color-series-1)");
-  expect(screen.getByTestId("equity-curve-end-label-equal_weight_monthly")).toHaveAttribute("fill", "var(--color-series-2)");
-  expect(screen.getByTestId("equity-curve-end-label-csi_300_buy_hold")).toHaveAttribute("fill", "var(--color-series-3)");
+  expect(screen.getByTestId("equity-curve-end-label-strategy")).toHaveAttribute("fill", "var(--chart-series-1)");
+  expect(screen.getByTestId("equity-curve-end-label-equal_weight_monthly")).toHaveAttribute("fill", "var(--chart-series-2)");
+  expect(screen.getByTestId("equity-curve-end-label-csi_300_buy_hold")).toHaveAttribute("fill", "var(--chart-series-3)");
 });
 
 it("keeps current series identity when one benchmark has no plottable points", async () => {
@@ -795,8 +801,8 @@ it("keeps current series identity when one benchmark has no plottable points", a
   render(<BacktestDetailPage backtestId="7" />, { wrapper: RouterWrapper });
 
   const strategyLine = await screen.findByTestId("equity-curve-line-strategy");
-  expect(strategyLine).toHaveAttribute("stroke", "var(--color-series-1)");
-  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--color-series-3)");
+  expect(strategyLine).toHaveAttribute("stroke", "var(--chart-series-1)");
+  expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--chart-series-3)");
   expect(screen.queryByTestId("equity-curve-line-equal_weight_monthly")).not.toBeInTheDocument();
 });
 
@@ -829,6 +835,9 @@ it("preserves empty and single-point fallbacks", async () => {
 
   expect(await screen.findByText("Only one equity curve point is available.")).toBeInTheDocument();
   expect(screen.getByText("Net value")).toBeInTheDocument();
+  const summary = screen.getByText("Net value").closest("dl");
+  expect(summary).not.toBeNull();
+  expect(within(summary as HTMLElement).getByText("2026-01-01")).toHaveClass("mono-compact");
 });
 
 const heroDetail = (overrides: Partial<BacktestDetailResponse> = {}): BacktestDetailResponse => ({

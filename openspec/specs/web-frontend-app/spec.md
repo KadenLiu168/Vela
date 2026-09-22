@@ -118,31 +118,17 @@ Every Web surface that presents annualized return, volatility, or Sharpe for a b
 - **AND** the frontend does not derive Sharpe from the displayed CAGR and volatility values
 
 ### Requirement: Bootstrap button uses primary visual variant
-The web frontend SHALL render the "Bootstrap / Setup database &
-data" Dashboard action in the primary (filled) button variant
-and SHALL place it at the right end of the Dashboard action list.
-The acid-lime reservation rule (added to the `design-system`
-capability by this change) and the per-button variant className
-contract (in `unify-buttons-into-three-variants`) jointly enforce
-that no other Dashboard element except this Bootstrap button
-renders an acid-lime filled background. Until those companion
-changes land, this requirement pins Bootstrap as the designated
-primary CTA; the visual enforcement is enforced by the next
-OpenSpec change.
+The Dashboard Bootstrap action MUST remain the rightmost and only prominent primary CTA. It MUST use the shared Celestial Blue primary-button treatment; no other Dashboard element may imitate its filled primary hierarchy. AppShell current navigation MUST use semantic panel, border, text, hover, and interaction roles without an acid-lime underline or a high-saturation filled highlight.
 
 #### Scenario: Bootstrap is the rightmost Dashboard action
 - **WHEN** the Dashboard renders its action list
-- **THEN** the Bootstrap action MUST be the rightmost `<button>`
-      element in the rendered list
+- **THEN** Bootstrap MUST remain the rightmost button and the sole primary variant in that view
 
 #### Scenario: nav-link active state is not an acid-lime fill
-- **WHEN** the user is on any route rendered through AppShell
-- **THEN** the `.app-nav-link[aria-current="page"]` element MUST
-      NOT use `var(--color-acid-lime)` as a `background`
-- **AND** the active nav-link MAY use the lime as a 2px
-      `box-shadow` inset underline or other non-fill decoration
-- **AND** its text color MUST be `var(--color-paper)` resting
-      and `var(--color-bone)` on `:hover`
+- **WHEN** a navigation link carries `aria-current="page"`
+- **THEN** it MUST remain programmatically current
+- **AND** its visual state MUST use `--text-primary` with a restrained interaction-text, surface, border, or indicator treatment
+- **AND** it MUST NOT use acid lime or a high-saturation filled background
 
 ### Requirement: Every page in <main> begins with one <h1>
 Every page rendered through AppShell MUST expose exactly one document-level `<h1>` element representing the current page identity. The AppShell banner brand MUST render as non-heading text and MUST NOT contribute an additional `<h1>`.
@@ -736,3 +722,18 @@ The Web application SHALL consume the typed v1/v2 input-provenance union. For v2
 - **WHEN** status-aware provenance is available
 - **THEN** it appears only in the existing Walk-forward Detail route
 - **AND** no Dashboard card, management route, or reference-data edit control is added
+
+### Requirement: AppShell brand remains subordinate to page research content
+The visible `Vela Research` brand MUST remain non-heading text and MUST use the Sans family at approximately 22px, 28px line height, 620 weight, and `-0.035em` tracking. The route's page title MUST remain the primary visual heading.
+
+#### Scenario: Brand and page title preserve hierarchy
+- **WHEN** any AppShell route renders
+- **THEN** the brand MUST remain smaller than the 36px page title
+- **AND** the page title MUST remain the document's only page-identity heading
+
+### Requirement: Visual redesign preserves application behavior
+The Celestial Research migration MUST preserve AppShell skip-link behavior, navigation labeling and `aria-current`, programmatic main focus, route behavior, button `aria-pressed`, chart text legends, reduced motion, and existing data behavior. It MUST NOT change backend APIs, dashboard data logic, or chart geometry algorithms.
+
+#### Scenario: Existing behavior survives visual migration
+- **WHEN** the redesigned Web application is exercised through existing navigation, controls, tables, charts, and Command Palette tests
+- **THEN** accessibility and behavioral contracts MUST remain unchanged except for the explicitly modified visual semantics

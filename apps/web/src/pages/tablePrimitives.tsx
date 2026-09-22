@@ -14,6 +14,10 @@ export function TableHeader({ columns }: { columns: readonly string[] }) {
   );
 }
 
-export function TableCells({ cells }: { cells: ReactNode[] }) {
-  return cells.map((cell, index) => <td key={index}>{cell}</td>);
+export function TableCells({ cells, classNames }: { cells: ReactNode[]; classNames?: readonly (string | undefined)[] }) {
+  return cells.map((cell, index) => (
+    <td key={index} className={classNames?.[index]}>
+      {cell}
+    </td>
+  ));
 }

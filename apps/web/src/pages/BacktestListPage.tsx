@@ -89,7 +89,7 @@ function renderBacktestList(
           <tbody>
             {state.data.map((run) => (
               <tr key={run.run_id}>
-                <td>
+                <td className="mono-compact">
                   <Link
                     className="operation-link"
                     state={{ listHref }}
@@ -98,12 +98,12 @@ function renderBacktestList(
                     #{run.run_id}
                   </Link>
                 </td>
-                <td>{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
+                <td className="mono-compact">{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
                 <td>{run.status}</td>
-                <td>{formatTimestamp(run.started_at)}</td>
-                <td>{formatRatioAsPercent(run.total_return)}</td>
-                <td>{formatRatioAsPercent(run.annualized_return)}</td>
-                <td>{formatDecimal(run.sharpe_ratio, 2, false)}</td>
+                <td className="mono-compact">{formatTimestamp(run.started_at)}</td>
+                <td className="mono-compact">{formatRatioAsPercent(run.total_return)}</td>
+                <td className="mono-compact">{formatRatioAsPercent(run.annualized_return)}</td>
+                <td className="mono-compact">{formatDecimal(run.sharpe_ratio, 2, false)}</td>
               </tr>
             ))}
           </tbody>

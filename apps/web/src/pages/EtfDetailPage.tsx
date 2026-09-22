@@ -156,8 +156,8 @@ function TrendChart({ points }: { points: EtfPriceTrendPoint[] }) {
       <div className="trend-single-point">
         <EmptyState>Only one price point is available.</EmptyState>
         <dl className="trend-readout">
-          <DescriptionItem label="Trade date" value={formatDate(point.tradeDate)} />
-          <DescriptionItem label="Price" value={formatDecimal(point.price, 4)} />
+          <DescriptionItem label="Trade date" mono value={formatDate(point.tradeDate)} />
+          <DescriptionItem label="Price" mono value={formatDecimal(point.price, 4)} />
         </dl>
       </div>
     );
@@ -275,8 +275,8 @@ const TrendReadout = memo(
   function TrendReadout({ tradeDate, price }: { tradeDate: string; price: string }) {
     return (
       <dl className="trend-readout" data-testid="trend-readout">
-        <DescriptionItem label="Trade date" value={formatDate(tradeDate)} />
-        <DescriptionItem label="Price" value={formatDecimal(price, 4)} />
+        <DescriptionItem label="Trade date" mono value={formatDate(tradeDate)} />
+        <DescriptionItem label="Price" mono value={formatDecimal(price, 4)} />
       </dl>
     );
   }

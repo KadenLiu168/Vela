@@ -3,6 +3,7 @@
 ## Purpose
 Defines the web frontend's global command palette, opened via `Cmd/Ctrl+K` or `/`, for fast navigation and actions across the app.
 ## Requirements
+
 ### Requirement: Global keyboard shortcut opens the command palette
 The web frontend SHALL open a single global command palette when the user presses `Cmd+K` (macOS) or `Ctrl+K` (Windows/Linux). The same palette SHALL also open when the user presses the `/` key while no `input`, `textarea`, `select`, or `contenteditable` element has focus. Pressing the same shortcut again while the palette is open SHALL close it.
 
@@ -151,14 +152,6 @@ The palette SHALL render a backdrop element. Clicking the backdrop SHALL close t
 - **THEN** the palette SHALL remain open
 - **AND** the row's `onSelect` SHALL be invoked
 
-### Requirement: No new design tokens are introduced
-The command palette SHALL render using only CSS custom properties already declared in `apps/web/src/styles/tokens.css`. This change SHALL NOT add new tokens to `tokens.css` and SHALL NOT add a `:root { ... }` block to `apps/web/src/styles.css`.
-
-#### Scenario: tokens.css is unchanged
-- **WHEN** this change is complete
-- **THEN** `apps/web/src/styles/tokens.css` SHALL be byte-identical to its pre-change state in git
-- **AND** the new palette CSS rules in `apps/web/src/styles.css` SHALL reference only existing tokens (`--color-paper`, `--color-ink`, `--surface-slate`, `--radius-cards`, `--shadow-elevated`, `--font-berkeley-mono`, and similar already-declared tokens)
-
 ### Requirement: Out-of-scope follow-ups are not shipped in v1
 The command palette SHALL defer the items in the "Deferred follow-ups" scenario below as out of scope for v1. A future OpenSpec change MAY address each one independently.
 
@@ -207,3 +200,17 @@ The command palette SHALL expose the active visible result through ARIA while DO
 - **THEN** the search input SHALL reference the results list with `aria-controls`
 - **AND** the referenced element SHALL have `role="listbox"`
 
+### Requirement: Command Palette follows semantic visual and typography roles
+The dialog MUST use the raised surface, its input the panel surface, and its hover/active row the hover surface. Primary result text uses primary text; metadata uses tertiary text only where contrast remains WCAG AA and MUST promote to secondary text on the hover surface. Numeric and code-like values use Mono; ordinary labels use Sans. Errors use the danger status role and MUST NOT use market-up red.
+
+#### Scenario: Active result remains readable
+- **WHEN** a result row is hovered or active
+- **THEN** the row MUST use `--surface-hover`
+- **AND** readable metadata MUST use at least `--text-secondary`
+- **AND** active state MUST remain exposed through the existing ARIA contract
+
+#### Scenario: Palette status and data roles stay distinct
+- **WHEN** the palette renders an API error and quantitative ETF metadata
+- **THEN** the error MUST use `--status-danger`
+- **AND** quantitative metadata MUST use `--font-mono`
+- **AND** neither role may use a market-direction token

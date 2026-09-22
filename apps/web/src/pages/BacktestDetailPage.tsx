@@ -195,7 +195,9 @@ function renderBacktestDetail(
       <p className="run-summary">
         <strong>{run.strategy_id}</strong>
         <span aria-hidden="true"> · </span>
-        {formatDate(run.start_date)} to {formatDate(run.end_date)}
+        <span className="mono-compact">{formatDate(run.start_date)}</span>
+        {" to "}
+        <span className="mono-compact">{formatDate(run.end_date)}</span>
         <span aria-hidden="true"> · </span>
         <span className="run-summary-status">{run.status}</span>
       </p>
@@ -230,7 +232,7 @@ function renderBacktestDetail(
 
 function SignalsPanel({ count, offset, retry, setOffset, state }: { count: number; offset: number; retry: () => void; setOffset: (offset: number) => void; state: SignalsState }) {
   return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
-    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <ReadFailure error={state.error} label="Backtest signals" onRetry={retry} /> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <ReadFailure error={state.error} label="Backtest signals" onRetry={retry} /> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells classNames={["mono-compact", "mono-compact", undefined, "mono-compact"]} cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
   </section>;
 }
 
@@ -267,7 +269,7 @@ function EquityCurveChart({
             ["Trade date", formatDate(point.tradeDate)],
             ["Net value", formatNetValue(point.netValue)]
           ].map(([label, value]) => (
-            <DescriptionItem key={label} label={label} value={value} />
+            <DescriptionItem key={label} label={label} value={value} mono />
           ))}
         </dl>
       </div>
@@ -300,7 +302,7 @@ function EquityCurveChart({
           ["Min net value", formatNetValue(geometry.minNetValue)],
           ["Max net value", formatNetValue(geometry.maxNetValue)]
         ].map(([label, value]) => (
-          <DescriptionItem key={label} label={label} value={value} />
+          <DescriptionItem key={label} label={label} value={value} mono />
         ))}
       </dl>
     </div>

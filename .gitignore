@@ -90,9 +90,12 @@ fetch.log
 .workbuddy/
 
 # Whole docs/ directory — kept local, NOT version-controlled.
-# This covers both auto-generated (tokens.md, code-quality-review-*.md)
+# This covers both auto-generated (code-quality-review-*.md)
 # AND manually-authored docs (architecture.md, etc.).
-docs/
+# Exception: the generated token reference (design-system contract artifact)
+# is tracked via the narrow negation below.
+docs/*
+!docs/tokens.md
 
 # Generic logs
 *.log

@@ -255,8 +255,8 @@ it("opens with a Run Header carrying navigation, status, and a one-line summary"
   );
   expect(headerScope.getByText("success")).toBeInTheDocument();
   expect(headerScope.getByText("dual_momentum")).toBeInTheDocument();
-  expect(headerScope.getByText(/2026-01-01 to 2026-12-31/)).toBeInTheDocument();
-  expect(headerScope.getByText(/2 windows/)).toBeInTheDocument();
+  expect(header).toHaveTextContent("2026-01-01 to 2026-12-31");
+  expect(header).toHaveTextContent("2 windows");
   // Execution metadata is off the first screen, in the provenance region.
   expect(header).not.toHaveTextContent("wf_provenance_v1");
   const provenance = screen
@@ -305,29 +305,32 @@ it("presents persisted evidence, provenance, candidates, and stitched OOS reset 
   expect(screen.getByText(/configuration paths are display metadata/i)).toBeInTheDocument();
   expect(screen.getByText("wf_provenance_v1")).toBeInTheDocument();
   expect(screen.getByText("2027-01-04")).toBeInTheDocument();
-  expect(screen.getByText(/Candidates: 3/)).toBeInTheDocument();
-  expect(screen.getByText(/invalid_config: 1/)).toBeInTheDocument();
+  expect(screen.getByText("Candidates:").parentElement).toHaveTextContent("Candidates: 3");
+  expect(screen.getByText("invalid_config:").parentElement).toHaveTextContent("invalid_config: 1");
   expect(screen.getByText("Transitions").nextElementSibling).toHaveTextContent("0/1");
   const totalReturn = screen.getByLabelText("Total return summary");
-  expect(within(totalReturn).getByText("Median: 0.12")).toBeInTheDocument();
-  expect(within(totalReturn).getByText("Population std: 0.01")).toBeInTheDocument();
+  expect(within(totalReturn).getByText("Median:").parentElement).toHaveTextContent("Median: 0.12");
+  expect(within(totalReturn).getByText("Population std:").parentElement).toHaveTextContent("Population std: 0.01");
+  expect(within(totalReturn).getAllByText("0.12").every((element) => element.classList.contains("mono-compact"))).toBe(true);
+  expect(screen.getByText("Candidates:").parentElement?.querySelector(".mono-compact")).not.toBeNull();
   expect(screen.getByText("100.00% (2/2); 2/2 valid; insufficient_evidence")).toBeInTheDocument();
   expect(screen.getByText("Generalization gap").nextElementSibling).toHaveTextContent(
     "mean 0.03; median 0.03; range 0.03 to 0.03"
   );
   const oosMetrics = screen.getByLabelText("OOS strategy metrics for window 0");
-  expect(within(oosMetrics).getByText("Sortino: 1.3")).toBeInTheDocument();
-  expect(within(oosMetrics).getByText("Calmar: 2")).toBeInTheDocument();
+  expect(within(oosMetrics).getByText("Sortino:").parentElement).toHaveTextContent("Sortino: 1.3");
+  expect(within(oosMetrics).getByText("1.3")).toHaveClass("mono-compact");
+  expect(within(oosMetrics).getByText("Calmar:").parentElement).toHaveTextContent("Calmar: 2");
   const equalWeight = screen.getByLabelText("Equal weight monthly metrics for window 0");
-  expect(within(equalWeight).getByText("Tracking error: 0.03")).toBeInTheDocument();
-  expect(within(equalWeight).getByText("Recovery: 2025-06-14")).toBeInTheDocument();
+  expect(within(equalWeight).getByText("Tracking error:").parentElement).toHaveTextContent("Tracking error: 0.03");
+  expect(within(equalWeight).getByText("Recovery:").parentElement).toHaveTextContent("Recovery: 2025-06-14");
   const csi300 = screen.getByLabelText("CSI 300 buy and hold metrics for window 0");
-  expect(within(csi300).getByText("Information ratio: 0.8")).toBeInTheDocument();
-  expect(within(csi300).getByText("Recovery: ongoing")).toBeInTheDocument();
+  expect(within(csi300).getByText("Information ratio:").parentElement).toHaveTextContent("Information ratio: 0.8");
+  expect(within(csi300).getByText("Recovery:").parentElement).toHaveTextContent("Recovery: ongoing");
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
   const stitchedChart = screen.getByRole("img", { name: /stitched OOS equity curve/i });
   expect(stitchedChart).toBeInTheDocument();
-  expect(stitchedChart.querySelector("path")).toHaveAttribute("stroke", "var(--color-acid-lime)");
+  expect(stitchedChart.querySelector("path")).toHaveAttribute("stroke", "var(--chart-primary-line)");
   expect(screen.getByText("0.990000")).toBeInTheDocument();
   expect(screen.getByText("-0.010000")).toBeInTheDocument();
   expect(screen.getByText(/Window 2 reset: 2025-07-01/)).toBeInTheDocument();
@@ -400,13 +403,13 @@ it("presents v2 benchmark-regime aggregates and per-window evidence with count u
   expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
   expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
   const csiWindow = screen.getByLabelText("CSI 300 buy and hold metrics for window 0");
-  expect(within(csiWindow).getByText("CSI 300 ETF proxy Alpha (252D compounded): 0.5")).toBeInTheDocument();
-  expect(within(csiWindow).getByText("CAPM observations (daily sessions): 240")).toBeInTheDocument();
-  expect(within(csiWindow).getByText("Up selected months: 8")).toBeInTheDocument();
-  expect(within(csiWindow).getByText("Down selected months: 3")).toBeInTheDocument();
+  expect(within(csiWindow).getByText("CSI 300 ETF proxy Alpha (252D compounded):").parentElement).toHaveTextContent("CSI 300 ETF proxy Alpha (252D compounded): 0.5");
+  expect(within(csiWindow).getByText("CAPM observations (daily sessions):").parentElement).toHaveTextContent("CAPM observations (daily sessions): 240");
+  expect(within(csiWindow).getByText("Up selected months:").parentElement).toHaveTextContent("Up selected months: 8");
+  expect(within(csiWindow).getByText("Down selected months:").parentElement).toHaveTextContent("Down selected months: 3");
   const equalWeightWindow = screen.getByLabelText("Equal weight monthly metrics for window 0");
   expect(within(equalWeightWindow).queryByText(/Alpha/)).not.toBeInTheDocument();
-  expect(within(equalWeightWindow).getByText("Monthly Up Capture (selected months): 1.2")).toBeInTheDocument();
+  expect(within(equalWeightWindow).getByText("Monthly Up Capture (selected months):").parentElement).toHaveTextContent("Monthly Up Capture (selected months): 1.2");
   // Existing evidence and navigation remain available.
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
   expect(screen.queryByText(/score|pass|fail/i)).not.toBeInTheDocument();
@@ -426,8 +429,8 @@ it.each([
   expect(screen.getByText("CSI 300 ETF proxy Alpha (252D compounded)")).toBeInTheDocument();
   expect(screen.getAllByText("Monthly Up Capture (selected months)").length).toBe(2);
   expect(screen.getAllByText("Monthly Down Capture (selected months)").length).toBe(2);
-  expect(screen.getAllByText(/Up selected months: 8/).length).toBe(2);
-  expect(screen.getAllByText(/Down selected months: 3/).length).toBe(2);
+  expect(screen.getAllByText("Up selected months:").filter((element) => element.parentElement?.textContent?.includes("8")).length).toBe(2);
+  expect(screen.getAllByText("Down selected months:").filter((element) => element.parentElement?.textContent?.includes("3")).length).toBe(2);
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
   expect(screen.getByRole("img", { name: /stitched OOS equity curve/i })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
@@ -574,7 +577,7 @@ it("preserves complete evidence when stitched OOS is unavailable for non-contigu
   expect(within(section as HTMLElement).queryByText("-0.010000")).not.toBeInTheDocument();
   expect(screen.getByText("Total return")).toBeInTheDocument();
   expect(screen.getByText("Sharpe ratio")).toBeInTheDocument();
-  expect(screen.getByText(/Candidates: 3/)).toBeInTheDocument();
+  expect(screen.getByText("Candidates:").parentElement).toHaveTextContent("Candidates: 3");
   expect(screen.getByRole("link", { name: "Backtest #100" })).toHaveAttribute("href", "/backtests/100");
   expect(screen.queryByText(/Window 2 reset/)).not.toBeInTheDocument();
 });

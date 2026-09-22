@@ -3,238 +3,55 @@
 ## Purpose
 Defines the four-rung `card-type-scale` typography ladder (`meta`, `body`, `emphasis`, `display`) exposed as CSS custom properties in `tokens.css`.
 ## Requirements
+
 ### Requirement: Card typography ladder is exposed as four semantic rungs
-
-The web frontend MUST expose a `card-type-scale` ladder in
-`apps/web/src/styles/tokens.css` with exactly four rungs (`meta`,
-`body`, `emphasis`, `display`). Each rung MUST be a pair of CSS
-custom properties: a `<role>-size` token and a `<role>-leading`
-token. The values MUST be:
-
-- `--card-meta-size` resolves to `11px`; `--leading-meta` resolves to `1.4`
-- `--card-body-size` resolves to `14px`; `--leading-body-card` resolves to `1.5`
-- `--card-emphasis-size` resolves to `28px`; `--leading-emphasis` resolves to `1.3`
-- `--card-display-size` resolves to `40px`; `--leading-display-card` resolves to `1.15`
-
-The ladder MUST be reachable from `apps/web/src/styles.css` through
-`var(--card-*)` references without redeclaration.
+The Web frontend MUST retain four quantitative/data rungs in `tokens.css`: meta `11/16px`, body/dense `13/20px`, emphasis/metric `24/30px`, and display/metric-hero `32/36px`. Card titles are a separate language role using the global card-title `16/22px` tokens. Every line-height MUST resolve through a `--leading-*` token.
 
 #### Scenario: every ladder token is declared in tokens.css
-- **WHEN** `apps/web/src/styles/tokens.css` is inspected
-- **THEN** the `:root` block MUST declare
-      `--card-meta-size`, `--leading-meta`, `--card-body-size`,
-      `--leading-body-card`, `--card-emphasis-size`,
-      `--leading-emphasis`, `--card-display-size`, and
-      `--leading-display-card`
-- **AND** each declared value MUST equal the resolution in this
-      requirement (verified by reading the source declaration or by
-      `scripts/build-tokens-reference.mjs`)
+- **WHEN** the card typography tokens are inspected
+- **THEN** all four exact size/leading pairs MUST be declared
+- **AND** the global card-title size/leading pair MUST also be available
 
 #### Scenario: every card type rung is consumed by at least one rule
-- **WHEN** `apps/web/src/styles.css` is searched for
-      `var(--card-meta-size)`, `var(--card-body-size)`,
-      `var(--card-emphasis-size)`, `var(--card-display-size)`
-- **THEN** each token MUST appear in at least one CSS rule
-- **AND** no token from the ladder MAY be declared without any
-      consumer (i.e. dead-on-arrival tokens are non-conforming)
+- **WHEN** card styles are inspected
+- **THEN** every retained rung MUST have a current semantic consumer
+- **AND** no dead compatibility rung MUST remain
 
 ### Requirement: Tracking tokens for meta labels and numeric emphasis
-
-The web frontend MUST declare two tracking (letter-spacing) tokens
-in `apps/web/src/styles/tokens.css`:
-
-- `--tracking-meta` resolves to `0.06em`
-- `--tracking-numeral` resolves to `-0.01em`
-
-`--tracking-meta` MUST be applied to any element that renders the
-meta ladder rung as label text (eyebrow / status pill / form label
-/ `compact-list` dt / `metric` label). `--tracking-numeral` MUST
-be applied together with `font-variant-numeric: tabular-nums` to
-any element that renders emphasis-or-larger numeric content
-(`panel-primary`, `metric` strong, `etf-row-symbol`,
-`fetch-log-entry__time`).
+Meta labels MAY use a restrained tracking token appropriate to 11px labels. Numeric emphasis and display values MUST pair their tracking token with Mono and tabular numerals; ordinary language MUST NOT inherit numeric tracking.
 
 #### Scenario: tracking-meta is declared and applied to meta labels
-- **WHEN** `apps/web/src/styles.css` is searched for any rule
-      that consumes `var(--card-meta-size)`
-- **THEN** the same rule MUST declare
-      `letter-spacing: var(--tracking-meta)`
-- **AND** the rule MUST also declare `text-transform: uppercase`
+- **WHEN** a meta label uses the meta rung
+- **THEN** it MUST use the shared meta tracking and leading tokens
+- **AND** uppercase MUST remain limited to labels where it is already semantically useful
 
 #### Scenario: tabular-nums pairs with tracking-numeral
-- **WHEN** `apps/web/src/styles.css` is searched for any rule
-      that consumes `var(--card-emphasis-size)` or
-      `var(--card-display-size)`
-- **THEN** the same rule MUST declare
-      `font-variant-numeric: tabular-nums`
-- **AND** the rule MUST declare
-      `letter-spacing: var(--tracking-numeral)`
-
-### Requirement: Display font family is exposed for card titles
-
-The web frontend MUST declare `--font-display` in
-`apps/web/src/styles/tokens.css` and load a corresponding
-`@font-face` rule in `apps/web/src/styles.css`. The token value
-MUST chain the editorial display family `Inter Variable` first, followed by
-fallbacks in this exact order:
-
-```
---font-display: "Inter Variable", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-```
-
-(Alignment note: the authoritative `design-system` capability mandates
-`Inter Variable` as the served display family and forbids any `IBM Plex Mono`
-`@font-face`. This capability follows that decision; the earlier
-`IBM Plex Mono` wording is superseded.)
-
-`@font-face` MUST point at a woff2 hosted under
-`apps/web/public/fonts/`. The woff2 file MUST be OFL, SIL, MIT, or
-Apache-2.0 licensed (no commercial-only font may be added).
-
-`--font-display` MUST be applied to `panel-heading h3` (card
--title) and `page-heading h1` (page title). It MUST NOT be applied
-to any text element below subheading size (`compact-list` dt / dd,
-`metric` label / value, `panel-primary`, button text).
-
-#### Scenario: --font-display token and @font-face are paired
-- **WHEN** `apps/web/src/styles/tokens.css` is inspected
-- **THEN** the `:root` block MUST declare `--font-display` with
-      the chained value above (`Inter Variable` first)
-- **AND** `apps/web/src/styles.css` MUST contain at least one
-      `@font-face` rule whose `font-family` is the first chained
-      value (`"Inter Variable"`)
-- **AND** the `src` of that `@font-face` MUST reference a woff2
-      file under `apps/web/public/fonts/` (Regular / Medium /
-      SemiBold weight variants are all allowed and SHOULD all be
-      declared)
-- **AND** `apps/web/index.html` MUST preload the Regular (and
-      optional Medium) woff2 via
-      `<link rel="preload" as="font" type="font/woff2" crossorigin>`
-
-#### Scenario: display font applies only to titles
-- **WHEN** `apps/web/src/styles.css` is searched for any rule
-      declaring `font-family: var(--font-display)`
-- **THEN** the rule's selector MUST match either
-      `.panel-heading h3` or `.page-heading h1` (and documented
-      descendants of those)
-- **AND** no rule MUST apply `var(--font-display)` to elements
-      tagged with `compact-list`, `metric`, `panel-primary`, or
-      `button-*` class selectors
-
-### Requirement: Every card visual role maps to exactly one ladder rung
-
-Each visual role used by the web frontend in or on a card surface MUST map to exactly one rung of the card-type-scale ladder, with the mapping documented in the table below.
-
-| Role | Selector(s) | Rung | Weight |
-|---|---|---|---|
-| Meta label | `.panel-heading span`, `.status-pill`, `.compact-list dt`, `.metric span`, `.backtest-run-form label > span` | meta | 590 (semibold) |
-| Body value | `.compact-list dd`, `.metric strong` (only when the metric is not the numeric headline), `.operation-summary strong`, `.operation-link strong`, `.backtest-run-form input`, `.fetch-log-entry__meta`, `.fetch-log-entry__error p`, `.etf-row-symbol`, `.etf-row-name`, `.etf-row-dot` | body | 510 (medium) for value text, 400 (regular) for input text |
-| Emphasis (card primary value) | `.panel-primary`, `.metric strong` | emphasis | 510 (medium) |
-| Display (detail-page numeric headline) | `.detail-page .metric-card dd` | display | 510 (medium) |
-
-The mapping is total: every visual role above MUST consume its
-rung's size / leading / tracking tokens. No role may consume a
-non-ladder size (e.g. `var(--text-caption)` for body content;
-legacy `var(--text-caption)` may still back the meta label during
-migration but consumers SHOULD migrate to the card-type-scale).
-
-#### Scenario: meta label role uses meta rung
-- **WHEN** `apps/web/src/styles.css` is searched for rules
-      targeting `.panel-heading span`, `.status-pill`,
-      `.compact-list dt`, `.metric span`, or
-      `.backtest-run-form label > span`
-- **THEN** the rule MUST reference `var(--card-meta-size)` for
-      font-size
-- **AND** the rule MUST reference `var(--leading-meta)` for
-      line-height
-- **AND** the rule MUST declare `font-weight: var(--font-weight-semibold)`
-      (or the literal `590`)
-
-#### Scenario: body value role uses body rung
-- **WHEN** `apps/web/src/styles.css` is searched for rules
-      targeting `.compact-list dd`, `.operation-summary strong`,
-      `.operation-link strong`, `.backtest-run-form input`,
-      `.fetch-log-entry__meta`, `.fetch-log-entry__error p`,
-      `.etf-row-symbol`, `.etf-row-name`, or `.etf-row-dot`
-- **THEN** the rule MUST reference `var(--card-body-size)` for
-      font-size
-- **AND** the rule MUST reference `var(--leading-body-card)` for
-      line-height
-
-#### Scenario: emphasis role uses emphasis rung with tabular-nums
-- **WHEN** `apps/web/src/styles.css` is searched for rules
-      targeting `.panel-primary` (within `.dashboard-page` or
-      `.detail-page`) or `.metric strong`
-- **THEN** the rule MUST reference `var(--card-emphasis-size)`
-      for font-size
-- **AND** the rule MUST reference `var(--leading-emphasis)` for
-      line-height
-- **AND** the rule MUST declare
-      `font-variant-numeric: tabular-nums`
-
-#### Scenario: display role uses display rung with display font
-- **WHEN** `apps/web/src/styles.css` is searched for the rule
-      targeting `.detail-page .metric-card dd`
-- **THEN** the rule MUST reference `var(--card-display-size)`
-      for font-size
-- **AND** the rule MUST reference `var(--leading-display-card)`
-      for line-height
-- **AND** the rule MUST declare
-      `font-family: var(--font-berkeley-mono)` (mono on detail
-      headlines preserves numerical comparison)
+- **WHEN** an emphasis or display rung renders quantitative content
+- **THEN** it MUST use `--font-mono`, tabular numerals, and the numeric tracking token
 
 ### Requirement: Dashboard and Detail pages render compact-list identically
-
-Both Dashboard page (`.dashboard-page`) and Detail pages (Signal Detail + Backtest Detail, scoped under `.detail-page`) MUST render `.compact-list` (dt / dd) with identical font-family, font-size, line-height, letter-spacing, and text-transform.
+Dashboard and Detail compact lists MUST retain identical role mappings. Labels and ordinary descriptions use Sans; quantitative values, dates, symbols, parameters, and identifiers use Mono where their content semantics require it.
 
 #### Scenario: dashboard and detail compact-list dt are identical
-- **WHEN** the Dashboard page renders its `.compact-list`
-- **THEN** each `dt`'s font-family MUST resolve to
-      `var(--font-inter-variable)`
-- **AND** its font-size MUST resolve to `var(--card-meta-size)`
-- **AND** its line-height MUST resolve to `var(--leading-meta)`
-- **AND** its letter-spacing MUST resolve to
-      `var(--tracking-meta)`
-- **AND** its text-transform MUST be `uppercase`
-- **AND** the same visual outcome MUST occur on the Detail pages
+- **WHEN** Dashboard and Detail compact-list labels render
+- **THEN** both MUST use `--font-sans`, the same 11px meta size, tracking and transform, and the shared `--leading-body-card: 20px` row leading
 
 #### Scenario: dashboard and detail compact-list dd are identical
-- **WHEN** the Dashboard page renders its `.compact-list`
-- **THEN** each `dd`'s font-family MUST resolve to
-      `var(--font-inter-variable)`
-- **AND** its font-size MUST resolve to `var(--card-body-size)`
-- **AND** its line-height MUST resolve to
-      `var(--leading-body-card)`
-- **AND** its font-weight MUST resolve to
-      `var(--font-weight-medium)` (510)
-- **AND** the same visual outcome MUST occur on the Detail pages
+- **WHEN** Dashboard and Detail compact-list values render
+- **THEN** both MUST use the same dense size and leading
+- **AND** their family MUST be selected by content semantics rather than page ancestry
 
 #### Scenario: dashboard and detail panel-primary are identical
-- **WHEN** the Dashboard page renders a `.panel-primary` element
-      (e.g. strategy_id, signal number, backtest number)
-- **THEN** its font-size MUST resolve to
-      `var(--card-emphasis-size)`
-- **AND** its line-height MUST resolve to
-      `var(--leading-emphasis)`
-- **AND** its font-variant-numeric MUST be `tabular-nums`
-- **AND** the same visual outcome MUST occur on the Detail pages
+- **WHEN** Dashboard and Detail primary numeric values render
+- **THEN** both MUST use the metric role, `--font-mono`, and tabular numerals
 
 ### Requirement: Compact-list baseline alignment covers both pages
-
-`compact-list` rows in both Dashboard page and Detail pages MUST
-keep `dt` (label) and `dd` (value) baseline-aligned within the
-same row. Baseline alignment MUST survive uppercase transforms
-and any size difference between label and value.
+Compact-list rows on Dashboard and Detail pages MUST preserve label/value baseline alignment with the new Sans/Mono metrics. Both `dt` and `dd` MUST use `--leading-body-card: 20px`; this row-layout exception does not change standalone 11/16px meta labels.
 
 #### Scenario: same row dt and dd share the same line-height
-- **WHEN** any Dashboard or Detail page renders a
-      `compact-list` row containing a `dt` and a `dd`
-- **THEN** both elements MUST resolve their `line-height` to the
-      SAME `--leading-*` token (i.e. row height is shared, not
-      per-element)
-- **AND** the rule MUST be achieved by binding both `dt` and
-      `dd` to the same `--leading-*` declaration rather than by
-      coincidence (verifiable by grep)
+- **WHEN** a compact-list row contains an 11px Sans label and a 13px language or numeric value
+- **THEN** both MUST reference `--leading-body-card` and their text baselines MUST align
+- **AND** long or mixed Chinese/Latin values MUST remain contained at narrow viewports
 
 ### Requirement: Descendant-selector overrides for shared classes are removed
 
@@ -256,3 +73,30 @@ selectors (which existed solely to resist cross-page leak) is:
       selectors MUST be supplied by the base shared rule (e.g.
       `.compact-list dt`) instead
 
+### Requirement: Card titles use Sans while quantitative card values use Mono
+Card titles and ordinary language inside cards MUST use `--font-sans`. Quantitative values, ETF symbols, dates, timestamps, parameters, and numeric headlines MUST use `--font-mono`; aligned numbers MUST also use `font-variant-numeric: tabular-nums`. A table or card MUST NOT force every cell into Mono when some cells contain names or descriptions.
+
+#### Scenario: Mixed-content card preserves font semantics
+- **WHEN** a card contains a title, descriptive text, an ETF symbol, and numeric values
+- **THEN** the title and descriptive text MUST use Sans
+- **AND** the symbol and numeric values MUST use Mono
+- **AND** aligned numeric values MUST use tabular numerals
+
+### Requirement: Card visual roles map to research typography rungs
+Meta labels MUST map to meta; dense supporting data MUST map to body; primary metrics MUST map to emphasis; detail-page numeric headlines MUST map to display; card titles MUST use the separate card-title role. Descriptions and names MUST remain Sans even when adjacent to Mono data.
+
+#### Scenario: meta label role uses meta rung
+- **WHEN** a card meta label renders
+- **THEN** it MUST use the 11/16px meta role and the documented label weight, except compact-list row labels use the shared 20px row leading defined below
+
+#### Scenario: body value role uses body rung
+- **WHEN** dense supporting data renders
+- **THEN** it MUST use the 13/20px body/dense role
+
+#### Scenario: emphasis role uses emphasis rung with tabular-nums
+- **WHEN** a primary metric renders
+- **THEN** it MUST use the 24/30px emphasis role, `--font-mono`, and tabular numerals
+
+#### Scenario: display role uses display rung with Mono
+- **WHEN** a detail-page numeric headline renders
+- **THEN** it MUST use the 32/36px display role, `--font-mono`, and tabular numerals

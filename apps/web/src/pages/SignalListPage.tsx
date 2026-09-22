@@ -121,7 +121,7 @@ function renderSignalList(
           <tbody>
             {state.data.map((signal) => (
               <tr key={signal.signal_id}>
-                <td>
+                <td className="mono-compact">
                   <Link
                     className="operation-link"
                     state={{ listHref }}
@@ -130,13 +130,13 @@ function renderSignalList(
                     #{signal.signal_id}
                   </Link>
                 </td>
-                <td>{formatDate(signal.signal_date)}</td>
-                <td>{signal.config_version}</td>
+                <td className="mono-compact">{formatDate(signal.signal_date)}</td>
+                <td className="mono-compact">{signal.config_version}</td>
                 <td>{formatNullableText(signal.result)}</td>
                 <td>
                   <SourceBadge source={signal.source} />
                 </td>
-                <td>{formatTimestamp(signal.generated_at)}</td>
+                <td className="mono-compact">{formatTimestamp(signal.generated_at)}</td>
               </tr>
             ))}
           </tbody>

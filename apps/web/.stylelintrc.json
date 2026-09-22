@@ -15,11 +15,16 @@
       "/^border-radius$/": [
         "/^[0-9]+(px|em|rem)$/"
       ],
-      "/^background-color$/": [
-        "/var\\(--color-acid-lime\\)/"
-      ],
-      "/^outline-color$/": [
-        "/var\\(--color-acid-lime\\)/"
+      "/^(background|background-color|border|border-color|border-left-color|color|fill|stroke|outline-color|text-decoration-color)$/": [
+        "/(^|[\\s,(])#[0-9a-fA-F]{3,8}\\b/",
+        "/(^|[\\s,(])rgba?\\(/",
+        "/var\\(--color-(void|carbon|obsidian|graphite|smoke|ash|fog|mist|bone|paper|acid-lime|pulse-green|coral-red|signal-teal|iris-violet|lavender)\\)/",
+        "/var\\(--surface-(void|carbon|obsidian|slate)\\)/",
+        "/var\\(--color-series-\\d\\)/",
+        "/var\\(--font-inter-variable\\)/",
+        "/var\\(--font-berkeley-mono\\)/",
+        "/var\\(--font-display\\)/",
+        "/var\\(--feedback-accent[\\w-]*\\)/"
       ]
     },
     "color-no-invalid-hex": true,
@@ -36,12 +41,14 @@
     "selector-class-pattern": null,
     "declaration-block-no-shorthand-property-overrides": null
   },
+  "ignoreFiles": ["**/__fixtures__/**"],
   "overrides": [
     {
       "files": ["src/styles/tokens.css"],
       "rules": {
         "selector-class-pattern": null,
-        "no-empty-source": null
+        "no-empty-source": null,
+        "declaration-property-value-disallowed-list": null
       }
     }
   ]

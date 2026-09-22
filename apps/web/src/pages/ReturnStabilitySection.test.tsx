@@ -140,6 +140,12 @@ describe("ReturnStabilitySection", () => {
     expect(screen.getAllByText("0.130000").length).toBeGreaterThan(0);
     expect(screen.getAllByText("2026-01-01").length).toBeGreaterThan(0);
     expect(screen.getAllByText("2026-03-31").length).toBeGreaterThan(0);
+    const rollingTable = screen.getByRole("table", { name: "Exact Rolling Return values by window" });
+    const rollingCells = within(within(rollingTable).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(rollingCells[0]).not.toHaveClass("mono-compact");
+    expect(rollingCells[1]).toHaveClass("mono-compact");
+    expect(rollingCells[2]).toHaveClass("mono-compact");
+    expect(rollingCells[3]).toHaveClass("mono-compact");
 
     // Switch to Volatility to surface its exact API values.
     fireEvent.click(within(selector).getByRole("button", { name: "Rolling Volatility" }));
@@ -164,6 +170,10 @@ describe("ReturnStabilitySection", () => {
     expect(
       screen.getAllByText(/does not certify that every official session/)
     ).not.toHaveLength(0);
+    const monthlyTable = screen.getByRole("table", { name: "Strategy monthly returns" });
+    const monthlyCells = within(within(monthlyTable).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(monthlyCells.slice(0, 5).every((cell) => cell.classList.contains("mono-compact"))).toBe(true);
+    expect(monthlyCells[5]).not.toHaveClass("mono-compact");
   });
 
   it("switches calendar entity via the selector", () => {
@@ -209,15 +219,15 @@ describe("ReturnStabilitySection", () => {
   it("assigns explicit key colors to rolling lines, swatches, and end-labels", () => {
     renderSection();
 
-    expect(screen.getByTestId("rolling-line-return-strategy")).toHaveAttribute("stroke", "var(--color-series-1)");
-    expect(screen.getByTestId("rolling-line-return-equal_weight_monthly")).toHaveAttribute("stroke", "var(--color-series-2)");
+    expect(screen.getByTestId("rolling-line-return-strategy")).toHaveAttribute("stroke", "var(--chart-series-1)");
+    expect(screen.getByTestId("rolling-line-return-equal_weight_monthly")).toHaveAttribute("stroke", "var(--chart-series-2)");
 
     const legend = screen.getByRole("list", { name: "Rolling Return legend" });
-    expect(within(legend).getByTestId("equity-curve-swatch-strategy")).toHaveStyle({ backgroundColor: "var(--color-series-1)" });
-    expect(within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly")).toHaveStyle({ backgroundColor: "var(--color-series-2)" });
+    expect(within(legend).getByTestId("equity-curve-swatch-strategy")).toHaveStyle({ backgroundColor: "var(--chart-series-1)" });
+    expect(within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly")).toHaveStyle({ backgroundColor: "var(--chart-series-2)" });
 
-    expect(screen.getByTestId("rolling-end-label-return-strategy")).toHaveAttribute("fill", "var(--color-series-1)");
-    expect(screen.getByTestId("rolling-end-label-return-equal_weight_monthly")).toHaveAttribute("fill", "var(--color-series-2)");
+    expect(screen.getByTestId("rolling-end-label-return-strategy")).toHaveAttribute("fill", "var(--chart-series-1)");
+    expect(screen.getByTestId("rolling-end-label-return-equal_weight_monthly")).toHaveAttribute("fill", "var(--chart-series-2)");
   });
 
   it("renders date x-axis ticks and metric-correct y-axis ticks", () => {

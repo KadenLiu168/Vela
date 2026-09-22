@@ -36,13 +36,13 @@ export function ExperimentConfigSection({ run }: ExperimentConfigSectionProps) {
       <h3 id="experiment-config-heading">Experiment config</h3>
       <dl className="compact-list config-list">
         {runFields.map(([label, value]) => (
-          <DescriptionItem key={label} label={label} value={value} />
+          <DescriptionItem key={label} label={label} value={value} mono />
         ))}
       </dl>
       {parameterEntries.length > 0 ? (
         <dl className="compact-list config-list parameter-list">
           {parameterEntries.map((entry) => (
-            <DescriptionItem key={entry.key} label={entry.label} value={entry.value} />
+            <DescriptionItem key={entry.key} label={entry.label} value={entry.value} mono />
           ))}
         </dl>
       ) : null}

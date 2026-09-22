@@ -1,0 +1,366 @@
+## ADDED Requirements
+
+### Requirement: Semantic color roles are independent
+The design system MUST declare the following exact semantic color roles in the canonical `tokens.css` source:
+
+- surfaces: `--surface-canvas: #090c12`, `--surface-panel: #0f141d`, `--surface-raised: #151c28`, `--surface-hover: #1c2533`
+- borders: `--border-subtle: #263244`, `--border-strong: #35445a`
+- text: `--text-primary: #f4f7fb`, `--text-secondary: #b7c0ce`, `--text-tertiary: #7f8a9a`
+- interaction: `--interactive-primary: #6d8eff`, `--interactive-primary-hover: #87a4ff`, `--interactive-primary-pressed: #587af2`, `--focus-ring-color: #87a4ff`
+- status: `--status-success: #45d483`, `--status-warning: #f6c85f`, `--status-danger: #ff5c7a`, `--status-info: #52c7ea`
+- China market: `--market-up: #ff7a59`, `--market-down: #2fc6a2`, `--market-flat: #b7c0ce`
+- chart primitives: `--chart-primary-line: #7c9cff`, `--chart-grid: #263244`, `--chart-axis: #7f8a9a`, `--chart-crosshair: #7f8a9a`
+
+Components MUST consume these semantic roles rather than color-named or component-specific palette tokens. Interaction, status, market, and chart roles MUST NOT substitute for one another even when their rendered hues are similar.
+
+#### Scenario: Components consume semantic roles
+- **WHEN** CSS and inline SVG styles under `apps/web/src/` are inspected
+- **THEN** surfaces, borders, readable text, interactions, feedback, market movement, and chart marks MUST reference the corresponding semantic token family
+- **AND** component-specific palette tokens and literal palette hex values MUST NOT appear outside `tokens.css`
+
+#### Scenario: Legacy visual tokens are absent
+- **WHEN** the completed Web source is searched for legacy `color-(void|carbon|obsidian|graphite|smoke|ash|fog|mist|bone|paper|acid-lime|pulse-green|coral-red|signal-teal|iris-violet|lavender)`, `surface-(void|carbon|obsidian|slate)`, or `color-series-*` tokens
+- **THEN** no runtime declaration or consumer MUST remain under `apps/web/src/`
+- **AND** test fixtures naming forbidden tokens solely to verify rejection are permitted and MUST NOT be bundled into runtime code
+
+### Requirement: System feedback and China-market direction remain separate
+Loading, ready, success, warning, error, and information states MUST resolve through the status vocabulary. Empty/neutral surfaces MUST use readable text and neutral border roles without implying an operational outcome. Positive, negative, and flat investment returns MUST resolve through the China-market vocabulary, where positive is red, negative is green, and flat is neutral. A status token MUST NOT encode market direction, and a market token MUST NOT encode operational state.
+
+#### Scenario: Feedback uses status roles
+- **WHEN** a feedback message, load state, error surface, success result, warning, or informational state renders
+- **THEN** its accent MUST originate from `--status-success`, `--status-warning`, `--status-danger`, or `--status-info`
+- **AND** it MUST NOT use any `--market-*` or `--interactive-*` token
+
+#### Scenario: Returns use China-market roles
+- **WHEN** a positive, negative, or neutral return is rendered with directional color
+- **THEN** it MUST use `--market-up`, `--market-down`, or `--market-flat` respectively
+- **AND** the direction MUST remain available through text, sign, or another non-color cue
+
+### Requirement: Geist Sans and Geist Mono are real runtime families
+The Web frontend MUST load Geist Sans Variable and Geist Mono Variable as distinct project-hosted WOFF2 families. `--font-sans` MUST resolve first to `"Geist Sans"` and provide Chinese and system sans fallbacks; `--font-mono` MUST resolve first to `"Geist Mono"` and provide system monospace fallbacks. Body, navigation, buttons, headings, descriptions, labels, ordinary table text, and status messages MUST use Sans. Prices, percentages, returns, dates, timestamps, ETF symbols, parameters, API metadata, metrics, numeric table cells, chart axes, and code-like data MUST use Mono and MUST use tabular numerals where column alignment matters.
+
+#### Scenario: Dual font roles load independently
+- **WHEN** `tokens.css`, the global stylesheet, and the built page are inspected
+- **THEN** `--font-sans` and `--font-mono` MUST be declared and consumed
+- **AND** separate normal-style variable WOFF2 `@font-face` rules MUST load `"Geist Sans"` and `"Geist Mono"`
+- **AND** both referenced resources MUST exist in the production build
+
+#### Scenario: Legacy font aliases are absent
+- **WHEN** `apps/web/src/` is searched after migration
+- **THEN** `--font-inter-variable`, `--font-display`, and `--font-berkeley-mono` MUST have no runtime declarations or consumers; negative-test fixtures may name them solely to verify rejection
+
+#### Scenario: Language and data roles use the intended family
+- **WHEN** representative headings, descriptions, numeric metrics, ETF symbols, dates, tables, charts, and Command Palette values render
+- **THEN** language/UI roles MUST resolve through `--font-sans`
+- **AND** quantitative or code-like roles MUST resolve through `--font-mono`
+- **AND** ordinary names and descriptions MUST NOT be forced into Mono merely because they share a row with numeric data
+
+### Requirement: Vendored Geist resources are pinned and licensed
+The two runtime fonts MUST come from the official Geist v1.7.2 distribution, retain the official OFL-1.1 notice, and be reproducibly identifiable by source URL, release tag, filename, and SHA-256. The Sans WOFF2 SHA-256 MUST be `2ffebe993e969069a9789d15164b7715d42491b5835516c5e3b935d5f81b05f1`; the Mono WOFF2 SHA-256 MUST be `afaacc4c5fbba89d2ebf7a02dc4070208540874592a5504d57175782fe893101`. Both MUST expose a `wght` axis covering 100–900; the CSS range MAY be narrowed to the weights Vela consumes.
+
+#### Scenario: Font provenance is verifiable
+- **WHEN** the committed font resources and provenance material are inspected
+- **THEN** the two WOFF2 hashes, official v1.7.2 source, and OFL-1.1 notice MUST match this requirement
+- **AND** no Inter font resource or Inter-only subset input MUST remain in the runtime or font-generation source directories
+
+#### Scenario: Both first-screen families are preloaded
+- **WHEN** `apps/web/index.html` and the global `@font-face` rules are inspected
+- **THEN** exactly two font preloads MUST exist, one for the Sans resource and one for the Mono resource
+- **AND** each preload URL MUST equal its corresponding `@font-face` URL
+
+#### Scenario: Font replacement preserves usable fallback and loading
+- **WHEN** mixed Chinese/Latin text, digits, punctuation, minus, arrows, and UI symbols render
+- **THEN** supported glyphs MUST use the intended Geist family and other glyphs MUST have a usable system fallback
+- **AND** both faces MUST retain `font-display: swap` without an obsolete Inter subset range
+- **AND** font tests MUST inspect the actual binaries and the browser review MUST verify both loaded faces and fallback rendering
+
+### Requirement: Celestial Blue is reserved for interaction identity
+Celestial Blue MUST express primary actions, interactive selection, focus, active interaction, and product identity. It MUST NOT express success, error, market movement, generic chart identity, or loading merely because a state needs color. A rendered view MUST continue to present at most one prominent primary CTA.
+
+#### Scenario: Primary interaction uses Celestial Blue
+- **WHEN** a primary button renders in its resting, hover, or pressed state
+- **THEN** it MUST use `--interactive-primary`, `--interactive-primary-hover`, or `--interactive-primary-pressed` respectively
+- **AND** its foreground MUST remain a dark semantic surface color with WCAG AA contrast
+
+#### Scenario: Focus remains visible
+- **WHEN** an interactive element receives `:focus-visible`
+- **THEN** its outline MUST use `--focus-ring-color`
+- **AND** the focus indication MUST remain clearly distinguishable from adjacent surfaces
+
+### Requirement: Research-workstation responsive presentation is preserved
+The semantic color and typography migration MUST preserve the existing 1024px, 900px, and 720px responsive behavior, `prefers-reduced-motion`, and programmatic accessibility. Wider Mono glyphs MUST NOT introduce page-level horizontal overflow or hide actions, chart labels, or Command Palette results.
+
+#### Scenario: Required responsive states remain usable
+- **WHEN** the application is reviewed above and below the existing 1024px, 900px, and 720px breakpoints
+- **THEN** page headings, navigation, metric cards, tables, charts, Command Palette, and mobile full-width buttons MUST remain readable and operable
+- **AND** numeric overflow MUST stay contained by the existing table/chart overflow strategy rather than producing page-level overflow
+
+### Requirement: Monospace typography uses the Geist Mono semantic role
+The monospace token MUST be named for its semantic role as `--font-mono`; its first runtime family MUST be `"Geist Mono"`. Consumers MUST select it because content is quantitative or code-like, not because a component historically used a display-font alias.
+
+#### Scenario: token name is --font-mono
+- **WHEN** `tokens.css` declares the monospace family token
+- **THEN** the canonical token MUST be `--font-mono`
+- **AND** its fallback chain MUST be `"Geist Mono", "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Monaco, Consolas, monospace`
+
+#### Scenario: every consumer uses the canonical token name
+- **WHEN** a CSS rule requests monospace typography
+- **THEN** it MUST use `var(--font-mono)`
+- **AND** no legacy font-family token MAY remain
+
+### Requirement: Research-workstation type scale is complete
+The prior marketing-scale ladder is replaced by research-workstation roles: page title `36/40`, section title `22/28`, card title `16/22`, metric hero `32/36` Mono, metric `24/30` Mono, body `15/22`, dense/table `13/20`, label `12/16`, meta `11/16`, and chart axis `11/16` Mono. Every size and line-height MUST be declared as a token, and every CSS `line-height` consumer MUST continue to reference a `--leading-*` token.
+
+#### Scenario: every named size is declared in tokens.css
+- **WHEN** typography tokens are inspected
+- **THEN** every role and exact size/line-height pair above MUST be declared
+
+#### Scenario: --text-body and --leading-body resolve to 15px / 22px
+- **WHEN** the body role is inspected after migration
+- **THEN** `--text-body` MUST resolve to `15px`
+- **AND** its paired leading token MUST resolve to `22px`
+
+#### Scenario: unused --text-body-sm / --text-body-lg aliases do not regress
+- **WHEN** obsolete scale aliases have no consumer
+- **THEN** they MUST be removed rather than preserved as speculative compatibility tokens
+
+#### Scenario: card-type-scale ladder is declared in tokens.css
+- **WHEN** card typography is inspected
+- **THEN** its data ladder MUST use the exact role mappings defined by the modified `card-type-scale` capability
+
+#### Scenario: card-type-scale rungs map onto card visual roles
+- **WHEN** text renders on a card
+- **THEN** language, label, and quantitative roles MUST select the documented role token and Sans/Mono family rather than inheriting one font indiscriminately
+
+## MODIFIED Requirements
+
+### Requirement: Design tokens live in a single canonical file
+The canonical on-disk source of design tokens for the Web frontend MUST be `apps/web/src/styles/tokens.css`. The file MUST contain a single `:root { ... }` block declaring every design token used by the frontend.
+
+#### Scenario: tokens.css is imported by the stylesheet
+- **WHEN** the Web app builds
+- **THEN** `apps/web/src/styles.css` MUST import `./styles/tokens.css` before rules that consume its tokens
+- **AND** no other CSS file under `apps/web/src/` MUST declare a `:root` token block
+
+#### Scenario: introducing a competing token declaration is non-conforming
+- **WHEN** another CSS file declares a design token in `:root`
+- **THEN** the declaration MUST be rejected as a competing source of truth
+
+#### Scenario: token catalog is the documented source of truth
+- **WHEN** a developer inspects the token catalog
+- **THEN** its leading comment MUST list semantic Surfaces, Borders, Text, Interaction, Status, China market, Charts, Typography, Spacing, Radius, Shadow, Layout, Motion, and shared component aliases
+
+### Requirement: Implementation-only tokens live in tokens.css
+All semantic design tokens, including status aliases and `--focus-ring-color`, MUST live in `tokens.css`. Transitional `--feedback-accent-*` aliases MAY exist only in `tokens.css` while consumers are migrated and MUST resolve to `--status-*`; the completed change MUST remove an alias that has no remaining consumer.
+
+#### Scenario: feedback accents resolve to the named palette tokens
+- **WHEN** a feedback alias is retained during migration
+- **THEN** it MUST resolve to the matching `--status-*` source role
+- **AND** ordinary component rules MUST prefer the source status token directly
+
+#### Scenario: focus ring uses --focus-ring-color
+- **WHEN** an element receives `:focus-visible`
+- **THEN** its outline color MUST use `var(--focus-ring-color)` resolving to `#87a4ff`
+
+#### Scenario: card and pill radii use the named aliases
+- **WHEN** card and pill elements render
+- **THEN** their existing `--radius-cards` and `--radius-pills` mappings MUST remain unchanged
+
+### Requirement: Token and component changes flow through OpenSpec
+Any addition, removal, rename, or value change to a canonical design token or documented component contract MUST be declared by an active, strict-valid OpenSpec Change before implementation. Implementation, review, and verification occur while the Change is active; archive occurs only after the implementation is accepted.
+
+#### Scenario: adding a new token requires an OpenSpec change
+- **WHEN** a new token is needed
+- **THEN** an active Change MUST declare its name, value, role, and affected consumers before it appears in `tokens.css`
+- **AND** archive MUST NOT be treated as an implementation prerequisite
+
+#### Scenario: renaming a token requires a same-change migration
+- **WHEN** an existing token is renamed
+- **THEN** declarations, consumers, specs, tests, and generated documentation MUST migrate in the same Change
+- **AND** the old name MUST be absent before archive
+
+### Requirement: Buttons follow a three-variant contract
+Every Web button MUST remain exactly one of `primary`, `secondary`, or `tertiary`. Operation groups MUST remain secondary except for the single view-level primary CTA.
+
+#### Scenario: primary button uses the accent fill
+- **WHEN** a button declares `primary`
+- **THEN** its resting, hover, and pressed fills MUST use the three `--interactive-primary*` tokens
+- **AND** its foreground MUST use `--surface-canvas`
+
+#### Scenario: secondary button is outline-only
+- **WHEN** a button declares `secondary`
+- **THEN** it MUST use a transparent or subtle surface, `--border-subtle`, and `--text-secondary`
+
+#### Scenario: tertiary button is text-only
+- **WHEN** a button declares `tertiary`
+- **THEN** it MUST have no visual chrome and transition from `--text-secondary` to `--text-primary`
+
+#### Scenario: buttons in one operation group share a tier
+- **WHEN** an operation group contains multiple buttons
+- **THEN** all MUST be secondary except the single explicitly designated view-level primary CTA
+
+### Requirement: Secondary buttons render a selected state when pressed
+A pressed secondary button MUST expose selection through `aria-pressed="true"` and a semantic selected treatment without becoming another primary CTA.
+
+#### Scenario: pressed secondary button uses the inverted fill
+- **WHEN** a secondary button has `aria-pressed="true"`
+- **THEN** its selected surface MUST use `--surface-hover`, its border MUST use `--border-strong`, and its text MUST use `--text-primary`
+
+#### Scenario: selection controls declare a variant className
+- **WHEN** a single-select filter renders buttons
+- **THEN** every option MUST carry exactly one existing button variant class
+- **AND** selection MUST remain programmatically exposed through `aria-pressed`
+
+### Requirement: Card primitives are available as `--card-*` tokens
+Shared card aliases MUST resolve to `--surface-raised`, `--border-subtle`, existing spacing/radius tokens, and no shadow stronger than the existing subtle elevation vocabulary. Surface contrast plus border MUST remain the primary hierarchy mechanism.
+
+#### Scenario: --card-* tokens are declared in tokens.css
+- **WHEN** card aliases are inspected
+- **THEN** `--card-bg` MUST resolve to `--surface-raised` and `--card-border-color` to `--border-subtle`
+- **AND** padding, radius, gap, and optional subtle shadow MUST remain centralized
+
+#### Scenario: --card-* tokens do not duplicate declarations
+- **WHEN** other CSS files are inspected
+- **THEN** they MUST consume, not redeclare, `--card-*` tokens
+
+### Requirement: Dashboard heading uses a discrete responsive ladder
+Every page heading MUST use the shared 36px/40px page-title tokens and approximately 580 weight. Dashboard MUST NOT introduce a divergent heading size.
+
+#### Scenario: all pages share one heading type scale
+- **WHEN** the page heading rule is inspected
+- **THEN** it MUST use the shared page-title size, leading, tracking, and weight tokens without `clamp()`
+
+#### Scenario: dashboard heading has no divergent override
+- **WHEN** Dashboard styles are inspected
+- **THEN** they MUST NOT override the shared heading typography
+
+#### Scenario: mobile media query does not reintroduce a larger size
+- **WHEN** responsive rules are inspected
+- **THEN** they MUST NOT make Dashboard headings larger than the shared page-title role
+
+### Requirement: Design system invariants are enforced by Stylelint
+Stylelint MUST continue to reject ancestry-only button styling, literal line-heights, and literal border-radius values. The existing separate canonical-root guard and concentrated static tests MUST reject competing `:root` blocks; final validation MUST explicitly execute that guard. The legacy acid-lime rule MUST be replaced by enforcement that component CSS does not use removed visual tokens or literal palette colors and that interaction, status, market, and chart semantic families are not substituted for their documented roles where statically enforceable.
+
+#### Scenario: lint:css script exists and runs
+- **WHEN** `npm --prefix apps/web run lint:css` runs
+- **THEN** it MUST fail on configured design-system violations and pass conforming source
+
+#### Scenario: descendant-selector button styling is flagged
+- **WHEN** a button is styled only by ancestry
+- **THEN** CSS lint MUST report it
+
+#### Scenario: literal line-height is flagged
+- **WHEN** a rule uses a literal line-height
+- **THEN** CSS lint MUST direct the contributor to a `--leading-*` token
+
+#### Scenario: literal border-radius is flagged
+- **WHEN** a rule uses a literal radius
+- **THEN** CSS lint MUST direct the contributor to a radius token
+
+#### Scenario: acid-lime fill misuse is flagged
+- **WHEN** source uses a removed acid-lime token or a literal palette hex outside `tokens.css`
+- **THEN** automated static checks MUST fail and direct the contributor to the appropriate semantic family
+
+### Requirement: Token reference doc is generated from tokens.css
+The zero-dependency generator MUST continue to produce `docs/tokens.md` from `tokens.css`, including alias resolution and all new semantic groups. The generated file MUST be tracked despite the repository's broader local-doc ignore policy.
+
+#### Scenario: tokens.md is generated and committed
+- **WHEN** the token-doc command runs
+- **THEN** `docs/tokens.md` MUST match the current canonical tokens and be unignored during implementation
+- **AND** after explicitly authorized delivery it MUST be present in `git ls-files`; implementation validation MUST NOT itself require staging or committing
+
+#### Scenario: token aliases resolve to concrete values
+- **WHEN** a token aliases another token
+- **THEN** the generated reference MUST show both the alias and resolved value
+
+#### Scenario: generator has zero runtime dependencies
+- **WHEN** the generator is inspected
+- **THEN** it MUST use only Node built-ins
+
+### Requirement: Low-contrast palette colors are not readable text colors
+Ordinary readable text MUST use `--text-primary`, `--text-secondary`, or `--text-tertiary` only where the rendered foreground/background pair meets WCAG AA. Status text, market-direction figures, and chart identity labels MAY use their corresponding semantic token family when that pair meets WCAG AA. Because `--text-tertiary` on `--surface-hover` is below 4.5:1, hover and active rows containing readable tertiary metadata MUST promote that metadata to at least `--text-secondary`.
+
+#### Scenario: readable text avoids ash and smoke
+- **WHEN** readable text is styled
+- **THEN** it MUST use a semantic text token or an appropriate status, market, or chart identity token meeting WCAG AA
+
+#### Scenario: command palette metadata remains readable
+- **WHEN** a Command Palette row is hovered or active
+- **THEN** readable metadata on `--surface-hover` MUST use at least `--text-secondary`
+
+#### Scenario: neutral status text remains readable
+- **WHEN** a neutral or empty status renders
+- **THEN** its text MUST meet WCAG AA on its rendered surface
+
+#### Scenario: decorative uses may stay subdued
+- **WHEN** a border, grid line, or non-informational separator is subdued
+- **THEN** it MAY use border/chart structural tokens and MUST NOT become the sole carrier of information
+
+### Requirement: Vertical rhythm between headings and content
+Existing heading-to-content spacing contracts MUST remain unchanged, but page and section headings MUST use `--font-sans` and their new semantic type roles.
+
+#### Scenario: list page title is separated from main content
+- **WHEN** a list page title precedes its first content surface
+- **THEN** the existing `--space-xl` separation MUST remain
+
+#### Scenario: detail section heading is separated from body content
+- **WHEN** a detail section heading renders
+- **THEN** it MUST use `--font-sans`, the section-title size/leading/weight roles, and the existing 16px bottom spacing
+
+### Requirement: Categorical multi-series color palette
+The chart palette MUST declare `--chart-series-1: #7c9cff`, `--chart-series-2: #46c2b3`, `--chart-series-3: #f3c969`, `--chart-series-4: #d88cff`, `--chart-series-5: #ff8a65`, and `--chart-series-6: #8fcb6a`. Strategy, equal-weight monthly, and CSI 300 buy-and-hold MUST map to series 1, 2, and 3 by stable key; unknown keys MUST deterministically map to roles 4–6.
+
+#### Scenario: Palette declares exact controlled tokens
+- **WHEN** chart tokens are inspected
+- **THEN** all six exact series tokens MUST be declared in `tokens.css`
+
+#### Scenario: Series color maps stably by key
+- **WHEN** a supported or unknown series is resolved
+- **THEN** resolution MUST depend on its key rather than array position or sibling presence
+
+#### Scenario: Direct-label colors remain readable
+- **WHEN** a series color is used for text
+- **THEN** it MUST meet WCAG AA on the rendered chart surface
+- **AND** a textual legend or label MUST still communicate identity
+
+#### Scenario: Tokens stay in the single canonical file
+- **WHEN** series tokens are declared
+- **THEN** declarations MUST exist only in canonical `tokens.css`
+
+## REMOVED Requirements
+
+### Requirement: Acid-lime is reserved for the per-view primary CTA
+**Reason**: Acid lime is removed from the Vela identity and replaced by semantic Celestial Blue interaction roles.
+**Migration**: Preserve the one-primary-CTA hierarchy through the added Celestial Blue interaction requirement.
+
+### Requirement: Inter Variable webfont is a size-bounded reproducible subset
+**Reason**: The runtime moves to the official Geist Sans and Geist Mono variable WOFF2 resources.
+**Migration**: Use the pinned dual-font provenance and license requirement.
+
+### Requirement: Inter subset preserves Vela typography coverage
+**Reason**: Inter-specific glyph and feature coverage no longer describes the runtime fonts.
+**Migration**: Retain Chinese/system fallback behavior through `--font-sans` and validate the actual Geist resources.
+
+### Requirement: Only the Inter subset is preloaded
+**Reason**: Both render-critical Geist families are loaded.
+**Migration**: Preload the exact Sans and Mono WOFF2 resources referenced by `@font-face`.
+
+### Requirement: Inter Variable OpenType features are active for default text
+**Reason**: `cv01`, `zero`, and the current feature contract are Inter-specific and not supported identically by Geist.
+**Migration**: Remove the Inter feature token and rely on the verified Geist defaults plus tabular numerals for quantitative alignment.
+
+### Requirement: Display font token resolves to Inter Variable
+**Reason**: Vela no longer has a separate display-font abstraction.
+**Migration**: Headings and titles use `--font-sans`; quantitative display values use `--font-mono`.
+
+### Requirement: Inter Variable is the sole loaded font
+**Reason**: The new runtime intentionally loads a real Sans/Mono pair.
+**Migration**: Use the dual Geist runtime requirement.
+
+### Requirement: Monospace font token name follows design intent
+**Reason**: The old requirement and scenario title embed retired Berkeley Mono terminology.
+**Migration**: The new requirement declares the `--font-mono` / Geist Mono semantic role.
+
+### Requirement: Type scale is complete and body renders at 16 / 1.5
+**Reason**: The retired 16/1.5 label conflicts with the 15px/22px research role.
+**Migration**: The new requirement preserves all updated role/scenario coverage.

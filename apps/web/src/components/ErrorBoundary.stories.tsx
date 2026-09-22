@@ -4,7 +4,7 @@ import { FeedbackMessage } from "./FeedbackMessage";
 
 export const HappyPath = () => (
   <ErrorBoundary>
-    <div style={{ padding: "1em", border: "1px solid var(--color-graphite)" }}>
+    <div style={{ padding: "1em", border: "1px solid var(--border-subtle)" }}>
       Children render normally when nothing throws.
     </div>
   </ErrorBoundary>

@@ -70,9 +70,9 @@ function renderSignalDetail(
     <article className="dashboard-panel">
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Signal date" value={formatDate(signal.signal_date)} />
-        <DescriptionItem label="Strategy" value={signal.strategy_id} />
-        <DescriptionItem label="Config version" value={signal.config_version} />
+        <DescriptionItem label="Signal date" mono value={formatDate(signal.signal_date)} />
+        <DescriptionItem label="Strategy" mono value={signal.strategy_id} />
+        <DescriptionItem label="Config version" mono value={signal.config_version} />
         <DescriptionItem label="Result" value={formatNullableText(signal.result)} />
         <DescriptionItem label="Source" value={signal.source} />
         {signal.source === "backtest" && signal.backtest_run_id !== null ? (
@@ -86,7 +86,7 @@ function renderSignalDetail(
           />
         ) : null}
         <DescriptionItem label="Fallback" value={formatBoolean(signal.is_fallback)} />
-        <DescriptionItem label="Generated at" value={formatTimestamp(signal.generated_at)} />
+        <DescriptionItem label="Generated at" mono value={formatTimestamp(signal.generated_at)} />
       </dl>
       <section className="holdings-section" aria-labelledby="target-holdings-heading">
         <h3 id="target-holdings-heading">Target holdings</h3>
@@ -118,12 +118,12 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
         <tbody>
           {positions.map((position) => (
             <tr key={`${position.exchange}:${position.symbol}`}>
-              <td>{position.exchange}</td>
-              <td>{position.symbol}</td>
+              <td className="mono-compact">{position.exchange}</td>
+              <td className="mono-compact">{position.symbol}</td>
               <td>{position.name}</td>
-              <td>{formatTargetWeight(position.target_weight)}</td>
-              <td>{formatNullableInteger(position.rank)}</td>
-              <td>{formatDecimal(position.score, 6)}</td>
+              <td className="mono-compact">{formatTargetWeight(position.target_weight)}</td>
+              <td className="mono-compact">{formatNullableInteger(position.rank)}</td>
+              <td className="mono-compact">{formatDecimal(position.score, 6)}</td>
               <td>{formatBoolean(position.is_fallback)}</td>
             </tr>
           ))}

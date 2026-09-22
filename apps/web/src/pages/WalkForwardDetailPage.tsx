@@ -109,7 +109,32 @@ const WINDOW_TABLE_COLUMNS = [
   "Train Sharpe",
   "OOS strategy",
   "Fixed benchmarks"
-];
+]
+
+/* Mono is applied per column by content semantics: windows, dates, counts,
+ * parameters, and metrics render in Mono; owner labels, evidence statuses,
+ * and the composite OOS/benchmark summaries stay Sans. */
+const TAIL_CELL_CLASSNAMES = [
+  "mono-compact",
+  undefined,
+  "mono-compact",
+  "mono-compact",
+  "mono-compact",
+  "mono-compact",
+  "mono-compact",
+  "mono-compact",
+  undefined
+] as const;
+
+const WINDOW_CELL_CLASSNAMES = [
+  "mono-compact",
+  "mono-compact",
+  undefined,
+  undefined,
+  "mono-compact",
+  undefined,
+  undefined
+] as const;
 
 export function WalkForwardDetailPage({ runId }: WalkForwardDetailPageProps) {
   const location = useLocation();
@@ -191,8 +216,8 @@ function EvidenceSection({ data }: { data: WalkForwardDetailResponse }) {
         ))}
       </div>
       <dl className="compact-list">
-        <DescriptionItem label="Positive-window rate" value={formatRate(evidence.positive_window_rate)} />
-        <DescriptionItem label="Generalization gap" value={formatMetricSummary(evidence.generalization_gap)} />
+        <DescriptionItem label="Positive-window rate" mono value={formatRate(evidence.positive_window_rate)} />
+        <DescriptionItem label="Generalization gap" mono value={formatMetricSummary(evidence.generalization_gap)} />
       </dl>
       <BenchmarkEvidence data={data} />
       <ParameterStability evidence={evidence} />
@@ -243,6 +268,7 @@ function TailDistributionEvidence({ evidence }: { evidence: PersistedWalkForward
               Object.entries(window.owners).map(([owner, ownerEvidence]) => (
                 <tr key={`${window.ordinal}-${owner}`}>
                   <TableCells
+                    classNames={TAIL_CELL_CLASSNAMES}
                     cells={[
                       window.ordinal,
                       TAIL_OWNER_LABELS[owner] ?? owner,
@@ -270,12 +296,14 @@ function MetricCard({ label, metric }: { label: string; metric: WalkForwardMetri
   return (
     <div aria-label={`${label} summary`} className="metric-card">
       <span className="metric-card-label">{label}</span>
-      <strong>Mean: {formatMetricValue(metric.mean)}</strong>
-      <span>Median: {formatMetricValue(metric.median)}</span>
-      <span>Range: {formatMetricValue(metric.min)} to {formatMetricValue(metric.max)}</span>
-      <span>Population std: {formatMetricValue(metric.std)}</span>
+      <strong>Mean: <span className="mono-compact">{formatMetricValue(metric.mean)}</span></strong>
+      <span>Median: <span className="mono-compact">{formatMetricValue(metric.median)}</span></span>
+      <span>
+        Range: <span className="mono-compact">{formatMetricValue(metric.min)} to {formatMetricValue(metric.max)}</span>
+      </span>
+      <span>Population std: <span className="mono-compact">{formatMetricValue(metric.std)}</span></span>
       <span className="metric-card-meta">
-        {metric.evidence_status} · {metric.valid_count}/{metric.window_count} valid
+        {metric.evidence_status} · <span className="mono-compact">{metric.valid_count}/{metric.window_count}</span> valid
       </span>
     </div>
   );
@@ -293,20 +321,20 @@ function BenchmarkEvidence({ data }: { data: WalkForwardDetailResponse }) {
           <h4>{key}</h4>
           <dl className="compact-list">
             {BENCHMARK_METRIC_FIELDS.map(([label, field]) => (
-              <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field])} />
+              <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field])} mono />
             ))}
-            <DescriptionItem label="Outperformance rate" value={formatRate(benchmark.outperformance_rate)} />
+            <DescriptionItem label="Outperformance rate" mono value={formatRate(benchmark.outperformance_rate)} />
             {key === "csi_300_buy_hold" &&
             benchmark.capm_alpha &&
             benchmark.capm_beta &&
             benchmark.capm_r_squared ? (
               CAPM_FIELDS.map(([label, field]) => (
-                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} />
+                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} mono />
               ))
             ) : null}
             {CAPTURE_RATIO_FIELDS.map(([label, field]) =>
               benchmark[field] ? (
-                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} />
+                <DescriptionItem key={field} label={label} value={formatMetricSummary(benchmark[field]!)} mono />
               ) : null
             )}
           </dl>
@@ -328,7 +356,7 @@ function ParameterStability({ evidence }: { evidence: PersistedWalkForwardEviden
             ["Transitions", `${formatInteger(value.transition_count)}/${formatInteger(value.comparison_count)}`],
             ["Comparisons", formatInteger(value.comparison_count)]
           ].map(([label, itemValue]) => (
-            <DescriptionItem key={label} label={label} value={itemValue} />
+            <DescriptionItem key={label} label={label} value={itemValue} mono />
           ))}
         </dl>
       ))}
@@ -365,7 +393,7 @@ function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
             ["Finished at", formatTimestamp(data.run.finished_at)],
             ["Created at", formatTimestamp(data.run.created_at)]
           ].map(([label, value]) => (
-            <DescriptionItem key={label} label={label} value={value} />
+            <DescriptionItem key={label} label={label} value={value} mono />
           ))}
         </dl>
       </div>
@@ -374,17 +402,17 @@ function ProvenanceSection({ data }: { data: WalkForwardDetailResponse }) {
       </p>
       <dl className="compact-list">
         {inputFields.map(([label, value]) => (
-          <DescriptionItem key={label} label={label} value={value} />
+          <DescriptionItem key={label} label={label} value={value} mono />
         ))}
         {isV2 ? (
           <>
-            <DescriptionItem label="Resolution policy" value={manifest.resolution_policy_version} />
-            <DescriptionItem label="Raw / derived sessions" value={`${manifest.raw_price_row_count} / ${manifest.derived_session_count}`} />
+            <DescriptionItem label="Resolution policy" mono value={manifest.resolution_policy_version} />
+            <DescriptionItem label="Raw / derived sessions" mono value={`${manifest.raw_price_row_count} / ${manifest.derived_session_count}`} />
             {manifest.active_etfs.map((etf) => (
               <DescriptionItem
                 key={`${etf.exchange}:${etf.symbol}`}
                 label={`${etf.exchange}:${etf.symbol} listing date`}
-                value={etf.listing_date}
+                mono value={etf.listing_date}
               />
             ))}
           </>
@@ -454,7 +482,9 @@ function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
                     ["Eligible", window.eligible_count],
                     ["Skipped", window.skipped_count]
                   ] as [string, number][]).map(([label, count]) => (
-                    <div key={label}>{label}: {formatInteger(count)}</div>
+                    <div key={label}>
+                      {label}: <span className="mono-compact">{formatInteger(count)}</span>
+                    </div>
                   ))}
                   <div>{formatSkipReasons(window.skip_reason_counts)}</div>
                 </>
@@ -474,6 +504,7 @@ function WindowSection({ data }: { data: WalkForwardDetailResponse }) {
               return (
                 <tr key={window.ordinal}>
                   <TableCells
+                    classNames={WINDOW_CELL_CLASSNAMES}
                     cells={[
                       window.ordinal,
                       `${formatDate(window.train_start)} to ${formatDate(window.train_end)} / ${formatDate(window.test_start)} to ${formatDate(window.test_end)}`,
@@ -525,21 +556,32 @@ function BenchmarkMetrics({
       <WindowMetricRows value={benchmark} />
       <DrawdownDuration value={benchmark} />
       {BENCHMARK_METRIC_FIELDS.map(([label, key]) => (
-        <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+        <div key={key}>
+          {label}: <span className="mono-compact">{formatDecimal(benchmark[key], 4)}</span>
+        </div>
       ))}
       {benchmark.key === "csi_300_buy_hold" ? (
         <>
           {CAPM_FIELDS.map(([label, key]) => (
-            <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+            <div key={key}>
+              {label}: <span className="mono-compact">{formatDecimal(benchmark[key], 4)}</span>
+            </div>
           ))}
-          <div>CAPM observations (daily sessions): {formatNullableInteger(benchmark.capm_observation_count)}</div>
+          <div>
+            CAPM observations (daily sessions):{" "}
+            <span className="mono-compact">{formatNullableInteger(benchmark.capm_observation_count)}</span>
+          </div>
         </>
       ) : null}
       {CAPTURE_RATIO_FIELDS.map(([label, key]) => (
-        <div key={key}>{label}: {formatDecimal(benchmark[key], 4)}</div>
+        <div key={key}>
+          {label}: <span className="mono-compact">{formatDecimal(benchmark[key], 4)}</span>
+        </div>
       ))}
       {CAPTURE_COUNT_FIELDS.map(([label, key]) => (
-        <div key={key}>{label}: {formatNullableInteger(benchmark[key])}</div>
+        <div key={key}>
+          {label}: <span className="mono-compact">{formatNullableInteger(benchmark[key])}</span>
+        </div>
       ))}
     </section>
   );
@@ -547,7 +589,9 @@ function BenchmarkMetrics({
 
 function WindowMetricRows({ value }: { value: Pick<WalkForwardOosBacktest, (typeof WINDOW_METRIC_FIELDS)[number][1]> }) {
   return WINDOW_METRIC_FIELDS.map(([label, key]) => (
-    <div key={key}>{label}: {formatDecimal(value[key], 4)}</div>
+    <div key={key}>
+      {label}: <span className="mono-compact">{formatDecimal(value[key], 4)}</span>
+    </div>
   ));
 }
 
@@ -560,12 +604,25 @@ type DrawdownDurationValue = Pick<
 >;
 
 function DrawdownDuration({ value }: { value: DrawdownDurationValue }) {
-  return [
-    `Longest drawdown: ${formatNullableInteger(value.longest_drawdown_duration_sessions)} sessions`,
-    `Peak: ${formatDate(value.longest_drawdown_peak_date)}`,
-    `Trough: ${formatDate(value.longest_drawdown_trough_date)}`,
-    `Recovery: ${formatDrawdownRecovery(value)}`
-  ].map((text) => <div key={text}>{text}</div>);
+  const recovery = formatDrawdownRecovery(value);
+  const recoveryIsDate = recovery !== "ongoing" && recovery !== "n/a";
+  return (
+    <>
+      <div>
+        Longest drawdown: <span className="mono-compact">{formatNullableInteger(value.longest_drawdown_duration_sessions)}</span>{" "}
+        sessions
+      </div>
+      <div>
+        Peak: <span className="mono-compact">{formatDate(value.longest_drawdown_peak_date)}</span>
+      </div>
+      <div>
+        Trough: <span className="mono-compact">{formatDate(value.longest_drawdown_trough_date)}</span>
+      </div>
+      <div>
+        Recovery: <span className={recoveryIsDate ? "mono-compact" : undefined}>{recovery}</span>
+      </div>
+    </>
+  );
 }
 
 function formatMetricValue(value: number | null): string {
@@ -588,7 +645,19 @@ function formatRate(rate: {
   return `${value} (${rate.numerator}/${rate.denominator}); ${rate.valid_count}/${rate.window_count} valid; ${rate.evidence_status}`;
 }
 
-function formatSkipReasons(reasons: Record<string, number>): string {
+function formatSkipReasons(reasons: Record<string, number>): ReactNode {
   const entries = Object.entries(reasons);
-  return entries.length === 0 ? "No skip reasons" : `Skip reasons: ${entries.map(([key, value]) => `${key}: ${value}`).join(", ")}`;
+  if (entries.length === 0) {
+    return "No skip reasons";
+  }
+  return (
+    <>
+      Skip reasons: {entries.map(([key, value], index) => (
+        <span key={key}>
+          {index > 0 ? ", " : ""}
+          {key}: <span className="mono-compact">{formatInteger(value)}</span>
+        </span>
+      ))}
+    </>
+  );
 }

@@ -263,7 +263,7 @@ function MatrixRow({ row }: { row: ComparisonRow }) {
     <tr data-testid={`comparison-row-${row.key}`}>
       <th scope="row">{row.label}</th>
       {row.cells.map((cell, index) => (
-        <td className={bestIndexes.has(index) ? "comparison-best" : undefined} key={index}>
+        <td className={bestIndexes.has(index) ? "mono-compact comparison-best" : "mono-compact"} key={index}>
           {cell}
           {bestIndexes.has(index) ? <span className="comparison-best-badge">Best</span> : null}
         </td>

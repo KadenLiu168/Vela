@@ -256,6 +256,7 @@ function RollingTable({
         entity.data.rolling.map((point) => (
           <tr key={`${entity.key}-${point.trade_date}`}>
             <TableCells
+              classNames={[undefined, "mono-compact", "mono-compact", "mono-compact"]}
               cells={[
                 entity.name,
                 formatDate(point.window_start_date),
@@ -352,6 +353,7 @@ function CalendarTable({
         {buckets.map((bucket) => (
           <tr key={`${granularity}-${bucket.period}`}>
             <TableCells
+              classNames={["mono-compact", "mono-compact", "mono-compact", "mono-compact"]}
               cells={[
                 bucket.period,
                 formatDate(bucket.first_date),
@@ -359,7 +361,7 @@ function CalendarTable({
                 bucket.observation_count
               ]}
             />
-            <td className={returnCellClass(bucket.total_return)}>
+            <td className={`mono-compact ${returnCellClass(bucket.total_return)}`}>
               {formatNullableText(bucket.total_return)}
             </td>
             <TableCells cells={[bucket.is_partial ? "partial" : "complete"]} />

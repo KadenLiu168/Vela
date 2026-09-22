@@ -293,7 +293,7 @@ function renderWalkForwardList(
           <tbody>
             {state.data.runs.map((run) => (
               <tr key={run.run_id}>
-                <td>
+                <td className="mono-compact">
                   <Link
                     className="operation-link"
                     state={{ listHref }}
@@ -303,11 +303,11 @@ function renderWalkForwardList(
                   </Link>
                 </td>
                 <td>{run.status}</td>
-                <td>{run.finished_at === null ? "—" : formatTimestamp(run.finished_at)}</td>
-                <td>{run.strategy_id}</td>
-                <td>{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
-                <td>{run.window_count}</td>
-                <td>{`${run.provenance_version} / ${run.evidence_version}`}</td>
+                <td className="mono-compact">{run.finished_at === null ? "—" : formatTimestamp(run.finished_at)}</td>
+                <td className="mono-compact">{run.strategy_id}</td>
+                <td className="mono-compact">{`${formatDate(run.start_date)} to ${formatDate(run.end_date)}`}</td>
+                <td className="mono-compact">{run.window_count}</td>
+                <td className="mono-compact">{`${run.provenance_version} / ${run.evidence_version}`}</td>
                 <td className="mono-compact">
                   {compactChecksum(run.config_checksum)} / {compactChecksum(run.input_data_checksum)}
                 </td>

@@ -53,9 +53,9 @@ function WalkForwardEvidence({ walkForward }: { walkForward: DashboardWalkForwar
         <DescriptionItem label="Status" value={walkForwardStatusLabel(walkForward.status)} />
         <DescriptionItem
           label="Test range"
-          value={`${formatDate(walkForward.start_date)} to ${formatDate(walkForward.end_date)}`}
+          mono value={`${formatDate(walkForward.start_date)} to ${formatDate(walkForward.end_date)}`}
         />
-        <DescriptionItem label="Windows" value={formatInteger(walkForward.window_count)} />
+        <DescriptionItem label="Windows" mono value={formatInteger(walkForward.window_count)} />
       </dl>
 
       {walkForward.oos === null ? (

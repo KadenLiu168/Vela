@@ -19,9 +19,12 @@ export function WalkForwardRunHeaderSection({ backHref, run }: WalkForwardRunHea
       <p className="run-summary">
         <strong>{run.strategy_id}</strong>
         <span aria-hidden="true"> · </span>
-        {formatDate(run.start_date)} to {formatDate(run.end_date)}
+        <span className="mono-compact">{formatDate(run.start_date)}</span>
+        {" to "}
+        <span className="mono-compact">{formatDate(run.end_date)}</span>
         <span aria-hidden="true"> · </span>
-        {formatInteger(run.window_count)} {run.window_count === 1 ? "window" : "windows"}
+        <span className="mono-compact">{formatInteger(run.window_count)}</span>{" "}
+        {run.window_count === 1 ? "window" : "windows"}
         <span aria-hidden="true"> · </span>
         <span className="run-summary-status">{run.status}</span>
       </p>

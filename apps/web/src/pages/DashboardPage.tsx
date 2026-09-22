@@ -249,14 +249,6 @@ export function DashboardPage({
   const backtestStatusPill = deriveBacktestStatusPill(dashboardState, data);
   const fetchStatusPill = deriveFetchStatusPill(dashboardState, data);
 
-  const barColor = (category: string | null | undefined): string => {
-    if (category == null) return "var(--color-fog)";
-    if (category.startsWith("equity_cn") || category.startsWith("bond")) return "var(--color-coral-red)";
-    if (category.startsWith("equity_us")) return "var(--color-iris-violet)";
-    if (category.startsWith("equity_hk")) return "var(--color-signal-teal)";
-    return "var(--color-fog)";
-  };
-
   return (
     <section className="page dashboard-page">
       <div className="page-heading dashboard-heading">
@@ -371,7 +363,7 @@ export function DashboardPage({
             <div className="etf-row-list">
               {data.market_data.etf_list.map((etf) => (
                 <div className="etf-row" key={`${etf.exchange}:${etf.symbol}`}>
-                  <span className="etf-row-bar" style={{ backgroundColor: barColor(etf.category) }} />
+                  <span className="etf-row-bar" />
                   <span className="etf-row-symbol">{etf.symbol}</span>
                   <span className="etf-row-dot" aria-hidden="true">·</span>
                   <span className="etf-row-name">{etf.name}</span>
@@ -391,19 +383,20 @@ export function DashboardPage({
           <PanelHeading eyebrow="Strategy" title="Parameters" />
           <strong className="panel-primary">{data?.strategy.strategy_id ?? "Loading"}</strong>
           <dl className="compact-list">
-            <DescriptionItem label="Version" value={data?.strategy.version ?? "Loading"} />
+            <DescriptionItem label="Version" value={data?.strategy.version ?? "Loading"} mono />
             <DescriptionItem label="Type" value={data?.strategy.type ?? "Loading"} />
             {data?.strategy.type === "dual_momentum" ? <>
-              <DescriptionItem label="Momentum windows" value={formatMomentumWindows({
+              <DescriptionItem label="Momentum windows" mono value={formatMomentumWindows({
                 longWindowDays: data.strategy.parameters.momentum.long_window_days,
                 shortWindowDays: data.strategy.parameters.momentum.short_window_days
               })} />
-              <DescriptionItem label="Score weights" value={formatScoreWeights(data.strategy.parameters.score_weights)} />
-              <DescriptionItem label="Top N" value={formatInteger(data.strategy.parameters.selection.top_n)} />
-              <DescriptionItem label="Defensive assets" value={formatDefensiveAssets(data.strategy.parameters.defense.assets)} />
+              <DescriptionItem label="Score weights" mono value={formatScoreWeights(data.strategy.parameters.score_weights)} />
+              <DescriptionItem label="Top N" mono value={formatInteger(data.strategy.parameters.selection.top_n)} />
+              <DescriptionItem label="Defensive assets" mono value={formatDefensiveAssets(data.strategy.parameters.defense.assets)} />
             </> : null}
             <DescriptionItem
               label="Trading cost"
+              mono
               value={data ? `${formatCompactNumber(data.strategy.costs.transaction_cost_bps)} bps` : "Loading"}
             />
             <DescriptionItem label="Universe" value={data?.strategy.universe_config ?? "Loading"} />
@@ -585,10 +578,10 @@ function SignalGenerationSummary({ result }: { result: StrategySignalGenerationR
     >
       <strong>Signal generation {result.status}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Signal" value={`#${formatInteger(result.signal_id)}`} />
-        <DescriptionItem label="Signal date" value={formatDate(result.signal_date)} />
+        <DescriptionItem label="Signal" mono value={`#${formatInteger(result.signal_id)}`} />
+        <DescriptionItem label="Signal date" mono value={formatDate(result.signal_date)} />
         <DescriptionItem label="Result" value={formatNullableText(result.result)} />
-        <DescriptionItem label="Positions" value={formatInteger(result.positions.length)} />
+        <DescriptionItem label="Positions" mono value={formatInteger(result.positions.length)} />
       </dl>
       {result.error_message ? <p className="operation-guidance">{result.error_message}</p> : null}
     </FeedbackMessage>
@@ -605,12 +598,12 @@ function MarketDataFetchSummary({ result }: { result: MarketDataFetchResponse })
     >
       <strong>Market data fetch {result.status}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Fetched" value={formatRows(result.rows_fetched)} />
-        <DescriptionItem label="Inserted" value={formatRows(result.rows_inserted)} />
-        <DescriptionItem label="Updated" value={formatRows(result.rows_updated)} />
+        <DescriptionItem label="Fetched" mono value={formatRows(result.rows_fetched)} />
+        <DescriptionItem label="Inserted" mono value={formatRows(result.rows_inserted)} />
+        <DescriptionItem label="Updated" mono value={formatRows(result.rows_updated)} />
         {hasFailures ? (
           <>
-            <DescriptionItem label="Failed symbols" value={formatFailedSymbols(result.failed_symbols)} />
+            <DescriptionItem label="Failed symbols" mono value={formatFailedSymbols(result.failed_symbols)} />
             <DescriptionItem label="Error summary" value={formatNullableText(result.error_message)} />
           </>
         ) : null}
@@ -632,15 +625,15 @@ function BacktestRunSummary({ result }: { result: BacktestRunResponse }) {
     >
       <strong>Backtest run {result.status}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Run" value={`#${formatInteger(result.run_id)}`} />
+        <DescriptionItem label="Run" mono value={`#${formatInteger(result.run_id)}`} />
         <DescriptionItem label="Status" value={result.status} />
-        <DescriptionItem label="Trading days" value={formatInteger(result.trading_day_count)} />
-        <DescriptionItem label="Signals" value={formatInteger(result.signal_count)} />
-        <DescriptionItem label="Total return" value={formatRatioAsPercent(result.total_return)} />
-        <DescriptionItem label="CAGR (calendar-time)" value={formatRatioAsPercent(result.annualized_return)} />
-        <DescriptionItem label="Max drawdown" value={formatRatioAsPercent(result.max_drawdown)} />
-        <DescriptionItem label="Annualized volatility (252D)" value={formatRatioAsPercent(result.volatility)} />
-        <DescriptionItem label="Sharpe (daily returns, 252D)" value={formatNullableText(result.sharpe_ratio)} />
+        <DescriptionItem label="Trading days" mono value={formatInteger(result.trading_day_count)} />
+        <DescriptionItem label="Signals" mono value={formatInteger(result.signal_count)} />
+        <DescriptionItem label="Total return" mono value={formatRatioAsPercent(result.total_return)} />
+        <DescriptionItem label="CAGR (calendar-time)" mono value={formatRatioAsPercent(result.annualized_return)} />
+        <DescriptionItem label="Max drawdown" mono value={formatRatioAsPercent(result.max_drawdown)} />
+        <DescriptionItem label="Annualized volatility (252D)" mono value={formatRatioAsPercent(result.volatility)} />
+        <DescriptionItem label="Sharpe (daily returns, 252D)" mono value={formatNullableText(result.sharpe_ratio)} />
       </dl>
       <Link className="operation-link" to={`/backtests/${result.run_id}`}>
         View backtest detail
@@ -742,7 +735,7 @@ function SignalSummary({
     <>
       <strong className="panel-primary">Signal #{signal.signal_id}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Signal date" value={formatDate(signal.signal_date)} />
+        <DescriptionItem label="Signal date" mono value={formatDate(signal.signal_date)} />
         <DescriptionItem label="Status" value={signal.status} />
         <DescriptionItem label="Result" value={formatNullableText(signal.result)} />
         <DescriptionItem
@@ -799,11 +792,13 @@ function TargetHoldings({ positions }: { positions: DashboardSignalPosition[] })
         <tbody>
           {positions.map((position) => (
             <tr key={`${position.exchange}:${position.symbol}`}>
-              <td>{position.symbol}</td>
+              <td className="mono-compact">{position.symbol}</td>
               <td>{position.name}</td>
-              <td>{position.target_weight === null ? EMPTY_VALUE : formatTargetWeight(position.target_weight)}</td>
-              <td>{formatNullableInteger(position.rank)}</td>
-              <td>{formatDecimal(position.score, 6)}</td>
+              <td className="mono-compact">
+                {position.target_weight === null ? EMPTY_VALUE : formatTargetWeight(position.target_weight)}
+              </td>
+              <td className="mono-compact">{formatNullableInteger(position.rank)}</td>
+              <td className="mono-compact">{formatDecimal(position.score, 6)}</td>
             </tr>
           ))}
         </tbody>
@@ -837,9 +832,9 @@ function BacktestSummary({
     <>
       <strong className="panel-primary">Backtest #{backtest.run_id}</strong>
       <dl className="compact-list">
-        <DescriptionItem label="Range" value={`${formatDate(backtest.start_date)} to ${formatDate(backtest.end_date)}`} />
+        <DescriptionItem label="Range" mono value={`${formatDate(backtest.start_date)} to ${formatDate(backtest.end_date)}`} />
         <DescriptionItem label="Status" value={backtest.status} />
-        <DescriptionItem label="Config version" value={backtest.config_version} />
+        <DescriptionItem label="Config version" mono value={backtest.config_version} />
       </dl>
       <dl
         aria-label="Strategy performance headline metrics"

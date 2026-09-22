@@ -1,0 +1,25 @@
+/*
+ * Negative fixture — intentionally violates the design-system Stylelint
+ * rules and the legacy-token contract. It MUST fail `lint:css` and MUST
+ * stay outside production bundles (never imported). Excluded from
+ * stylelint via `ignoreFiles` and from static legacy-token scans so only
+ * dedicated guard tests read it.
+ *
+ * Expected violations:
+ *   - literal palette hex in a color-bearing property
+ *   - literal rgba() fill
+ *   - removed legacy tokens
+ *   - literal line-height and border-radius
+ */
+
+.legacy-fixture {
+  background-color: #e4f222;
+  color: rgba(228, 242, 34, 0.9);
+  border: 1px solid var(--color-acid-lime);
+  border-left-color: var(--surface-obsidian);
+  fill: var(--color-series-1);
+  stroke: var(--color-coral-red);
+  font-family: var(--font-berkeley-mono);
+  line-height: 1.5;
+  border-radius: 8px;
+}

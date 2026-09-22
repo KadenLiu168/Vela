@@ -44,12 +44,12 @@ function contrastRatio(foreground: string, background: string): number {
 
 describe("categorical series tokens", () => {
   const expectedSeriesValues = {
-    "color-series-1": "#e4f222", // var(--color-acid-lime)
-    "color-series-2": "#02b8cc", // var(--color-signal-teal)
-    "color-series-3": "#4f8cff",
-    "color-series-4": "#eb5757", // var(--color-coral-red)
-    "color-series-5": "#f2b84b",
-    "color-series-6": "#d96bd8"
+    "chart-series-1": "#7c9cff",
+    "chart-series-2": "#46c2b3",
+    "chart-series-3": "#f3c969",
+    "chart-series-4": "#d88cff",
+    "chart-series-5": "#ff8a65",
+    "chart-series-6": "#8fcb6a"
   };
 
   it("declares the six exact categorical series tokens in the :root block", () => {
@@ -64,30 +64,29 @@ describe("categorical series tokens", () => {
 
   it("lists the categorical series group in the leading token catalog", () => {
     const catalog = TOKENS_CSS.slice(0, TOKENS_CSS.indexOf(":root"));
-    expect(catalog).toMatch(/categorical series/i);
+    expect(catalog).toMatch(/charts/i);
   });
 
   it("declares each series token only inside tokens.css", () => {
-    const declarations = TOKENS_CSS.match(/--color-series-\d:\s*[^;]+;/g);
+    const declarations = TOKENS_CSS.match(/--chart-series-\d:\s*[^;]+;/g);
     expect(declarations?.length).toBe(6);
   });
 
   it.each(Object.entries(expectedSeriesValues))(
-    "meets WCAG AA normal-text contrast for %s on --surface-obsidian",
+    "meets WCAG AA normal-text contrast for %s on --surface-raised",
     (_token, hex) => {
-      // --surface-obsidian resolves to --color-obsidian (#161718).
-      const obsidian = resolveToken("surface-obsidian");
-      expect(obsidian).toBe("#161718");
-      expect(contrastRatio(hex, obsidian)).toBeGreaterThanOrEqual(4.5);
+      const raised = resolveToken("surface-raised");
+      expect(raised).toBe("#151c28");
+      expect(contrastRatio(hex, raised)).toBeGreaterThanOrEqual(4.5);
     }
   );
 });
 
 describe("seriesColor(key)", () => {
   it("maps the three current supported keys to distinct explicit tokens", () => {
-    expect(seriesColor("strategy")).toBe("var(--color-series-1)");
-    expect(seriesColor("equal_weight_monthly")).toBe("var(--color-series-2)");
-    expect(seriesColor("csi_300_buy_hold")).toBe("var(--color-series-3)");
+    expect(seriesColor("strategy")).toBe("var(--chart-series-1)");
+    expect(seriesColor("equal_weight_monthly")).toBe("var(--chart-series-2)");
+    expect(seriesColor("csi_300_buy_hold")).toBe("var(--chart-series-3)");
     expect(new Set(Object.values(SERIES_COLOR_BY_KEY)).size).toBe(3);
   });
 
@@ -103,12 +102,12 @@ describe("seriesColor(key)", () => {
     const first = seriesColor("unknown_series");
     const second = seriesColor("unknown_series");
     expect(first).toBe(second);
-    expect(first).toMatch(/var\(--color-series-[456]\)/);
+    expect(first).toMatch(/var\(--chart-series-[456]\)/);
   });
 
   it("does not fall back onto a current identity token", () => {
-    expect(seriesColor("unknown_series")).not.toBe("var(--color-series-1)");
-    expect(seriesColor("unknown_series")).not.toBe("var(--color-series-2)");
-    expect(seriesColor("unknown_series")).not.toBe("var(--color-series-3)");
+    expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-1)");
+    expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-2)");
+    expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-3)");
   });
 });

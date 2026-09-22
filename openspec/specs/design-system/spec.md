@@ -3,183 +3,83 @@
 ## Purpose
 Defines the canonical web design-token system: every CSS custom property lives in `apps/web/src/styles/tokens.css` as a single `:root` block, wired via `@import` and referenced through `var(--*)`.
 ## Requirements
-### Requirement: Design tokens live in a single canonical file
 
-The canonical on-disk source of design tokens for the web frontend MUST be
-`apps/web/src/styles/tokens.css`. The file MUST be a single
-`:root { ... }` block declaring every CSS custom property the web
-frontend uses as a design token (color, surface, typography, spacing,
-radius, shadow, layout, or feedback accent).
+### Requirement: Design tokens live in a single canonical file
+The canonical on-disk source of design tokens for the Web frontend MUST be `apps/web/src/styles/tokens.css`. The file MUST contain a single `:root { ... }` block declaring every design token used by the frontend.
 
 #### Scenario: tokens.css is imported by the stylesheet
-- **WHEN** the web app builds
-- **THEN** `apps/web/src/styles.css` MUST contain
-      `@import "./tokens.css";` (resolved relative to
-      `apps/web/src/styles/`) at the top of the file
-- **AND** `apps/web/src/styles.css` MUST NOT contain a
-      `:root { ... }` block
-- **AND** every other `.css` file under `apps/web/src/` MUST NOT
-      contain a `:root { ... }` block
+- **WHEN** the Web app builds
+- **THEN** `apps/web/src/styles.css` MUST import `./styles/tokens.css` before rules that consume its tokens
+- **AND** no other CSS file under `apps/web/src/` MUST declare a `:root` token block
 
 #### Scenario: introducing a competing token declaration is non-conforming
-- **WHEN** any CSS file under `apps/web/src/` (other than
-      `tokens.css`) declares a CSS custom property inside a
-      `:root { ... }` block
-- **THEN** the change that introduces that declaration is
-      non-conforming with this capability
+- **WHEN** another CSS file declares a design token in `:root`
+- **THEN** the declaration MUST be rejected as a competing source of truth
 
 #### Scenario: token catalog is the documented source of truth
-- **WHEN** a developer needs to know whether a CSS variable exists
-      or what role it plays
-- **THEN** they SHOULD read `apps/web/src/styles/tokens.css` first
-- **AND** the file MUST contain a leading comment block listing the
-      token groups it declares (Colors, Surfaces, Typography,
-      Spacing, Radius, Shadow, Feedback accents, Layout, Motion)
-
-### Requirement: Monospace font token name follows design intent
-
-The monospace font token MUST be named after the design intent
-(Berkeley Mono in the Linear reference system), not after the current
-runtime implementation.
-
-#### Scenario: token name is --font-berkeley-mono
-- **WHEN** `tokens.css` declares the monospace family token
-- **THEN** the token name MUST be `--font-berkeley-mono`
-- **AND** the value MUST chain
-      `"Inter Variable", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
-      in that exact order
-- **AND** the value's first entry (`"Inter Variable"`) MUST match
-      the `font-family` declared by the `@font-face` rule for the
-      Inter Variable woff2 in `apps/web/src/styles.css`
-
-#### Scenario: every consumer uses the canonical token name
-- **WHEN** any CSS rule under `apps/web/src/` references the
-      monospace family token
-- **THEN** the reference MUST use `var(--font-berkeley-mono)`
-- **AND** no CSS rule MUST use `var(--font-jetbrains-mono)`
+- **WHEN** a developer inspects the token catalog
+- **THEN** its leading comment MUST list semantic Surfaces, Borders, Text, Interaction, Status, China market, Charts, Typography, Spacing, Radius, Shadow, Layout, Motion, and shared component aliases
 
 ### Requirement: Implementation-only tokens live in tokens.css
-
-The implementation-only tokens listed below MUST live in `tokens.css`
-(today they are declared only inside `apps/web/src/styles.css :root`):
-`--text-micro`, `--text-label`, `--text-body`, `--leading-body`,
-every `--feedback-accent-*` (`--feedback-accent`,
-`--feedback-accent-loading`, `--feedback-accent-success`,
-`--feedback-accent-error`, `--feedback-accent-info`,
-`--feedback-accent-empty`), `--focus-ring-color`, `--radius-cards`,
-`--radius-pills`, and `--surface-slate`.
+All semantic design tokens, including status aliases and `--focus-ring-color`, MUST live in `tokens.css`. Transitional `--feedback-accent-*` aliases MAY exist only in `tokens.css` while consumers are migrated and MUST resolve to `--status-*`; the completed change MUST remove an alias that has no remaining consumer.
 
 #### Scenario: feedback accents resolve to the named palette tokens
-- **WHEN** any UI element signals feedback (loading, success, error,
-      info, or empty state)
-- **THEN** its accent color MUST come from one of
-      `var(--feedback-accent-loading)`,
-      `var(--feedback-accent-success)`,
-      `var(--feedback-accent-error)`,
-      `var(--feedback-accent-info)`, or
-      `var(--feedback-accent-empty)`
-- **AND** each of those tokens MUST resolve to one of:
-      `var(--color-acid-lime)`,
-      `var(--color-pulse-green)`,
-      `var(--color-coral-red)`,
-      `var(--color-signal-teal)`, or
-      `var(--color-smoke)`
+- **WHEN** a feedback alias is retained during migration
+- **THEN** it MUST resolve to the matching `--status-*` source role
+- **AND** ordinary component rules MUST prefer the source status token directly
 
 #### Scenario: focus ring uses --focus-ring-color
 - **WHEN** an element receives `:focus-visible`
-- **THEN** its outline color MUST come from
-      `var(--focus-ring-color)`
-- **AND** `var(--focus-ring-color)` MUST resolve to
-      `var(--color-acid-lime)`
+- **THEN** its outline color MUST use `var(--focus-ring-color)` resolving to `#87a4ff`
 
 #### Scenario: card and pill radii use the named aliases
-- **WHEN** a card element renders
-- **THEN** its `border-radius` MUST come from
-      `var(--radius-cards)` (which MUST resolve to `12px`)
-- **WHEN** a pill element renders
-- **THEN** its `border-radius` MUST come from
-      `var(--radius-pills)` (which MUST resolve to `9999px`)
+- **WHEN** card and pill elements render
+- **THEN** their existing `--radius-cards` and `--radius-pills` mappings MUST remain unchanged
 
 ### Requirement: Token and component changes flow through OpenSpec
-
-Token and component contract changes MUST be made through an OpenSpec
-change proposal that updates this spec. The MUST-cover range is any
-addition, removal, rename, or value change of a CSS custom property
-declared in `apps/web/src/styles/tokens.css`, or any addition or removal
-of a contract documented in this capability.
+Any addition, removal, rename, or value change to a canonical design token or documented component contract MUST be declared by an active, strict-valid OpenSpec Change before implementation. Implementation, review, and verification occur while the Change is active; archive occurs only after the implementation is accepted.
 
 #### Scenario: adding a new token requires an OpenSpec change
-- **WHEN** a developer needs a CSS variable that does not yet exist
-      in `tokens.css`
-- **THEN** they MUST open a change under `openspec/changes/` that
-      declares the new token's name, value, and role, and lists
-      every consumer the token will replace or augment
-- **AND** the change MUST be archived (via `openspec-archive-change`)
-      before the token appears in `tokens.css`
+- **WHEN** a new token is needed
+- **THEN** an active Change MUST declare its name, value, role, and affected consumers before it appears in `tokens.css`
+- **AND** archive MUST NOT be treated as an implementation prerequisite
 
 #### Scenario: renaming a token requires a same-change migration
-- **WHEN** an existing token name is changed
-- **THEN** the OpenSpec change MUST list every `var(<old-name>)`
-      call site under `apps/web/src/` that is renamed in the same
-      commit
-- **AND** the old name MUST NOT remain in `tokens.css` after the
-      change archives
+- **WHEN** an existing token is renamed
+- **THEN** declarations, consumers, specs, tests, and generated documentation MUST migrate in the same Change
+- **AND** the old name MUST be absent before archive
 
 ### Requirement: Buttons follow a three-variant contract
-
-Every button in the web frontend MUST be exactly one of three
-variants: `primary` (filled accent), `secondary` (outline / ghost),
-or `tertiary` (text-only). A fourth visual treatment MUST NOT be
-introduced without a new OpenSpec change. Buttons appearing inside
-the same operation group (`.operation-list`) MUST use the same
-visual tier (`secondary`) so the group reads as one coherent set;
-only a view-level primary CTA MAY use the `primary` tier within
-such a group.
+Every Web button MUST remain exactly one of `primary`, `secondary`, or `tertiary`. Operation groups MUST remain secondary except for the single view-level primary CTA.
 
 #### Scenario: primary button uses the accent fill
-- **WHEN** a button declares the `primary` variant
-- **THEN** its `background` MUST be `var(--color-acid-lime)`
-- **AND** its `color` MUST be `var(--color-void)`
-- **AND** its `border-radius` MUST be `var(--radius-md)`
-- **AND** no other button in the same view MAY use the accent fill
-      (the acid-lime button is the sole chromatic UI element per view)
+- **WHEN** a button declares `primary`
+- **THEN** its resting, hover, and pressed fills MUST use the three `--interactive-primary*` tokens
+- **AND** its foreground MUST use `--surface-canvas`
 
 #### Scenario: secondary button is outline-only
-- **WHEN** a button declares the `secondary` variant
-- **THEN** its `background` MUST be `transparent`
-- **AND** its `border` MUST be
-      `1px solid var(--color-graphite)` (or `var(--color-smoke)`
-      at higher contrast)
-- **AND** its `color` MUST be `var(--color-mist)`
+- **WHEN** a button declares `secondary`
+- **THEN** it MUST use a transparent or subtle surface, `--border-subtle`, and `--text-secondary`
 
 #### Scenario: tertiary button is text-only
-- **WHEN** a button declares the `tertiary` variant
-- **THEN** it MUST have neither background nor border
-- **AND** its `color` MUST be `var(--color-mist)` resting and
-      `var(--color-paper)` on `:hover`
+- **WHEN** a button declares `tertiary`
+- **THEN** it MUST have no visual chrome and transition from `--text-secondary` to `--text-primary`
 
 #### Scenario: buttons in one operation group share a tier
-- **WHEN** two or more buttons render inside the same
-      `.operation-list` group
-- **THEN** every button in the group MUST use the `secondary`
-      variant unless it is the view-level primary CTA
-- **AND** no button in the group MUST use the `tertiary`
-      (text-only) variant while a sibling uses `secondary`
+- **WHEN** an operation group contains multiple buttons
+- **THEN** all MUST be secondary except the single explicitly designated view-level primary CTA
 
 ### Requirement: Secondary buttons render a selected state when pressed
-A `button-secondary` button that carries `aria-pressed="true"` MUST render as selected with the inverted fill (`background: var(--color-mist)`, `color: var(--color-void)`, `border: 1px solid var(--color-mist)`). Single-select filter controls (e.g., the Signals SOURCE filter) are part of the three-variant button contract: every such `<button>` MUST carry exactly one variant className, and its visual treatment MUST come from the variant class rather than from a bespoke segmented style.
+A pressed secondary button MUST expose selection through `aria-pressed="true"` and a semantic selected treatment without becoming another primary CTA.
 
 #### Scenario: pressed secondary button uses the inverted fill
-- **WHEN** a `button-secondary` element has `aria-pressed="true"`
-- **THEN** its `background` MUST be `var(--color-mist)`
-- **AND** its `color` MUST be `var(--color-void)`
-- **AND** its `border` MUST be `1px solid var(--color-mist)`
+- **WHEN** a secondary button has `aria-pressed="true"`
+- **THEN** its selected surface MUST use `--surface-hover`, its border MUST use `--border-strong`, and its text MUST use `--text-primary`
 
 #### Scenario: selection controls declare a variant className
-- **WHEN** a single-select filter control (e.g., the Signals SOURCE filter) renders its options as `<button>` elements
-- **THEN** every such button MUST include exactly one of `button-primary`, `button-secondary`, or `button-tertiary` in its className
-- **AND** its visual treatment MUST come from the declared variant class, not from a bespoke segmented style
-- **AND** the selected option MUST be communicated via `aria-pressed="true"` and the inverted fill of the variant class
+- **WHEN** a single-select filter renders buttons
+- **THEN** every option MUST carry exactly one existing button variant class
+- **AND** selection MUST remain programmatically exposed through `aria-pressed`
 
 ### Requirement: Motion vocabulary is declared and respected
 
@@ -225,36 +125,6 @@ Magic numeric values (e.g. `line-height: 1.15;`) MUST NOT appear.
       `tokens.css`
 - **AND** consumers MUST use `var(--leading-tight)` rather than the
       literal value
-
-### Requirement: Acid-lime is reserved for the per-view primary CTA
-The acid-lime fill MUST appear at most once in any rendered view.
-The lime fill is the visual marker reserved for the per-view primary
-CTA and MUST NOT be applied to more than one button-shaped element in
-the same rendered view. That one use is the primary
-CTA of the view; all other buttons in the same view MUST use the
-secondary (outline / ghost) or tertiary (text-only) variant.
-
-Non-button uses of lime (e.g. as a hairline underline, as a
-focus-ring color) do not consume the reservation.
-
-#### Scenario: nav active state uses lime only as an underline
-- **WHEN** an `<a className="app-nav-link">` carries
-      `aria-current="page"` (the nav active state)
-- **THEN** its `background` MUST NOT be `var(--color-acid-lime)`
-- **AND** its underline / hairline accent MAY use the lime
-      (e.g. `box-shadow: inset 0 -2px 0 0 var(--color-acid-lime);`)
-- **AND** its text color MUST be `var(--color-paper)` (resting)
-      or `var(--color-bone)` (hover)
-
-#### Scenario: only one button per view may be filled lime
-- **WHEN** any rendered view of the web frontend contains two or
-      more elements styled with
-      `background: var(--color-acid-lime)`
-      AND each is visually a button
-- **THEN** the change that introduced the second such element is
-      non-conforming with this capability
-- **AND** the second button MUST be reclassified as secondary or
-      tertiary
 
 ### Requirement: Buttons declare their variant via className
 Every `<button>` (or `[role="button"]`) in `apps/web/src/` MUST
@@ -347,247 +217,17 @@ fit the 8px-grid ladder. New layout-gap code SHOULD prefer
       consumers; pruning those pre-existing dead primitives is
       out of scope for this change
 
-### Requirement: Type scale is complete and body renders at 16 / 1.5
-
-The web frontend MUST expose a complete type scale that
-includes every named size a consumer is expected to need:
-`12 / 13 / 14 / 16 / 17 / 20 / 24 / 32 / 48 / 64 / 72` px.
-
-`--text-body` MUST resolve to `16px` and `--leading-body` MUST
-resolve to `1.5`.
-
-Each size MUST have a paired `--leading-*` token. Sizes `14`,
-`16`, `17` MUST use `--leading-*: 1.5;` unless an existing
-scenario in this capability pins them otherwise.
-
-In addition to the body-sized ladder above, the web frontend MUST
-expose a card-type-scale ladder with four rungs (`meta`, `body`,
-`emphasis`, `display`) bound to specific visual roles. The card
-ladder is the canonical source for any typography that renders
-inside or on a card surface. Both ladders MUST be declared in
-`apps/web/src/styles/tokens.css` and MUST NOT duplicate values
-across rungs (one rung, one source).
-
-The card-type-scale ladder is:
-
-- `--card-meta-size: 11px;` paired with `--leading-meta: 1.4;`
-- `--card-body-size: 14px;` paired with `--leading-body-card: 1.5;`
-- `--card-emphasis-size: 28px;` paired with `--leading-emphasis: 1.3;`
-- `--card-display-size: 40px;` paired with `--leading-display-card: 1.15;`
-
-#### Scenario: every named size is declared in tokens.css
-- **WHEN** `apps/web/src/styles/tokens.css` is searched for the
-      type-scale tokens
-- **THEN** every named size in the scale
-      (`12 / 13 / 14 / 16 / 17 / 20 / 24 / 32 / 48 / 64 / 72` px)
-      MUST be reachable as a CSS custom property under the
-      `:root` block
-- **AND** each size MUST be paired with a `--leading-*`
-      token resolving to a unitless line-height
-- **AND** the reachability MAY be via a numeric alias
-      (`--text-14`, `--text-16`, `--text-17`) or via a
-      semantic name (`--text-label` for 12,
-      `--text-caption` for 13, `--text-body-lg` for 20,
-      `--text-subheading` for 24, `--text-heading-sm` for 32,
-      `--text-heading` for 48, `--text-heading-lg` for 64,
-      `--text-display` for 72); both forms count
-- **AND** the scale is exhaustive: no named size in
-      `12 / 13 / 14 / 16 / 17 / 20 / 24 / 32 / 48 / 64 / 72`
-      is missing a token
-
-#### Scenario: --text-body and --leading-body resolve to 16 / 1.5
-- **WHEN** `tokens.css` declares `--text-body` and
-      `--leading-body`
-- **THEN** `--text-body` MUST resolve to `16px`
-- **AND** `--leading-body` MUST resolve to `1.5`
-- **AND** every existing `var(--text-body)` /
-      `var(--leading-body)` call site under `apps/web/src/`
-      MUST keep resolving to those values without code change
-      (the consumers automatically pick up the new values)
-
-#### Scenario: unused --text-body-sm / --text-body-lg aliases do not regress
-- **WHEN** `tokens.css` is searched for `--text-body-sm`,
-      `--leading-body-sm`, `--tracking-body-sm`,
-      `--text-body-lg`, `--leading-body-lg`,
-      `--tracking-body-lg`
-- **THEN** none of these tokens is referenced anywhere under
-      `apps/web/src/` by `var(...)` (verified by grep)
-- **AND** the tokens MAY either remain declared or be pruned;
-      either choice MUST NOT change any rendered font size
-
-#### Scenario: card-type-scale ladder is declared in tokens.css
-- **WHEN** `apps/web/src/styles/tokens.css` is inspected
-- **THEN** the `:root` block MUST declare every token of the
-      card-type-scale ladder listed in the requirement body
-      (eight tokens: four `<role>-size` and four `<role>-leading`)
-- **AND** each declared value MUST match the resolution pinned
-      in this requirement
-
-#### Scenario: card-type-scale rungs map onto card visual roles
-- **WHEN** `apps/web/src/styles.css` is searched for any rule
-      inside a card surface (`.dashboard-panel`,
-      `.panel-primary`, `.metric`, `.compact-list`,
-      `.status-pill`, `.etf-row`, `.fetch-log-entry`,
-      `.backtest-run-form`, `.operation-summary`)
-- **THEN** the rule's `font-size` MUST resolve through one of
-      the four ladder rungs (`--card-meta-size` /
-      `--card-body-size` / `--card-emphasis-size` /
-      `--card-display-size`) rather than through a non-ladder
-      `--text-*` token
-- **AND** the corresponding `--leading-*` token from this
-      capability MUST be applied to the same rule's
-      `line-height`
-
-### Requirement: Inter Variable webfont is a size-bounded reproducible subset
-
-The web frontend MUST serve a reproducibly generated Latin-1-focused subset of
-Inter Variable as its sole project-hosted webfont. The committed served WOFF2
-MUST be no larger than 98,304 bytes, MUST retain the source `opsz` and `wght`
-variable axes, and MUST remain upright for the declared CSS `300–700` range.
-
-#### Scenario: subset stays within the font budget
-
-- **WHEN** the committed Inter Variable subset under `apps/web/public/fonts/` is inspected
-- **THEN** it MUST be a valid WOFF2 variable font
-- **AND** its on-disk size MUST be at most 98,304 bytes
-- **AND** its variable metadata MUST include `opsz` and `wght` axes matching
-  the canonical source and MUST NOT include `ital` or `slnt`
-- **AND** no full, static, italic, or additional project-hosted font file MUST coexist with it
-
-#### Scenario: subset generation is reproducible
-
-- **WHEN** a developer follows the repository's documented font-generation
-  command using the pinned and locked WOFF2 toolchain, canonical source with
-  verified SHA-256, and committed Unicode manifest
-- **THEN** the command MUST produce the webfont consumed by the frontend
-- **AND** two clean generations from the same inputs MUST be byte-identical
-- **AND** a clean generation MUST be byte-identical to the committed served
-  subset
-- **AND** the canonical source MUST be stored outside
-  `apps/web/public/fonts/` with the upstream OFL license
-- **AND** the manifest MUST be the source of truth for both the font subset and its CSS `unicode-range`
-
-### Requirement: Inter subset preserves Vela typography coverage
-
-The Inter Variable subset MUST retain source-mapped glyphs for Basic Latin,
-Latin-1, combining diacritics, the reviewed punctuation and currency set, and
-the explicit UI symbols used by Vela. It MUST retain the `cv01`, `ss03`,
-`zero`, and `calt` OpenType features plus `ccmp`, `kern`, `mark`, and `mkmk`,
-and MUST allow characters outside its declared Unicode coverage to resolve
-through the existing fallback chain.
-
-#### Scenario: application text and symbols remain covered
-
-- **WHEN** the subset cmap and layout tables are inspected
-- **THEN** ordinary English letters, digits, punctuation, representative
-  Latin-1 characters, and combining marks MUST be present
-- **AND** `·` (`U+00B7`), `—` (`U+2014`), `…` (`U+2026`), `⌘` (`U+2318`), `✓` (`U+2713`), and `✗` (`U+2717`) MUST be present
-- **AND** the `cv01`, `ss03`, `zero`, `calt`, `ccmp`, `kern`, `mark`, and
-  `mkmk` features MUST be available for retained glyphs
-
-#### Scenario: excluded scripts use system fallback
-
-- **WHEN** an ETF name containing Chinese characters is rendered next to Latin characters
-- **THEN** the Latin characters MUST render with Inter Variable
-- **AND** the Chinese characters MUST remain legible through the existing `system-ui` fallback chain
-- **AND** rendering the name MUST NOT trigger another project-hosted font request
-
-#### Scenario: undeclared repertoires are excluded
-
-- **WHEN** the subset cmap is inspected
-- **THEN** representative Greek, Cyrillic, Latin Extended, IPA, and
-  Vietnamese precomposed code points outside the manifest MUST NOT be present
-- **AND** their absence MUST NOT change the Inter rendering of retained Latin characters
-
-### Requirement: Only the Inter subset is preloaded
-
-The frontend MUST preload the same Inter Variable subset referenced by its `@font-face` rule. The `@font-face` rule MUST declare the subset's reviewed `unicode-range` and MUST preserve `font-display: swap`, normal style, and the `300–700` weight range.
-
-#### Scenario: preload and font-face target the same subset
-
-- **WHEN** `apps/web/index.html` and `apps/web/src/styles.css` are inspected
-- **THEN** exactly one font preload MUST exist
-- **AND** its URL MUST equal the URL in the Inter Variable `@font-face` source
-- **AND** that URL MUST identify the Latin subset rather than the removed full font
-
-#### Scenario: production build contains only the subset
-
-- **WHEN** the web production build completes
-- **THEN** the referenced Inter Variable subset MUST exist under `apps/web/dist/fonts/`
-- **AND** the former full Inter Variable resource MUST NOT exist in the build output
-- **AND** the built page MUST load the subset without a font-related HTTP error
-
-### Requirement: Inter Variable OpenType features are active for default text
-The web frontend MUST activate Inter Variable's
-single-storey `a` (`cv01`), curved `f` (`ss03`), slashed zero
-(`zero`), and contextual alternates (`calt`) for all default
-text. The activation MUST be a single rule on the `body`
-selector that reads from a token declared in
-`apps/web/src/styles/tokens.css`.
-
-The token MUST be named `--font-feature-settings-default`
-and MUST resolve to the string `"cv01", "ss03", "zero", "calt"`
-(in that order).
-
-#### Scenario: --font-feature-settings-default is declared
-- **WHEN** `apps/web/src/styles/tokens.css` is inspected
-- **THEN** the `:root` block MUST declare
-      `--font-feature-settings-default`
-- **AND** its value MUST equal the literal string
-      `"cv01", "ss03", "zero", "calt"`
-
-#### Scenario: body activates the default features
-- **WHEN** `apps/web/src/styles.css` is searched for the
-      `body` selector
-- **THEN** it MUST contain a
-      `font-feature-settings: var(--font-feature-settings-default);`
-      declaration
-- **AND** no other rule under `apps/web/src/styles.css`
-      SHOULD override `font-feature-settings` for default
-      text elements (`p`, `span`, `li`, `dt`, `dd`, `td`,
-      `th`) without an explicit design rationale
-
-#### Scenario: text uses single-storey a, curved f, slashed zero
-- **WHEN** a user opens any page rendered by the web frontend
-- **THEN** lowercase `a` glyphs in body text MUST render as
-      Inter Variable's single-storey `a` (`cv01`)
-- **AND** lowercase `f` glyphs MUST render as the curved `f`
-      (`ss03`)
-- **AND** the digit `0` MUST render as a slashed zero
-      (`zero`), distinguishable from the letter `O` at typical
-      body sizes
-
 ### Requirement: Card primitives are available as `--card-*` tokens
-The web frontend MUST expose a `--card-*` token family so
-that card surfaces share a single source of truth for their
-background, border, padding, radius, shadow, and internal
-gap. All `--card-*` tokens MUST be declared in
-`apps/web/src/styles/tokens.css` and MUST resolve to existing
-primitives or fixed color values declared in the same file.
-
-The family is:
-
-- `--card-bg`            resolves to `var(--surface-obsidian)`
-- `--card-border-color`  resolves to `rgba(255, 255, 255, 0.06)`
-- `--card-padding-x`     resolves to `var(--spacing-24)`
-- `--card-padding-y`     resolves to `var(--spacing-20)`
-- `--card-radius`        resolves to `var(--radius-cards)`
-- `--card-shadow`        resolves to `var(--shadow-subtle-3)`
-- `--card-gap`           resolves to `var(--element-gap)`
+Shared card aliases MUST resolve to `--surface-raised`, `--border-subtle`, existing spacing/radius tokens, and no shadow stronger than the existing subtle elevation vocabulary. Surface contrast plus border MUST remain the primary hierarchy mechanism.
 
 #### Scenario: --card-* tokens are declared in tokens.css
-- **WHEN** `apps/web/src/styles/tokens.css` is inspected
-- **THEN** the `:root` block MUST declare every token in
-      the list above
-- **AND** each token's value MUST match its documented
-      resolution
+- **WHEN** card aliases are inspected
+- **THEN** `--card-bg` MUST resolve to `--surface-raised` and `--card-border-color` to `--border-subtle`
+- **AND** padding, radius, gap, and optional subtle shadow MUST remain centralized
 
 #### Scenario: --card-* tokens do not duplicate declarations
-- **WHEN** any CSS file under `apps/web/src/` (other than
-      `tokens.css`) declares a CSS custom property whose name
-      starts with `--card-`
-- **THEN** that declaration is non-conforming with this
-      capability (consumers must read from `tokens.css`)
+- **WHEN** other CSS files are inspected
+- **THEN** they MUST consume, not redeclare, `--card-*` tokens
 
 ### Requirement: Radius → component mapping is canonical
 The web frontend MUST follow a documented mapping between each
@@ -645,40 +285,19 @@ Components not in this list SHOULD consume the closest primitive
       `var(--radius-cards)`
 
 ### Requirement: Dashboard heading uses a discrete responsive ladder
-
-The web frontend MUST render the page heading (`page-heading h1`) on every page
-using a single shared type scale: `font-size: var(--text-heading-sm)` (32 px),
-`letter-spacing: var(--tracking-heading-sm)`, `line-height: var(--leading-heading-sm)`,
-and `font-weight: var(--font-weight-medium)`.
-
-The Dashboard heading MUST NOT carry a separate type override: the
-`.dashboard-heading h1` rule MUST NOT redeclare `font-size`, `letter-spacing`,
-or `line-height` with values that differ from the shared `page-heading h1` base
-rule. Layout properties of `.dashboard-heading` (flex alignment, gap, max-width)
-are unaffected.
+Every page heading MUST use the shared 36px/40px page-title tokens and approximately 580 weight. Dashboard MUST NOT introduce a divergent heading size.
 
 #### Scenario: all pages share one heading type scale
-
-- **WHEN** `apps/web/src/styles.css` is searched for the `page-heading h1` rule
-- **THEN** its `font-size` resolves to `var(--text-heading-sm)` (32 px)
-- **AND** its `letter-spacing` resolves to `var(--tracking-heading-sm)`
-- **AND** its `line-height` resolves to `var(--leading-heading-sm)`
-- **AND** it does not contain a `clamp(...)` value for `font-size`
+- **WHEN** the page heading rule is inspected
+- **THEN** it MUST use the shared page-title size, leading, tracking, and weight tokens without `clamp()`
 
 #### Scenario: dashboard heading has no divergent override
-
-- **WHEN** `apps/web/src/styles.css` is searched for the `.dashboard-heading h1` rule
-- **THEN** it MUST NOT redeclare `font-size`, `letter-spacing`, or `line-height`
-      with values that differ from the shared `page-heading h1` base rule
-- **AND** any existing `.dashboard-heading h1` type declarations MAY be absent
-      entirely, leaving the base rule to apply
+- **WHEN** Dashboard styles are inspected
+- **THEN** they MUST NOT override the shared heading typography
 
 #### Scenario: mobile media query does not reintroduce a larger size
-
-- **WHEN** `apps/web/src/styles.css` is searched for any `@media` block that
-      targets `.page-heading h1` or `.dashboard-heading h1`
-- **THEN** the `@media` block MUST NOT set `font-size` to a value other than
-      `var(--text-heading-sm)` for the shared heading
+- **WHEN** responsive rules are inspected
+- **THEN** they MUST NOT make Dashboard headings larger than the shared page-title role
 
 ### Requirement: State component set is exported from the components barrel
 The web frontend MUST expose the Empty / Loading / Skeleton /
@@ -746,86 +365,27 @@ underlying files.
       line of body text)
 
 ### Requirement: Design system invariants are enforced by Stylelint
-The web frontend MUST enforce the design-system invariants
-already shipped in earlier changes via Stylelint. The Stylelint
-config lives at `apps/web/.stylelintrc.json` and is invoked by
-the `npm --prefix apps/web run lint:css` script.
-
-The config MUST enforce, at minimum, these five rule
-categories:
-
-1. **No descendant-selector button styling.** Selectors of the
-   form `.operation-list button` or any other ancestry-based
-   button selector MUST be flagged.
-2. **No literal numeric line-heights.** A `line-height`
-   declaration whose value is a plain number or `<number><unit>`
-   (e.g. `1.4`, `1.15`, `140ms`) MUST be flagged; only
-   `var(...)`, `inherit`, `initial`, `unset`, `revert` are
-   allowed.
-3. **No literal `border-radius` pixel values.** A
-   `border-radius` declaration whose value is a plain pixel
-   literal (e.g. `4px`, `12px`) MUST be flagged; only `var(...)`
-   and the keyword values (`inherit`, `initial`, etc.) are
-   allowed.
-4. **No `:root` declarations outside `tokens.css`.** A `:root`
-   selector MUST NOT appear in any CSS file under
-   `apps/web/src/` other than `apps/web/src/styles/tokens.css`.
-5. **Acid-lime as fill is reserved.** A `background-color:
-   var(--color-acid-lime)` or `outline-color:
-   var(--color-acid-lime)` declaration MUST NOT appear under
-   `apps/web/src/styles.css`. The CTA fill (`.button-primary`'s
-   `background: var(--color-acid-lime)`) is the one place the
-   fill appears and is enforced by code review (the value
-   keyword differs from `background-color`). Other non-fill uses
-   (focus rings via `border-color`, underlines via `box-shadow:
-   inset`, text decoration via `text-decoration-color`, SVG
-   `stroke` / `fill`) are intentionally allowlisted at code
-   review time.
-
-A Stylelint violation is a CI failure for rules 1–4.
-Rule 5 is a lint-level rule (catches the most common misuse
-patterns) plus code review (covers the allowlist).
+Stylelint MUST continue to reject ancestry-only button styling, literal line-heights, and literal border-radius values. The existing separate canonical-root guard and concentrated static tests MUST reject competing `:root` blocks; final validation MUST explicitly execute that guard. The legacy acid-lime rule MUST be replaced by enforcement that component CSS does not use removed visual tokens or literal palette colors and that interaction, status, market, and chart semantic families are not substituted for their documented roles where statically enforceable.
 
 #### Scenario: lint:css script exists and runs
-- **WHEN** a developer runs `npm --prefix apps/web run lint:css`
-- **THEN** the command MUST exit 0 if no design-system
-      invariants are violated
-- **AND** the command MUST exit non-zero with a per-file
-      violation report if any rule above is violated
-- **AND** the script MUST be wired into the project's CI
-      pipeline (a future change may move the wiring; this
-      change lands the script and config)
+- **WHEN** `npm --prefix apps/web run lint:css` runs
+- **THEN** it MUST fail on configured design-system violations and pass conforming source
 
 #### Scenario: descendant-selector button styling is flagged
-- **WHEN** any CSS rule under `apps/web/src/styles.css` (or
-      any future CSS file) selects a button by ancestry alone
-      (e.g. `.operation-list button { ... }`)
-- **THEN** `npm --prefix apps/web run lint:css` MUST exit
-      non-zero and report the offending file:line
+- **WHEN** a button is styled only by ancestry
+- **THEN** CSS lint MUST report it
 
 #### Scenario: literal line-height is flagged
-- **WHEN** any CSS rule declares `line-height: <number>` (e.g.
-      `line-height: 1.4`)
-- **THEN** the lint script MUST flag it and direct the
-      contributor to use a `--leading-*` token instead
+- **WHEN** a rule uses a literal line-height
+- **THEN** CSS lint MUST direct the contributor to a `--leading-*` token
 
 #### Scenario: literal border-radius is flagged
-- **WHEN** any CSS rule declares `border-radius: <number>px`
-      (e.g. `border-radius: 4px`)
-- **THEN** the lint script MUST flag it and direct the
-      contributor to use a `--radius-*` token instead
+- **WHEN** a rule uses a literal radius
+- **THEN** CSS lint MUST direct the contributor to a radius token
 
 #### Scenario: acid-lime fill misuse is flagged
-- **WHEN** any CSS rule declares `background-color:
-      var(--color-acid-lime)` or `outline-color:
-      var(--color-acid-lime)`
-- **THEN** the lint script MUST flag it and direct the
-      contributor to either use `--feedback-accent-*` (for
-      non-CTA accents) or restructure as `.button-primary`
-      (for the per-view primary CTA). The lone legitimate
-      `background: var(--color-acid-lime)` on `.button-primary`
-      is the per-view primary CTA fill and is enforced by code
-      review, not by this lint rule
+- **WHEN** source uses a removed acid-lime token or a literal palette hex outside `tokens.css`
+- **THEN** automated static checks MUST fail and direct the contributor to the appropriate semantic family
 
 ### Requirement: Component catalog is reachable via Ladle
 The web frontend MUST expose a dev-only component catalog that
@@ -870,45 +430,20 @@ production bundle.
       bundle (Vite / Ladle handle this separation)
 
 ### Requirement: Token reference doc is generated from tokens.css
-The web frontend MUST ship a Markdown token reference generated
-from `apps/web/src/styles/tokens.css`. The generator is at
-`scripts/build-tokens-reference.mjs`, has zero runtime
-dependencies (uses Node built-ins only), and is invoked by
-`npm --prefix apps/web run build:tokens-doc`.
-
-The generated output is `docs/tokens.md`. It MUST list every
-token declared in the `:root { ... }` block, grouped by the
-section comments already present in `tokens.css` (Colors,
-Surfaces, Typography families, etc.). For each token it MUST
-show the token name and its resolved value (chasing
-`var(...)` aliases to a final pixel / color / numeric value).
-
-The generated file is committed to git; subsequent edits to
-`tokens.css` require re-running the generator and committing
-the regenerated output.
+The zero-dependency generator MUST continue to produce `docs/tokens.md` from `tokens.css`, including alias resolution and all new semantic groups. The generated file MUST be tracked despite the repository's broader local-doc ignore policy.
 
 #### Scenario: tokens.md is generated and committed
-- **WHEN** a developer runs
-      `npm --prefix apps/web run build:tokens-doc`
-- **THEN** the file `docs/tokens.md` MUST exist and MUST
-      contain one Markdown section per token group declared
-      in `apps/web/src/styles/tokens.css`
-- **AND** the file MUST be committed to the repository
-      (verifiable via `git ls-files docs/tokens.md`)
+- **WHEN** the token-doc command runs
+- **THEN** `docs/tokens.md` MUST match the current canonical tokens and be unignored during implementation
+- **AND** after explicitly authorized delivery it MUST be present in `git ls-files`; implementation validation MUST NOT itself require staging or committing
 
 #### Scenario: token aliases resolve to concrete values
-- **WHEN** the generator encounters a token whose value is
-      `var(--other-token)`
-- **THEN** the Markdown output MUST show both the alias and
-      the chained resolved value (e.g.
-      `--space-xs: var(--spacing-8) → 8px`)
+- **WHEN** a token aliases another token
+- **THEN** the generated reference MUST show both the alias and resolved value
 
 #### Scenario: generator has zero runtime dependencies
-- **WHEN** `scripts/build-tokens-reference.mjs` is inspected
-- **THEN** the script MUST NOT `import` or `require` any
-      module other than Node built-ins
-- **AND** the script MUST be invokable on a fresh `node`
-      install with no `npm install` step
+- **WHEN** the generator is inspected
+- **THEN** it MUST use only Node built-ins
 
 ### Requirement: Card typography tracking tokens are declared
 
@@ -951,29 +486,6 @@ capability.
 - **AND** no rule under these selectors MAY use a bare
       `var(--spacing-N)` for card padding
 
-### Requirement: Display font token resolves to Inter Variable
-
-The `--font-display` editorial display font token MUST resolve
-to Inter Variable at runtime. Hierarchy (heading vs data vs body)
-is created through font weight and size, not through font family
-switching.
-
-#### Scenario: --font-display uses Inter Variable
-- **WHEN** `tokens.css` declares the editorial display font token
-- **THEN** the token name MUST be `--font-display`
-- **AND** the value MUST chain
-      `"Inter Variable", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`
-      in that exact order
-- **AND** the first effective font family at runtime MUST be
-      `"Inter Variable"` (loaded via the Inter Variable @font-face rule)
-
-#### Scenario: --font-display and --font-berkeley-mono use the same font
-- **WHEN** any element references `--font-display` or `--font-berkeley-mono`
-- **THEN** both tokens MUST resolve to the same active font family
-      at runtime (`"Inter Variable"`)
-- **AND** visual hierarchy MUST be achieved through `font-weight`,
-      `font-size`, and `letter-spacing` alone
-
 ### Requirement: No IBM Plex Mono font resources
 
 The web frontend MUST NOT load or reference the IBM Plex Mono font
@@ -992,82 +504,184 @@ SHALL be removed.
 - **THEN** it MUST NOT contain a `<link rel="preload">` element
       referencing any IBM Plex Mono woff2 file
 
-### Requirement: Inter Variable is the sole loaded font
-
-The web frontend MUST load exactly one font family at build time:
-Inter Variable (300–700 variable weight, woff2 format).
-Token aliases (`--font-display`, `--font-berkeley-mono`) MAY
-reference the same font family with different fallback chains.
-
-#### Scenario: only Inter Variable @font-face is declared
-- **WHEN** `apps/web/src/styles.css` is inspected
-- **THEN** the only `@font-face` rule present MUST be for
-      `font-family: "Inter Variable"`
-- **AND** the only font files under `apps/web/public/fonts/` MUST
-      be the Inter Variable woff2
-
 ### Requirement: Low-contrast palette colors are not readable text colors
-The web frontend MUST NOT use `--color-ash` or `--color-smoke` as the sole `color` value for readable text rendered on dark app surfaces. Readable text includes headings, body copy, labels, table text, command-palette text, status-pill text, placeholders, and other text whose characters convey information to sighted users.
-
-Readable secondary or metadata text on dark surfaces MUST use at least `--color-fog`; more important text MUST use a higher-contrast token such as `--color-mist` or `--color-paper`.
-
-`--color-ash` and `--color-smoke` MAY remain in use for decorative or structural roles, including borders, dividers, SVG grid lines, subdued accents, and visual separators that are not the sole carrier of information.
+Ordinary readable text MUST use `--text-primary`, `--text-secondary`, or `--text-tertiary` only where the rendered foreground/background pair meets WCAG AA. Status text, market-direction figures, and chart identity labels MAY use their corresponding semantic token family when that pair meets WCAG AA. Because `--text-tertiary` on `--surface-hover` is below 4.5:1, hover and active rows containing readable tertiary metadata MUST promote that metadata to at least `--text-secondary`.
 
 #### Scenario: readable text avoids ash and smoke
-- **WHEN** a CSS rule under `apps/web/src/` sets the foreground `color` for readable text on a dark app surface
-- **THEN** the value MUST NOT be `var(--color-ash)` or `var(--color-smoke)`
-- **AND** the value MUST resolve to `var(--color-fog)`, `var(--color-mist)`, `var(--color-paper)`, or a higher-contrast semantic/status token appropriate to the state
+- **WHEN** readable text is styled
+- **THEN** it MUST use a semantic text token or an appropriate status, market, or chart identity token meeting WCAG AA
 
 #### Scenario: command palette metadata remains readable
-- **WHEN** the command palette renders placeholder text or row-kind metadata
-- **THEN** those text roles MUST use a color token that meets WCAG AA normal-text contrast on the palette surface
-- **AND** they MUST NOT use `var(--color-ash)` or `var(--color-smoke)` as their foreground text color
+- **WHEN** a Command Palette row is hovered or active
+- **THEN** readable metadata on `--surface-hover` MUST use at least `--text-secondary`
 
 #### Scenario: neutral status text remains readable
-- **WHEN** a neutral or fallback status pill renders text such as an empty or no-data state
-- **THEN** the text color MUST meet WCAG AA normal-text contrast on the pill's rendered surface
-- **AND** an empty-state accent token that resolves to `var(--color-smoke)` MUST NOT be used as the sole text color
+- **WHEN** a neutral or empty status renders
+- **THEN** its text MUST meet WCAG AA on its rendered surface
 
 #### Scenario: decorative uses may stay subdued
-- **WHEN** a CSS rule uses `var(--color-ash)` or `var(--color-smoke)` for non-text decoration such as `border-color`, SVG `stroke`, chart grid lines, or a purely visual separator
-- **THEN** that use remains conforming
-- **AND** if the separator is rendered as a text character in the DOM, it MUST be hidden from assistive technology when it does not convey information
+- **WHEN** a border, grid line, or non-informational separator is subdued
+- **THEN** it MAY use border/chart structural tokens and MUST NOT become the sole carrier of information
 
 ### Requirement: Vertical rhythm between headings and content
-
-Page-level headings and section headings in the web frontend MUST be separated from the content that follows them by design-system spacing tokens. List pages (`page-heading h1`) MUST separate the page title from the first main content element that follows the page heading — whether that element is a `.dashboard-panel`, an empty-state surface (`.empty-state`/`.status-surface`), a feedback message (`.feedback-message`), or a run-trigger control — by `var(--space-xl)` (48px). Detail-page section headings (`.holdings-section h2`) MUST separate the heading from the body content that follows by `var(--spacing-16)` (16px). Layout-gap values for heading-to-content rhythm MUST resolve through the `--space-*` or `--spacing-*` token ladder rather than ad-hoc literals.
+Existing heading-to-content spacing contracts MUST remain unchanged, but page and section headings MUST use `--font-sans` and their new semantic type roles.
 
 #### Scenario: list page title is separated from main content
-- **WHEN** a Signals, Backtests, or Walk-forwards list page renders its `page-heading h1` followed by its first main content element (a `.dashboard-panel`, an empty-state surface, a feedback message, or the `.walk-forward-run-trigger` control)
-- **THEN** that first content element MUST be placed `var(--space-xl)` (48px) below the heading
-- **AND** the spacing MUST be declared via `var(--space-xl)` in `apps/web/src/styles.css`
+- **WHEN** a list page title precedes its first content surface
+- **THEN** the existing `--space-xl` separation MUST remain
 
 #### Scenario: detail section heading is separated from body content
-- **WHEN** a detail page renders a `.holdings-section h2` heading
-- **THEN** the heading MUST use the design-system section heading spec (font-family `var(--font-display)`, font-size `var(--text-subheading)`, font-weight `var(--font-weight-medium)`, letter-spacing `var(--tracking-subheading)`, line-height `var(--leading-subheading)`)
-- **AND** its `margin` MUST be `0 0 var(--spacing-16)` so the heading is separated from the following body content by 16px
+- **WHEN** a detail section heading renders
+- **THEN** it MUST use `--font-sans`, the section-title size/leading/weight roles, and the existing 16px bottom spacing
 
 ### Requirement: Categorical multi-series color palette
-The design-system SHALL provide six categorical series tokens in `apps/web/src/styles/tokens.css`: `--color-series-1: var(--color-acid-lime)`, `--color-series-2: var(--color-signal-teal)`, `--color-series-3: #4f8cff`, `--color-series-4: var(--color-coral-red)`, `--color-series-5: #f2b84b`, and `--color-series-6: #d96bd8`. The leading token catalog SHALL list the categorical series group. The current supported keys SHALL map `"strategy"` to series 1, `"equal_weight_monthly"` to series 2, and `"csi_300_buy_hold"` to series 3 in both the equity-curve and rolling-stability chart consumers. Series 4–6 SHALL be reserved deterministic fallback roles and SHALL NOT imply backend support for additional benchmarks.
+The chart palette MUST declare `--chart-series-1: #7c9cff`, `--chart-series-2: #46c2b3`, `--chart-series-3: #f3c969`, `--chart-series-4: #d88cff`, `--chart-series-5: #ff8a65`, and `--chart-series-6: #8fcb6a`. Strategy, equal-weight monthly, and CSI 300 buy-and-hold MUST map to series 1, 2, and 3 by stable key; unknown keys MUST deterministically map to roles 4–6.
 
 #### Scenario: Palette declares exact controlled tokens
-- **WHEN** the categorical palette is introduced
-- **THEN** all six specified tokens and values are declared in the single `tokens.css` `:root` block
-- **AND** the leading catalog comment lists the categorical series group
+- **WHEN** chart tokens are inspected
+- **THEN** all six exact series tokens MUST be declared in `tokens.css`
 
 #### Scenario: Series color maps stably by key
-- **WHEN** an equity-curve or rolling-stability chart resolves a current supported series key
-- **THEN** the color is derived from the explicit key mapping rather than array position
-- **AND** the same key always resolves to the same token in both chart consumers even when another series has no plottable points
-- **AND** strategy, equal-weight, and CSI-300 resolve to three distinct colors
+- **WHEN** a supported or unknown series is resolved
+- **THEN** resolution MUST depend on its key rather than array position or sibling presence
 
 #### Scenario: Direct-label colors remain readable
-- **WHEN** a series color is used for direct-label text on `--surface-obsidian`
-- **THEN** the resolved foreground/background pair meets WCAG AA normal-text contrast
-- **AND** series identity is also present as text in the swatch legend rather than communicated by hue alone
+- **WHEN** a series color is used for text
+- **THEN** it MUST meet WCAG AA on the rendered chart surface
+- **AND** a textual legend or label MUST still communicate identity
 
 #### Scenario: Tokens stay in the single canonical file
-- **WHEN** the categorical color tokens are introduced
-- **THEN** they live only inside the `tokens.css` `:root` block
-- **AND** no duplicate declaration is introduced in another CSS file
+- **WHEN** series tokens are declared
+- **THEN** declarations MUST exist only in canonical `tokens.css`
 
+### Requirement: Semantic color roles are independent
+The design system MUST declare the following exact semantic color roles in the canonical `tokens.css` source:
+
+- surfaces: `--surface-canvas: #090c12`, `--surface-panel: #0f141d`, `--surface-raised: #151c28`, `--surface-hover: #1c2533`
+- borders: `--border-subtle: #263244`, `--border-strong: #35445a`
+- text: `--text-primary: #f4f7fb`, `--text-secondary: #b7c0ce`, `--text-tertiary: #7f8a9a`
+- interaction: `--interactive-primary: #6d8eff`, `--interactive-primary-hover: #87a4ff`, `--interactive-primary-pressed: #587af2`, `--focus-ring-color: #87a4ff`
+- status: `--status-success: #45d483`, `--status-warning: #f6c85f`, `--status-danger: #ff5c7a`, `--status-info: #52c7ea`
+- China market: `--market-up: #ff7a59`, `--market-down: #2fc6a2`, `--market-flat: #b7c0ce`
+- chart primitives: `--chart-primary-line: #7c9cff`, `--chart-grid: #263244`, `--chart-axis: #7f8a9a`, `--chart-crosshair: #7f8a9a`
+
+Components MUST consume these semantic roles rather than color-named or component-specific palette tokens. Interaction, status, market, and chart roles MUST NOT substitute for one another even when their rendered hues are similar.
+
+#### Scenario: Components consume semantic roles
+- **WHEN** CSS and inline SVG styles under `apps/web/src/` are inspected
+- **THEN** surfaces, borders, readable text, interactions, feedback, market movement, and chart marks MUST reference the corresponding semantic token family
+- **AND** component-specific palette tokens and literal palette hex values MUST NOT appear outside `tokens.css`
+
+#### Scenario: Legacy visual tokens are absent
+- **WHEN** the completed Web source is searched for legacy `color-(void|carbon|obsidian|graphite|smoke|ash|fog|mist|bone|paper|acid-lime|pulse-green|coral-red|signal-teal|iris-violet|lavender)`, `surface-(void|carbon|obsidian|slate)`, or `color-series-*` tokens
+- **THEN** no runtime declaration or consumer MUST remain under `apps/web/src/`
+- **AND** test fixtures naming forbidden tokens solely to verify rejection are permitted and MUST NOT be bundled into runtime code
+
+### Requirement: System feedback and China-market direction remain separate
+Loading, ready, success, warning, error, and information states MUST resolve through the status vocabulary. Empty/neutral surfaces MUST use readable text and neutral border roles without implying an operational outcome. Positive, negative, and flat investment returns MUST resolve through the China-market vocabulary, where positive is red, negative is green, and flat is neutral. A status token MUST NOT encode market direction, and a market token MUST NOT encode operational state.
+
+#### Scenario: Feedback uses status roles
+- **WHEN** a feedback message, load state, error surface, success result, warning, or informational state renders
+- **THEN** its accent MUST originate from `--status-success`, `--status-warning`, `--status-danger`, or `--status-info`
+- **AND** it MUST NOT use any `--market-*` or `--interactive-*` token
+
+#### Scenario: Returns use China-market roles
+- **WHEN** a positive, negative, or neutral return is rendered with directional color
+- **THEN** it MUST use `--market-up`, `--market-down`, or `--market-flat` respectively
+- **AND** the direction MUST remain available through text, sign, or another non-color cue
+
+### Requirement: Geist Sans and Geist Mono are real runtime families
+The Web frontend MUST load Geist Sans Variable and Geist Mono Variable as distinct project-hosted WOFF2 families. `--font-sans` MUST resolve first to `"Geist Sans"` and provide Chinese and system sans fallbacks; `--font-mono` MUST resolve first to `"Geist Mono"` and provide system monospace fallbacks. Body, navigation, buttons, headings, descriptions, labels, ordinary table text, and status messages MUST use Sans. Prices, percentages, returns, dates, timestamps, ETF symbols, parameters, API metadata, metrics, numeric table cells, chart axes, and code-like data MUST use Mono and MUST use tabular numerals where column alignment matters.
+
+#### Scenario: Dual font roles load independently
+- **WHEN** `tokens.css`, the global stylesheet, and the built page are inspected
+- **THEN** `--font-sans` and `--font-mono` MUST be declared and consumed
+- **AND** separate normal-style variable WOFF2 `@font-face` rules MUST load `"Geist Sans"` and `"Geist Mono"`
+- **AND** both referenced resources MUST exist in the production build
+
+#### Scenario: Legacy font aliases are absent
+- **WHEN** `apps/web/src/` is searched after migration
+- **THEN** `--font-inter-variable`, `--font-display`, and `--font-berkeley-mono` MUST have no runtime declarations or consumers; negative-test fixtures may name them solely to verify rejection
+
+#### Scenario: Language and data roles use the intended family
+- **WHEN** representative headings, descriptions, numeric metrics, ETF symbols, dates, tables, charts, and Command Palette values render
+- **THEN** language/UI roles MUST resolve through `--font-sans`
+- **AND** quantitative or code-like roles MUST resolve through `--font-mono`
+- **AND** ordinary names and descriptions MUST NOT be forced into Mono merely because they share a row with numeric data
+
+### Requirement: Vendored Geist resources are pinned and licensed
+The two runtime fonts MUST come from the official Geist v1.7.2 distribution, retain the official OFL-1.1 notice, and be reproducibly identifiable by source URL, release tag, filename, and SHA-256. The Sans WOFF2 SHA-256 MUST be `2ffebe993e969069a9789d15164b7715d42491b5835516c5e3b935d5f81b05f1`; the Mono WOFF2 SHA-256 MUST be `afaacc4c5fbba89d2ebf7a02dc4070208540874592a5504d57175782fe893101`. Both MUST expose a `wght` axis covering 100–900; the CSS range MAY be narrowed to the weights Vela consumes.
+
+#### Scenario: Font provenance is verifiable
+- **WHEN** the committed font resources and provenance material are inspected
+- **THEN** the two WOFF2 hashes, official v1.7.2 source, and OFL-1.1 notice MUST match this requirement
+- **AND** no Inter font resource or Inter-only subset input MUST remain in the runtime or font-generation source directories
+
+#### Scenario: Both first-screen families are preloaded
+- **WHEN** `apps/web/index.html` and the global `@font-face` rules are inspected
+- **THEN** exactly two font preloads MUST exist, one for the Sans resource and one for the Mono resource
+- **AND** each preload URL MUST equal its corresponding `@font-face` URL
+
+#### Scenario: Font replacement preserves usable fallback and loading
+- **WHEN** mixed Chinese/Latin text, digits, punctuation, minus, arrows, and UI symbols render
+- **THEN** supported glyphs MUST use the intended Geist family and other glyphs MUST have a usable system fallback
+- **AND** both faces MUST retain `font-display: swap` without an obsolete Inter subset range
+- **AND** font tests MUST inspect the actual binaries and the browser review MUST verify both loaded faces and fallback rendering
+
+### Requirement: Celestial Blue is reserved for interaction identity
+Celestial Blue MUST express primary actions, interactive selection, focus, active interaction, and product identity. It MUST NOT express success, error, market movement, generic chart identity, or loading merely because a state needs color. A rendered view MUST continue to present at most one prominent primary CTA.
+
+#### Scenario: Primary interaction uses Celestial Blue
+- **WHEN** a primary button renders in its resting, hover, or pressed state
+- **THEN** it MUST use `--interactive-primary`, `--interactive-primary-hover`, or `--interactive-primary-pressed` respectively
+- **AND** its foreground MUST remain a dark semantic surface color with WCAG AA contrast
+
+#### Scenario: Focus remains visible
+- **WHEN** an interactive element receives `:focus-visible`
+- **THEN** its outline MUST use `--focus-ring-color`
+- **AND** the focus indication MUST remain clearly distinguishable from adjacent surfaces
+
+### Requirement: Research-workstation responsive presentation is preserved
+The semantic color and typography migration MUST preserve the existing 1024px, 900px, and 720px responsive behavior, `prefers-reduced-motion`, and programmatic accessibility. Wider Mono glyphs MUST NOT introduce page-level horizontal overflow or hide actions, chart labels, or Command Palette results.
+
+#### Scenario: Required responsive states remain usable
+- **WHEN** the application is reviewed above and below the existing 1024px, 900px, and 720px breakpoints
+- **THEN** page headings, navigation, metric cards, tables, charts, Command Palette, and mobile full-width buttons MUST remain readable and operable
+- **AND** numeric overflow MUST stay contained by the existing table/chart overflow strategy rather than producing page-level overflow
+
+### Requirement: Monospace typography uses the Geist Mono semantic role
+The monospace token MUST be named for its semantic role as `--font-mono`; its first runtime family MUST be `"Geist Mono"`. Consumers MUST select it because content is quantitative or code-like, not because a component historically used a display-font alias.
+
+#### Scenario: token name is --font-mono
+- **WHEN** `tokens.css` declares the monospace family token
+- **THEN** the canonical token MUST be `--font-mono`
+- **AND** its fallback chain MUST be `"Geist Mono", "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Monaco, Consolas, monospace`
+
+#### Scenario: every consumer uses the canonical token name
+- **WHEN** a CSS rule requests monospace typography
+- **THEN** it MUST use `var(--font-mono)`
+- **AND** no legacy font-family token MAY remain
+
+### Requirement: Research-workstation type scale is complete
+The prior marketing-scale ladder is replaced by research-workstation roles: page title `36/40`, section title `22/28`, card title `16/22`, metric hero `32/36` Mono, metric `24/30` Mono, body `15/22`, dense/table `13/20`, label `12/16`, meta `11/16`, and chart axis `11/16` Mono. Every size and line-height MUST be declared as a token, and every CSS `line-height` consumer MUST continue to reference a `--leading-*` token.
+
+#### Scenario: every named size is declared in tokens.css
+- **WHEN** typography tokens are inspected
+- **THEN** every role and exact size/line-height pair above MUST be declared
+
+#### Scenario: --text-body and --leading-body resolve to 15px / 22px
+- **WHEN** the body role is inspected after migration
+- **THEN** `--text-body` MUST resolve to `15px`
+- **AND** its paired leading token MUST resolve to `22px`
+
+#### Scenario: unused --text-body-sm / --text-body-lg aliases do not regress
+- **WHEN** obsolete scale aliases have no consumer
+- **THEN** they MUST be removed rather than preserved as speculative compatibility tokens
+
+#### Scenario: card-type-scale ladder is declared in tokens.css
+- **WHEN** card typography is inspected
+- **THEN** its data ladder MUST use the exact role mappings defined by the modified `card-type-scale` capability
+
+#### Scenario: card-type-scale rungs map onto card visual roles
+- **WHEN** text renders on a card
+- **THEN** language, label, and quantitative roles MUST select the documented role token and Sans/Mono family rather than inheriting one font indiscriminately

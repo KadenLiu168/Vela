@@ -389,6 +389,12 @@ describe("DashboardPage decision-first research path", () => {
     const holdings = screen.getByRole("table", { name: "Latest signal target holdings" });
     expect(within(holdings).getByText("588000")).toBeInTheDocument();
     expect(within(holdings).getByText("科创50ETF")).toBeInTheDocument();
+    const cells = within(within(holdings).getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[0]).toHaveClass("mono-compact");
+    expect(cells[1]).not.toHaveClass("mono-compact");
+    expect(cells[2]).toHaveClass("mono-compact");
+    expect(cells[3]).toHaveClass("mono-compact");
+    expect(cells[4]).toHaveClass("mono-compact");
   });
 
   it("states that a backtest-sourced signal is a simulation, not a live instruction", async () => {
@@ -417,7 +423,7 @@ describe("DashboardPage decision-first research path", () => {
 
     const backtestPanel = screen.getByTestId("workflow-panel-backtest");
     expect(within(backtestPanel).getByText("Config version")).toBeInTheDocument();
-    expect(within(backtestPanel).getByText("v1")).toBeInTheDocument();
+    expect(within(backtestPanel).getByText("v1")).toHaveClass("mono-compact");
   });
 
   it("reports the latest walk-forward state without scoring it", async () => {
