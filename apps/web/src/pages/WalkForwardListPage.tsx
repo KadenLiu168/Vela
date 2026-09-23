@@ -8,6 +8,7 @@ import {
   runWalkForward
 } from "../api/client";
 import { EmptyState, FeedbackMessage, Pagination, ReadFailure } from "../components";
+import { ScrollableTableWrap } from "./tablePrimitives";
 import { useDocumentTitle } from "../utils/documentTitle";
 import { isValidListOffset, listHrefWith, listOffsetFrom } from "../utils/listQuery";
 import { formatDate, formatTimestamp } from "../utils/formatters";
@@ -275,7 +276,7 @@ function renderWalkForwardList(
 
   return (
     <article className="dashboard-panel">
-      <div className="holdings-table-wrap">
+      <ScrollableTableWrap label="Persisted Walk-forward evaluations">
         <table className="holdings-table">
           <caption className="sr-only">Persisted Walk-forward evaluations</caption>
           <thead>
@@ -315,7 +316,7 @@ function renderWalkForwardList(
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollableTableWrap>
       <Pagination
         offset={offset}
         pageSize={PAGE_SIZE}

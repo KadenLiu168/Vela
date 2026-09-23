@@ -85,9 +85,11 @@ export function WalkForwardOosSummarySection({
         {headlineCards.map((card) => (
           <div className="metric-card" key={card.label}>
             <dt>{card.label}</dt>
-            <dd>{card.value}</dd>
-            {card.sub ? <p className="oos-summary-card-sub">{card.sub}</p> : null}
-            {card.meta ? <p className="oos-summary-card-meta">{card.meta}</p> : null}
+            <dd>
+              {card.value}
+              {card.sub ? <p className="oos-summary-card-sub">{card.sub}</p> : null}
+              {card.meta ? <p className="oos-summary-card-meta">{card.meta}</p> : null}
+            </dd>
           </div>
         ))}
       </dl>

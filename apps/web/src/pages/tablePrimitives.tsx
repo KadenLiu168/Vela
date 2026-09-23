@@ -21,3 +21,27 @@ export function TableCells({ cells, classNames }: { cells: ReactNode[]; classNam
     </td>
   ));
 }
+
+/** Keyboard-accessible horizontal scroll region for wide data tables.
+ *  The region carries an accessible name, a programmatic tab stop and a
+ *  visible focus outline, so table columns stay reachable by keyboard. */
+export function ScrollableTableWrap({
+  children,
+  className,
+  label
+}: {
+  children: ReactNode;
+  className?: string;
+  label: string;
+}) {
+  return (
+    <div
+      aria-label={label}
+      className={className ? `holdings-table-wrap ${className}` : "holdings-table-wrap"}
+      role="region"
+      tabIndex={0}
+    >
+      {children}
+    </div>
+  );
+}

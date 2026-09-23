@@ -62,8 +62,11 @@ body {
 }
 
 .app-shell {
+  /* The dynamic viewport unit tracks mobile browser chrome; 100vh is the
+   * fallback for engines without dvh support. */
   min-height: 100vh;
-  padding: var(--spacing-40) var(--spacing-32);
+  min-height: 100dvh;
+  padding: var(--spacing-40) var(--page-gutter-wide);
 }
 
 .app-header {
@@ -96,6 +99,9 @@ body {
   font-size: var(--text-dense);
   font-weight: var(--font-weight-medium);
   line-height: var(--leading-dense);
+  /* Long API addresses wrap instead of overflowing the header. */
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .app-nav {
@@ -205,10 +211,11 @@ main {
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-family: var(--font-sans);
-  font-size: var(--card-meta-size);
+  /* Status information stays at least the dense role (13/20). */
+  font-size: var(--text-dense);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-meta);
-  line-height: var(--leading-meta);
+  line-height: var(--leading-dense);
   padding: var(--spacing-8) var(--spacing-12);
   text-transform: uppercase;
   white-space: nowrap;
@@ -265,7 +272,7 @@ main {
   display: flex;
   gap: var(--spacing-16);
   justify-content: space-between;
-  margin-top: calc(var(--section-gap) * 0.5);
+  margin-top: var(--heading-content-gap);
   padding: var(--card-padding);
 }
 
@@ -335,8 +342,10 @@ main {
   border-radius: var(--radius-pills);
 }
 
+/* Skeletons are static placeholders: loading state is communicated by the
+ * accompanying textual feedback, and no looping pulse runs in any mode. */
 .skeleton-pulse {
-  animation: skeleton-pulse 1400ms ease-in-out infinite;
+  opacity: 0.85;
 }
 
 .route-loading-fallback {
@@ -350,16 +359,6 @@ main {
   gap: var(--spacing-12);
   min-height: 16rem;
   place-content: start;
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
 }
 
 .error-boundary {
@@ -377,20 +376,22 @@ main {
   border-radius: var(--radius-md);
   align-items: stretch;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-12);
-  margin-top: calc(var(--section-gap) * 0.5);
+  gap: var(--group-gap);
+  margin-top: var(--section-gap);
   padding: var(--card-padding);
 }
 
 .workflow-grid {
-  gap: var(--spacing-12);
+  gap: var(--group-gap);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: var(--spacing-24);
 }
 
+/* Ordinary research panels select the panel surface explicitly; raised
+ * stays reserved for emphasized metrics and floating layers. */
 .dashboard-panel,
 .workflow-grid article {
-  background: var(--surface-raised);
+  background: var(--panel-bg);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--card-padding-y) var(--card-padding-x);
@@ -402,7 +403,7 @@ main {
 }
 
 .dashboard-page .dashboard-panel {
-  background: var(--surface-raised);
+  background: var(--panel-bg);
   padding: var(--card-padding-y) var(--card-padding-x);
 }
 
@@ -425,7 +426,7 @@ main {
 
 .dashboard-page .market-panel,
 .dashboard-page .strategy-panel {
-  background: var(--surface-raised);
+  background: var(--panel-bg);
 }
 
 .etf-row-list {
@@ -489,9 +490,10 @@ main {
 .etf-row-date {
   color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--card-meta-size);
+  /* Important supporting date values render at least the label role (12/16). */
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
-  line-height: var(--leading-meta);
+  line-height: var(--leading-label);
   margin-left: auto;
   white-space: nowrap;
 }
@@ -566,11 +568,12 @@ main {
    Layer 1 states the current research facts, layers 2..4 present the latest
    signal, the latest strategy performance and the out-of-sample evidence, and
    layer 5 indexes the drill-down routes. The reference and operations region
-   follows the whole path. */
+   follows the whole path. Major research layers separate by the section gap;
+   the heading-to-content gap applies between the page title and this path. */
 .research-decision-path {
   display: grid;
-  gap: var(--spacing-16);
-  margin-top: calc(var(--section-gap) * 0.5);
+  gap: var(--section-gap);
+  margin-top: var(--heading-content-gap);
 }
 
 .research-panel {
@@ -613,8 +616,9 @@ main {
 .research-fact-lag {
   color: var(--text-tertiary);
   font-family: var(--font-sans);
-  font-size: var(--card-meta-size);
-  line-height: var(--leading-meta);
+  /* Freshness/status explanation stays at least the dense role (13/20). */
+  font-size: var(--text-dense);
+  line-height: var(--leading-dense);
 }
 
 .research-next-action {
@@ -641,14 +645,15 @@ main {
 .research-headline-grid,
 .research-oos-grid {
   display: grid;
-  gap: var(--spacing-16);
+  gap: var(--group-gap);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin: var(--spacing-16) 0 0;
 }
 
 .research-headline,
 .research-oos-card {
-  background: var(--surface-panel);
+  /* Emphasized metric cards keep the raised surface role. */
+  background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   padding: var(--spacing-16);
@@ -681,8 +686,10 @@ main {
 .research-oos-meta {
   color: var(--text-tertiary);
   font-family: var(--font-sans);
-  font-size: var(--card-meta-size);
-  line-height: var(--leading-meta);
+  /* Evidence counts and signed comparisons carry decision information;
+   * keep them at least the dense role (13/20). */
+  font-size: var(--text-dense);
+  line-height: var(--leading-dense);
   margin: var(--spacing-8) 0 0;
 }
 
@@ -728,7 +735,7 @@ main {
   min-width: 0;
 }
 
-.panel-heading span {
+.panel-heading-eyebrow {
   color: var(--text-tertiary);
   font-size: var(--card-meta-size);
   font-weight: var(--font-weight-regular);
@@ -774,10 +781,11 @@ main {
   display: inline-flex;
   flex: 0 0 auto;
   font-family: var(--font-sans);
-  font-size: var(--card-meta-size);
+  /* Status information stays at least the dense role (13/20). */
+  font-size: var(--text-dense);
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-meta);
-  line-height: var(--leading-meta);
+  line-height: var(--leading-dense);
   padding: var(--spacing-4) var(--spacing-8);
   text-transform: uppercase;
   white-space: nowrap;
@@ -843,12 +851,12 @@ main {
 
 .signal-list-page > :not(.page-heading),
 .backtest-list-page > :not(.page-heading) {
-  margin-top: var(--space-xl);
+  margin-top: var(--heading-content-gap);
 }
 
 .walk-forward-run-trigger {
   margin-bottom: var(--spacing-16);
-  margin-top: var(--space-xl);
+  margin-top: var(--heading-content-gap);
 }
 
 .backtest-tab {
@@ -879,7 +887,8 @@ main {
 }
 
 .metric {
-  background: var(--surface-panel);
+  /* Emphasized metric tiles keep the raised surface role. */
+  background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--spacing-16);
@@ -981,13 +990,11 @@ main {
   text-transform: uppercase;
 }
 
-/* Progressive disclosure — native <details> for secondary metric groups. */
+/* Progressive disclosure — native <details> for secondary metric groups.
+ * Disclosure groups are related content inside their section: the group gap
+ * applies, and consecutive disclosures share it (no extra rhythm). */
 .detail-page .disclosure {
-  margin-top: calc(var(--section-gap) * 0.75);
-}
-
-.detail-page .disclosure + .disclosure {
-  margin-top: var(--spacing-24);
+  margin-top: var(--group-gap);
 }
 
 .detail-page .disclosure-summary {
@@ -1044,7 +1051,7 @@ main {
   background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .detail-page .metric-card dt {
@@ -1163,7 +1170,7 @@ main {
 }
 
 .detail-page .decision-summary-section {
-  margin-top: calc(var(--section-gap) * 0.75);
+  margin-top: var(--section-gap);
 }
 
 .detail-page .decision-summary-header {
@@ -1216,7 +1223,7 @@ main {
 }
 
 .detail-page .config-list + .config-list {
-  margin-top: var(--spacing-24);
+  margin-top: var(--group-gap);
 }
 
 .detail-page,
@@ -1231,7 +1238,7 @@ main {
 }
 
 .detail-page .dashboard-panel {
-  background: var(--surface-raised);
+  background: var(--panel-bg);
   border-color: var(--border-subtle);
   min-height: auto;
   padding: var(--card-padding-y) var(--card-padding-x);
@@ -1438,12 +1445,13 @@ main {
   background: transparent;
   border: 1px dashed var(--border-subtle);
   color: var(--text-tertiary);
-  padding: var(--spacing-20) var(--spacing-16);
+  /* Compact fact region: 16px on both axes. */
+  padding: var(--card-padding-compact);
 }
 
 .detail-page:not(.signal-detail-page) .holdings-section > .empty-state {
   background: var(--surface-raised);
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .dashboard-page .empty-state {
@@ -1500,12 +1508,13 @@ main {
   font-size: var(--card-body-size);
   font-weight: var(--font-weight-regular);
   line-height: var(--leading-body-card);
+  min-height: var(--control-min-height);
   min-width: 150px;
   padding: var(--spacing-8) var(--spacing-12);
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -1569,8 +1578,8 @@ main {
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
   transition:
-    color var(--duration-base) var(--ease-out),
-    text-decoration-color var(--duration-base) var(--ease-out);
+    color var(--duration-fast) var(--ease-out),
+    text-decoration-color var(--duration-fast) var(--ease-out);
 }
 
 .operation-link:hover {
@@ -1594,11 +1603,12 @@ main {
   font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-numeral);
   line-height: var(--leading-body-card);
-  padding: var(--spacing-12) var(--spacing-20);
+  min-height: var(--control-min-height);
+  padding: var(--spacing-8) var(--spacing-20);
   transition:
-    background-color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out);
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .button-primary {
@@ -1706,7 +1716,7 @@ main {
   display: grid;
   gap: var(--spacing-16);
   margin: var(--spacing-24) 0 0;
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .signal-detail-page .compact-list {
@@ -1734,12 +1744,12 @@ main {
 }
 
 .holdings-section {
-  margin-top: calc(var(--section-gap) * 0.75);
+  margin-top: var(--section-gap);
   min-width: 0;
 }
 
 .signal-detail-page .holdings-section {
-  margin-top: calc(var(--section-gap) * 0.75);
+  margin-top: var(--section-gap);
 }
 
 .holdings-section h2 {
@@ -1759,7 +1769,7 @@ main {
   font-weight: var(--font-weight-title);
   letter-spacing: var(--tracking-title);
   line-height: var(--leading-section-title);
-  margin: 0 0 var(--spacing-12);
+  margin: 0 0 var(--spacing-16);
 }
 
 .parameter-summary {
@@ -1847,12 +1857,10 @@ main {
 }
 
 .equity-curve-swatch {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-small);
   display: inline-block;
   flex: none;
   height: 10px;
-  width: 10px;
+  width: 16px;
 }
 
 .equity-curve-highlight {
@@ -1869,7 +1877,7 @@ main {
   gap: var(--spacing-8) var(--spacing-20);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: var(--spacing-20) 0 0;
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .etf-detail-name {
@@ -1939,7 +1947,7 @@ main {
   gap: var(--spacing-8) var(--spacing-20);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: var(--spacing-20) 0 0;
-  padding: var(--spacing-20);
+  padding: var(--card-padding-y) var(--card-padding-x);
 }
 
 .holdings-table-wrap {
@@ -2057,6 +2065,7 @@ main {
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  min-height: var(--control-min-height);
   padding: var(--spacing-8) var(--spacing-12);
 }
 
@@ -2149,6 +2158,16 @@ main {
   border-color: var(--border-subtle);
 }
 
+/* Scroll regions for wide tables stay keyboard reachable with a visible
+ * focus outline (the global focus-visible rule only covers form elements). */
+.holdings-table-wrap:focus-visible,
+.comparison-matrix-wrap:focus-visible,
+.walk-forward-window-scroll:focus-visible,
+.walk-forward-json:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
+}
+
 .holdings-table {
   border-collapse: collapse;
   min-width: 640px;
@@ -2166,7 +2185,9 @@ main {
   font-size: var(--card-body-size);
   padding: var(--spacing-12);
   text-align: left;
-  white-space: nowrap;
+  /* Name and language cells wrap; Mono data cells keep their one-line
+   * shape through the mono-compact rule below. */
+  white-space: normal;
 }
 
 .holdings-table th {
@@ -2191,6 +2212,19 @@ main {
 .holdings-table td.mono-compact {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Quantity columns align right; language/name columns stay left. Column
+ * ranges are scoped per table so unrelated tables keep the left default. */
+.dashboard-page .signal-panel .holdings-table th:nth-child(n + 3):nth-child(-n + 5),
+.dashboard-page .signal-panel .holdings-table td:nth-child(n + 3):nth-child(-n + 5),
+.walk-forward-list-page .holdings-table th:nth-child(6),
+.walk-forward-list-page .holdings-table td:nth-child(6),
+.stability-table-wrap .holdings-table th:nth-child(n + 4):nth-child(-n + 5),
+.stability-table-wrap .holdings-table td:nth-child(n + 4):nth-child(-n + 5),
+.detail-page .comparison-matrix td {
+  text-align: right;
 }
 
 .signal-detail-page .holdings-table th {
@@ -2288,7 +2322,10 @@ main {
   display: flex;
   flex-direction: column;
   left: 50%;
+  /* Dynamic viewport height keeps the palette inside the visible area when
+   * mobile browser chrome (software keyboard) compresses the viewport. */
   max-height: 60vh;
+  max-height: 60dvh;
   max-width: 600px;
   overflow: hidden;
   position: fixed;
@@ -2426,25 +2463,30 @@ main {
   color: var(--status-danger);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-nav-link,
-  .button-primary,
-  .button-secondary,
-  .button-tertiary,
-  .backtest-run-form input,
-  .operation-link {
-    transition-duration: 0ms;
-  }
+/* 404 keeps the shared page identity block; the heading-to-content gap
+ * applies like every other page. */
+.not-found-page > .page-heading {
+  margin-bottom: var(--heading-content-gap);
+}
 
-  .skeleton-pulse {
-    animation: none;
-    opacity: 0.55;
+.not-found-page > p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Every element (and pseudo-element) that could use a motion token has its
+   * durations zeroed, so non-essential motion is fully suppressed. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
   }
 }
 
 @media (width <= 1024px) {
   .app-shell {
-    padding: var(--spacing-36) var(--spacing-24);
+    padding: var(--spacing-36) var(--page-gutter-medium);
   }
 
   .dashboard-heading {
@@ -2457,20 +2499,12 @@ main {
 
   .dashboard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: var(--spacing-32);
   }
 
   .market-panel,
   .strategy-panel,
   .operations-panel {
     grid-column: span 2;
-  }
-
-  .detail-page .dashboard-panel,
-  .parameter-summary,
-  .equity-curve-card,
-  .equity-curve-single-point {
-    padding: var(--spacing-32);
   }
 
   .detail-page .metric-card-grid,
@@ -2502,36 +2536,10 @@ main {
     justify-content: flex-start;
   }
 
-  .dashboard-grid {
-    gap: var(--spacing-16);
-    padding: var(--spacing-24);
-  }
-
-  .dashboard-page .dashboard-panel {
-    padding: var(--spacing-16);
-  }
-
   .metric-row,
   .detail-page .metric-card-grid,
   .detail-page .oos-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .detail-page,
-  .signal-detail-page {
-    gap: var(--spacing-60);
-  }
-
-  .detail-page .dashboard-panel,
-  .parameter-summary,
-  .equity-curve-card,
-  .equity-curve-single-point {
-    padding: var(--spacing-24);
-  }
-
-  .holdings-section,
-  .signal-detail-page .holdings-section {
-    margin-top: var(--spacing-60);
   }
 
   .signal-detail-page .compact-list {
@@ -2540,8 +2548,14 @@ main {
 }
 
 @media (width <= 720px) {
+  /* Shared compact page-title role: 28/36 on every page at or below 720px. */
+  .page-heading h1 {
+    font-size: var(--text-page-title-compact);
+    line-height: var(--leading-page-title-compact);
+  }
+
   .app-shell {
-    padding: var(--spacing-20);
+    padding: var(--spacing-20) var(--page-gutter-compact);
   }
 
   main {
@@ -2578,11 +2592,20 @@ main {
     width: 100%;
   }
 
+  /* Touch target: controls grow to the 44px target at or below 720px. */
+  .button-primary,
+  .button-secondary,
+  .button-tertiary,
+  .backtest-run-form input,
+  .stability-select select {
+    min-height: var(--control-touch-size);
+  }
+
   .first-run-guidance {
     align-items: flex-start;
     flex-direction: column;
-    margin-top: var(--spacing-32);
-    padding: var(--spacing-20);
+    margin-top: var(--section-gap-compact);
+    padding: var(--card-padding-compact);
   }
 
   .dashboard-grid,
@@ -2591,25 +2614,35 @@ main {
   }
 
   .dashboard-grid {
-    margin-top: var(--spacing-32);
-    padding: var(--spacing-16);
+    margin-top: var(--section-gap-compact);
+    padding: var(--card-padding-compact);
   }
 
+  /* Major research layers separate by the compact section gap; every panel
+   * uses the compact 16px padding on both axes. */
+  .research-decision-path,
   .detail-page,
   .signal-detail-page {
-    gap: var(--spacing-40);
+    gap: var(--section-gap-compact);
   }
 
   .detail-page .dashboard-panel,
+  .dashboard-page .dashboard-panel,
+  .detail-page .metric-card,
+  .detail-page dl,
+  .equity-curve-summary,
+  .trend-readout,
   .parameter-summary,
   .equity-curve-card,
-  .equity-curve-single-point {
-    padding: var(--spacing-20);
+  .equity-curve-single-point,
+  .walk-forward-json,
+  .first-run-guidance {
+    padding: var(--card-padding-compact);
   }
 
   .holdings-section,
   .signal-detail-page .holdings-section {
-    margin-top: var(--spacing-40);
+    margin-top: var(--section-gap-compact);
   }
 
   .market-panel,
@@ -2629,5 +2662,16 @@ main {
 
   .signal-detail-page .compact-list {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  /* Coarse pointers get the touch target even on wide screens. */
+  .button-primary,
+  .button-secondary,
+  .button-tertiary,
+  .backtest-run-form input,
+  .stability-select select {
+    min-height: var(--control-touch-size);
   }
 }

@@ -259,17 +259,20 @@ describe("forbidden legacy tokens", () => {
 });
 
 describe("research-workstation type scale", () => {
+  // Sizes are rem so they scale with the user's root font; each value equals
+  // the documented px at the default 16px root font.
   const roles: Record<string, [string, string]> = {
-    "page-title": ["36px", "40px"],
-    "section-title": ["22px", "28px"],
-    "card-title": ["16px", "22px"],
-    "metric-hero": ["32px", "36px"],
-    metric: ["24px", "30px"],
-    body: ["15px", "22px"],
-    dense: ["13px", "20px"],
-    label: ["12px", "16px"],
-    meta: ["11px", "16px"],
-    "chart-axis": ["11px", "16px"]
+    "page-title": ["2.25rem", "2.5rem"],
+    "page-title-compact": ["1.75rem", "2.25rem"],
+    "section-title": ["1.375rem", "1.75rem"],
+    "card-title": ["1rem", "1.375rem"],
+    "metric-hero": ["2rem", "2.25rem"],
+    metric: ["1.5rem", "1.875rem"],
+    body: ["0.9375rem", "1.375rem"],
+    dense: ["0.8125rem", "1.25rem"],
+    label: ["0.75rem", "1rem"],
+    meta: ["0.6875rem", "1rem"],
+    "chart-axis": ["0.6875rem", "1rem"]
   };
 
   it("declares every role size and its --leading-* pair exactly", () => {
@@ -280,13 +283,13 @@ describe("research-workstation type scale", () => {
   });
 
   it("declares the four card data rungs and card-title pair", () => {
-    expect(resolveToken("card-meta-size")).toBe("11px");
-    expect(resolveToken("leading-body-card")).toBe("20px");
-    expect(resolveToken("card-body-size")).toBe("13px");
-    expect(resolveToken("card-emphasis-size")).toBe("24px");
-    expect(resolveToken("leading-emphasis")).toBe("30px");
-    expect(resolveToken("card-display-size")).toBe("32px");
-    expect(resolveToken("leading-display-card")).toBe("36px");
+    expect(resolveToken("card-meta-size")).toBe("0.6875rem");
+    expect(resolveToken("leading-body-card")).toBe("1.25rem");
+    expect(resolveToken("card-body-size")).toBe("0.8125rem");
+    expect(resolveToken("card-emphasis-size")).toBe("1.5rem");
+    expect(resolveToken("leading-emphasis")).toBe("1.875rem");
+    expect(resolveToken("card-display-size")).toBe("2rem");
+    expect(resolveToken("leading-display-card")).toBe("2.25rem");
   });
 
   it("retains the tracking contract", () => {
@@ -312,8 +315,10 @@ describe("research-workstation type scale", () => {
 describe("component aliases and states", () => {
   it("rebases card primitives onto the semantic roles", () => {
     expect(tokenDeclaration("card-bg")).toBe("var(--surface-raised)");
+    expect(tokenDeclaration("panel-bg")).toBe("var(--surface-panel)");
     expect(tokenDeclaration("card-border-color")).toBe("var(--border-subtle)");
     expect(tokenDeclaration("card-radius")).toBe("var(--radius-cards)");
+    expect(tokenDeclaration("card-shadow")).toBe("none");
   });
 
   it("keeps the three-variant button contract on semantic tokens", () => {
@@ -356,6 +361,88 @@ describe("component aliases and states", () => {
     const dd = css.match(/\.compact-list dd\s*{[^}]*}/)![0];
     expect(dt).toContain("var(--leading-body-card)");
     expect(dd).toContain("var(--leading-body-card)");
+  });
+});
+
+describe("layout and control tokens", () => {
+  it("resolves the research rhythm tokens onto the spacing ladder", () => {
+    expect(resolveToken("section-gap")).toBe("3rem");
+    expect(resolveToken("section-gap-compact")).toBe("2rem");
+    expect(resolveToken("group-gap")).toBe("1.5rem");
+    expect(resolveToken("heading-content-gap")).toBe("1.5rem");
+    expect(resolveToken("page-gutter-wide")).toBe("2rem");
+    expect(resolveToken("page-gutter-medium")).toBe("1.5rem");
+    expect(resolveToken("page-gutter-compact")).toBe("1rem");
+  });
+
+  it("keeps the canonical page width and routes card padding through the ladder", () => {
+    expect(tokenDeclaration("page-max-width")).toBe("1200px");
+    expect(resolveToken("card-padding")).toBe("1.5rem");
+    expect(resolveToken("card-padding-x")).toBe("1.5rem");
+    expect(resolveToken("card-padding-y")).toBe("1.5rem");
+    expect(resolveToken("card-padding-compact")).toBe("1rem");
+  });
+
+  it("declares the control minimum heights", () => {
+    expect(tokenDeclaration("control-min-height")).toBe("2.25rem");
+    expect(tokenDeclaration("control-touch-size")).toBe("2.75rem");
+  });
+
+  it("keeps spacing primitives in rem equivalents of the documented px", () => {
+    for (const [name, value] of [
+      ["spacing-unit", "0.25rem"],
+      ["spacing-4", "0.25rem"],
+      ["spacing-8", "0.5rem"],
+      ["spacing-12", "0.75rem"],
+      ["spacing-16", "1rem"],
+      ["spacing-20", "1.25rem"],
+      ["spacing-24", "1.5rem"],
+      ["spacing-32", "2rem"],
+      ["spacing-48", "3rem"],
+      ["spacing-96", "6rem"]
+    ] as Array<[string, string]>) {
+      expect(tokenDeclaration(name), `--${name}`).toBe(value);
+    }
+  });
+
+  it("declares no custom properties inside media queries (responsive rules select tokens)", () => {
+    const mediaBlocks = STYLES_CSS.match(/@media[^{]+\{(?:[^{}]*\{[^}]*\})*[^{}]*\}/g) ?? [];
+    expect(mediaBlocks.length).toBeGreaterThan(0);
+    const offenders = mediaBlocks
+      .flatMap((block) => [...block.matchAll(/--[\w-]+\s*:/g)].map(() => block))
+      .filter(Boolean);
+    expect(offenders).toEqual([]);
+  });
+
+  it("gives controls the touch minimum under pointer:coarse", () => {
+    const coarseBlocks = STYLES_CSS.match(
+      /@media \(pointer: coarse\)\s*\{[\s\S]*?\n\}/g
+    ) ?? [];
+    expect(coarseBlocks.length).toBe(1);
+    const block = coarseBlocks[0];
+    for (const selector of [
+      ".button-primary",
+      ".button-secondary",
+      ".button-tertiary",
+      ".backtest-run-form input",
+      ".stability-select select"
+    ]) {
+      expect(block).toContain(selector);
+    }
+    expect(block).toContain("var(--control-touch-size)");
+  });
+
+  it("declares the dynamic viewport sizes with a vh fallback", () => {
+    const shellRule = STYLES_CSS.match(/\.app-shell\s*\{[^}]*\}/)![0];
+    expect(shellRule).toContain("min-height: 100vh;");
+    expect(shellRule).toContain("min-height: 100dvh;");
+    expect(shellRule.indexOf("min-height: 100vh;")).toBeLessThan(
+      shellRule.indexOf("min-height: 100dvh;")
+    );
+
+    const dialogRule = STYLES_CSS.match(/\.command-palette-dialog\s*\{[^}]*\}/)![0];
+    expect(dialogRule).toContain("max-height: 60vh;");
+    expect(dialogRule).toContain("max-height: 60dvh;");
   });
 });
 

@@ -23,6 +23,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: "./src/test/setup.ts"
+    setupFiles: "./src/test/setup.ts",
+    // Playwright specs live in e2e/ and run under their own runner.
+    exclude: ["node_modules/**", "e2e/**"]
   }
 });

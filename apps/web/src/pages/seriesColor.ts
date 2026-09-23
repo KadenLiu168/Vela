@@ -38,3 +38,23 @@ function reservedRoleIndex(key: string): number {
 export function seriesColor(key: string): string {
   return SERIES_COLOR_BY_KEY[key] ?? RESERVED_ROLE_TOKENS[reservedRoleIndex(key)];
 }
+
+/** Stable dash patterns paired with the categorical colors (undefined =
+ *  solid). The strategy series keeps the solid line; each benchmark key gets
+ *  a distinct, deterministic pattern that survives reordering and is reused
+ *  verbatim by the legend swatches so chart and legend stay in sync. */
+const SERIES_DASHES = [
+  undefined,
+  "6 4",
+  "2 4",
+  "8 3 2 3",
+  "4 4",
+  "1 5"
+] as const;
+
+export function seriesLineStyle(key: string): string | undefined {
+  const knownKeys = Object.keys(SERIES_COLOR_BY_KEY);
+  const knownIndex = knownKeys.indexOf(key);
+  const index = knownIndex >= 0 ? knownIndex : 3 + reservedRoleIndex(key);
+  return SERIES_DASHES[index];
+}

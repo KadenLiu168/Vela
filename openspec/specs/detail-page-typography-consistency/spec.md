@@ -5,12 +5,12 @@ Ensures typographic consistency for shared structural elements (`page-heading`, 
 ## Requirements
 ### Requirement: 跨页面同层元素 typography 一致
 
-Signal Detail、Backtest Detail、Dashboard 以及全部渲染 `page-heading h1` 的页面（Signal / Backtest / Walk-forward 列表页与详情页、ETF Detail）在共享结构（`page-heading`、`panel-primary`、`compact-list`、`holdings-section h2/h3`、`holdings-table`）上的同层级元素 MUST 使用相同的字体族、字号、字重、行高、字距与 `text-transform` 修饰。差异仅允许出现在"各自独有的元素"上（如 Backtest 独有的 `.metric-card`、`.equity-curve-card`、`.parameter-summary`）。
+Signal Detail、Backtest Detail、Dashboard 以及全部渲染 `page-heading h1` 的页面（Signal / Backtest / Walk-forward 列表页与详情页、ETF Detail）在共享结构（`page-heading`、`panel-primary`、`compact-list`、`holdings-section h2/h3`、`holdings-table`）上的同层级元素在相同视口宽度下 MUST 使用相同的字体族、字号、字重、行高、字距与 `text-transform` 修饰。差异仅允许出现在"各自独有的元素"上（如 Backtest 独有的 `.metric-card`、`.equity-curve-card`、`.parameter-summary`）。
 
 #### Scenario: page-heading 标题与 eyebrow 视觉一致
 
 - **WHEN** 用户分别打开 Dashboard、Signal List / Detail、Backtest List / Detail、Walk-forward List / Detail 与 ETF Detail 任意页面
-- **THEN** 所有页面的 `page-heading h1` 必须使用相同的 `font-size`（`var(--text-heading-sm)`）、`line-height`、`letter-spacing` 与 `font-weight`
+- **THEN** 所有页面的 `page-heading h1` 必须使用相同的 `font-size`（宽度大于 720px 时为共享 36px page-title，720px 及以下为共享 28px compact page-title）、`line-height`、`letter-spacing` 与 `font-weight`
 - **AND** 所有页面的 `page-heading p`（eyebrow）必须使用相同的 `font-size`、`text-transform` 与 `letter-spacing`
 
 #### Scenario: panel-primary 视觉一致

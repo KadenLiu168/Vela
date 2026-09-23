@@ -102,9 +102,13 @@ The web frontend MUST declare a motion vocabulary in `tokens.css`
 - **THEN** a global media query in `apps/web/src/styles.css` MUST
       set `transition-duration: 0ms` and `animation-duration: 0ms`
       on every element that uses a motion token
-- **AND** non-essential motion MUST be suppressed; loading spinners
-      driven by user-initiated actions MAY remain
+- **AND** non-essential motion and skeleton pulsing MUST be suppressed while textual loading feedback remains available
 
+#### Scenario: State changes remain immediate to read
+- **WHEN** a user changes a selection, opens a modal, or receives updated research data
+- **THEN** hover feedback MUST use 120ms, optional modal transitions MUST use 200ms, and optional disclosure transitions MUST not exceed 200ms
+- **AND** values MUST NOT count up, chart results MUST NOT wait for a drawing animation, and cards MUST NOT use staggered entrance motion
+- **AND** updates MUST retain reading position except for existing navigation focus behavior
 ### Requirement: Line-height MUST come from a `--leading-*` token
 Any `line-height` declaration under `apps/web/src/styles.css` MUST
 resolve through a CSS custom property declared in
@@ -218,7 +222,7 @@ fit the 8px-grid ladder. New layout-gap code SHOULD prefer
       out of scope for this change
 
 ### Requirement: Card primitives are available as `--card-*` tokens
-Shared card aliases MUST resolve to `--surface-raised`, `--border-subtle`, existing spacing/radius tokens, and no shadow stronger than the existing subtle elevation vocabulary. Surface contrast plus border MUST remain the primary hierarchy mechanism.
+Standard research panels MUST use `--surface-panel`; emphasized metric cards and modal surfaces MUST use `--surface-raised`. Shared card aliases MUST retain raised surfaces and subtle borders, while standard panels MUST select the panel surface explicitly. Standard panel padding MUST be 24px on both axes; compact panels and panels at or below 720px MUST use 16px. Panel shadows MUST be absent; modal shadows MUST stay within the existing elevation vocabulary. Surface contrast plus border MUST remain the primary hierarchy mechanism.
 
 #### Scenario: --card-* tokens are declared in tokens.css
 - **WHEN** card aliases are inspected
@@ -228,7 +232,6 @@ Shared card aliases MUST resolve to `--surface-raised`, `--border-subtle`, exist
 #### Scenario: --card-* tokens do not duplicate declarations
 - **WHEN** other CSS files are inspected
 - **THEN** they MUST consume, not redeclare, `--card-*` tokens
-
 ### Requirement: Radius → component mapping is canonical
 The web frontend MUST follow a documented mapping between each
 component family and a single radius token. The mapping is:
@@ -285,7 +288,7 @@ Components not in this list SHOULD consume the closest primitive
       `var(--radius-cards)`
 
 ### Requirement: Dashboard heading uses a discrete responsive ladder
-Every page heading MUST use the shared 36px/40px page-title tokens and approximately 580 weight. Dashboard MUST NOT introduce a divergent heading size.
+Every page heading MUST use shared 36px/40px page-title tokens above 720px and shared 28px/36px compact page-title tokens at or below 720px, with approximately 580 weight. Dashboard MUST NOT introduce a divergent heading size.
 
 #### Scenario: all pages share one heading type scale
 - **WHEN** the page heading rule is inspected
@@ -298,7 +301,6 @@ Every page heading MUST use the shared 36px/40px page-title tokens and approxima
 #### Scenario: mobile media query does not reintroduce a larger size
 - **WHEN** responsive rules are inspected
 - **THEN** they MUST NOT make Dashboard headings larger than the shared page-title role
-
 ### Requirement: State component set is exported from the components barrel
 The web frontend MUST expose the Empty / Loading / Skeleton /
 Error state-UI primitives as a single named family that is
@@ -474,18 +476,16 @@ capability.
 
 ### Requirement: Card container padding routes through --card-padding-y
 
-`apps/web/src/styles.css` rules that style `.dashboard-panel` (or the same class scoped to `.dashboard-page` / `.detail-page`) MUST source their `padding` (when the value is one of the canonical card paddings) through `var(--card-padding-y)` / `var(--card-padding-x)` rather than through bare `var(--spacing-N)` primitives.
+`apps/web/src/styles.css` rules that style `.dashboard-panel` (or the same class scoped to `.dashboard-page` / `.detail-page`) MUST source their `padding` (when the value is one of the canonical card paddings) through `var(--card-padding-y)` / `var(--card-padding-x)` or `var(--card-padding-compact)` rather than through bare `var(--spacing-N)` primitives.
 
 #### Scenario: dashboard-panel padding uses card padding tokens
 - **WHEN** `apps/web/src/styles.css` is searched for the rules
       targeting `.dashboard-panel`, `.dashboard-page
       .dashboard-panel`, and `.detail-page .dashboard-panel`
 - **THEN** each rule's `padding` MUST resolve through
-      `var(--card-padding-y)` (or `--card-padding-x` for the
-      horizontal axis)
+      the standard `--card-padding-y` / `--card-padding-x` tokens or the compact `--card-padding-compact` token
 - **AND** no rule under these selectors MAY use a bare
       `var(--spacing-N)` for card padding
-
 ### Requirement: No IBM Plex Mono font resources
 
 The web frontend MUST NOT load or reference the IBM Plex Mono font
@@ -524,16 +524,15 @@ Ordinary readable text MUST use `--text-primary`, `--text-secondary`, or `--text
 - **THEN** it MAY use border/chart structural tokens and MUST NOT become the sole carrier of information
 
 ### Requirement: Vertical rhythm between headings and content
-Existing heading-to-content spacing contracts MUST remain unchanged, but page and section headings MUST use `--font-sans` and their new semantic type roles.
+Page headings MUST be separated from their first content surface by 24px. Section headings MUST retain 16px separation from body content. Major research sections MUST use 48px separation above 720px and 32px at or below 720px; related content groups MUST use 24px. Page and section headings MUST use Sans and shared semantic type roles.
 
 #### Scenario: list page title is separated from main content
 - **WHEN** a list page title precedes its first content surface
-- **THEN** the existing `--space-xl` separation MUST remain
+- **THEN** the shared 24px heading-to-content separation MUST apply
 
 #### Scenario: detail section heading is separated from body content
 - **WHEN** a detail section heading renders
 - **THEN** it MUST use `--font-sans`, the section-title size/leading/weight roles, and the existing 16px bottom spacing
-
 ### Requirement: Categorical multi-series color palette
 The chart palette MUST declare `--chart-series-1: #7c9cff`, `--chart-series-2: #46c2b3`, `--chart-series-3: #f3c969`, `--chart-series-4: #d88cff`, `--chart-series-5: #ff8a65`, and `--chart-series-6: #8fcb6a`. Strategy, equal-weight monthly, and CSI 300 buy-and-hold MUST map to series 1, 2, and 3 by stable key; unknown keys MUST deterministically map to roles 4–6.
 
@@ -642,13 +641,12 @@ Celestial Blue MUST express primary actions, interactive selection, focus, activ
 - **AND** the focus indication MUST remain clearly distinguishable from adjacent surfaces
 
 ### Requirement: Research-workstation responsive presentation is preserved
-The semantic color and typography migration MUST preserve the existing 1024px, 900px, and 720px responsive behavior, `prefers-reduced-motion`, and programmatic accessibility. Wider Mono glyphs MUST NOT introduce page-level horizontal overflow or hide actions, chart labels, or Command Palette results.
+The research presentation MUST retain the 1024px, 900px, and 720px breakpoint boundaries, applying the updated spacing, heading and layout contracts at those boundaries while preserving `prefers-reduced-motion` and programmatic accessibility. Wider Mono glyphs MUST NOT introduce page-level horizontal overflow or hide actions, chart labels, or Command Palette results.
 
 #### Scenario: Required responsive states remain usable
 - **WHEN** the application is reviewed above and below the existing 1024px, 900px, and 720px breakpoints
 - **THEN** page headings, navigation, metric cards, tables, charts, Command Palette, and mobile full-width buttons MUST remain readable and operable
 - **AND** numeric overflow MUST stay contained by the existing table/chart overflow strategy rather than producing page-level overflow
-
 ### Requirement: Monospace typography uses the Geist Mono semantic role
 The monospace token MUST be named for its semantic role as `--font-mono`; its first runtime family MUST be `"Geist Mono"`. Consumers MUST select it because content is quantitative or code-like, not because a component historically used a display-font alias.
 
@@ -663,7 +661,7 @@ The monospace token MUST be named for its semantic role as `--font-mono`; its fi
 - **AND** no legacy font-family token MAY remain
 
 ### Requirement: Research-workstation type scale is complete
-The prior marketing-scale ladder is replaced by research-workstation roles: page title `36/40`, section title `22/28`, card title `16/22`, metric hero `32/36` Mono, metric `24/30` Mono, body `15/22`, dense/table `13/20`, label `12/16`, meta `11/16`, and chart axis `11/16` Mono. Every size and line-height MUST be declared as a token, and every CSS `line-height` consumer MUST continue to reference a `--leading-*` token.
+The prior marketing-scale ladder is replaced by research-workstation roles: page title `36/40` above 720px and compact page title `28/36` at or below 720px, section title `22/28`, card title `16/22`, metric hero `32/36` Mono, metric `24/30` Mono, body `15/22`, dense/table `13/20`, label `12/16`, meta `11/16`, and chart axis `11/16` Mono. All stated pixel dimensions describe computed sizes at the default 16px root font; relative units MUST allow user text enlargement. Every size and line-height MUST be declared as a token, and every CSS `line-height` consumer MUST continue to reference a `--leading-*` token.
 
 #### Scenario: every named size is declared in tokens.css
 - **WHEN** typography tokens are inspected
@@ -685,3 +683,28 @@ The prior marketing-scale ladder is replaced by research-workstation roles: page
 #### Scenario: card-type-scale rungs map onto card visual roles
 - **WHEN** text renders on a card
 - **THEN** language, label, and quantitative roles MUST select the documented role token and Sans/Mono family rather than inheriting one font indiscriminately
+
+### Requirement: Research layout and control dimensions have semantic tokens
+The canonical token source MUST declare page gutters of 32px above 1024px, 24px from 721px through 1024px, and 16px at or below 720px; major section spacing of 48px/32px for desktop/mobile; group and heading-content spacing of 24px; standard/compact panel padding of 24px/16px; desktop control minimum height of 36px and touch control minimum height of 44px. These sizes are default-root computed values and MUST scale with user text settings. These dimensions MUST be consumed by their corresponding roles without competing token roots. The 1200px maximum content width and existing radius mapping MUST remain unchanged.
+
+#### Scenario: Narrow layout applies compact dimensions
+- **WHEN** a research page renders at 390px width
+- **THEN** its page gutters MUST be 16px, panel padding 16px, and major section separation 32px
+- **AND** controls MUST have at least 44px height, wrapping labels instead of clipping them
+
+#### Scenario: Desktop layout uses standard dimensions
+- **WHEN** a research page renders at 1440px width
+- **THEN** page gutters MUST be 32px, standard panel padding 24px, and major section separation 48px
+- **AND** desktop controls MUST have at least 36px height; coarse-pointer controls MUST retain at least 44px height
+
+### Requirement: Component states share readable visual treatment
+Navigation, buttons, inputs, filters, tables, feedback and palette results MUST distinguish every applicable default, hover, focus, active, selected, disabled, loading and error state. Selection MUST be programmatically exposed. Pending buttons MUST retain a stable minimum width and visible operation text; field errors MUST be associated with the affected input. Status and risk information MUST remain readable at 13px/20px or larger; important supporting dates and evidence counts MUST use at least the shared 12px/16px label role. Ordinary meta labels retain the established meta role.
+
+#### Scenario: Pending and failed form submission
+- **WHEN** an existing form submits or fails validation
+- **THEN** pending controls MUST remain identifiable without width collapse, existing duplicate-submission protection MUST remain, and error text MUST identify the affected field programmatically
+
+#### Scenario: State catalog covers actual consumers
+- **WHEN** shared visual states are reviewed
+- **THEN** the component catalog MUST demonstrate buttons, inputs, panels, mixed-content tables and feedback with applicable states
+- **AND** disabled and loading states MUST remain distinguishable without relying solely on opacity or color

@@ -5,6 +5,7 @@ import {
   getStrategySignalDetail
 } from "../api/client";
 import { DescriptionItem, EmptyState, FeedbackMessage, ReadFailure } from "../components";
+import { ScrollableTableWrap } from "./tablePrimitives";
 import { useDocumentTitle } from "../utils/documentTitle";
 import { listReturnHref } from "../utils/listReturn";
 import { useResource, type ResourceState } from "../utils/useResource";
@@ -102,7 +103,7 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
   }
 
   return (
-    <div className="holdings-table-wrap">
+    <ScrollableTableWrap label="Signal target holdings">
       <table className="holdings-table">
         <thead>
           <tr>
@@ -129,6 +130,6 @@ function renderTargetHoldings(positions: StrategySignalDetailPosition[]) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollableTableWrap>
   );
 }

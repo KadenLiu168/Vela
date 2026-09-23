@@ -448,3 +448,44 @@ describe("DashboardPage decision-first research path", () => {
     ).toHaveAttribute("href", "/walk-forwards");
   });
 });
+
+describe("DashboardPage backtest form error association", () => {
+  it("associates validation errors with both date inputs via aria-describedby and aria-invalid", async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DashboardPage />, { wrapper: RouterWrapper });
+    await screen.findByRole("button", { name: "Run backtest" });
+
+    const startInput = screen.getByLabelText("Start date");
+    const endInput = screen.getByLabelText("End date");
+    expect(startInput).not.toHaveAttribute("aria-invalid");
+    expect(startInput).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.click(screen.getByRole("button", { name: "Run backtest" }));
+
+    const error = await screen.findByText("Enter dates in YYYY-MM-DD format.");
+    expect(error).toHaveAttribute("id", "backtest-date-error");
+    expect(startInput).toHaveAttribute("aria-invalid", "true");
+    expect(startInput).toHaveAttribute("aria-describedby", "backtest-date-error");
+    expect(endInput).toHaveAttribute("aria-invalid", "true");
+    expect(endInput).toHaveAttribute("aria-describedby", "backtest-date-error");
+
+    // No run request leaves the page while validation fails.
+    expect(postFetchCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("keeps the pending bootstrap label at least as wide as its resting label", async () => {
+    const fetchMock = createFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DashboardPage />, { wrapper: RouterWrapper });
+
+    const bootstrap = await screen.findByRole("button", { name: "Bootstrap / Setup database & data" });
+    const resting = bootstrap.textContent ?? "";
+    fireEvent.click(bootstrap);
+
+    const pending = await screen.findByRole("button", { name: "Running bootstrap / Setup database & data" });
+    expect((pending.textContent ?? "").length).toBeGreaterThanOrEqual(resting.length);
+  });
+});

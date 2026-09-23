@@ -66,8 +66,10 @@ function WalkForwardEvidence({ walkForward }: { walkForward: DashboardWalkForwar
             {deriveOosHeadlines(walkForward.oos).map((headline) => (
               <div className="research-oos-card" key={headline.label}>
                 <dt>{headline.label}</dt>
-                <dd>{headline.value}</dd>
-                <p className="research-oos-meta">{headline.meta}</p>
+                <dd>
+                  {headline.value}
+                  <p className="research-oos-meta">{headline.meta}</p>
+                </dd>
               </div>
             ))}
           </dl>

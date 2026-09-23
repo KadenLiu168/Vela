@@ -14,7 +14,7 @@ import {
 } from "./equityCurveChart";
 import { EquityCurvePlot } from "./EquityCurvePlot";
 import { SimpleMetricGrid } from "./SimpleMetricGrid";
-import { TableCells, TableHeader } from "./tablePrimitives";
+import { ScrollableTableWrap, TableCells, TableHeader } from "./tablePrimitives";
 
 export type RollingMetric = "return" | "volatility" | "sharpe";
 
@@ -400,12 +400,12 @@ function StabilityTable({
   children: ReactNode;
 }) {
   return (
-    <div className="holdings-table-wrap stability-table-wrap">
+    <ScrollableTableWrap className="stability-table-wrap" label="Return stability table">
       <table className="holdings-table">
         <caption className="sr-only">{caption}</caption>
         <TableHeader columns={columns} />
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </ScrollableTableWrap>
   );
 }

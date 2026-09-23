@@ -249,11 +249,11 @@ function TailDistributionEvidence({ evidence }: { evidence: PersistedWalkForward
       {Object.entries(tail.aggregates).map(([owner, aggregates]) => (
         <section aria-label={`Distribution aggregates for ${owner}`} className="benchmark-metrics" key={owner}>
           <h4>{TAIL_OWNER_LABELS[owner] ?? owner}</h4>
-          <dl className="metric-card-grid">
+          <div className="metric-card-grid">
             {Object.entries(aggregates).map(([metric, summary]) => (
               <MetricCard key={metric} label={TAIL_METRIC_LABELS[metric] ?? metric} metric={summary} />
             ))}
-          </dl>
+          </div>
         </section>
       ))}
       <h4>Per-window evidence</h4>
@@ -448,7 +448,9 @@ function JsonBlock({ label, value }: { label: string; value: object }) {
   return (
     <div>
       <h3>{label}</h3>
-      <pre className="walk-forward-json">{JSON.stringify(value, null, 2)}</pre>
+      {/* The JSON block scrolls internally; it needs a keyboard focus stop so
+       * screen-reader and keyboard users can reach its content. */}
+      <pre className="walk-forward-json" tabIndex={0}>{JSON.stringify(value, null, 2)}</pre>
     </div>
   );
 }

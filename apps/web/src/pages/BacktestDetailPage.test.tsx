@@ -751,12 +751,14 @@ it("assigns explicit key colors to lines, swatches, and end-labels", async () =>
   expect(screen.getByTestId("equity-curve-line-csi_300_buy_hold")).toHaveAttribute("stroke", "var(--chart-series-3)");
 
   const legend = screen.getByRole("list", { name: "Equity curve legend" });
+  // Swatches draw the series color as the stroke of a mini-line, shared with
+  // the plotted line style.
   const strategySwatch = within(legend).getByTestId("equity-curve-swatch-strategy");
-  expect(strategySwatch).toHaveStyle({ backgroundColor: "var(--chart-series-1)" });
+  expect(strategySwatch).toHaveAttribute("stroke", "var(--chart-series-1)");
   const equalSwatch = within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly");
-  expect(equalSwatch).toHaveStyle({ backgroundColor: "var(--chart-series-2)" });
+  expect(equalSwatch).toHaveAttribute("stroke", "var(--chart-series-2)");
   const csiSwatch = within(legend).getByTestId("equity-curve-swatch-csi_300_buy_hold");
-  expect(csiSwatch).toHaveStyle({ backgroundColor: "var(--chart-series-3)" });
+  expect(csiSwatch).toHaveAttribute("stroke", "var(--chart-series-3)");
 
   expect(screen.getByTestId("equity-curve-end-label-strategy")).toHaveAttribute("fill", "var(--chart-series-1)");
   expect(screen.getByTestId("equity-curve-end-label-equal_weight_monthly")).toHaveAttribute("fill", "var(--chart-series-2)");

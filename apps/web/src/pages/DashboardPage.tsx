@@ -43,6 +43,7 @@ import {
   formatScoreWeights
 } from "./dashboardFormatters";
 import { PanelHeading, StatusPillBadge, type StatusPill } from "./panelHeading";
+import { ScrollableTableWrap } from "./tablePrimitives";
 import { sourceLabel } from "./signalSourceLabels";
 import { derivePerformanceEvidence, type PerformanceHeadline } from "./researchWorkbench";
 import { OosRobustnessSection } from "./OosRobustnessSection";
@@ -421,7 +422,7 @@ export function DashboardPage({
           {backtestRunResult ? <BacktestRunSummary result={backtestRunResult} /> : null}
           {backtestValidationError ? (
             <FeedbackMessage className="dashboard-alert operation-alert" variant="error">
-              {backtestValidationError}
+              <span id="backtest-date-error">{backtestValidationError}</span>
             </FeedbackMessage>
           ) : null}
           <div className="operation-list">
@@ -458,16 +459,19 @@ export function DashboardPage({
               disabled={hasActiveOperation}
               onClick={handleBootstrap}
             >
-              {activeOperation === "bootstrap" ? "Running bootstrap" : "Bootstrap / Setup database & data"}
+              {activeOperation === "bootstrap" ? "Running bootstrap / Setup database & data" : "Bootstrap / Setup database & data"}
             </button>
           </div>
           <form className="backtest-run-form" onSubmit={(event) => void handleBacktestRun(event)}>
             <label>
               <span>Start date</span>
               <input
+                id="backtest-start-date"
                 type="text"
                 inputMode="numeric"
                 placeholder="YYYY-MM-DD"
+                aria-invalid={backtestValidationError ? true : undefined}
+                aria-describedby={backtestValidationError ? "backtest-date-error" : undefined}
                 value={backtestForm.startDate}
                 onChange={(event) => {
                   updateBacktestForm({
@@ -480,9 +484,12 @@ export function DashboardPage({
             <label>
               <span>End date</span>
               <input
+                id="backtest-end-date"
                 type="text"
                 inputMode="numeric"
                 placeholder="YYYY-MM-DD"
+                aria-invalid={backtestValidationError ? true : undefined}
+                aria-describedby={backtestValidationError ? "backtest-date-error" : undefined}
                 value={backtestForm.endDate}
                 onChange={(event) => {
                   updateBacktestForm({
@@ -778,7 +785,7 @@ function TargetHoldings({ positions }: { positions: DashboardSignalPosition[] })
   }
 
   return (
-    <div className="holdings-table-wrap">
+    <ScrollableTableWrap label="Latest signal target holdings">
       <table className="holdings-table" aria-label="Latest signal target holdings">
         <thead>
           <tr>
@@ -803,7 +810,7 @@ function TargetHoldings({ positions }: { positions: DashboardSignalPosition[] })
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollableTableWrap>
   );
 }
 
@@ -843,12 +850,14 @@ function BacktestSummary({
         {headlines.map((headline: PerformanceHeadline) => (
           <div className="research-headline" key={headline.key}>
             <dt>{headline.label}</dt>
-            <dd>{headline.value}</dd>
-            {headline.difference === null || primaryBenchmarkName === null ? null : (
-              <p className="research-headline-difference">
-                {`vs ${primaryBenchmarkName}: ${headline.difference}`}
-              </p>
-            )}
+            <dd>
+              {headline.value}
+              {headline.difference === null || primaryBenchmarkName === null ? null : (
+                <p className="research-headline-difference">
+                  {`vs ${primaryBenchmarkName}: ${headline.difference}`}
+                </p>
+              )}
+            </dd>
           </div>
         ))}
       </dl>

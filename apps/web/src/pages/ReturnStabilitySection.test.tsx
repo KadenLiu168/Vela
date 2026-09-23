@@ -223,8 +223,8 @@ describe("ReturnStabilitySection", () => {
     expect(screen.getByTestId("rolling-line-return-equal_weight_monthly")).toHaveAttribute("stroke", "var(--chart-series-2)");
 
     const legend = screen.getByRole("list", { name: "Rolling Return legend" });
-    expect(within(legend).getByTestId("equity-curve-swatch-strategy")).toHaveStyle({ backgroundColor: "var(--chart-series-1)" });
-    expect(within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly")).toHaveStyle({ backgroundColor: "var(--chart-series-2)" });
+    expect(within(legend).getByTestId("equity-curve-swatch-strategy")).toHaveAttribute("stroke", "var(--chart-series-1)");
+    expect(within(legend).getByTestId("equity-curve-swatch-equal_weight_monthly")).toHaveAttribute("stroke", "var(--chart-series-2)");
 
     expect(screen.getByTestId("rolling-end-label-return-strategy")).toHaveAttribute("fill", "var(--chart-series-1)");
     expect(screen.getByTestId("rolling-end-label-return-equal_weight_monthly")).toHaveAttribute("fill", "var(--chart-series-2)");

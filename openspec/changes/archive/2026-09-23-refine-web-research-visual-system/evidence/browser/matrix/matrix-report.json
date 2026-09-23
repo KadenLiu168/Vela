@@ -1,0 +1,1891 @@
+{
+  "generatedAt": "2026-09-23T05:57:25.146Z",
+  "gitHead": "3eafd31e92281f8d5ca83f4434da01ae02c841cd",
+  "sourceFingerprint": {
+    "hash": "fcd836e6844036a3cc0e4680140828057d0441e05bdf070aa37df1ce88e14610",
+    "files": 154
+  },
+  "buildManifest": {
+    "hash": "379f4015d03d32bdff14fec249f6d8e8bd931121e3b5063a7228510ae828aa52",
+    "entry": "index.html"
+  },
+  "harnessFingerprint": "388004180c54a14b58248fdd7fbc2e63ffa3311bed4f2e221c801e39d494ff25",
+  "browser": {
+    "name": "chromium",
+    "version": "153.0.8010.12"
+  },
+  "results": [
+    {
+      "testId": "7066e7f2e0ac7d296410-b22b16e7ade27c71dc0f",
+      "title": "matrix.spec.ts > matrix: / at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-1fc8d021951858f7c52d",
+      "title": "matrix.spec.ts > matrix: / at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-c783db3189c4d45d727a",
+      "title": "matrix.spec.ts > matrix: /signals at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-5c1260791fccf55d617f",
+      "title": "matrix.spec.ts > matrix: /signals at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7f84ff1038976503e26e",
+      "title": "matrix.spec.ts > matrix: /signals/42 at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7d6de418e62abdd3fe18",
+      "title": "matrix.spec.ts > matrix: /signals/42 at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7cc1a7a519b7f0f54053",
+      "title": "matrix.spec.ts > matrix: /backtests at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bed4d293c0f46a1c4eeb",
+      "title": "matrix.spec.ts > matrix: /backtests at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-9105659541598404fc25",
+      "title": "matrix.spec.ts > matrix: /backtests/7 at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bbebcbaddfc90f7dbcca",
+      "title": "matrix.spec.ts > matrix: /backtests/7 at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e3e76b49b351da526122",
+      "title": "matrix.spec.ts > matrix: /walk-forwards at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-97b3af0d87882b7f2309",
+      "title": "matrix.spec.ts > matrix: /walk-forwards at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-1ea929eadde167ac8e8d",
+      "title": "matrix.spec.ts > matrix: /walk-forwards/3 at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4f52d69483c9dff52144",
+      "title": "matrix.spec.ts > matrix: /walk-forwards/3 at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bac20039d3f5f728165e",
+      "title": "matrix.spec.ts > matrix: /etfs/1 at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-8828bb40addd769e945f",
+      "title": "matrix.spec.ts > matrix: /etfs/1 at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4c11574ce9427167b490",
+      "title": "matrix.spec.ts > matrix: /definitely-not-a-page at 1440px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-60fe0b2771eed4cc2f74",
+      "title": "matrix.spec.ts > matrix: /definitely-not-a-page at 390px renders research content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-5e645b8b05e53ba21598",
+      "title": "matrix.spec.ts > matrix: backtest detail computed styles at breakpoint edges",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6e82b81686e2c34e4904",
+      "title": "matrix.spec.ts > dashboard states > matrix: dashboard shows loading feedback then content > matrix: dashboard shows loading feedback then content",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-13ee112c626f199c4388",
+      "title": "matrix.spec.ts > dashboard states > matrix: dashboard empty state keeps operations reachable > matrix: dashboard empty state keeps operations reachable",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e6247bf6792a4969ae4e",
+      "title": "matrix.spec.ts > dashboard states > matrix: dashboard read failure offers retry > matrix: dashboard read failure offers retry",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-225f9414aa214016f477",
+      "title": "matrix.spec.ts > signals list states > matrix: signals list empty state for the All filter > matrix: signals list empty state for the All filter",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-602ce7f8e6cd52ba6f10",
+      "title": "matrix.spec.ts > signals list states > matrix: signals list read failure offers retry > matrix: signals list read failure offers retry",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-08dff943a12e5332ff19",
+      "title": "matrix.spec.ts > backtests list states > matrix: backtests list empty state > matrix: backtests list empty state",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-0b87dbed6812d5db1a14",
+      "title": "matrix.spec.ts > backtests list states > matrix: backtests list read failure offers retry > matrix: backtests list read failure offers retry",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-17a04ed0be997085f978",
+      "title": "matrix.spec.ts > walk-forwards list states > matrix: walk-forwards list empty state > matrix: walk-forwards list empty state",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-d13a0575b7f1661ef8f1",
+      "title": "matrix.spec.ts > walk-forwards list states > matrix: walk-forwards list read failure offers retry > matrix: walk-forwards list read failure offers retry",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e4836889ec204e778644",
+      "title": "matrix.spec.ts > matrix: / loading at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-60cfcd870682b9bb5934",
+      "title": "matrix.spec.ts > matrix: / empty at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-c9e9a80dbc045a47fc94",
+      "title": "matrix.spec.ts > matrix: / error at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-ee041d192849af53cce7",
+      "title": "matrix.spec.ts > matrix: /signals loading at 1440px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4d0e147302133d2a98e8",
+      "title": "matrix.spec.ts > matrix: /signals loading at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2a3698374c49c3761bad",
+      "title": "matrix.spec.ts > matrix: /signals empty at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6af0f0a633f55be26e21",
+      "title": "matrix.spec.ts > matrix: /signals error at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-a182a9c07333922e52ae",
+      "title": "matrix.spec.ts > matrix: /backtests loading at 1440px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-fe4922a2bb0e063792d8",
+      "title": "matrix.spec.ts > matrix: /backtests loading at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4891b7982a6d407682a7",
+      "title": "matrix.spec.ts > matrix: /backtests empty at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-99fdd4296e0174199e90",
+      "title": "matrix.spec.ts > matrix: /backtests error at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-b9a73e3b6e6752fbae6d",
+      "title": "matrix.spec.ts > matrix: /walk-forwards loading at 1440px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-a5a88496441bede5d4aa",
+      "title": "matrix.spec.ts > matrix: /walk-forwards loading at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-815fd62ada2e31d4ae4c",
+      "title": "matrix.spec.ts > matrix: /walk-forwards empty at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-eeba27eb5fb42074c8b3",
+      "title": "matrix.spec.ts > matrix: /walk-forwards error at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-f60a2c2e72ac2502fed6",
+      "title": "matrix.spec.ts > detail states > matrix: legacy backtest detail preserves unavailable evidence at 390px > matrix: legacy backtest detail preserves unavailable evidence at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-ff7a93067d8efd6fc28e",
+      "title": "matrix.spec.ts > detail states > matrix: failed backtest detail reports the failure reason at 390px > matrix: failed backtest detail reports the failure reason at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-8bae3c619673ba5773b4",
+      "title": "matrix.spec.ts > detail states > matrix: queued walk-forward detail stays operable at 390px > matrix: queued walk-forward detail stays operable at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-525a038a37f416ecebbd",
+      "title": "matrix.spec.ts > detail states > matrix: running walk-forward detail shows the active lease at 390px > matrix: running walk-forward detail shows the active lease at 390px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6a6c35e53950b63d3072",
+      "title": "matrix.spec.ts > matrix: signal detail long mixed names and nulls at 320px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-3138c2889e839e863ae4",
+      "title": "matrix.spec.ts > matrix: ETF detail renders the long name and trend at 320px",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2469701255c5e0e123bf",
+      "title": "matrix.spec.ts > matrix: palette populated at 1440x1000",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-66b2248ffd7aaafd19ad",
+      "title": "matrix.spec.ts > matrix: palette filter-empty at 1440x1000",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-b58bf08b50ca4d6ea365",
+      "title": "matrix.spec.ts > matrix: palette source-error at 1440x1000",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-fbee9084f01fe7cf1783",
+      "title": "matrix.spec.ts > matrix: palette populated at 390x844",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-9b5dab0ddafec2994ba0",
+      "title": "matrix.spec.ts > matrix: palette filter-empty at 390x844",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-d6b8f8c481cc0904ada4",
+      "title": "matrix.spec.ts > matrix: palette source-error at 390x844",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2610a69bd4d20c9aee0d",
+      "title": "matrix.spec.ts > matrix: palette populated at 390x400",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-eded30acc0058891cb78",
+      "title": "matrix.spec.ts > matrix: palette filter-empty at 390x400",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-488993d3fe59f9692e6c",
+      "title": "matrix.spec.ts > matrix: palette source-error at 390x400",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-41580d4276bda8156614",
+      "title": "matrix.spec.ts > matrix: run backtest POST resolves with the pending lock intact",
+      "status": "passed",
+      "errors": [],
+      "unmatchedApiRequests": 0,
+      "blockedOriginRequests": 0
+    }
+  ],
+  "entries": [
+    {
+      "route": "/",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-b22b16e7ade27c71dc0f",
+      "status": "passed",
+      "file": "root--populated-1440.png",
+      "sha256": "2f7748c1af101f50fe99513a4a8e2b77a70e7ba30abaf15bbb514d59dd1d25c5"
+    },
+    {
+      "route": "/",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-1fc8d021951858f7c52d",
+      "status": "passed",
+      "file": "root--populated-390.png",
+      "sha256": "d383961ece7327ad815b7347b932109e15a37b45e334d10f5aae6e4fff3aaf2d"
+    },
+    {
+      "route": "/signals",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-c783db3189c4d45d727a",
+      "status": "passed",
+      "file": "root-signals-populated-1440.png",
+      "sha256": "ab667c11998b0ce44a16d93ea60928f233450b151b14b80926c56668fc040168"
+    },
+    {
+      "route": "/signals",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-5c1260791fccf55d617f",
+      "status": "passed",
+      "file": "root-signals-populated-390.png",
+      "sha256": "8400b44a85a1cf9a8e0e46e2c4fa0d53ff1c0578dd34a1c7bc589691c6207578"
+    },
+    {
+      "route": "/signals/42",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-7f84ff1038976503e26e",
+      "status": "passed",
+      "file": "root-signals-42-populated-1440.png",
+      "sha256": "d71fad2ce5ceabec669ed8c7360e15370bcfecdfd4764c9849bd52aa37fb35af"
+    },
+    {
+      "route": "/signals/42",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-7d6de418e62abdd3fe18",
+      "status": "passed",
+      "file": "root-signals-42-populated-390.png",
+      "sha256": "b8488d5b30231e1ef3485d6dee491cb80751c0cf4a93f07c2fab9f1e82a5b7c5"
+    },
+    {
+      "route": "/backtests",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-7cc1a7a519b7f0f54053",
+      "status": "passed",
+      "file": "root-backtests-populated-1440.png",
+      "sha256": "d16129af3824a7cb84dc348cec039c4eec14b8530fa243c15f5ce0555d55bcdc"
+    },
+    {
+      "route": "/backtests",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-bed4d293c0f46a1c4eeb",
+      "status": "passed",
+      "file": "root-backtests-populated-390.png",
+      "sha256": "a52396e11b9a0b4453ac9257a22eef3e35e51d7cd41d64dab2e01ebfbaaaac4f"
+    },
+    {
+      "route": "/backtests/7",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-9105659541598404fc25",
+      "status": "passed",
+      "file": "root-backtests-7-populated-1440.png",
+      "sha256": "3607aa0522cf946af46b06e0faa917f2bad08ba00d875631c02bbc327d8a8752"
+    },
+    {
+      "route": "/backtests/7",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-bbebcbaddfc90f7dbcca",
+      "status": "passed",
+      "file": "root-backtests-7-populated-390.png",
+      "sha256": "4b4c80e0367beca667c2ca394263048930e30d91ac8ed7a840f4588b146b76f5"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-e3e76b49b351da526122",
+      "status": "passed",
+      "file": "root-walk-forwards-populated-1440.png",
+      "sha256": "05d6efb79bfa685a1f42122df39d3e61b3186fb4416f7a8eb92914a7477d04d5"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-97b3af0d87882b7f2309",
+      "status": "passed",
+      "file": "root-walk-forwards-populated-390.png",
+      "sha256": "9629cc1bc26303b23aa6bd2dad6c2bbc4458be00fbbbc59df131104316b44e8e"
+    },
+    {
+      "route": "/walk-forwards/3",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-1ea929eadde167ac8e8d",
+      "status": "passed",
+      "file": "root-walk-forwards-3-populated-1440.png",
+      "sha256": "fa4e69991be26c729ad7766b6290f239bd455c89ec60d556a2893563e8170d26"
+    },
+    {
+      "route": "/walk-forwards/3",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-4f52d69483c9dff52144",
+      "status": "passed",
+      "file": "root-walk-forwards-3-populated-390.png",
+      "sha256": "424a1d923cb7ee052eabb83af0fae27532713438c832c3423f95fb555ee60ef6"
+    },
+    {
+      "route": "/etfs/1",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-bac20039d3f5f728165e",
+      "status": "passed",
+      "file": "root-etfs-1-populated-1440.png",
+      "sha256": "32a1f1c73ca6fcce5b2dd08ab12eb69148c5cb306f1cce7b12504a9502893b0a"
+    },
+    {
+      "route": "/etfs/1",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-8828bb40addd769e945f",
+      "status": "passed",
+      "file": "root-etfs-1-populated-390.png",
+      "sha256": "979b80e86902a5bdde3b76b317a07f61f69d3aa79169250bb89d37c909720ed8"
+    },
+    {
+      "route": "/definitely-not-a-page",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-4c11574ce9427167b490",
+      "status": "passed",
+      "file": "root-definitely-not-a-page-populated-1440.png",
+      "sha256": "96141054a9fc86b0f223ea878b585abc82ddc17fc03596527a8dd2057727361e"
+    },
+    {
+      "route": "/definitely-not-a-page",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-60fe0b2771eed4cc2f74",
+      "status": "passed",
+      "file": "root-definitely-not-a-page-populated-390.png",
+      "sha256": "5a8278faad30ed2b2954bbc3f3b7b4a1cf44982c9b92708a4bcf015b872b1733"
+    },
+    {
+      "route": "/",
+      "state": "loading",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-6e82b81686e2c34e4904",
+      "status": "passed",
+      "file": "root--loading-1440.png",
+      "sha256": "c23809eeaa06458bf0d00e980df898808db70f5af8458040cfa694ae5c99a022"
+    },
+    {
+      "route": "/",
+      "state": "empty",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-13ee112c626f199c4388",
+      "status": "passed",
+      "file": "root--empty-1440.png",
+      "sha256": "bf9302f59b503ca7d9bd79fd11b60a1e2ffb38a8936e65f3196249b6a4a5bb54"
+    },
+    {
+      "route": "/",
+      "state": "error",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-e6247bf6792a4969ae4e",
+      "status": "passed",
+      "file": "root--error-1440.png",
+      "sha256": "e0d007d6a4fbbe1fbeafbf1778d64cbbe1fc3e8afa6f3015cf1d86f9c883db49"
+    },
+    {
+      "route": "/signals",
+      "state": "empty",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-225f9414aa214016f477",
+      "status": "passed",
+      "file": "root-signals-empty-1440.png",
+      "sha256": "c7f191572e90784faa01d5f01c3a3664093f117b0b9a045a642261dfd506fb98"
+    },
+    {
+      "route": "/signals",
+      "state": "error",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-602ce7f8e6cd52ba6f10",
+      "status": "passed",
+      "file": "root-signals-error-1440.png",
+      "sha256": "0e32ed5de404046c4f3c7f7d728f2bfdecc0fdfe03981cbd4a44f198782c99a5"
+    },
+    {
+      "route": "/backtests",
+      "state": "empty",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-08dff943a12e5332ff19",
+      "status": "passed",
+      "file": "root-backtests-empty-1440.png",
+      "sha256": "c94bb20ae5bb3637b6960446db0c2ad41067ef5f98738bfa0b20b9134e59ad4a"
+    },
+    {
+      "route": "/backtests",
+      "state": "error",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-0b87dbed6812d5db1a14",
+      "status": "passed",
+      "file": "root-backtests-error-1440.png",
+      "sha256": "61365a551f494096875b5fb164c87bb480d16255b6b89a6aef001c780a6864fc"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "empty",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-17a04ed0be997085f978",
+      "status": "passed",
+      "file": "root-walk-forwards-empty-1440.png",
+      "sha256": "f2c45cf06c23ad98fcf448d1b91fd82524532c01f188d25731a41ceea35ebcc1"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "error",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-d13a0575b7f1661ef8f1",
+      "status": "passed",
+      "file": "root-walk-forwards-error-1440.png",
+      "sha256": "abf70861fd678d52d8fe8eef09f7bc373b10b718cd834e3a2d537606fe4a20b0"
+    },
+    {
+      "route": "/",
+      "state": "loading",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-e4836889ec204e778644",
+      "status": "passed",
+      "file": "root--loading-390.png",
+      "sha256": "e9965666335d0fe8e646f4ccc35a8f188f46d0be828fa5524b90ee51c286480c"
+    },
+    {
+      "route": "/",
+      "state": "empty",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-60cfcd870682b9bb5934",
+      "status": "passed",
+      "file": "root--empty-390.png",
+      "sha256": "c81b70c67e025bd55a914fe2d7a5839cbc9cca99c195ca549d6c281bd6e1d895"
+    },
+    {
+      "route": "/",
+      "state": "error",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-c9e9a80dbc045a47fc94",
+      "status": "passed",
+      "file": "root--error-390.png",
+      "sha256": "84109da2130c5e2b294a7d2adce31c236f573ba1ed340da9d71dd22b8922f3ea"
+    },
+    {
+      "route": "/signals",
+      "state": "loading",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-ee041d192849af53cce7",
+      "status": "passed",
+      "file": "root-signals-loading-1440.png",
+      "sha256": "24b12f131c913c7fe9fa8d14969f2bc6114ab168ccb021676ecb95c0d7fe9185"
+    },
+    {
+      "route": "/signals",
+      "state": "loading",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-4d0e147302133d2a98e8",
+      "status": "passed",
+      "file": "root-signals-loading-390.png",
+      "sha256": "a66b3862b9f12d9ebd011db2b9cda6729f903d557c21d40b09dc811c4d920703"
+    },
+    {
+      "route": "/signals",
+      "state": "empty",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-2a3698374c49c3761bad",
+      "status": "passed",
+      "file": "root-signals-empty-390.png",
+      "sha256": "091ee066f76e87b084538f2105ea4a9587cceb04a2fa97d961ba9be825995bb6"
+    },
+    {
+      "route": "/signals",
+      "state": "error",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-6af0f0a633f55be26e21",
+      "status": "passed",
+      "file": "root-signals-error-390.png",
+      "sha256": "31851bc3fbf1e00e19e2c7066a47cb9fbbcf078c0bfeffbb63e9399af6f1832f"
+    },
+    {
+      "route": "/backtests",
+      "state": "loading",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-a182a9c07333922e52ae",
+      "status": "passed",
+      "file": "root-backtests-loading-1440.png",
+      "sha256": "3b5c04759c459596d56406a34445098273b3f72a7a1895e9ad8f010bcfff7f2d"
+    },
+    {
+      "route": "/backtests",
+      "state": "loading",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-fe4922a2bb0e063792d8",
+      "status": "passed",
+      "file": "root-backtests-loading-390.png",
+      "sha256": "43fd7e98c892ae75287baca3a25982792628e7b9556ab83c5849529cc385f387"
+    },
+    {
+      "route": "/backtests",
+      "state": "empty",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-4891b7982a6d407682a7",
+      "status": "passed",
+      "file": "root-backtests-empty-390.png",
+      "sha256": "832f219b2f3993e170e5e5bd92aed493757b2fd6ba0a8fa7aded613a7adab371"
+    },
+    {
+      "route": "/backtests",
+      "state": "error",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-99fdd4296e0174199e90",
+      "status": "passed",
+      "file": "root-backtests-error-390.png",
+      "sha256": "86b2979a3dcb16297e6530d520d464930064b0477e55a472c10887217257fa4d"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "loading",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-b9a73e3b6e6752fbae6d",
+      "status": "passed",
+      "file": "root-walk-forwards-loading-1440.png",
+      "sha256": "66838c81e87727ae4c3ad09b3b7398f12cbaa4cd823f54688ee8a687bc8f49d1"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "loading",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-a5a88496441bede5d4aa",
+      "status": "passed",
+      "file": "root-walk-forwards-loading-390.png",
+      "sha256": "0e7b28299de45924aa920893b764da1ca6ca1a6aecfba89285fe75144a970b58"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "empty",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-815fd62ada2e31d4ae4c",
+      "status": "passed",
+      "file": "root-walk-forwards-empty-390.png",
+      "sha256": "7f21211596b8b2343217fc3cedb8327efd8ce52407179ece0b5cc1b70d97066f"
+    },
+    {
+      "route": "/walk-forwards",
+      "state": "error",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-eeba27eb5fb42074c8b3",
+      "status": "passed",
+      "file": "root-walk-forwards-error-390.png",
+      "sha256": "02898c18c581c78fac35c8e5dc011727a91c32e10c2021daa70b2ed82db8e256"
+    },
+    {
+      "route": "/backtests/7",
+      "state": "legacy",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-f60a2c2e72ac2502fed6",
+      "status": "passed",
+      "file": "root-backtests-7-legacy-390.png",
+      "sha256": "a71b8c4480684e361e16b707f19dc28515a80992389418cbe39c651927ba1899"
+    },
+    {
+      "route": "/backtests/7",
+      "state": "failed",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-ff7a93067d8efd6fc28e",
+      "status": "passed",
+      "file": "root-backtests-7-failed-390.png",
+      "sha256": "0b399989269237ca88d140b4e677eb01adc5c45ca5006df9c9ca52dde33a915f"
+    },
+    {
+      "route": "/walk-forwards/3",
+      "state": "queued",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-8bae3c619673ba5773b4",
+      "status": "passed",
+      "file": "root-walk-forwards-3-queued-390.png",
+      "sha256": "69d9cbe8cadc396f8567323d0be2ce1a39445e64d4313dd9430f8e14fc849139"
+    },
+    {
+      "route": "/walk-forwards/3",
+      "state": "running",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-525a038a37f416ecebbd",
+      "status": "passed",
+      "file": "root-walk-forwards-3-running-390.png",
+      "sha256": "a4e8fdd1d9b9720b22ac093a3d296ec2011ef74ef2ede19358fa3e9f5ccbf062"
+    },
+    {
+      "route": "/signals/42",
+      "state": "long-names",
+      "viewport": "320x844",
+      "testId": "7066e7f2e0ac7d296410-6a6c35e53950b63d3072",
+      "status": "passed",
+      "file": "root-signals-42-long-names-320.png",
+      "sha256": "9ea3de7d73dbd0ed08241962a736ac3ed8c5b4a99b088b72a673d1ef0d291925"
+    },
+    {
+      "route": "/etfs/1",
+      "state": "long-names",
+      "viewport": "320x844",
+      "testId": "7066e7f2e0ac7d296410-3138c2889e839e863ae4",
+      "status": "passed",
+      "file": "root-etfs-1-long-names-320.png",
+      "sha256": "bce973bc57028d08d13759690c4e19e00e3149989b3a4030e4c826cf50e3dbd9"
+    },
+    {
+      "route": "/palette",
+      "state": "populated",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-2469701255c5e0e123bf",
+      "status": "passed",
+      "file": "root-palette-populated-1440.png",
+      "sha256": "a4d642c65f2de5f9a224d471109ea53790a316250ac532adaf439279a0cc39d4"
+    },
+    {
+      "route": "/palette",
+      "state": "filter-empty",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-66b2248ffd7aaafd19ad",
+      "status": "passed",
+      "file": "root-palette-filter-empty-1440.png",
+      "sha256": "109aa58c910d9d38f4c1940d42c030c8e639527e62eac94bc281046154b9fad7"
+    },
+    {
+      "route": "/palette",
+      "state": "source-error",
+      "viewport": "1440x1000",
+      "testId": "7066e7f2e0ac7d296410-b58bf08b50ca4d6ea365",
+      "status": "passed",
+      "file": "root-palette-source-error-1440.png",
+      "sha256": "9569d44d3bb04fbeaeecf365ed8bc32bc8aaaac1e09065ae6fb1879b37b1575e"
+    },
+    {
+      "route": "/palette",
+      "state": "populated",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-fbee9084f01fe7cf1783",
+      "status": "passed",
+      "file": "root-palette-populated-390.png",
+      "sha256": "fe22b29d174ebbf2ab48ce434ac977bd0e8f09ebdedf7e5069d70257d9a63b0b"
+    },
+    {
+      "route": "/palette",
+      "state": "filter-empty",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-9b5dab0ddafec2994ba0",
+      "status": "passed",
+      "file": "root-palette-filter-empty-390.png",
+      "sha256": "8c58e8379a0d5c9c7da53f8db680490cabce7dcc23ef8721cae3f6d6e84bed15"
+    },
+    {
+      "route": "/palette",
+      "state": "source-error",
+      "viewport": "390x844",
+      "testId": "7066e7f2e0ac7d296410-d6b8f8c481cc0904ada4",
+      "status": "passed",
+      "file": "root-palette-source-error-390.png",
+      "sha256": "7732d60a2f85e655bc34d3e066cd8d8dd24be24bcccbd8763e7880b8d4846c94"
+    },
+    {
+      "route": "/palette",
+      "state": "populated",
+      "viewport": "390x400",
+      "testId": "7066e7f2e0ac7d296410-2610a69bd4d20c9aee0d",
+      "status": "passed",
+      "file": "root-palette-populated-390x400.png",
+      "sha256": "bcfd814485ddc9d2df381231585f2ded3bbf12f7732d463f8ced2426bc972f35"
+    },
+    {
+      "route": "/palette",
+      "state": "filter-empty",
+      "viewport": "390x400",
+      "testId": "7066e7f2e0ac7d296410-eded30acc0058891cb78",
+      "status": "passed",
+      "file": "root-palette-filter-empty-390x400.png",
+      "sha256": "3675a6f89380987828b0a271f93bab6e27c3ecc7696c4d1ac62d85d6f72bf018"
+    },
+    {
+      "route": "/palette",
+      "state": "source-error",
+      "viewport": "390x400",
+      "testId": "7066e7f2e0ac7d296410-488993d3fe59f9692e6c",
+      "status": "passed",
+      "file": "root-palette-source-error-390x400.png",
+      "sha256": "8c67fcbc5c0ffa7cafd6ea7837f95158ec22fd12551a42e84b2b04cc76f068f5"
+    }
+  ],
+  "suiteResults": [
+    {
+      "testId": "aa3ad05f8c0e05077efb-7ed0ab8195951b7a1f86",
+      "title": " >  > a11y.spec.ts > axe passes on / at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-ceea2e9f4ffd6fb05241",
+      "title": " >  > a11y.spec.ts > axe passes on / at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-3d405ecdea2ad4873b9f",
+      "title": " >  > a11y.spec.ts > axe passes on /signals at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-0e29e11c9a252dfb80a6",
+      "title": " >  > a11y.spec.ts > axe passes on /signals at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-0c14f4ccf7cfad245ef6",
+      "title": " >  > a11y.spec.ts > axe passes on /signals/42 at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-77edcb22ead798d710a4",
+      "title": " >  > a11y.spec.ts > axe passes on /signals/42 at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-f7f1cbdc22cd49c653c1",
+      "title": " >  > a11y.spec.ts > axe passes on /backtests at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-0a2ed869e29999beb7b9",
+      "title": " >  > a11y.spec.ts > axe passes on /backtests at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-9348ebaff5ef1d077359",
+      "title": " >  > a11y.spec.ts > axe passes on /backtests/7 at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-fbd73dcf662c7af813ee",
+      "title": " >  > a11y.spec.ts > axe passes on /backtests/7 at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-4f07afd504f944779ed6",
+      "title": " >  > a11y.spec.ts > axe passes on /walk-forwards at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-69c7fb89e1a21490beca",
+      "title": " >  > a11y.spec.ts > axe passes on /walk-forwards at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-7b1b90a776094a4e3e31",
+      "title": " >  > a11y.spec.ts > axe passes on /walk-forwards/3 at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-3aa35383eb1d45d2b87d",
+      "title": " >  > a11y.spec.ts > axe passes on /walk-forwards/3 at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-60e610b8ed15470e4ca6",
+      "title": " >  > a11y.spec.ts > axe passes on /etfs/1 at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-01b642cbcd0a2a35fc9f",
+      "title": " >  > a11y.spec.ts > axe passes on /etfs/1 at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-69576cd5fc41e07a2abf",
+      "title": " >  > a11y.spec.ts > axe passes on /definitely-not-a-page at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-46d78e2f8853295fa7c1",
+      "title": " >  > a11y.spec.ts > axe passes on /definitely-not-a-page at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-48a54d05675f4669fab5",
+      "title": " >  > a11y.spec.ts > skip link moves focus to main content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-349c1cd27e84e59d79cc",
+      "title": " >  > a11y.spec.ts > focus is visible on the primary controls",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-a56f35e95f7ffb0523dc",
+      "title": " >  > a11y.spec.ts > palette focus enters, stays, and returns to the opener",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "aa3ad05f8c0e05077efb-cdfac5e0a53532d97ae7",
+      "title": " >  > a11y.spec.ts > route transitions move focus to the destination heading",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "b018fb422dd9cd1fd1e5-feddfc5983c172a1cf41",
+      "title": " >  > controls.spec.ts > controls honor the 36px desktop minimum at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "b018fb422dd9cd1fd1e5-25c2ba43e706e05403ad",
+      "title": " >  > controls.spec.ts > controls honor the 44px touch target at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "b018fb422dd9cd1fd1e5-1dc494275dd107f17806",
+      "title": " >  > controls.spec.ts > backtest form error association renders in the real DOM",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "bc384e94f5cb1e491b4d-d8ee875f17d6c0ef2bd3",
+      "title": " >  > identity.spec.ts > generated Change evidence does not change the frontend source fingerprint",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "8603831629f4016ade15-28e8c6ec252c1e18c3e1",
+      "title": " >  > isolation.spec.ts > an unmatched /api request is blocked, recorded, and fails closed",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "8603831629f4016ade15-a8fd8d3fda423eedf3fc",
+      "title": " >  > isolation.spec.ts > a cross-origin request to another local port is blocked",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "8603831629f4016ade15-9839de393203a68348f3",
+      "title": " >  > isolation.spec.ts > an unmatched POST never reaches a real API",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "8603831629f4016ade15-89f39c934bc09b7cac41",
+      "title": " >  > isolation.spec.ts > service workers cannot register and bypass interception",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-b22b16e7ade27c71dc0f",
+      "title": " >  > matrix.spec.ts > matrix: / at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-1fc8d021951858f7c52d",
+      "title": " >  > matrix.spec.ts > matrix: / at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-c783db3189c4d45d727a",
+      "title": " >  > matrix.spec.ts > matrix: /signals at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-5c1260791fccf55d617f",
+      "title": " >  > matrix.spec.ts > matrix: /signals at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7f84ff1038976503e26e",
+      "title": " >  > matrix.spec.ts > matrix: /signals/42 at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7d6de418e62abdd3fe18",
+      "title": " >  > matrix.spec.ts > matrix: /signals/42 at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-7cc1a7a519b7f0f54053",
+      "title": " >  > matrix.spec.ts > matrix: /backtests at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bed4d293c0f46a1c4eeb",
+      "title": " >  > matrix.spec.ts > matrix: /backtests at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-9105659541598404fc25",
+      "title": " >  > matrix.spec.ts > matrix: /backtests/7 at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bbebcbaddfc90f7dbcca",
+      "title": " >  > matrix.spec.ts > matrix: /backtests/7 at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e3e76b49b351da526122",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-97b3af0d87882b7f2309",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-1ea929eadde167ac8e8d",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards/3 at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4f52d69483c9dff52144",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards/3 at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-bac20039d3f5f728165e",
+      "title": " >  > matrix.spec.ts > matrix: /etfs/1 at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-8828bb40addd769e945f",
+      "title": " >  > matrix.spec.ts > matrix: /etfs/1 at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4c11574ce9427167b490",
+      "title": " >  > matrix.spec.ts > matrix: /definitely-not-a-page at 1440px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-60fe0b2771eed4cc2f74",
+      "title": " >  > matrix.spec.ts > matrix: /definitely-not-a-page at 390px renders research content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-5e645b8b05e53ba21598",
+      "title": " >  > matrix.spec.ts > matrix: backtest detail computed styles at breakpoint edges",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6e82b81686e2c34e4904",
+      "title": " >  > matrix.spec.ts > dashboard states > matrix: dashboard shows loading feedback then content > matrix: dashboard shows loading feedback then content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-13ee112c626f199c4388",
+      "title": " >  > matrix.spec.ts > dashboard states > matrix: dashboard empty state keeps operations reachable > matrix: dashboard empty state keeps operations reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e6247bf6792a4969ae4e",
+      "title": " >  > matrix.spec.ts > dashboard states > matrix: dashboard read failure offers retry > matrix: dashboard read failure offers retry",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-225f9414aa214016f477",
+      "title": " >  > matrix.spec.ts > signals list states > matrix: signals list empty state for the All filter > matrix: signals list empty state for the All filter",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-602ce7f8e6cd52ba6f10",
+      "title": " >  > matrix.spec.ts > signals list states > matrix: signals list read failure offers retry > matrix: signals list read failure offers retry",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-08dff943a12e5332ff19",
+      "title": " >  > matrix.spec.ts > backtests list states > matrix: backtests list empty state > matrix: backtests list empty state",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-0b87dbed6812d5db1a14",
+      "title": " >  > matrix.spec.ts > backtests list states > matrix: backtests list read failure offers retry > matrix: backtests list read failure offers retry",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-17a04ed0be997085f978",
+      "title": " >  > matrix.spec.ts > walk-forwards list states > matrix: walk-forwards list empty state > matrix: walk-forwards list empty state",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-d13a0575b7f1661ef8f1",
+      "title": " >  > matrix.spec.ts > walk-forwards list states > matrix: walk-forwards list read failure offers retry > matrix: walk-forwards list read failure offers retry",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-e4836889ec204e778644",
+      "title": " >  > matrix.spec.ts > matrix: / loading at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-60cfcd870682b9bb5934",
+      "title": " >  > matrix.spec.ts > matrix: / empty at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-c9e9a80dbc045a47fc94",
+      "title": " >  > matrix.spec.ts > matrix: / error at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-ee041d192849af53cce7",
+      "title": " >  > matrix.spec.ts > matrix: /signals loading at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4d0e147302133d2a98e8",
+      "title": " >  > matrix.spec.ts > matrix: /signals loading at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2a3698374c49c3761bad",
+      "title": " >  > matrix.spec.ts > matrix: /signals empty at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6af0f0a633f55be26e21",
+      "title": " >  > matrix.spec.ts > matrix: /signals error at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-a182a9c07333922e52ae",
+      "title": " >  > matrix.spec.ts > matrix: /backtests loading at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-fe4922a2bb0e063792d8",
+      "title": " >  > matrix.spec.ts > matrix: /backtests loading at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-4891b7982a6d407682a7",
+      "title": " >  > matrix.spec.ts > matrix: /backtests empty at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-99fdd4296e0174199e90",
+      "title": " >  > matrix.spec.ts > matrix: /backtests error at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-b9a73e3b6e6752fbae6d",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards loading at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-a5a88496441bede5d4aa",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards loading at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-815fd62ada2e31d4ae4c",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards empty at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-eeba27eb5fb42074c8b3",
+      "title": " >  > matrix.spec.ts > matrix: /walk-forwards error at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-f60a2c2e72ac2502fed6",
+      "title": " >  > matrix.spec.ts > detail states > matrix: legacy backtest detail preserves unavailable evidence at 390px > matrix: legacy backtest detail preserves unavailable evidence at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-ff7a93067d8efd6fc28e",
+      "title": " >  > matrix.spec.ts > detail states > matrix: failed backtest detail reports the failure reason at 390px > matrix: failed backtest detail reports the failure reason at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-8bae3c619673ba5773b4",
+      "title": " >  > matrix.spec.ts > detail states > matrix: queued walk-forward detail stays operable at 390px > matrix: queued walk-forward detail stays operable at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-525a038a37f416ecebbd",
+      "title": " >  > matrix.spec.ts > detail states > matrix: running walk-forward detail shows the active lease at 390px > matrix: running walk-forward detail shows the active lease at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-6a6c35e53950b63d3072",
+      "title": " >  > matrix.spec.ts > matrix: signal detail long mixed names and nulls at 320px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-3138c2889e839e863ae4",
+      "title": " >  > matrix.spec.ts > matrix: ETF detail renders the long name and trend at 320px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2469701255c5e0e123bf",
+      "title": " >  > matrix.spec.ts > matrix: palette populated at 1440x1000",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-66b2248ffd7aaafd19ad",
+      "title": " >  > matrix.spec.ts > matrix: palette filter-empty at 1440x1000",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-b58bf08b50ca4d6ea365",
+      "title": " >  > matrix.spec.ts > matrix: palette source-error at 1440x1000",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-fbee9084f01fe7cf1783",
+      "title": " >  > matrix.spec.ts > matrix: palette populated at 390x844",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-9b5dab0ddafec2994ba0",
+      "title": " >  > matrix.spec.ts > matrix: palette filter-empty at 390x844",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-d6b8f8c481cc0904ada4",
+      "title": " >  > matrix.spec.ts > matrix: palette source-error at 390x844",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-2610a69bd4d20c9aee0d",
+      "title": " >  > matrix.spec.ts > matrix: palette populated at 390x400",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-eded30acc0058891cb78",
+      "title": " >  > matrix.spec.ts > matrix: palette filter-empty at 390x400",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-488993d3fe59f9692e6c",
+      "title": " >  > matrix.spec.ts > matrix: palette source-error at 390x400",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "7066e7f2e0ac7d296410-41580d4276bda8156614",
+      "title": " >  > matrix.spec.ts > matrix: run backtest POST resolves with the pending lock intact",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "472f259022e25a651642-99a712378015bf6f2abc",
+      "title": " >  > motion.spec.ts > interaction feedback transitions use the 120ms token",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "472f259022e25a651642-b879ce53182189ab80b1",
+      "title": " >  > motion.spec.ts > reduced motion zeroes transitions on elements and pseudo-elements",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "472f259022e25a651642-0efda6bbc311608d1343",
+      "title": " >  > motion.spec.ts > loading feedback remains available without skeleton pulsing",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "472f259022e25a651642-e64d870c4404bc937eb8",
+      "title": " >  > motion.spec.ts > reduced motion is honored on a detail page with disclosure content",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-e6f9a8b35ee6ad17da37",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: / has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-6ca40db8dce7ea05cde6",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /signals has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-e06b823e5511bd05038f",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /signals/42 has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-f30ed9389b9e9140f76d",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /backtests has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-5005c227eb3eb99dd310",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /backtests/7 has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-20d6cf55441e2ae4d540",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /walk-forwards has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-884eb3b8053b8a47cc28",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /walk-forwards/3 has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-80d2815d24fde7b3b5aa",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /etfs/1 has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-a1d58d35d8fb507a27e3",
+      "title": " >  > reflow.spec.ts > 200% text enlargement at 1440px > 200% text: /definitely-not-a-page has no page overflow and content remains available",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-b5b7d0825ec74a2b5a39",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: / keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-8d662759df259fc28a33",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /signals keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-a2e694e5a6f7ce26a5e2",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /signals/42 keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-f307edcd65773eb5a7e3",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /backtests keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-21f69f3182c6001cccbe",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /backtests/7 keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-0a61bb82240c5ee22537",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /walk-forwards keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-e17228369e66ee3b7f27",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /walk-forwards/3 keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-23d9c6e3851f02dfb023",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /etfs/1 keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-5c7f295061943eb13a79",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: /definitely-not-a-page keeps content reachable",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-061bcaabcd9ac87e714b",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: wide comparison table scrolls inside its own region",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "4543a68c4d6be6beda01-fcf07eea4b9497b97511",
+      "title": " >  > reflow.spec.ts > 320px reflow > 320px: signs, units and precision survive reflow",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-111af9f6391cd6af11c9",
+      "title": " >  > responsive.spec.ts > shell gutters follow 32/24/16 at the breakpoint boundaries",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-8c67e4c10da91bd3fd62",
+      "title": " >  > responsive.spec.ts > standard panels stay 24px until 720px and use 16px below",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-a350c1cbcde5921144f4",
+      "title": " >  > responsive.spec.ts > no page-level horizontal overflow at 320px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-f07b69a0d09af49860fa",
+      "title": " >  > responsive.spec.ts > no page-level horizontal overflow at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-938bb00c06c37d619d2b",
+      "title": " >  > responsive.spec.ts > no page-level horizontal overflow at 768px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-0aea136b2518749404a8",
+      "title": " >  > responsive.spec.ts > no page-level horizontal overflow at 1024px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-a243615f5eacd57f4eec",
+      "title": " >  > responsive.spec.ts > no page-level horizontal overflow at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-b79ce4e25e56ac564394",
+      "title": " >  > responsive.spec.ts > research layers stack in one column at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "e0223b006feb3d306446-529a1d0d27b2e6f77fa4",
+      "title": " >  > responsive.spec.ts > metric rows keep two columns at 900px and one at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "c8fbe351686a6d91965c-deb3ce810f380eda33a6",
+      "title": " >  > spacing.spec.ts > dashboard rhythm uses the shared tokens at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "c8fbe351686a6d91965c-6d22ad84a6a807564ef4",
+      "title": " >  > spacing.spec.ts > detail sections separate by the section gap at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "c8fbe351686a6d91965c-2efd4e30f824e1bb751a",
+      "title": " >  > spacing.spec.ts > dashboard rhythm is compact at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "73439bbadadd24f35576-19b2922ca2ed2d509930",
+      "title": " >  > surfaces.spec.ts > panel surfaces use the panel role; metrics stay raised; palette floats",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "73439bbadadd24f35576-564d27681506299a3b4e",
+      "title": " >  > surfaces.spec.ts > text contrast holds on the panel and raised surfaces",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a69f69637f161ee59cd-023103ac157b4cc09115",
+      "title": " >  > tables-charts.spec.ts > dashboard holdings table aligns quantities right and wraps names",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a69f69637f161ee59cd-760429c3c30705d9462e",
+      "title": " >  > tables-charts.spec.ts > holdings table scroll regions are named keyboard-reachable regions",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a69f69637f161ee59cd-7ac6d1cb0bdc19f4c68c",
+      "title": " >  > tables-charts.spec.ts > table wrap shows a visible focus outline on keyboard focus",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a69f69637f161ee59cd-f5301ae95061f27e4742",
+      "title": " >  > tables-charts.spec.ts > equity-curve series line styles sync with legend swatches",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a4359d4b648147237d6-a91471bf25f8f1884ba1",
+      "title": " >  > tokens.spec.ts > default root: computed sizes match the documented values",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a4359d4b648147237d6-c7b315a5054752844cd7",
+      "title": " >  > tokens.spec.ts > exactly one :root token source reaches the browser",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "0a4359d4b648147237d6-97480053aed9d8737280",
+      "title": " >  > tokens.spec.ts > 200% root: rem tokens scale, px constants stay fixed",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-a0af9e4c727aa83eaa01",
+      "title": " >  > typography.spec.ts > page-title role is identical across pages at 1440px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-58b7cf8c96233ed411e3",
+      "title": " >  > typography.spec.ts > page-title role is identical and compact at 390px",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-13b17317103be5585afa",
+      "title": " >  > typography.spec.ts > brand stays smaller than the page title at both roles",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-9b71f0318c6c1ea27519",
+      "title": " >  > typography.spec.ts > status pill renders at least the dense role",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-71b1a503230310df1efb",
+      "title": " >  > typography.spec.ts > dashboard load state renders at least the dense role",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-d57cdc282f36aec0087f",
+      "title": " >  > typography.spec.ts > compact-list baseline stays 11/20 labels and 13/20 values",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "34f7375f007ea02a2901-7436250c31c8ed2b7cc9",
+      "title": " >  > typography.spec.ts > etf-row date values use at least the label role",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "24876809b35b098bf297-861f6a8ef0ecfb32914e",
+      "title": " >  > viewport.spec.ts > palette stays reachable at a 390x400 viewport",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "24876809b35b098bf297-6cd084d8111105da8605",
+      "title": " >  > viewport.spec.ts > shell min-height resolves to the current viewport height",
+      "status": "passed",
+      "errors": []
+    },
+    {
+      "testId": "3ef5d010888c60f2d035-7e4459a4a25c59a08791",
+      "title": " >  > visual-baseline.spec.ts > baseline: Dashboard at 1440",
+      "status": "skipped",
+      "errors": []
+    },
+    {
+      "testId": "3ef5d010888c60f2d035-eda6b24d03f1c2321f0f",
+      "title": " >  > visual-baseline.spec.ts > baseline: Backtest Detail at 1440",
+      "status": "skipped",
+      "errors": []
+    },
+    {
+      "testId": "3ef5d010888c60f2d035-057b8391314c01c28dd9",
+      "title": " >  > visual-baseline.spec.ts > baseline: Dashboard at 390",
+      "status": "skipped",
+      "errors": []
+    },
+    {
+      "testId": "3ef5d010888c60f2d035-8623fbd4adeeeb0a91ed",
+      "title": " >  > visual-baseline.spec.ts > baseline: Backtest Detail at 390",
+      "status": "skipped",
+      "errors": []
+    }
+  ],
+  "runStatus": "passed"
+}

@@ -4,7 +4,7 @@ import {
   type EquityCurveChartCoordinate,
   type EquityCurveChartMultiGeometry
 } from "./equityCurveChart";
-import { seriesColor } from "./seriesColor";
+import { seriesColor, seriesLineStyle } from "./seriesColor";
 
 const {
   height,
@@ -99,6 +99,7 @@ export function EquityCurvePlot({
             }
             key={series.key}
             stroke={seriesColor(series.key)}
+            strokeDasharray={seriesLineStyle(series.key)}
           />
         ))}
         {endLabels.map((label) => (
@@ -128,12 +129,24 @@ export function EquityCurvePlot({
       <ul aria-label={legendLabel} className="equity-curve-legend">
         {geometry.series.map((series) => (
           <li className="equity-curve-legend-item" key={series.key}>
-            <span
+            {/* The swatch draws the same stroke and dash pattern as the
+             * plotted line, so legend and chart share one line style. */}
+            <svg
               aria-hidden="true"
               className="equity-curve-swatch"
-              data-testid={`equity-curve-swatch-${series.key}`}
-              style={{ backgroundColor: seriesColor(series.key) }}
-            />
+              viewBox="0 0 16 10"
+            >
+              <line
+                data-testid={`equity-curve-swatch-${series.key}`}
+                stroke={seriesColor(series.key)}
+                strokeDasharray={seriesLineStyle(series.key)}
+                strokeWidth="2"
+                x1="1"
+                x2="15"
+                y1="5"
+                y2="5"
+              />
+            </svg>
             {series.name}
           </li>
         ))}

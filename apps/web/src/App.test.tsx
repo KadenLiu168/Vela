@@ -730,7 +730,9 @@ it("triggers bootstrap and displays three-step status", async () => {
   fireEvent.click(button);
   fireEvent.click(button);
 
-  expect(await screen.findByRole("button", { name: "Running bootstrap" })).toBeDisabled();
+  expect(
+    await screen.findByRole("button", { name: "Running bootstrap / Setup database & data" })
+  ).toBeDisabled();
   expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Running local setup bootstrap.");
   expect(screen.getByRole("button", { name: "Fetch market data" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Generate signal" })).toBeDisabled();

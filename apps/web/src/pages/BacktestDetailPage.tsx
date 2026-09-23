@@ -28,7 +28,7 @@ import {
   type EquityCurveChartSeries
 } from "./equityCurveChart";
 import { EquityCurvePlot } from "./EquityCurvePlot";
-import { TableCells, TableHeader } from "./tablePrimitives";
+import { ScrollableTableWrap, TableCells, TableHeader } from "./tablePrimitives";
 
 type BacktestDetailPageProps = {
   backtestId: string;
@@ -232,7 +232,7 @@ function renderBacktestDetail(
 
 function SignalsPanel({ count, offset, retry, setOffset, state }: { count: number; offset: number; retry: () => void; setOffset: (offset: number) => void; state: SignalsState }) {
   return <section aria-labelledby="backtest-signals-tab" className="holdings-section" id="backtest-signals-panel" role="tabpanel">
-    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <ReadFailure error={state.error} label="Backtest signals" onRetry={retry} /> : <><div className="holdings-table-wrap"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells classNames={["mono-compact", "mono-compact", undefined, "mono-compact"]} cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></div><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
+    {count === 0 ? <EmptyState>No signals are linked to this backtest.</EmptyState> : state.status === "loading" || state.status === "idle" ? <FeedbackMessage variant="loading">Loading backtest signals.</FeedbackMessage> : state.status === "error" ? <ReadFailure error={state.error} label="Backtest signals" onRetry={retry} /> : <><ScrollableTableWrap label="Backtest signals"><table className="holdings-table"><TableHeader columns={["Signal #", "Signal date", "Result", "Action"]} /><tbody>{state.data.map((signal) => <tr key={signal.signal_id}><TableCells classNames={["mono-compact", "mono-compact", undefined, "mono-compact"]} cells={[signal.signal_id, formatDate(signal.signal_date), formatNullableText(signal.result), <Link className="operation-link" to={`/signals/${signal.signal_id}`}>Signal #{signal.signal_id}</Link>]} /></tr>)}</tbody></table></ScrollableTableWrap><Pagination itemCount={state.data.length} offset={offset} onOffsetChange={setOffset} pageSize={PAGE_SIZE} totalCount={count} /></>}
   </section>;
 }
 

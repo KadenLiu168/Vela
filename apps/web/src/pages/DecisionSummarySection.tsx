@@ -100,19 +100,21 @@ export function DecisionSummarySection({
           ? `Primary benchmark: ${primary.name}. Differences are sign-only display evidence; full values remain in the benchmark comparison below.`
           : "No benchmark is available; the four strategy values stand alone."}
       </p>
-      <div aria-label="Strategy decision summary metrics" className="metric-card-grid">
+      <dl aria-label="Strategy decision summary metrics" className="metric-card-grid">
         {headlineMetrics.map((metric) => (
           <div className="metric-card" key={metric.key}>
             <dt>{metric.label}</dt>
-            <dd>{metric.value}</dd>
-            {primary ? (
-              <p className="decision-difference">
-                vs {primary.name}: {differenceByKey[metric.key]}
-              </p>
-            ) : null}
+            <dd>
+              {metric.value}
+              {primary ? (
+                <p className="decision-difference">
+                  vs {primary.name}: {differenceByKey[metric.key]}
+                </p>
+              ) : null}
+            </dd>
           </div>
         ))}
-      </div>
+      </dl>
     </section>
   );
 }

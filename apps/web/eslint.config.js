@@ -9,7 +9,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "e2e/**/*.mjs"],
     languageOptions: {
       globals: globals.node
     }
@@ -30,6 +30,18 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true }
       ]
+    }
+  },
+  {
+    // Playwright test/fixture files are not React components; hook rules do
+    // not apply (the fixtures API's `use` callback is not a React hook).
+    files: ["e2e/**/*.ts", "e2e/**/*.tsx"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.browser, ...globals.node }
+    },
+    rules: {
+      "react-hooks/rules-of-hooks": "off"
     }
   }
 );

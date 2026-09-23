@@ -15,7 +15,9 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "build:tokens-doc": "node ../../scripts/build-tokens-reference.mjs",
     "ladle": "ladle dev",
-    "ladle:build": "ladle build"
+    "ladle:build": "ladle build",
+    "test:e2e": "playwright test",
+    "test:e2e:baseline": "VELA_E2E_BASELINE=1 playwright test e2e/specs/visual-baseline.spec.ts"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -23,8 +25,10 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.0.0",
     "@ladle/react": "^4.1.2",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",

@@ -32,7 +32,7 @@ export function PanelHeading({
       {eyebrow || statusPill ? (
         <div className="panel-heading-end">
           {statusPill ? <StatusPillBadge {...statusPill} /> : null}
-          {eyebrow ? <span>{eyebrow}</span> : null}
+          {eyebrow ? <span className="panel-heading-eyebrow">{eyebrow}</span> : null}
         </div>
       ) : null}
     </div>

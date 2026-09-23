@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { seriesColor, SERIES_COLOR_BY_KEY } from "./seriesColor";
+import { seriesColor, seriesLineStyle, SERIES_COLOR_BY_KEY } from "./seriesColor";
 
 const TOKENS_CSS = readFileSync(join(__dirname, "../styles/tokens.css"), "utf8");
 
@@ -109,5 +109,22 @@ describe("seriesColor(key)", () => {
     expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-1)");
     expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-2)");
     expect(seriesColor("unknown_series")).not.toBe("var(--chart-series-3)");
+  });
+});
+
+describe("seriesLineStyle(key)", () => {
+  it("keeps the strategy line solid and gives each benchmark a distinct dash", () => {
+    expect(seriesLineStyle("strategy")).toBeUndefined();
+    expect(seriesLineStyle("equal_weight_monthly")).toBe("6 4");
+    expect(seriesLineStyle("csi_300_buy_hold")).toBe("2 4");
+    expect(seriesLineStyle("equal_weight_monthly")).not.toBe(
+      seriesLineStyle("csi_300_buy_hold")
+    );
+  });
+
+  it("resolves unknown keys to a deterministic distinct dash", () => {
+    const first = seriesLineStyle("unknown_series");
+    expect(first).toBe(seriesLineStyle("unknown_series"));
+    expect(first).not.toBeUndefined();
   });
 });

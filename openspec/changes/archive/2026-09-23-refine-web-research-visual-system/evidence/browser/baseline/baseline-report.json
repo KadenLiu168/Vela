@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-09-23T02:17:53.621Z",
+  "gitHead": "3eafd31e92281f8d5ca83f4434da01ae02c841cd",
+  "sourceFingerprint": {
+    "hash": "29851d6c21c1724c9ff056b4f65e60feb4cc94b604087d2156306980f72d625d",
+    "files": 149
+  },
+  "buildManifest": {
+    "hash": "84c3af7e57a7c279869bc3d3fb29a540b9af477395a1d2f147837bc566aa0c94",
+    "entry": "index.html"
+  },
+  "harnessFingerprint": "0e7722a3a7630994d12ca2fd83e2689e3a56ee6d34f6a8302cf626e4ae5934b0",
+  "browser": {
+    "name": "chromium",
+    "version": "153.0.8010.12"
+  },
+  "screenshots": [
+    {
+      "file": "dashboard-1440.png",
+      "sha256": "88be7af38ae8c57ca42d0f9a3491c12fa8b4543cf058b3918f783952788e416d"
+    },
+    {
+      "file": "backtest-detail-1440.png",
+      "sha256": "519eccd892602cbef88a2ee8e3c99a006d6f44afd16bd818f56549fa6392cf01"
+    },
+    {
+      "file": "dashboard-390.png",
+      "sha256": "0afd9ebfdc68bea69f5b32bb3940a2e55694d32f6eb67bcb4e05bde6cd0984d8"
+    },
+    {
+      "file": "backtest-detail-390.png",
+      "sha256": "839aa5c3026b99985e67999079745b708f6801643abf5d1811c3c330c05570bb"
+    }
+  ]
+}

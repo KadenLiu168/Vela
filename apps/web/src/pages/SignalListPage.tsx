@@ -6,6 +6,7 @@ import {
   listStrategySignals
 } from "../api/client";
 import { EmptyState, FeedbackMessage, Pagination, ReadFailure } from "../components";
+import { ScrollableTableWrap } from "./tablePrimitives";
 import { SOURCE_LABELS } from "./signalSourceLabels";
 import { useDocumentTitle } from "../utils/documentTitle";
 import { isValidListOffset, listHrefWith, listOffsetFrom } from "../utils/listQuery";
@@ -106,7 +107,7 @@ function renderSignalList(
             : `No successful signals are available for ${SOURCE_LABELS[source]}.`}
         </EmptyState>
       ) : (
-      <div className="holdings-table-wrap">
+      <ScrollableTableWrap label="Signal history">
         <table className="holdings-table">
           <thead>
             <tr>
@@ -141,7 +142,7 @@ function renderSignalList(
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollableTableWrap>
       )}
       {state.status === "ready" ? (
         <Pagination
